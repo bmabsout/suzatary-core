@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::refusal::Refusal;
-use crate::secretary::store::Decision;
+use crate::secretary::store::Settle;
 use crate::secretary::verbs::{SettleArgs, settle};
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
@@ -32,6 +32,6 @@ impl Verb for ProposalsAccept {
         chain that does not rewrite.";
 
     fn run(call: &Call<'_>, args: SettleArgs) -> Result<Value, Refusal> {
-        settle(call, &args, Decision::Accepted)
+        settle(call, &args, Settle::Accepted)
     }
 }

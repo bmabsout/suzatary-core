@@ -140,16 +140,19 @@ pub fn line(entry: &Entry) -> Taint {
 #[must_use]
 pub fn rounds<'e>(id: &ConversationId, lines: impl IntoIterator<Item = &'e Entry>) -> Vec<Taint> {
     // What a model holds is the turns and the scope, never the conversation's kind.
-    let mut so_far = Stored::empty(id, crate::secretary::store::Kind::Topic);
+    let mut so_far: Option<Stored> = None;
     let mut round = Taint::Clean;
     lines
         .into_iter()
         .map(|entry| {
+            let so_far = so_far.get_or_insert_with(|| {
+                Stored::empty(id, crate::secretary::store::Kind::Topic, entry.at())
+            });
             let own = line(entry);
             let taint = match entry {
                 _ if opens(entry) => own,
                 Entry::Said { turn, .. } if matches!(shape(turn), TurnShape::Model { .. }) => {
-                    round.join(held(&so_far))
+                    round.join(held(so_far))
                 }
                 _ => round.join(own),
             };
@@ -224,7 +227,7 @@ mod tests {
 
     fn said(turn: Turn, by: Option<&str>) -> Entry {
         Entry::Said {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             turn,
             by: by.map(Into::into),
         }
@@ -259,7 +262,7 @@ mod tests {
 
     fn stored(lines: Vec<Entry>) -> Stored {
         let mut entries = vec![Entry::Opened {
-            at: "2026-09-25T08:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 8, 0, 0, 0).expect("an instant"),
             title: crate::secretary::words::Words::kept("t".to_owned()),
             model: "m".to_owned(),
             kind: crate::secretary::store::Kind::Topic,
@@ -300,12 +303,12 @@ mod tests {
         assert_eq!(line(&said(person("hi"), None)), Taint::Tainted);
         assert_eq!(line(&said(answered("mail_search"), None)), Taint::Tainted);
         let stopped = Entry::Stopped {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             by: "ada".to_owned(),
         };
         assert_eq!(line(&stopped), Taint::Clean);
         let failed = Entry::ReviewFailed {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             reason: crate::secretary::words::Words::kept("the batch said so".to_owned()),
             standing: 1,
         };
@@ -359,7 +362,7 @@ mod tests {
     fn the_boxs_own_notes_leave_his_round_clean() {
         let noted = |text: &str| {
             Entry::noted(
-                "2026-09-25T09:00:00".to_owned(),
+                crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
                 text.to_owned(),
                 Vec::new(),
             )
@@ -442,7 +445,7 @@ mod tests {
             .into_iter()
             .chain(chat(40))
             .chain([Entry::Session {
-                at: "2026-09-25T09:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
                 session: crate::capability::SessionId::minted("default/4"),
                 model: "m".to_owned(),
                 cwd: String::new(),
@@ -465,7 +468,7 @@ mod tests {
         assert!(!tainted(&stored(aged)), "aged out of the window: written");
         // `from` is the first turn the opening sent, as the opening recorded it.
         let session_line = |from: usize| Entry::Kept {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             session: crate::capability::SessionId::minted("default/4"),
             model: "m".to_owned(),
             cwd: String::new(),
@@ -505,7 +508,7 @@ mod tests {
             .into_iter()
             .chain([Entry::Rewound {
                 to: 0,
-                at: "2026-09-25T09:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
                 by: "ada".to_owned(),
             }])
             .chain(ask())
@@ -520,7 +523,7 @@ mod tests {
     #[test]
     fn an_act_on_an_unconfirmed_todo_makes_remember_a_card() {
         let act = |by: Stamp| Entry::Said {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             turn: Turn::Act {
                 text: "Ada completed it: paid at the counter".to_owned(),
                 references: vec![

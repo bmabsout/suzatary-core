@@ -8,15 +8,13 @@ use crate::secretary::words::Words;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Review {
     /// When it was decided.
-    pub at: String,
+    pub at: crate::capability::Datetime,
     /// Which chain the batch was against.
     pub chain: String,
     /// The batch, by its head.
     pub batch: String,
-    /// What was decided.
+    /// What was decided, and the objects it settled.
     pub decision: Decision,
-    /// The objects settled; empty for a hold.
-    pub objects: Vec<String>,
     /// Why.
     pub why: Words<String>,
 }
@@ -28,14 +26,18 @@ impl std::fmt::Display for Review {
     /// `held batch a1b2c3d4e5f6… on life: <why>` (a hold settles no object).
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let head: String = self.batch.chars().take(12).collect();
-        match self.decision {
+        match &self.decision {
             Decision::Held => write!(f, "held batch {head}… on {}: {}", self.chain, self.why),
-            settled => write!(
+            Decision::Settled { how, objects } => write!(
                 f,
                 "{} {} object{} of batch {head}… on {}: {}",
-                settled.word(),
-                self.objects.len(),
-                if self.objects.len() == 1 { "" } else { "s" },
+                how.word(),
+                objects.as_slice().len(),
+                if objects.as_slice().len() == 1 {
+                    ""
+                } else {
+                    "s"
+                },
                 self.chain,
                 self.why
             ),

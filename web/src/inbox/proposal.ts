@@ -12,6 +12,7 @@ import pairing from "../app/pairing";
 import signer from "../prodrome/signer";
 import { attachmentUrl, pairDevice } from "../wire/api";
 import type { CardAnswer, CardFile, FileFrom, ProposalRow, ProposedObject } from "../wire/generated/wire";
+import proposed from "./proposed";
 import type { Child } from "../view/dom";
 import { el } from "../view/dom";
 import placeholder from "../view/placeholder";
@@ -33,15 +34,20 @@ import spoken from "./spoken";
 import { hrefOf } from "../shell/route";
 import { toast } from "../view/toast";
 
+/** An answer with a confirm step: its question and its yes, and what its tap carries. */
+type Confirmed = Extract<CardAnswer, { asks: "confirm" | "always" | "endorse" }>;
+const confirmed = (a: CardAnswer): a is Confirmed => a.asks === "confirm" || a.asks === "always" || a.asks === "endorse";
+
 /** A name short enough to read: a batch object's hash, or a changeset act's bare position. */
 export const short = (hash: string): string => hash.slice(0, 12);
 
 function changedFields(object: ProposedObject): HTMLElement | null {
-  if (object.changes.length === 0) return null;
+  const changes = proposed.changes(object);
+  if (changes.length === 0) return null;
   return el(
     "dl",
     { class: "proposedchanges" },
-    ...object.changes.flatMap((change) => [
+    ...changes.flatMap((change) => [
       el("dt", null, change.field),
       el(
         "dd",
@@ -60,6 +66,8 @@ export function objectRow(
   picked: ReadonlySet<string>,
   toggle: ((hash: string, on: boolean) => void) | null,
 ): HTMLElement {
+  const t = proposed.todo(object);
+  const note = proposed.note(object);
   const tick =
     toggle === null
       ? null
@@ -82,21 +90,21 @@ export function objectRow(
       el("span", { class: "proposedact" }, digest.sentence(object)),
       el("code", { class: "proposedhash" }, short(object.hash)),
     ),
-    object.body === "" ? null : el("p", { class: "proposedbody" }, object.body),
-    object.note === "" ? null : el("p", { class: "proposednote" }, object.note),
+    t === null || t.body === "" ? null : el("p", { class: "proposedbody" }, t.body),
+    note === null || note === "" ? null : el("p", { class: "proposednote" }, note),
     changedFields(object),
-    object.pending_todo && object.todo !== ""
+    t !== null && t.pending_todo
       ? el(
           "p",
           { class: "proposedpending" },
           "This todo is not on the chain yet — it is proposed in another batch, and accepting this alone records an outcome for a todo with no content.",
         )
       : null,
-    object.todo === ""
+    t === null
       ? null
       : el(
           "a",
-          { class: "proposedlink", href: hrefOf({ type: "todo", id: object.todo }) },
+          { class: "proposedlink", href: hrefOf({ type: "todo", id: t.todo }) },
           "open the todo",
         ),
   );
@@ -339,7 +347,7 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
   };
 
   const control = (answer: CardAnswer): HTMLElement => {
-    if (answer.input !== "") {
+    if (answer.asks === "value") {
       const input = el("input", { type: "password", class: "secretvalue", autocomplete: "off", placeholder: "Paste it here" });
       const store = el("button", { type: "button", class: `act act-${answer.verb}`, disabled: true }, answer.label);
       // Only whether anything is typed is kept; the value is read once, at the tap, and never enters the ask or a register.
@@ -353,6 +361,8 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
       });
       return el("div", { class: "proposalsecretfield" }, el("label", { class: "secretlabel" }, el("span", null, answer.input), input), store);
     }
+    if (answer.asks === "now")
+      return el("button", { type: "button", class: `act act-${answer.verb}`, onclick: () => answering({ type: "Tap", note: "", always: false }, answer.done) }, answer.label);
     return el("button", { type: "button", class: `act act-${answer.verb}`, onclick: () => go({ type: "Opened", step: { type: "Confirming", verb: answer.verb } }) }, answer.label);
   };
 
@@ -367,14 +377,14 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
   };
 
   // The confirm step names who it goes to, what it runs, what it applies.
-  const confirming = (answer: CardAnswer): Node[] => [
+  const confirming = (answer: Confirmed): Node[] => [
     el("span", { class: "proposalconfirm" }, answer.question),
     el(
       "button",
       {
         type: "button",
         class: `act act-${answer.verb} confirming`,
-        onclick: () => (answer.endorse ? vouched(answer) : answering({ type: "Tap", note: noteOf(ui.get().text), always: answer.always }, answer.done)),
+        onclick: () => (answer.asks === "endorse" ? vouched(answer) : answering({ type: "Tap", note: noteOf(ui.get().text), always: answer.asks === "always" }, answer.done)),
       },
       answer.yes,
     ),
@@ -403,7 +413,7 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
   const performing = card.problem === "" ? card.answers : [];
   function drawRow(): void {
     const t = ui.get();
-    const asked = performing.find((a) => cardui.is(t, "Confirming", a.verb));
+    const asked = performing.filter(confirmed).find((a) => cardui.is(t, "Confirming", a.verb));
     row.replaceChildren(
       ...(asked !== undefined
         ? confirming(asked)

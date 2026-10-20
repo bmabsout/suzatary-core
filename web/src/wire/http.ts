@@ -22,9 +22,10 @@ export namespace http {
   export const ACT_HEADER = "X-Suzatary-Act"
 
   // The write contract this build keeps, which the box's `gate::CLIENT_MIN` must not pass: 2 stamps every instant in UTC,
-  // 3 signs every write with this device's key, 4 reads the conversations from the lines and forgets what is erased.
+  // 3 signs every write with this device's key, 4 reads the conversations from the lines and forgets what is erased, 5
+  // reads the box's turns, card answers, proposed objects, reviews and stored objects as tagged sums.
   export const CLIENT_HEADER = "X-Suzatary-Client"
-  export const CLIENT = 4
+  export const CLIENT = 5
   // A box that has moved past this build's contract: it performed nothing, and the page offers the new build (`newbuild`).
   export const OUTDATED = 426
   export const NOT_SENT = "Not sent: this version of the app is older than the box's. Reload to the new version, then send it again."

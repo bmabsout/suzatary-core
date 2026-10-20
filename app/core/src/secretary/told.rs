@@ -277,7 +277,7 @@ mod tests {
     fn fact(id: u64, kind: Kind, text: &str) -> Remembered {
         Remembered {
             id: FactId(id),
-            at: "2026-10-07T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 7, 9, 0, 0, 0).expect("an instant"),
             fact: Fact::new(text).expect("a fact"),
             kind,
             said: Origin::Turn {

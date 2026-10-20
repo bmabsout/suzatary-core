@@ -55,10 +55,8 @@ pub enum LineShape {
         chain: String,
         /// The batch.
         batch: String,
-        /// What was decided.
+        /// What was decided, and the objects it settled.
         decision: Decision,
-        /// The objects settled.
-        objects: Vec<String>,
     },
     /// A review that could not run. Words: why.
     ReviewFailed {
@@ -265,15 +263,13 @@ pub fn split(entry: &Entry) -> (LineShape, Option<Vec<LineWords>>) {
             chain,
             batch,
             decision,
-            objects,
             why,
             ..
         } => (
             LineShape::Reviewed {
                 chain: chain.clone(),
                 batch: batch.clone(),
-                decision: *decision,
-                objects: objects.clone(),
+                decision: decision.clone(),
             },
             one(why.get().map(|why| LineWords::Why { why: why.clone() })),
         ),
@@ -422,7 +418,7 @@ pub fn unkinded(id: &ConversationId) -> Kind {
 pub fn join(
     id: &ConversationId,
     shape: LineShape,
-    at: String,
+    at: crate::capability::Datetime,
     mut words: Vec<Words<LineWords>>,
 ) -> Entry {
     words.resize_with(shape.slots(), || Gone::Missing.into());
@@ -467,13 +463,11 @@ pub fn join(
             chain,
             batch,
             decision,
-            objects,
         } => Entry::Reviewed {
             at,
             chain,
             batch,
             decision,
-            objects,
             why: take(&mut slot, |words| match words {
                 LineWords::Why { why } => Some(why),
                 _ => None,
@@ -579,7 +573,12 @@ mod tests {
             let title = Words::kept(LineWords::Title {
                 title: "t".to_owned(),
             });
-            match join(&id, shape, "2026-10-11T09:00:00".to_owned(), vec![title]) {
+            match join(
+                &id,
+                shape,
+                crate::capability::Datetime::new(2026, 10, 11, 9, 0, 0, 0).expect("an instant"),
+                vec![title],
+            ) {
                 Entry::Opened { kind, .. } => kind,
                 other => panic!("an opening joins as one, got {other:?}"),
             }
@@ -589,7 +588,7 @@ mod tests {
         assert_eq!(opened("2026-10-11-sweep"), Kind::Review);
         assert_eq!(opened("2026-10-11-1"), Kind::Topic);
         let (shape, _) = split(&Entry::Opened {
-            at: "2026-10-11T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 11, 9, 0, 0, 0).expect("an instant"),
             title: Words::kept("t".to_owned()),
             model: "m".to_owned(),
             kind: Kind::Topic,

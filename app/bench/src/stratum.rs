@@ -109,7 +109,7 @@ pub fn measure_of(case: &Case) -> Measure {
 
 #[cfg(test)]
 mod tests {
-    use suzatary_core::secretary::store::{Decision, Draft, Proposal};
+    use suzatary_core::secretary::store::{Decision, Draft, Proposal, Settle};
 
     use super::*;
     use crate::cases::{
@@ -199,7 +199,16 @@ mod tests {
 
     #[test]
     fn a_review_measures_imitation_only_whatever_it_decided() {
-        for decision in [Decision::Accepted, Decision::Rejected, Decision::Held] {
+        let settled = |how| Decision::Settled {
+            how,
+            objects: suzatary_core::nonempty::NonEmpty::of(vec!["o".repeat(64)])
+                .expect("one object"),
+        };
+        for decision in [
+            settled(Settle::Accepted),
+            settled(Settle::Rejected),
+            Decision::Held,
+        ] {
             let review = Case::Review(ReviewCase {
                 id: CaseId::new("review:synthetic:0").expect("valid"),
                 conversation: "synthetic".to_owned(),
@@ -209,7 +218,6 @@ mod tests {
                     incumbent: ReviewAnswer {
                         decision,
                         why: "routine".to_owned(),
-                        objects: vec![],
                     },
                     settled: None,
                 },

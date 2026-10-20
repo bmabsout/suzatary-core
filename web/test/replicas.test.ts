@@ -10,6 +10,7 @@ import type { Core, Named } from "../src/prodrome/core"
 import { chainsOf, erasedOf, keptChains, objectsOf, secretaryOf } from "../src/prodrome/core"
 import { parentsOf } from "../src/prodrome/replica"
 import type { MemoryPayload } from "../src/wire/generated/wire"
+import turns from "../src/chat/turns"
 import { forAll, type Rng } from "./gen"
 import { heldChain } from "./held"
 
@@ -171,14 +172,14 @@ test("the decoded readings are the wire's shapes", () => {
     assert.deepEqual(lagging.unplaced, [{ index: 0, why: "notHeld" }, { index: 1, why: "unasked" }], "lines the inbox cannot place, with why")
     assert.deepEqual(lagging.proposals.map(p => p.index), [2], "the placed one keeps its card and its number")
     const trains = s.conversation("trains", {}, box.memory)
-    assert.deepEqual(trains.turns.flatMap(t => (t.remembered === null ? [] : [t.remembered])), [
+    assert.deepEqual(trains.turns.flatMap(t => turns.remembered(t) ?? []), [
       { state: "standing", fact: 1, text: "Takes the early train" },
     ])
     assert.deepEqual(
-      s.conversation("trains", {}, null).turns.flatMap(t => (t.remembered === null ? [] : [t.remembered.state])),
+      s.conversation("trains", {}, null).turns.flatMap(t => turns.remembered(t)?.state ?? []),
       ["unread"],
     )
-    assert.ok(trains.turns.flatMap(t => t.blocks).every(b => b.html === null), "the module renders nothing")
+    assert.ok(trains.turns.flatMap(turns.blocks).every(b => b.html === null), "the module renders nothing")
     const words = (memory: MemoryPayload | null) =>
       s.conversation("trains", {}, memory).proposals.flatMap(p => (p.act.kind === "remember" ? [p.act.words.state] : []))
     assert.deepEqual(words(box.memory), ["kept", "gone"], "a card's words as the memory keeps them")

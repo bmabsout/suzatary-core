@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 
 use super::changes::Act;
 use super::daily::{Daily, daily_round};
-use super::store::{ConversationId, Entry, Proposal, Stored, stamp};
+use super::store::{ConversationId, Entry, Proposal, Stored};
 use super::surface::{Effect, SecretaryCall, SecretaryVerb, Subset};
 use super::verbs::Show;
 use super::{Bound, MAX_ROUNDS};
@@ -144,7 +144,7 @@ pub fn sweep(
         caps.conversations,
         &id,
         &Entry::Said {
-            at: stamp(caps.clock.now()),
+            at: caps.clock.now(),
             turn: Turn::Person {
                 text,
                 references: Vec::new(),

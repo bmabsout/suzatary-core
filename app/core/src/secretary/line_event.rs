@@ -27,7 +27,7 @@ use crate::secretary::line_shape::{self, LineShape};
 use crate::secretary::line_words::LineWords;
 use crate::secretary::locked_text::{FreshKey, KeyName, Locked, Shape, TextKey};
 use crate::secretary::slots::Slots;
-use crate::secretary::store::{ConversationId, Entry, stamp};
+use crate::secretary::store::{ConversationId, Entry};
 use crate::secretary::transcript_registers::{TranscriptRegister, TranscriptRegisters};
 
 /// One line: which conversation, when, who wrote it, how many lines its writer held, where it
@@ -62,9 +62,6 @@ impl Shape for LineSlot {
 /// An entry that cannot be a stored line.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum NotALine {
-    /// Its `at` is not an instant [`stamp`] writes, so it would not read back the same.
-    #[error("a line's at must be a stamp the box writes, got {0:?}")]
-    NotAStamp(String),
     /// Some of its words are already gone: a line is written with its words.
     #[error("a line is written with its words, and some of these are gone")]
     Gone,
@@ -82,8 +79,7 @@ impl LineEvent {
     /// that open them are the only thing to keep.
     ///
     /// # Errors
-    /// [`NotALine`] for an `at` that does not read back as itself, words already gone, words the
-    /// door refuses, or no key.
+    /// [`NotALine`] for words already gone, words the door refuses, or no key.
     pub fn write(
         conversation: ConversationId,
         actor: Actor,
@@ -91,7 +87,7 @@ impl LineEvent {
         entry: &Entry,
         entropy: &dyn Entropy,
     ) -> Result<(Self, Vec<TextKey>), NotALine> {
-        let at = instant(entry.at())?;
+        let at = entry.at();
         let (shape, words) = line_shape::split(entry);
         let words = words.ok_or(NotALine::Gone)?;
         let mut line = Self {
@@ -194,12 +190,7 @@ impl LineEvent {
                 })
             })
             .collect();
-        line_shape::join(
-            &self.conversation,
-            self.shape.clone(),
-            stamp(self.at),
-            words,
-        )
+        line_shape::join(&self.conversation, self.shape.clone(), self.at, words)
     }
 
     /// Slot `slot`'s binding: this line's print without its words, and the slot's number.
@@ -240,15 +231,6 @@ impl LineEvent {
     }
 }
 
-/// The instant a stamp the box writes names, or why `written` is none.
-fn instant(written: &str) -> Result<Datetime, NotALine> {
-    prodrome_core::fpl::parse_iso(written)
-        .ok()
-        .and_then(|instant| prodrome_core::fpl::datetime_of(instant).ok())
-        .filter(|at| stamp(*at) == written)
-        .ok_or_else(|| NotALine::NotAStamp(written.to_owned()))
-}
-
 /// The fields a shape prints after the head, in signature order.
 fn shape_fields(shape: &LineShape) -> Vec<Value> {
     match shape {
@@ -260,12 +242,11 @@ fn shape_fields(shape: &LineShape) -> Vec<Value> {
             chain,
             batch,
             decision,
-            objects,
         } => vec![
             chain.to_value(),
             batch.to_value(),
-            decision.to_value(),
-            objects.to_value(),
+            decision.word().to_owned().to_value(),
+            decision.objects().to_vec().to_value(),
         ],
         LineShape::ReviewFailed { standing } => vec![standing.to_value()],
         LineShape::Stopped { by } => vec![by.to_value()],
@@ -323,8 +304,10 @@ fn shape_of(fields: Fields<'_>) -> Result<LineShape, ProdromeError> {
         "Reviewed" => LineShape::Reviewed {
             chain: fields.get("chain")?,
             batch: fields.get("batch")?,
-            decision: fields.get("decision")?,
-            objects: fields.get("objects")?,
+            decision: crate::secretary::store::Decision::read(
+                &fields.get::<String>("decision")?,
+                &fields.get::<Vec<String>>("objects")?,
+            )?,
         },
         "ReviewFailed" => LineShape::ReviewFailed {
             standing: fields.get("standing")?,
@@ -744,8 +727,8 @@ mod tests {
         }
     }
 
-    fn at() -> String {
-        stamp(Datetime::new(2026, 10, 9, 9, 0, 0, 0).expect("an instant"))
+    fn at() -> Datetime {
+        Datetime::new(2026, 10, 9, 9, 0, 0, 0).expect("an instant")
     }
 
     fn id() -> ConversationId {
@@ -806,6 +789,22 @@ mod tests {
         let read: LineEvent = parse_event(&LineVocabulary, &print).expect("parses");
         assert_eq!(read, line);
         assert_eq!(read.entry(&opened_by(&keys)), model());
+    }
+
+    /// A line's instant is the entry's, to the microsecond: nothing about an instant is
+    /// refused on the way in, and it reads back as the same value.
+    #[test]
+    fn a_line_keeps_its_entrys_instant() {
+        let at = Datetime::new(2026, 10, 9, 9, 0, 1, 250_000).expect("an instant");
+        let entry = Entry::Stopped {
+            at,
+            by: "ada".to_owned(),
+        };
+        let (line, keys) = written(&entry);
+        let read: LineEvent = parse_event(&LineVocabulary, &canonical(&line)).expect("parses");
+        let back = read.entry(&opened_by(&keys));
+        assert_eq!(back.at(), at);
+        assert_eq!(back, entry);
     }
 
     /// One slot's key destroyed erases that slot alone: the prose stays, the call's words go.

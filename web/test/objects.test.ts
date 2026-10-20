@@ -248,6 +248,24 @@ test("a row version 2 kept is dropped with its database's rows, never read as a 
   assert.deepEqual(await row(), join(NOTHING, synced), "what the pull brings is joined into nothing left of the old row")
 })
 
+test("a row version 3 kept is carried: its objects stay, and a word of the box that said no geneses is dropped", async () => {
+  const said = { epoch: 1, heads: [BOX.hash], untrusted: [], root: null, fetchedAt: 5, geneses: [name("0")] }
+  const unsaid = { ...said, epoch: 2, fetchedAt: 6, geneses: null }
+  const unsent = change(name("c"), [BOX.hash], "beta")
+  const kept = { generation: 0, objects: [BOX, unsent], synced: [BOX.hash], refused: [], words: [said, unsaid] }
+  Object.assign(globalThis, { indexedDB: fakeIndexedDB(3, { "objects:life": kept, "objects:store/inbox": { replica: { ...kept, words: [unsaid] }, keys: {} } }) })
+  const life = await row()
+  assert.ok(life !== null, "the row reads")
+  assert.deepEqual(life.objects.map(o => o.hash), [BOX.hash, unsent.hash], "the unsent act is kept")
+  assert.deepEqual(life.held.words, [said], "the word that said no geneses is gone, the other stays")
+  const raw = await new Promise<unknown>(done => {
+    const db = (globalThis as unknown as { indexedDB: { open: (n: string) => { result: { transaction: (n: string) => { objectStore: () => { get: (k: string) => { result: unknown; onsuccess: (() => void) | null } } } } } } }).indexedDB.open("suzatary").result
+    const r = db.transaction("chain").objectStore().get("objects:store/inbox")
+    r.onsuccess = () => done(r.result)
+  })
+  assert.deepEqual(raw, { replica: { ...kept, words: [] }, keys: {} }, "a store's row is carried the same way")
+})
+
 test("a row version 1 kept is dropped, never read as a replica sealing onto heads it did not compute", async () => {
   Object.assign(globalThis, { indexedDB: fakeIndexedDB(1, { "objects:life": { objects: [BOX] } }) })
   assert.equal((await heldRow(CHAIN, "life")).type, "Absent")

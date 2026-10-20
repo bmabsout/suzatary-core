@@ -162,30 +162,23 @@
         ],
         "links": [
           {
-            "actor": "",
-            "at": "",
             "hash": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "holds": "envelope",
             "kind": "Genesis",
             "literal": "Genesis(label='todos', nonce='00000000000000000000000000000000')",
-            "note": "",
-            "parents": [],
-            "prev": "",
-            "reverses": {
-              "kind": "nothing"
-            },
-            "todo": ""
+            "parents": []
           },
           {
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='file-permit', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='permit renewal', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -195,13 +188,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -211,13 +204,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='renew-card', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -227,6 +220,7 @@
             "actor": "ada",
             "at": "2026-08-13T12:00:00",
             "hash": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e',), event=Authored(todo='renew-card', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
             "note": "",
@@ -234,7 +228,6 @@
               "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
             "reverses": {
               "kind": "nothing"
             },
@@ -244,13 +237,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='book-flight', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -260,6 +253,7 @@
             "actor": "triage",
             "at": "2026-08-15T12:00:00",
             "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))",
             "note": "",
@@ -267,7 +261,6 @@
               "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
             "reverses": {
               "kind": "nothing"
             },
@@ -277,6 +270,7 @@
             "actor": "ada",
             "at": "2026-08-13T12:00:00",
             "hash": "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91',), event=Authored(todo='book-flight', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
             "note": "",
@@ -284,7 +278,6 @@
               "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
             "reverses": {
               "kind": "nothing"
             },
@@ -294,13 +287,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='pack-bags', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -310,6 +303,7 @@
             "actor": "ada",
             "at": "2026-08-13T12:00:00",
             "hash": "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c',), event=Authored(todo='pack-bags', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Pack for the trip', spec=Flat(value=0.72), rationale=(), category='home', waiting_on='', detail='After #link(\"todo:book-flight\")[the flight] is booked.', source=None, subtodos=(SubTodo(body='[tickets]', done=True), SubTodo(body='[chargers]', done=False)), notes=(), note=''))",
             "note": "",
@@ -317,7 +311,6 @@
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
               "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -327,6 +320,7 @@
             "actor": "ada",
             "at": "2026-08-14T12:00:00",
             "hash": "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+            "holds": "event",
             "kind": "Completed",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40',), event=Completed(todo='renew-card', at=datetime(2026, 8, 14, 12, 0, 0), actor='ada', note=''))",
             "note": "",
@@ -334,7 +328,6 @@
               "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
             "reverses": {
               "kind": "nothing"
             },
@@ -344,13 +337,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='water-plants', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -360,6 +353,7 @@
             "actor": "ada",
             "at": "2026-08-13T12:00:00",
             "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00',), event=Authored(todo='water-plants', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
             "note": "",
@@ -367,7 +361,6 @@
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
               "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -377,6 +370,7 @@
             "actor": "ada",
             "at": "2026-08-13T12:00:00",
             "hash": "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e',), event=Authored(todo='file-permit', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='File the *permit* renewal', spec=Decay(start=0.6, end=0.05, end_date=datetime(2026, 9, 4, 12, 0, 0), lead_up=timedelta(days=14), start_date=datetime(2026, 8, 21, 12, 0, 0)), rationale=('Missing it is not recoverable.',), category='work', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
             "note": "",
@@ -384,7 +378,6 @@
               "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
             "reverses": {
               "kind": "nothing"
             },
@@ -461,10 +454,8 @@
             "card": {
               "answers": [
                 {
-                  "always": false,
+                  "asks": "confirm",
                   "done": "sent to counsel@example.test",
-                  "endorse": false,
-                  "input": "",
                   "label": "Send",
                   "question": "Send to counsel@example.test?",
                   "verb": "send",
@@ -634,10 +625,8 @@
             "card": {
               "answers": [
                 {
-                  "always": false,
+                  "asks": "confirm",
                   "done": "sent to counsel@example.test",
-                  "endorse": false,
-                  "input": "",
                   "label": "Try again",
                   "question": "Send to counsel@example.test?",
                   "verb": "send",
@@ -2563,7 +2552,7 @@
             "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "objects": [
               {
-                "act": "add",
+                "act": "added",
                 "actor": "triage",
                 "at": "2026-09-02T12:00:00",
                 "body": "Reply",
@@ -2576,6 +2565,116 @@
                 ],
                 "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "needs": [],
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "merge",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ]
+              },
+              {
+                "act": "edited",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "changes": [],
+                "hash": "0000000000000000000000000000000000000000000000000000000000000001",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "repriced",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "changes": [],
+                "hash": "0000000000000000000000000000000000000000000000000000000000000002",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "created",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000003",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "note": "registered",
+                "pending_todo": true,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "completed",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000004",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "note": "done",
+                "pending_todo": true,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "cancelled",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000005",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "note": "",
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "reopened",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000006",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "note": "",
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "tended",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000007",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
+                "note": "",
+                "pending_todo": false,
+                "todo": "email-harrow"
+              },
+              {
+                "act": "respecified",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "hash": "0000000000000000000000000000000000000000000000000000000000000008",
+                "needs": [
+                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ],
                 "note": "",
                 "pending_todo": false,
                 "todo": "email-harrow"
@@ -2589,9 +2688,19 @@
             "at": "2026-09-02T12:00:00",
             "batch": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "conversation": "review",
-            "decision": "accept",
-            "objects": 1,
+            "decision": "settled",
+            "how": "accepted",
+            "objects": [
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ],
             "why": "it carries its evidence"
+          },
+          {
+            "at": "2026-09-02T12:00:00",
+            "batch": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "conversation": "review",
+            "decision": "held",
+            "why": "it changes a commitment"
           }
         ]
       },
@@ -2816,10 +2925,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Send",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -2873,22 +2980,17 @@
               "at": "2026-09-02T12:00:01",
               "attachments": [],
               "attempt": "current",
-              "blocks": [],
               "gone": null,
               "index": 0,
               "queued": false,
               "references": [
                 "todo:life/email-harrow"
               ],
-              "refused": false,
-              "remembered": null,
               "text": "email Harrow about the deed",
-              "verb": "",
               "who": "person"
             },
             {
               "at": "2026-09-02T12:00:20",
-              "attachments": [],
               "attempt": "current",
               "blocks": [
                 {
@@ -2900,32 +3002,22 @@
               ],
               "gone": null,
               "index": 1,
-              "queued": false,
-              "references": [],
-              "refused": false,
-              "remembered": null,
               "text": "I will draft that now.",
-              "verb": "",
               "who": "model"
             },
             {
               "at": "2026-09-02T12:01:30",
               "attachments": [],
               "attempt": "current",
-              "blocks": [],
               "gone": null,
               "index": 2,
               "queued": false,
               "references": [],
-              "refused": false,
-              "remembered": null,
               "text": "thanks — anything else on it?",
-              "verb": "",
               "who": "person"
             },
             {
               "at": "2026-09-02T12:01:35",
-              "attachments": [],
               "attempt": "current",
               "blocks": [
                 {
@@ -2937,12 +3029,7 @@
               ],
               "gone": null,
               "index": 3,
-              "queued": false,
-              "references": [],
-              "refused": false,
-              "remembered": null,
               "text": "Nothing else today.",
-              "verb": "",
               "who": "model"
             }
           ],
@@ -2977,10 +3064,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Send",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -3150,10 +3235,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Try again",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -3556,10 +3639,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Send",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -3781,10 +3862,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Try again",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -4131,10 +4210,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "changed",
-                    "endorse": false,
-                    "input": "",
                     "label": "Change",
                     "question": "Change Chat? The box writes it only if it still reads nothing chosen, so the fallback answers.",
                     "verb": "change",
@@ -4304,10 +4381,8 @@
               "card": {
                 "answers": [
                   {
-                    "always": false,
+                    "asks": "confirm",
                     "done": "sent to counsel@example.test",
-                    "endorse": false,
-                    "input": "",
                     "label": "Try again",
                     "question": "Send to counsel@example.test?",
                     "verb": "send",
@@ -4873,13 +4948,13 @@
             "actor": "ada",
             "at": "2026-08-03T12:00:00",
             "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "holds": "event",
             "kind": "Created",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
             "note": "",
             "parents": [
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
             "reverses": {
               "kind": "nothing"
             },
@@ -4889,6 +4964,7 @@
             "actor": "triage",
             "at": "2026-08-15T12:00:00",
             "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+            "holds": "event",
             "kind": "Authored",
             "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))",
             "note": "",
@@ -4896,7 +4972,6 @@
               "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
               "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
             ],
-            "prev": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
             "reverses": {
               "kind": "nothing"
             },
@@ -5401,10 +5476,13 @@
             "actor": "owner",
             "at": "2026-09-02T12:00:00",
             "computed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "condition": {
+              "type": "Clean"
+            },
             "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "hashOk": true,
+            "holds": "event",
             "kind": "Created",
-            "problem": "",
             "todo": "email-harrow",
             "walk": {
               "depth": 0,
@@ -5440,10 +5518,13 @@
             "actor": "owner",
             "at": "2026-09-02T12:00:00",
             "computed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "condition": {
+              "type": "Clean"
+            },
             "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "hashOk": true,
+            "holds": "event",
             "kind": "Created",
-            "problem": "",
             "todo": "email-harrow",
             "walk": {
               "depth": 0,
@@ -5451,14 +5532,15 @@
             }
           },
           {
-            "actor": "owner",
-            "at": "2026-09-02T12:00:00",
             "computed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "condition": {
+              "problem": "not reachable from any head by its parents",
+              "type": "Flawed"
+            },
             "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "hashOk": true,
-            "kind": "Created",
-            "problem": "",
-            "todo": "email-harrow",
+            "holds": "envelope",
+            "kind": "Woven",
             "walk": {
               "type": "Unreached"
             }

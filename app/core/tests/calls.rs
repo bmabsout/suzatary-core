@@ -158,7 +158,8 @@ impl Prodrome<LineEvent> for Fixed {
             Actor::new("assistant").expect("an actor"),
             0,
             &Entry::Opened {
-                at: "2026-09-07T00:00:00".to_owned(),
+                at: suzatary_core::capability::Datetime::new(2026, 9, 7, 0, 0, 0, 0)
+                    .expect("an instant"),
                 title: suzatary_core::secretary::words::Words::kept(String::new()),
                 model: "nothing".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,

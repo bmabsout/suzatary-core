@@ -164,12 +164,11 @@ pub struct AdversarialCase {
 /// What the secretary decided about one batch (`Entry::Reviewed`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReviewAnswer {
-    /// Accept, reject or hold.
+    /// Accepted or rejected, with the objects settled, or held.
+    #[serde(flatten)]
     pub decision: Decision,
     /// The secretary's own reason — `Entry::Reviewed::why`, never empty.
     pub why: String,
-    /// The objects settled; empty for a hold.
-    pub objects: Vec<String>,
 }
 
 /// One batch the triage agent proposed, and what the secretary did about it.
@@ -342,7 +341,6 @@ mod tests {
                         incumbent: ReviewAnswer {
                             decision: Decision::Held,
                             why: "about money".to_owned(),
-                            objects: vec![],
                         },
                         settled: None,
                     },

@@ -15,6 +15,7 @@ import locked from "../src/prodrome/locked"
 import purge from "../src/prodrome/purge"
 import type { Replica } from "../src/prodrome/replica"
 import { NOTHING, headsOf, parentsOf, pulled } from "../src/prodrome/replica"
+import { held } from "./held"
 import rendered from "../src/app/rendered"
 import table from "../src/algebra/table"
 import type { StoredObject } from "../src/wire/generated/wire"
@@ -59,7 +60,7 @@ const over = <A>(r: Replica, ask: (lines: Conversations) => A): A => {
 const dead: locked.Dead = r => new Set(Object.keys(over(r, lines => erasedOf(lines, locked.NO_KEYS, []))))
 
 const replicaOf = (objects: readonly StoredObject[]): Replica =>
-  pulled(NOTHING, { objects: [...objects], heads: headsOf([...objects]), untrusted: [], root: null, geneses: [], epoch: 1 }, 1)
+  pulled(NOTHING, { objects: [...objects], heads: headsOf([...objects]), untrusted: [], root: null, geneses: held(objects), epoch: 1 }, 1)
 
 // A down-set of the box's lines, and some of the keys a tab was given before the erasure.
 const row = (r: Rng): locked.Row => {

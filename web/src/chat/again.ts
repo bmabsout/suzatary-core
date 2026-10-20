@@ -1,28 +1,28 @@
 /** Asking the last round again: what the box offers, and the composer's mode. */
 
-import type { TurnRow } from "../wire/generated/wire"
 import type { SourceState } from "./source"
+import turns from "./turns"
 
 export namespace again {
   export type Offer =
     | { type: "None" }
-    | { type: "Last"; question: TurnRow }
+    | { type: "Last"; question: turns.Question }
 
   export const none: Offer = { type: "None" }
 
-  export const fold = <R>(o: Offer, onNone: () => R, onLast: (question: TurnRow) => R): R =>
+  export const fold = <R>(o: Offer, onNone: () => R, onLast: (question: turns.Question) => R): R =>
     o.type === "None" ? onNone() : onLast(o.question)
 
   // The box names the question; the page only finds it in the window it holds, and offers nothing while a round runs.
   export const offer = (s: SourceState): Offer => {
     if (s.kind !== "loaded" || s.conversationState !== "idle" || s.again === null) return none
-    const question = s.turns.find(t => t.index === s.again)
+    const question = s.turns.filter(turns.isQuestion).find(t => t.index === s.again)
     return question === undefined ? none : { type: "Last", question }
   }
 
   export type Mode =
     | { type: "Asking" }
-    | { type: "Editing"; question: TurnRow }
+    | { type: "Editing"; question: turns.Question }
 
   export const asking: Mode = { type: "Asking" }
 

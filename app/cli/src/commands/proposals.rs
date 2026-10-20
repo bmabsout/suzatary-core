@@ -176,7 +176,8 @@ pub fn list(
             batch.objects.len()
         );
         for object in &batch.objects {
-            let pending = if object.pending_todo {
+            let todo = object.act.todo();
+            let pending = if todo.is_some_and(|todo| todo.pending_todo) {
                 "  (its todo is itself proposed)"
             } else {
                 ""
@@ -184,17 +185,17 @@ pub fn list(
             println!(
                 "  {}  {:<10} {}{pending}",
                 short(&object.hash),
-                object.act,
-                if object.body.is_empty() {
-                    object.todo.clone()
+                object.act.word(),
+                todo.map_or_else(String::new, |todo| if todo.body.is_empty() {
+                    todo.todo.clone()
                 } else {
-                    format!("{} — {}", object.todo, object.body)
-                }
+                    format!("{} — {}", todo.todo, todo.body)
+                })
             );
-            if !object.note.is_empty() {
-                println!("              note: {}", object.note);
+            if let Some(note) = object.act.note().filter(|note| !note.is_empty()) {
+                println!("              note: {note}");
             }
-            for change in &object.changes {
+            for change in object.act.changes() {
                 println!(
                     "              {}: {} → {}",
                     change.field,

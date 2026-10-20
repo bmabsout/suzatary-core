@@ -320,7 +320,7 @@ const REJECTED_HEAD: &str = "e7ec7ed00000000000000000000000000000000000000000000
 /// One day's review written through the real stores without a model: review lines, and an
 /// open decision for the held batch as `secretary::review` writes on a real box.
 fn a_review(root: &Path) -> anyhow::Result<()> {
-    use suzatary_core::secretary::store::{Decision, Entry};
+    use suzatary_core::secretary::store::{Decision, Entry, Settle};
     use suzatary_core::store::Prodrome;
 
     let read = crate::instance::Instance::open(&root.join("instance.toml"))?;
@@ -336,7 +336,7 @@ fn a_review(root: &Path) -> anyhow::Result<()> {
             .context("the fixture's triage run left a batch to hold")?;
 
     let now = SystemClock.now();
-    let at = fpl::iso(fpl::instant_of(now));
+    let at = now;
     let day = read.persona.zone.day(fpl::instant_of(now));
     let id = suzatary_core::secretary::store::ConversationId::daily(
         suzatary_core::secretary::daily::Daily::Review,
@@ -347,27 +347,29 @@ fn a_review(root: &Path) -> anyhow::Result<()> {
         store.conversations(),
         &id,
         &Entry::Opened {
-            at: at.clone(),
+            at,
             title: suzatary_core::secretary::words::Words::kept("Review".to_owned()),
             model: "scripted/fixture".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Review,
         },
     )?;
-    let line = |batch: &str, decision: Decision, objects: Vec<String>, why: &str| Entry::Reviewed {
-        at: at.clone(),
+    let line = |batch: &str, decision: Decision, why: &str| Entry::Reviewed {
+        at,
         chain: chain.policy.name.as_str().to_owned(),
         batch: batch.to_owned(),
         decision,
-        objects,
         why: suzatary_core::secretary::words::Words::kept(why.to_owned()),
+    };
+    let settled = |how, head: &str| Decision::Settled {
+        how,
+        objects: suzatary_core::nonempty::NonEmpty::of(vec![head.to_owned()]).expect("one object"),
     };
     suzatary_core::secretary::transcript::push(
         store.conversations(),
         &id,
         &line(
             ACCEPTED_HEAD,
-            Decision::Accepted,
-            vec![ACCEPTED_HEAD.to_owned()],
+            settled(Settle::Accepted, ACCEPTED_HEAD),
             "An ordinary todo with its source and its reason; nothing about it is yours to decide.",
         ),
     )?;
@@ -376,15 +378,14 @@ fn a_review(root: &Path) -> anyhow::Result<()> {
         &id,
         &line(
             REJECTED_HEAD,
-            Decision::Rejected,
-            vec![REJECTED_HEAD.to_owned()],
+            settled(Settle::Rejected, REJECTED_HEAD),
             "A duplicate of the todo the batch before it already proposes.",
         ),
     )?;
     suzatary_core::secretary::transcript::push(
         store.conversations(),
         &id,
-        &line(&head, Decision::Held, Vec::new(), HELD_WHY),
+        &line(&head, Decision::Held, HELD_WHY),
     )?;
     hold(&read, &head, HELD_WHY)
 }
@@ -542,7 +543,7 @@ fn a_connected_calendar(root: &Path) -> anyhow::Result<()> {
         conversations,
         &id,
         &Entry::Opened {
-            at: suzatary_core::secretary::store::stamp(now),
+            at: now,
             title: suzatary_core::secretary::words::Words::kept("Calendars".to_owned()),
             model: "scripted".to_owned(),
             kind: Kind::Topic,
@@ -590,7 +591,7 @@ fn a_google_account_to_connect(root: &Path) -> anyhow::Result<()> {
         conversations,
         &id,
         &Entry::Opened {
-            at: suzatary_core::secretary::store::stamp(now),
+            at: now,
             title: suzatary_core::secretary::words::Words::kept("Google".to_owned()),
             model: "scripted".to_owned(),
             kind: Kind::Topic,
@@ -677,7 +678,7 @@ fn a_configure_card(root: &Path) -> anyhow::Result<()> {
         conversations,
         &id,
         &Entry::Opened {
-            at: suzatary_core::secretary::store::stamp(now),
+            at: now,
             title: suzatary_core::secretary::words::Words::kept("Models".to_owned()),
             model: "scripted".to_owned(),
             kind: Kind::Topic,

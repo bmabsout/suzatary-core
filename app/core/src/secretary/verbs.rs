@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use super::filed::{Filed, Filing};
 use super::proposer::Proposer;
 use super::responded::Withdrawal;
-use super::store::{ConversationId, Decision, Entry, Proposal, Reasons, stamp};
+use super::store::{ConversationId, Decision, Entry, Proposal, Reasons, Settle};
 use super::{Call, SecretarySurface, WRITES_AS};
 use crate::agent::verbs;
 use crate::capability::{MailError, Secretary};
@@ -134,7 +134,7 @@ pub struct SettleArgs {
 /// Accept or reject a pick and record why, the record written only after the settle succeeds.
 ///
 /// `why` is required, because the owner delegated the decision, not the account of it.
-fn settle(call: &Call<'_>, args: &SettleArgs, decision: Decision) -> Result<Value, Refusal> {
+fn settle(call: &Call<'_>, args: &SettleArgs, how: Settle) -> Result<Value, Refusal> {
     let (caps, chain, id) = (call.caps, call.chain, call.conversation);
     let named = args.chain.as_str();
     if named != chain.name.as_str() {
@@ -162,9 +162,9 @@ fn settle(call: &Call<'_>, args: &SettleArgs, decision: Decision) -> Result<Valu
     let replica = crate::sync::Objects::of(&caps.proposals.objects()?);
     let touched = crate::proposals::grouped(&target, &replica, &picked);
 
-    let done = match decision {
+    let done = match how {
         // The routes settle the inbox decision themselves; this is the conversation's receipt.
-        Decision::Accepted => {
+        Settle::Accepted => {
             let payload = crate::proposals::routes::accept(
                 caps.chain,
                 caps.proposals,
@@ -176,7 +176,7 @@ fn settle(call: &Call<'_>, args: &SettleArgs, decision: Decision) -> Result<Valu
             )?;
             json!({"adopted": payload.adopted, "already": payload.already, "heads": payload.heads})
         }
-        Decision::Rejected => {
+        Settle::Rejected => {
             let payload = crate::proposals::routes::reject(
                 caps.chain,
                 caps.proposals,
@@ -187,22 +187,26 @@ fn settle(call: &Call<'_>, args: &SettleArgs, decision: Decision) -> Result<Valu
             )?;
             json!({"removed": payload.removed})
         }
-        // Holding is not a verb: `secretary::review` derives held lines from what still stands.
-        Decision::Held => return Err(Refusal::internal("a hold is not a settle")),
     };
 
-    let at = stamp(caps.clock.now());
+    let at = caps.clock.now();
     let mut lines: Vec<String> = Vec::new();
-    for (head, objects) in &touched {
-        let review = super::store::Review {
-            at: at.clone(),
-            chain: chain.name.as_str().to_owned(),
-            batch: head.as_str().to_owned(),
-            decision,
-            objects: objects
+    // A head names the objects of its own batch the pick settled; one with none settled nothing.
+    let settled = touched.iter().filter_map(|(head, objects)| {
+        crate::nonempty::NonEmpty::of(
+            objects
                 .iter()
                 .map(|name| name.as_str().to_owned())
                 .collect(),
+        )
+        .map(|objects| (head, objects))
+    });
+    for (head, objects) in settled {
+        let review = super::store::Review {
+            at,
+            chain: chain.name.as_str().to_owned(),
+            batch: head.as_str().to_owned(),
+            decision: Decision::Settled { how, objects },
             why: crate::secretary::words::Words::kept(why.clone()),
         };
         lines.push(review.to_string());
@@ -213,14 +217,13 @@ fn settle(call: &Call<'_>, args: &SettleArgs, decision: Decision) -> Result<Valu
                 at: review.at,
                 chain: review.chain,
                 batch: review.batch,
-                decision,
-                objects: review.objects,
+                decision: review.decision,
                 why: review.why,
             },
         )?;
     }
     Ok(json!({
-        "decision": decision.word(),
+        "decision": how.word(),
         "chain": chain.name.as_str(),
         "recorded": lines,
         "outcome": done,
@@ -448,7 +451,7 @@ mod tests {
 
         fn line(turn: Turn, by: Option<&str>) -> Entry {
             Entry::Said {
-                at: "2026-09-25T09:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
                 turn,
                 by: by.map(Into::into),
             }
@@ -492,7 +495,7 @@ mod tests {
 
         fn stored(lines: Vec<Entry>) -> Stored {
             let mut entries = vec![Entry::Opened {
-                at: "2026-09-25T08:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 25, 8, 0, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept("t".to_owned()),
                 model: "m".to_owned(),
                 kind: crate::secretary::store::Kind::Topic,

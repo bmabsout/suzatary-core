@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::capability::Turn;
 use crate::refusal::Refusal;
-use crate::secretary::store::{Entry, stamp};
+use crate::secretary::store::Entry;
 use crate::secretary::transcript;
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
@@ -34,7 +34,7 @@ impl Verb for DraftNote {
             call.caps.conversations,
             call.conversation,
             &Entry::Said {
-                at: stamp(call.caps.clock.now()),
+                at: call.caps.clock.now(),
                 turn: Turn::Tool {
                     verb: crate::secretary::SecretaryVerb::DraftNote.into(),
                     answer: format!("{}\n\n{}", args.title, args.note),

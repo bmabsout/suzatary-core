@@ -33,13 +33,13 @@ mod tests {
     use super::*;
     use crate::capability::Turn;
     use crate::secretary::conversations::Counting;
-    use crate::secretary::store::{ConversationId, Entry, stamp};
+    use crate::secretary::store::{ConversationId, Entry};
 
     fn said(text: &str, minute: u32) -> LineEvent {
         let at = prodrome_core::literal::Datetime::new(2026, 10, 1, 12, minute, 0, 0)
             .expect("an instant");
         let entry = Entry::Said {
-            at: stamp(at),
+            at,
             turn: Turn::Person {
                 text: text.to_owned(),
                 references: Vec::new(),

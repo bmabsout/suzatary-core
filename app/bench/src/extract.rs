@@ -218,7 +218,6 @@ pub fn review_cases(
                 chain,
                 batch,
                 decision,
-                objects,
                 why,
                 ..
             } = entry
@@ -226,9 +225,9 @@ pub fn review_cases(
                 return None;
             };
             // A review whose words are gone has no incumbent answer to score.
-            Some((line, chain, batch, decision, objects, why.get()?))
+            Some((line, chain, batch, decision, why.get()?))
         })
-        .map(|(line, chain, batch, decision, objects, why)| {
+        .map(|(line, chain, batch, decision, why)| {
             Ok(ReviewCase {
                 id: CaseId::new(format!("review:{conversation_id}:{line}"))?,
                 conversation: conversation_id.to_owned(),
@@ -236,9 +235,8 @@ pub fn review_cases(
                 batch_head: batch.clone(),
                 truths: Truths {
                     incumbent: ReviewAnswer {
-                        decision: *decision,
+                        decision: decision.clone(),
                         why: why.clone(),
-                        objects: objects.clone(),
                     },
                     // Nothing records the owner's review of a review.
                     settled: None,
@@ -564,7 +562,8 @@ mod tests {
             Standing {
                 asking: suzatary_core::secretary::store::Asking {
                     index: 0,
-                    at: "2026-09-20T08:00:00".to_owned(),
+                    at: suzatary_core::capability::Datetime::new(2026, 9, 20, 8, 0, 0, 0)
+                        .expect("an instant"),
                     object: id,
                     after_turn: 0,
                 },
@@ -618,11 +617,15 @@ mod tests {
     #[test]
     fn a_review_line_becomes_a_review_case_with_no_settled_grade() {
         let entries = vec![Entry::Reviewed {
-            at: "2026-09-20T08:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 20, 8, 0, 0, 0)
+                .expect("an instant"),
             chain: "life".to_owned(),
             batch: "b".repeat(64),
-            decision: suzatary_core::secretary::store::Decision::Accepted,
-            objects: vec!["o".repeat(64)],
+            decision: suzatary_core::secretary::store::Decision::Settled {
+                how: suzatary_core::secretary::store::Settle::Accepted,
+                objects: suzatary_core::nonempty::NonEmpty::of(vec!["o".repeat(64)])
+                    .expect("one object"),
+            },
             why: suzatary_core::secretary::words::Words::kept(
                 "a duplicate mark, routine".to_owned(),
             ),
@@ -630,6 +633,6 @@ mod tests {
         let cases = review_cases("2026-09-20-review", &entries).expect("builds");
         assert_eq!(cases.len(), 1);
         assert!(cases[0].truths.settled.is_none());
-        assert_eq!(cases[0].truths.incumbent.objects.len(), 1);
+        assert_eq!(cases[0].truths.incumbent.decision.objects().len(), 1);
     }
 }

@@ -21,15 +21,13 @@ use super::guard::{Reader, Writer};
 use super::params::{Asked, Params};
 use super::reply::Accepted;
 use super::{Chained, State};
+use suzatary_core::secretary::memory::FactId;
 
 /// A block of an answer, named by its sha.
 pub struct Block {
     id: ConversationId,
     sha: String,
 }
-
-/// A standing fact, by its number.
-pub struct Fact(u64);
 
 /// A person's turn: the words, the chips and the files it names.
 pub struct Said {
@@ -88,10 +86,10 @@ impl Params for Block {
     }
 }
 
-impl Params for Fact {
+impl Params for FactId {
     fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
         let id = asked.segment("id")?;
-        id.parse().map(Fact).map_err(|_| {
+        id.parse().map_err(|_| {
             Refusal::bad_request(format!("a fact is named by its number, not {}", shown(id)))
         })
     }
@@ -232,9 +230,9 @@ pub fn memory(call: &Call<Reader, (), ()>) -> Result<Json<wire::MemoryPayload>, 
 }
 
 /// `POST /api/secretary/memory/<id>/forget`: erase one fact.
-pub fn forget(call: &Call<Actor, Fact, ()>) -> Result<Json<wire::MemoryPayload>, Refusal> {
+pub fn forget(call: &Call<Actor, FactId, ()>) -> Result<Json<wire::MemoryPayload>, Refusal> {
     let caps = call.chain.caps;
-    secretary_routes::forget(caps.memories, caps.clock, &call.guard, call.params.0).map(Json)
+    secretary_routes::forget(caps.memories, caps.clock, &call.guard, call.params).map(Json)
 }
 
 /// `POST /api/secretary/conversations`: open a topic.

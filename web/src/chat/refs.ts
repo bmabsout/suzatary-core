@@ -7,7 +7,7 @@
  * A bare `todo:<id>` is deliberately not matched: it names a todo on whichever chain is open.
  */
 
-import type { TurnWho } from "../wire/generated/wire";
+import type { TurnRow } from "../wire/generated/wire";
 import { el } from "../view/dom";
 import { hrefOf as routeHref } from "../shell/route";
 
@@ -218,7 +218,7 @@ function proseWithUrls(text: string, linkify: boolean): Node[] {
 }
 
 /** `who` is required on purpose, so every call site names whose words these are before a URL is linked. */
-export function textWithReferences(text: string, who: TurnWho): Node[] {
+export function textWithReferences(text: string, who: TurnRow["who"]): Node[] {
   return tokenise(text).flatMap((token) =>
     "text" in token ? proseWithUrls(token.text, who === "act" || who === "box") : [anchor(token.reference)],
   );

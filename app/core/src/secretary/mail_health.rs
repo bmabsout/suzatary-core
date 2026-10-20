@@ -262,7 +262,7 @@ mod tests {
             stores.lines.conversations(),
             &stores.id,
             &crate::secretary::store::Entry::Opened {
-                at: "2026-10-01T08:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 1, 8, 0, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept("Default".to_owned()),
                 model: "a fake model".to_owned(),
                 kind: crate::secretary::store::Kind::Topic,

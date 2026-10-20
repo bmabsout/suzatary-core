@@ -17,7 +17,7 @@ export namespace inboxState {
   export type Box = "Asking" | "Answered"
   export type T = {
     readonly rows: readonly Row[]
-    readonly settled: readonly waiting.Waiting[]
+    readonly settled: readonly waiting.Settled[]
     readonly unreadable: readonly waiting.Waiting[]
     // Proposal lines with no card, each drawn with why.
     readonly unplaced: readonly waiting.Unplaced[]

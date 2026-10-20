@@ -369,13 +369,13 @@ mod tests {
                 &conversation,
                 &[
                     crate::secretary::store::Entry::Opened {
-                        at: "2026-09-15T09:00:00".to_owned(),
+                        at: crate::capability::Datetime::new(2026, 9, 15, 9, 0, 0, 0).expect("an instant"),
                         title: crate::secretary::words::Words::kept("Morning".to_owned()),
                         model: "claude-cli".to_owned(),
                         kind: crate::secretary::store::Kind::Topic,
                     },
                     crate::secretary::store::Entry::Said {
-                        at: "2026-09-15T09:02:00".to_owned(),
+                        at: crate::capability::Datetime::new(2026, 9, 15, 9, 2, 0, 0).expect("an instant"),
                         turn: crate::capability::Turn::Model {
                             text: answer.clone(),
                             calls: Vec::new(),

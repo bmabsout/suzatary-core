@@ -64,7 +64,7 @@ mod tests {
             store.conversations(),
             &id(),
             &Entry::Opened {
-                at: "2026-10-05T09:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 5, 9, 0, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept(String::new()),
                 model: "m".to_owned(),
                 kind: Kind::Topic,
@@ -79,7 +79,7 @@ mod tests {
             store.conversations(),
             &id(),
             &Entry::Said {
-                at: "2026-10-05T09:01:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 5, 9, 1, 0, 0).expect("an instant"),
                 turn,
                 by: None,
             },
@@ -133,7 +133,7 @@ mod tests {
             lines.conversations(),
             &id(),
             &Entry::Titled {
-                at: "2026-10-05T09:02:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 5, 9, 2, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept(
                     Title::new("The permit").expect("a title"),
                 ),

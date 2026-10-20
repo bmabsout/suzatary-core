@@ -35,7 +35,8 @@ fn opened_with_a_person_turn(caps: &Fakes) {
         caps.conversations.conversations(),
         &id(),
         &Entry::Said {
-            at: "2026-09-14T09:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 0, 0, 0)
+                .expect("an instant"),
             turn: Turn::Person {
                 text: "what changed".to_owned(),
                 references: Vec::new(),
@@ -130,7 +131,8 @@ fn a_stored_session_resumes_with_exactly_the_delta() {
         caps.conversations.conversations(),
         &id(),
         &Entry::Kept {
-            at: "2026-09-14T08:59:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 8, 59, 0, 0)
+                .expect("an instant"),
             session: existing.clone(),
             model: "claude-cli/haiku".to_owned(),
             cwd: "/repo".to_owned(),
@@ -196,7 +198,8 @@ fn a_lost_resume_is_followed_by_exactly_one_open_over_the_whole_transcript() {
         caps.conversations.conversations(),
         &id(),
         &Entry::Kept {
-            at: "2026-09-14T08:59:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 8, 59, 0, 0)
+                .expect("an instant"),
             session: dead.clone(),
             model: "claude-cli/haiku".to_owned(),
             surface: Some(current_surface()),
@@ -276,7 +279,8 @@ fn a_session_opened_on_another_surface_is_reopened_once() {
         caps.conversations.conversations(),
         &id(),
         &Entry::Kept {
-            at: "2026-09-14T08:59:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 8, 59, 0, 0)
+                .expect("an instant"),
             session: a_session_id("old"),
             model: "claude-cli/haiku".to_owned(),
             cwd: "/repo".to_owned(),
@@ -326,7 +330,8 @@ fn a_session_opened_on_another_surface_is_reopened_once() {
         caps.conversations.conversations(),
         &id(),
         &Entry::Said {
-            at: "2026-09-14T09:10:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 10, 0, 0)
+                .expect("an instant"),
             turn: Turn::Person {
                 text: "and now".to_owned(),
                 references: Vec::new(),
@@ -417,7 +422,8 @@ fn the_memory_heads_a_batch_once() {
             caps.conversations.conversations(),
             &id(),
             &Entry::Said {
-                at: "2026-09-14T09:05:00".to_owned(),
+                at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 5, 0, 0)
+                    .expect("an instant"),
                 turn: Turn::Person {
                     text: text.to_owned(),
                     references: Vec::new(),
@@ -463,7 +469,7 @@ fn the_memory_heads_a_batch_once() {
 /// The owner's question, as the gate stamps it.
 fn asked(text: &str) -> Entry {
     Entry::Said {
-        at: "2026-09-14T09:10:00".to_owned(),
+        at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 10, 0, 0).expect("an instant"),
         turn: Turn::Person {
             text: text.to_owned(),
             references: Vec::new(),
@@ -793,7 +799,8 @@ fn a_round_picks_only_when_something_waits_and_by_the_order_then() {
         caps.conversations.conversations(),
         &id(),
         &Entry::Said {
-            at: "2026-09-14T09:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 0, 0, 0)
+                .expect("an instant"),
             turn: Turn::Person {
                 text: "what changed".to_owned(),
                 references: Vec::new(),
@@ -824,7 +831,8 @@ fn push_said(caps: &Fakes, turn: Turn) {
         caps.conversations.conversations(),
         &id(),
         &Entry::Said {
-            at: "2026-09-14T09:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 14, 9, 0, 0, 0)
+                .expect("an instant"),
             turn,
             by,
         },

@@ -1,7 +1,7 @@
 // Every route the box answers, named once: its path, its method, and the decoder its answer passes through `http`.
 
 import app from "../app/app";
-import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DrawnPayload, Erasing, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, RejectedPayload, ReleasesPayload, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload } from "./generated/wire";
+import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, RejectedPayload, ReleasesPayload, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload } from "./generated/wire";
 import { print } from "../chat/refs";
 import type { Reference } from "../chat/refs";
 import heads from "../prodrome/heads";
@@ -266,5 +266,5 @@ export const askTrust = (key: string): Promise<{ proposed: number }> =>
 export const pairDevice = (code: string): Promise<{ trusted: string }> =>
   http.act("/api/act/pair", { code } satisfies Pairing, d.obj({ trusted: d.str }));
 
-export const forgetFact = (id: number): Promise<MemoryPayload> =>
+export const forgetFact = (id: FactId): Promise<MemoryPayload> =>
   http.act(`/api/secretary/memory/${id}/forget`, {}, payload.MemoryPayload);

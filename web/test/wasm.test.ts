@@ -115,7 +115,7 @@ test("every stored object hashes to the name it is filed under", onBox, () => {
   // And the core PARSED every one of them, which the SubtleCrypto path cannot
   // do: a row with a problem here is a grammar failure, not a hash failure.
   assert.deepEqual(
-    verdict.objects.filter((row) => row.problem !== "").map((row) => row.hash),
+    verdict.objects.filter((row) => row.condition.type !== "Clean").map((row) => row.hash),
     [],
   );
   assert.equal(found.problems(verdict.found).length, 0, found.problems(verdict.found).join(" | "));

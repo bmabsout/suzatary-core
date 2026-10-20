@@ -29,6 +29,7 @@ import { toast } from "../view/toast";
 import held from "./anchor";
 import again from "./again";
 import erase from "./erase";
+import turns from "./turns";
 import answer from "./answer";
 import clock from "../algebra/clock";
 import { type Answering, type Source, type SourceState, answering } from "./source";
@@ -43,7 +44,7 @@ export interface TranscriptActions {
   /** "Reply" on a proposal card — attaches it as a reference. */
   attachProposal: (proposal: ProposalRow) => void;
   /** "Edit" on the last question — brings it back into the compose box. */
-  edit: (question: TurnRow) => void;
+  edit: (question: turns.Question) => void;
 }
 
 export interface TranscriptHandle {
@@ -147,24 +148,25 @@ function turnBlock(
   tucked: HTMLElement | null = null,
 ): HTMLElement {
   const classes = ["turn", `turn-${turn.who}`];
-  if (turn.refused) classes.push("refused");
+  if (turns.refused(turn)) classes.push("refused");
   if (turn.gone !== null) classes.push("gone");
   const source = el("div", { class: "turntext" }, ...textWithReferences(turn.text, turn.who));
-  const rich = turn.gone === null && turn.who === "model" && turn.blocks.length > 0;
-  const body = turn.gone !== null ? goneText(turn, turn.gone) : rich ? answerBlocks(turn) : source;
+  const rich = turn.gone === null && turn.who === "model" && turn.blocks.length > 0 ? turn : null;
+  const body = turn.gone !== null ? goneText(turn, turn.gone) : rich !== null ? answerBlocks(rich) : source;
   const block = el(
     "div",
     { class: classes.join(" "), "data-who": turn.who },
     el("div", { class: "turnwho" }, speaker(turn)),
     body,
   );
-  if (turn.attachments.length > 0) {
+  const files = turns.attachments(turn);
+  if (files.length > 0) {
     block.appendChild(
       el(
         "div",
         { class: "turnphotos" },
         // A photo opens full size; a PDF is only named, since the app's WebView cannot show one.
-        turn.attachments.map((file) =>
+        files.map((file) =>
           attachment.fold(
             file,
             (url) => el("a", { href: url, target: "_blank", rel: "noopener" }, attachment.view(file)),
@@ -175,12 +177,13 @@ function turnBlock(
       ),
     );
   }
-  if (turn.references.length > 0) {
+  const references = turns.references(turn);
+  if (references.length > 0) {
     block.appendChild(
       el(
         "div",
         { class: "turnrefs" },
-        turn.references.map((reference) => anchorOf(reference, "reflink turnref")),
+        references.map((reference) => anchorOf(reference, "reflink turnref")),
       ),
     );
   }
@@ -188,10 +191,10 @@ function turnBlock(
     mayReply && turn.gone === null && (turn.who === "model" || turn.who === "person")
       ? el("button", { type: "button", class: "turnreply", onclick: () => actions.quote(turn.text) }, "Reply")
       : null;
-  const erasable = erasing !== null && turn.gone === null && !turn.queued ? erasing : null;
+  const erasable = erasing !== null && turn.gone === null && !turns.queued(turn) ? erasing : null;
   const menu = more(
     [
-      ...(rich ? answerCopies(turn) : []),
+      ...(rich !== null ? answerCopies(rich) : []),
       ...(erasable === null ? [] : [erase.view(erasable.conversation, turn, erasable.asked, erasable.warning)]),
       ...(tucked === null ? [] : [tucked]),
     ],
@@ -216,7 +219,7 @@ function roundParts(
   titles: spoken.Titles,
 ): keyed.Item[] {
   const piece = (placed: { readonly turn: TurnRow; readonly index: number }): string =>
-    `${placed.index}:${placed.turn.who}:${placed.turn.verb}:${placed.turn.refused}:${placed.turn.queued}:${placed.turn.blocks.map((b) => b.html ?? "").join("")}:${placed.turn.text}:${placed.turn.at}:${placed.turn.gone?.why ?? ""}`;
+    `${placed.index}:${placed.turn.who}:${turns.verb(placed.turn) ?? ""}:${turns.refused(placed.turn)}:${turns.queued(placed.turn)}:${turns.blocks(placed.turn).map((b) => b.html ?? "").join("")}:${placed.turn.text}:${placed.turn.at}:${placed.turn.gone?.why ?? ""}`;
   const erasing: Erasing = mayReply ? { conversation: conversationId, asked, warning: erase.warning() } : null;
   const erased = (placed: { readonly turn: TurnRow }): string =>
     erasing === null ? "" : erase.sig(conversationId, placed.turn, asked);
@@ -277,7 +280,7 @@ function roundParts(
   const trace: keyed.Item[] = calls === null || tucked !== null ? [] : [{ key: "trace", sig: `${mayReply}|${calls.sig}`, make: calls.make }];
   // A memory reaches every later conversation, so its write is shown in plain sight with Forget, never folded.
   const receipts = round.trace.flatMap((placed): keyed.Item[] => {
-    const remembered = placed.turn.remembered;
+    const remembered = turns.remembered(placed.turn);
     return remembered === null
       ? []
       : [{ key: `m${placed.index}`, sig: `${forget === null}|${intents.key(remembered)}`, make: () => memory.receipt(remembered, forget) }];

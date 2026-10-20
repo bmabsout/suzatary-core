@@ -22,7 +22,7 @@ use suzatary_core::secretary::memories::Memories;
 use suzatary_core::secretary::memory::Fact;
 use suzatary_core::secretary::memory_event::MemoryEvent;
 use suzatary_core::secretary::salted_text::{Text, TextName};
-use suzatary_core::secretary::store::{ConversationId, Entry, stamp};
+use suzatary_core::secretary::store::{ConversationId, Entry};
 use suzatary_core::store::{Doc, InMemory, InMemoryDoc, Prodrome};
 
 /// Each salt the next number.
@@ -102,7 +102,7 @@ impl Box {
         let id = ConversationId::new(conversation).expect("a slug");
         for (k, turn) in turns.into_iter().enumerate() {
             let entry = Entry::Said {
-                at: stamp(at(k)),
+                at: at(k),
                 turn,
                 by: Some("ada".into()),
             };
@@ -398,7 +398,7 @@ fn a_line_whose_words_are_erased_stays_and_renames_what_read_it() {
             ConversationId::new("a").expect("a slug"),
             400,
             &Entry::Erased {
-                at: stamp(at(500)),
+                at: at(500),
                 keys,
                 erasure: suzatary_core::secretary::erasure::Erasure::Asked { by: ada() },
             },
@@ -650,7 +650,7 @@ fn conversation(kinds: &[u8], sessions: bool) -> Vec<Entry> {
                     let from = window(&turns);
                     kept = Some(from);
                     lines.push(Entry::Kept {
-                        at: stamp(at(k)),
+                        at: at(k),
                         session: suzatary_core::capability::SessionId::minted(&format!("a/{k}")),
                         model: "m".to_owned(),
                         cwd: String::new(),
@@ -686,7 +686,7 @@ fn conversation(kinds: &[u8], sessions: bool) -> Vec<Entry> {
             }
         };
         lines.push(Entry::Said {
-            at: stamp(at(k)),
+            at: at(k),
             turn: turn.clone(),
             by: Some("ada".into()),
         });
@@ -1364,7 +1364,7 @@ proptest! {
             let round = |answer: &str| {
                 let id = ConversationId::new("z").expect("a slug");
                 let line = |turn: Turn, by: Option<&str>| Entry::Said {
-                    at: stamp(at(0)),
+                    at: at(0),
                     turn,
                     by: by.map(Into::into),
                 };
@@ -1376,7 +1376,7 @@ proptest! {
                     }],
                 };
                 suzatary_core::secretary::store::Stored::of(&id, &[
-                    Entry::Opened { at: stamp(at(0)), title: suzatary_core::secretary::words::Words::kept("z".to_owned()), model: "m".to_owned(), kind: suzatary_core::secretary::store::Kind::Topic },
+                    Entry::Opened { at: at(0), title: suzatary_core::secretary::words::Words::kept("z".to_owned()), model: "m".to_owned(), kind: suzatary_core::secretary::store::Kind::Topic },
                     line(Turn::Person { text: "what did I say".to_owned(), references: Vec::new(), attachments: Vec::new() }, Some("ada")),
                     line(call("zoom"), None),
                     line(Turn::Tool { verb: "zoom".into(), answer: answer.to_owned(), refused: false, files: Vec::new() }, None),
@@ -1402,7 +1402,7 @@ proptest! {
             .into_iter()
             .enumerate()
             .map(|(k, turn)| suzatary_core::secretary::digest_view::whole(&Entry::Said {
-                at: stamp(at(k)),
+                at: at(k),
                 turn,
                 by: Some("ada".into()),
             }))
@@ -1454,7 +1454,7 @@ fn an_acts_note_keeps_a_todo_id_out_of_the_record() {
         the.lines.conversations(),
         &id,
         &Entry::Opened {
-            at: stamp(at(0)),
+            at: at(0),
             title: suzatary_core::secretary::words::Words::kept("a".to_owned()),
             model: "m".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Topic,
@@ -1491,7 +1491,7 @@ fn an_acts_note_keeps_a_todo_id_out_of_the_record() {
 fn a_carried_line_is_leafed_by_the_line_it_carries() {
     use suzatary_core::secretary::line_event::{LineEvent, LineVocabulary};
     let entry = Entry::Said {
-        at: stamp(at(0)),
+        at: at(0),
         turn: Turn::Person {
             text: "the deed".to_owned(),
             references: Vec::new(),

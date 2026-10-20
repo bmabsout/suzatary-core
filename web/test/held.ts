@@ -3,7 +3,10 @@
 import type { RefusedObject, StoredObject } from "../src/wire/generated/wire"
 import type { HeldChain } from "../src/prodrome/core"
 import type { Replica } from "../src/prodrome/replica"
-import { replicaOf } from "../src/prodrome/replica"
+import { prodromeOf, replicaOf } from "../src/prodrome/replica"
+
+// The prodromes `objects` are in, as a box serving them names them.
+export const held = (objects: readonly StoredObject[]): string[] => [...new Set(objects.flatMap(o => prodromeOf(o) ?? []))].sort()
 
 export type Over = {
   readonly objects?: readonly StoredObject[]
@@ -14,7 +17,8 @@ export type Over = {
   readonly untrusted?: readonly string[]
   readonly root?: string | null
   readonly fetchedAt?: number
-  readonly geneses?: readonly string[] | null
+  /** The prodromes the box said it holds; by default those of `objects`, as a box holding them would say. */
+  readonly geneses?: readonly string[]
   readonly epoch?: number
 }
 
@@ -27,7 +31,7 @@ export const replicaWith = (o: Over = {}): Replica =>
     words:
       o.boxHeads === undefined && o.untrusted === undefined && o.root === undefined && o.fetchedAt === undefined
         ? []
-        : [{ epoch: o.epoch ?? 1, heads: o.boxHeads ?? [], untrusted: o.untrusted ?? [], root: o.root ?? null, fetchedAt: o.fetchedAt ?? 1, geneses: o.geneses ?? null }],
+        : [{ epoch: o.epoch ?? 1, heads: o.boxHeads ?? [], untrusted: o.untrusted ?? [], root: o.root ?? null, fetchedAt: o.fetchedAt ?? 1, geneses: o.geneses ?? held(o.objects ?? []) }],
   })
 
 // A chain held whole: `objects` under the policy `untrusted`, as a pull of them would leave it.

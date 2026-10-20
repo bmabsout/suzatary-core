@@ -21,8 +21,8 @@ export interface Word {
   readonly root: string | null;
   /** ms since the epoch, from this browser's clock. */
   readonly fetchedAt: number;
-  /** The prodromes the box held then, or null for a word that did not say. */
-  readonly geneses: readonly string[] | null;
+  /** The prodromes the box held then: none for a store that holds no object. */
+  readonly geneses: readonly string[];
 }
 
 /**
@@ -86,10 +86,9 @@ const EMPTY: Held = { generation: 0, objects: [], synced: [], refused: [], words
 /** The reading of `held`: its box word, what that word forgets, and the rest derived from the objects left. */
 export function replicaOf(held: Held): Replica {
   const word = spoken(held);
-  const kept = word?.geneses ?? null;
-  const gone = kept === null || kept.length === 0
+  const gone = word === null
     ? []
-    : [...new Set(held.objects.flatMap((object) => prodromeOf(object) ?? []))].filter((genesis) => !kept.includes(genesis)).sort();
+    : [...new Set(held.objects.flatMap((object) => prodromeOf(object) ?? []))].filter((genesis) => !word.geneses.includes(genesis)).sort();
   const lost = forgotten(held.objects, gone);
   const objects = lost.size === 0 ? [...held.objects] : held.objects.filter((object) => !lost.has(object.hash));
   return {
@@ -152,8 +151,8 @@ function union(a: Held, b: Held): Held {
 }
 
 const wordKey = (w: Word): string =>
-  // Separated by a byte no name holds, so the word that says nothing prints least.
-  [String(w.epoch), heads.of(w.heads).join(","), heads.of(w.untrusted).join(","), w.root ?? "", w.geneses === null ? "?" : heads.of(w.geneses).join(",")].join("\u0000");
+  // Separated by a byte no name holds.
+  [String(w.epoch), heads.of(w.heads).join(","), heads.of(w.untrusted).join(","), w.root ?? "", heads.of(w.geneses).join(",")].join("\u0000");
 
 const sameWords = (a: readonly Word[], b: readonly Word[]): boolean =>
   a.length === b.length && a.every((w, i) => {
@@ -232,7 +231,7 @@ export function appended(replica: Replica, objects: readonly StoredObject[]): Re
  * What the box answered, joined in: its objects, the names it holds, and its word, with the prodromes it holds. A
  * prodrome it holds none of any more reads as forgotten with all that rests on it, until a later word serves it again:
  * a store the box migrated away from is history its data repository keeps, and its objects need not parse under today's
- * schema. No geneses named is no knowledge, and forgets nothing.
+ * schema. A word naming no prodrome is a store holding none, and forgets every prodrome this replica holds.
  */
 export function pulled(replica: Replica, answer: ObjectsPayload, fetchedAt: number): Replica {
   return join(replica, replicaOf({
@@ -240,7 +239,7 @@ export function pulled(replica: Replica, answer: ObjectsPayload, fetchedAt: numb
     objects: answer.objects,
     synced: [...answer.heads, ...answer.objects.map((object) => object.hash)],
     refused: [],
-    words: [{ epoch: answer.epoch, heads: answer.heads, untrusted: answer.untrusted, root: answer.root, fetchedAt, geneses: answer.geneses.length === 0 ? null : answer.geneses }],
+    words: [{ epoch: answer.epoch, heads: answer.heads, untrusted: answer.untrusted, root: answer.root, fetchedAt, geneses: answer.geneses }],
   }));
 }
 

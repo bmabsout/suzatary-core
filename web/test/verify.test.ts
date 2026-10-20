@@ -30,8 +30,8 @@ const SECOND_LITERAL =
 
 const genesis: Link = {
   hash: GENESIS_HASH,
-  prev: "",
   parents: [],
+  holds: "event",
   kind: "Created",
   todo: "harrowsigneddeed",
   actor: "backfill",
@@ -43,8 +43,8 @@ const genesis: Link = {
 
 const second: Link = {
   hash: SECOND_HASH,
-  prev: GENESIS_HASH,
   parents: [GENESIS_HASH],
+  holds: "event",
   kind: "Created",
   todo: "x7k2q9wf",
   actor: "backfill",
@@ -81,16 +81,6 @@ test("an intact two-object chain verifies clean", async () => {
   assert.match(summarise(verdict), /2 objects verified by this browser/);
 });
 
-test("a payload with no parents field at all still walks by prev", async () => {
-  // What a server older than the DAG sends. `prev` is parents[0] on the wire,
-  // so a chain reads the same either way.
-  const old = (link: Link): Link => ({ ...link, parents: [] });
-  const verdict = await verifyChain([old(genesis), old(second)], [SECOND_HASH]);
-  assert.deepEqual(found.problems(verdict.found), []);
-  assert.equal(verdict.walked, 2);
-  assert.deepEqual(verdict.genesis, [GENESIS_HASH]);
-});
-
 test("a tampered literal is reported on ITS object, not on the chain", async () => {
   const tampered: Link = { ...second, literal: SECOND_LITERAL.replace("x7k2q9wf", "x7k2q9wg") };
   const verdict = await verifyChain([genesis, tampered], [SECOND_HASH]);
@@ -100,6 +90,8 @@ test("a tampered literal is reported on ITS object, not on the chain", async () 
   assert.ok(bad !== undefined && good !== undefined);
   assert.equal(bad?.hashOk, false);
   assert.equal(good?.hashOk, true);
+  assert.equal(bad?.condition.type, "Flawed");
+  assert.deepEqual(good?.condition, { type: "Clean" });
   assert.equal(verdict.verified, 1);
   // The walk still reaches genesis: a bad object is a bad object, not a break.
   assert.deepEqual(verdict.genesis, [GENESIS_HASH]);
@@ -108,7 +100,7 @@ test("a tampered literal is reported on ITS object, not on the chain", async () 
 });
 
 test("a parent that names nothing breaks the walk at the object that names it", async () => {
-  const orphaned: Link = { ...second, prev: "0".repeat(64), parents: ["0".repeat(64)] };
+  const orphaned: Link = { ...second, parents: ["0".repeat(64)] };
   const verdict = await verifyChain([genesis, orphaned], [SECOND_HASH]);
   assert.equal(verdict.found.type, "Unreached");
   // Every object still hashes to its own name — the break is structural.
@@ -118,7 +110,7 @@ test("a parent that names nothing breaks the walk at the object that names it", 
   assert.match(found.problems(verdict.found).join(" | "), /is named as a parent but was not sent/);
   const unreached = verdict.objects.find((object) => object.hash === GENESIS_HASH);
   assert.deepEqual(unreached?.walk, { type: "Unreached" });
-  assert.match(unreached?.problem ?? "", /not reachable from any head/);
+  assert.match(unreached?.condition.type === "Flawed" ? unreached.condition.problem : "", /not reachable from any head/);
 });
 
 test("an object the walk never reaches is reported as unreachable", async () => {
@@ -130,8 +122,8 @@ test("an object the walk never reaches is reported as unreachable", async () => 
 });
 
 test("a cycle in the parents is reported rather than looped over", async () => {
-  const a: Link = { ...genesis, hash: "a".repeat(64), prev: "b".repeat(64), parents: ["b".repeat(64)] };
-  const b: Link = { ...genesis, hash: "b".repeat(64), prev: "a".repeat(64), parents: ["a".repeat(64)] };
+  const a: Link = { ...genesis, hash: "a".repeat(64), parents: ["b".repeat(64)] };
+  const b: Link = { ...genesis, hash: "b".repeat(64), parents: ["a".repeat(64)] };
   const verdict = await verifyChain([a, b], ["a".repeat(64)]);
   assert.equal(verdict.found.type, "Unreached");
   assert.match(found.problems(verdict.found).join(" | "), /parents form a cycle/);
@@ -152,15 +144,11 @@ test("a tip the server never sent is a problem, not a crash", async () => {
 
 const dagLink = (hash: string, parents: string[]): Link => ({
   hash,
-  prev: parents[0] ?? "",
   parents,
-  kind: parents.length > 1 ? "Woven" : "Created",
-  todo: parents.length > 1 ? "" : "t",
-  actor: parents.length > 1 ? "" : "ada",
-  at: parents.length > 1 ? "" : "2026-09-01T00:00:00",
-  note: "",
-  reverses: { kind: "nothing" },
   literal: parents.length === 0 ? `Sealed(prev='', made-up ${hash})` : `made-up ${hash}`,
+  ...(parents.length > 1
+    ? { holds: "envelope", kind: "Woven" }
+    : { holds: "event", kind: "Created", todo: "t", actor: "ada", at: "2026-09-01T00:00:00", note: "", reverses: { kind: "nothing" } }),
 });
 
 const ROOT = "1".repeat(64);

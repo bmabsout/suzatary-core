@@ -245,7 +245,7 @@ proptest! {
         let held = Held::default();
         let memories = held.memories();
         let opened = || vec![suzatary_core::secretary::store::Entry::Opened {
-            at: "t".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
             title: suzatary_core::secretary::words::Words::kept("t".to_owned()),
             model: "m".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Topic,
@@ -285,7 +285,7 @@ proptest! {
                     prop_assert_eq!(&knows[c], &expected);
                     if stored.memory_seen != Some(change.version()) {
                         files[c].push(suzatary_core::secretary::store::Entry::MemorySeen {
-                            at: "t".to_owned(),
+                            at: suzatary_core::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
                             version: change.version(),
                         });
                     }

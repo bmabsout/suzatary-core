@@ -70,8 +70,8 @@ fn id() -> ConversationId {
     ConversationId::new("default").expect("a slug")
 }
 
-fn at() -> String {
-    "2026-10-07T09:00:00".to_owned()
+fn at() -> suzatary_core::capability::Datetime {
+    suzatary_core::capability::Datetime::new(2026, 10, 7, 9, 0, 0, 0).expect("an instant")
 }
 
 fn said(turn: Turn) -> Entry {

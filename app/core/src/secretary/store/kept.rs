@@ -1,7 +1,7 @@
 //! A session a conversation keeps, and the first turn it holds.
 
 use super::Entry;
-use crate::capability::{Session, SessionId};
+use crate::capability::{Datetime, Session, SessionId};
 
 /// A session this conversation keeps, and the first turn it holds: its identity, and what it was
 /// sent when it opened.
@@ -18,17 +18,18 @@ impl Kept {
         id: &SessionId,
         model: &str,
         cwd: &str,
-        at: &str,
+        at: Datetime,
         surface: Option<String>,
         from: usize,
     ) -> Self {
+        let at = super::stamp(at);
         Self {
             session: Session {
                 id: id.clone(),
                 model: model.to_owned(),
                 cwd: cwd.to_owned(),
-                created: at.to_owned(),
-                last: at.to_owned(),
+                created: at.clone(),
+                last: at,
                 surface,
             },
             from,
@@ -37,7 +38,7 @@ impl Kept {
 
     /// The line that records it at `at`.
     #[must_use]
-    pub fn line(&self, at: String) -> Entry {
+    pub fn line(&self, at: Datetime) -> Entry {
         Entry::Kept {
             at,
             session: self.session.id.clone(),

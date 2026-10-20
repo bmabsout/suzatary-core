@@ -100,13 +100,52 @@ fn tokens(text: &str) -> Result<Vec<Token>, ShapeError> {
                 }
                 out.push(Token::Word(name));
             }
-            '{' | '}' | '[' | ']' | '<' | '>' | ',' | ':' | ';' | '|' | '&' | '?' | '=' => {
+            '{' | '}' | '[' | ']' | '<' | '>' | '(' | ')' | ',' | ':' | ';' | '|' | '&' | '?'
+            | '=' => {
                 out.push(Token::Punct(c));
             }
             c => return refuse(format!("{c:?} is in no type this wire prints")),
         }
     }
     Ok(out)
+}
+
+/// `A & (B | C)` as `(B & A) | (C & A)`: how ts-rs prints a flattened sum, read as the sum it is,
+/// each arm's own fields first so its tag leads.
+fn distributed(members: Vec<Shape>) -> Shape {
+    let mut sums: Vec<Vec<Shape>> = Vec::new();
+    let mut rest: Vec<Shape> = Vec::new();
+    for member in members {
+        match member {
+            Shape::Union(arms) => sums.push(arms),
+            one => rest.push(one),
+        }
+    }
+    if sums.is_empty() {
+        return Shape::Both(rest);
+    }
+    // Every choice of one arm from each sum, the arms first, then what every arm shares.
+    let choices = sums.into_iter().fold(vec![Vec::new()], |chosen, arms| {
+        chosen
+            .iter()
+            .flat_map(|before| {
+                arms.iter().map(move |arm| {
+                    let mut both = before.clone();
+                    both.push(arm.clone());
+                    both
+                })
+            })
+            .collect::<Vec<Vec<Shape>>>()
+    });
+    Shape::Union(
+        choices
+            .into_iter()
+            .map(|mut both| {
+                both.extend(rest.iter().cloned());
+                Shape::Both(both)
+            })
+            .collect(),
+    )
 }
 
 /// A recursive descent over [`tokens`], one method per precedence level.
@@ -156,7 +195,7 @@ impl Parser {
         self.eat('|');
         self.joined(
             '|',
-            |p| p.joined('&', Self::postfix, Shape::Both),
+            |p| p.joined('&', Self::postfix, distributed),
             Shape::Union,
         )
     }
@@ -173,6 +212,11 @@ impl Parser {
     fn primary(&mut self) -> Result<Shape, ShapeError> {
         match self.tokens.next() {
             Some(Token::Punct('{')) => self.object(),
+            Some(Token::Punct('(')) => {
+                let shape = self.union()?;
+                self.expect(')')?;
+                Ok(shape)
+            }
             Some(Token::Quoted(text)) => Ok(Shape::Lit(text)),
             Some(Token::Word(word)) => self.named(word),
             other => refuse(format!("expected a type, found {other:?}")),
@@ -726,6 +770,24 @@ mod tests {
         assert_eq!(
             line(&text, "Top"),
             "d.obj<w.Top>({ tag: d.nullable(Tag), ext: Ext, kind: Kind, node: Node })"
+        );
+    }
+
+    /// A sum flattened into a record, as ts-rs prints it (`{ shared } & (arm | arm)`), is read as
+    /// the sum of each arm with the shared fields, so it decodes by its tag like any other sum.
+    #[test]
+    fn a_flattened_sum_is_a_sum_of_its_arms_with_the_shared_fields() {
+        let text = decoded(
+            &[
+                "type Row = { index: number, } & ({ \"who\": \"person\", queued: boolean, } | { \"who\": \"model\" });",
+                "type Top = { rows: Array<Row>, };",
+            ],
+            &["Top"],
+        )
+        .expect("folds");
+        assert_eq!(
+            line(&text, "Row"),
+            "d.sum<w.Row, \"who\">(\"who\", { person: { queued: d.bool, index: d.num }, model: { index: d.num } })"
         );
     }
 

@@ -5,18 +5,19 @@ use crate::capability::{Datetime, SessionId, Turn};
 use crate::reference::Reference;
 use crate::secretary::stamp::Stamp;
 use crate::secretary::words::Words;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-/// One line of a conversation, tagged on `line` so a line read alone in a pager says
-/// what it is.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// One line of a conversation as the box reads it from its store. It prints as JSON tagged on
+/// `line`, each instant as its stamp, for a test's record of a scene; nothing reads that print.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "line", rename_all = "lowercase")]
 pub enum Entry {
     /// The first line of every file: when it was opened, what about, and which model is behind it,
     /// which a reader of an old conversation cannot otherwise recover.
     Opened {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// What it is about, for the list.
         title: Words<String>,
         /// The model's own name for itself ([`crate::capability::Model::name`]).
@@ -27,7 +28,8 @@ pub enum Entry {
     /// The conversation was named; the last one wins, so a rename is an append.
     Titled {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The name.
         title: Words<Title>,
         /// Who gave it.
@@ -36,25 +38,27 @@ pub enum Entry {
     /// Something was said: by the owner, by the model, or by a verb.
     Said {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The turn.
         turn: Turn,
         /// Who stamped it: the actor the gate admitted a `say` or an act as, or the box for a
         /// note of its own; `None` for words the box relays, which `secretary::taint` reads as
         /// "not the owner".
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         by: Option<Stamp>,
     },
     /// The secretary proposed an outward act; its index among these lines is what a tap names, and
     /// the act and what became of it are the inbox's.
     Proposed {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The inbox object: the act, its reasons and its responses.
         object: crate::secretary::inbox::ProposalId,
         /// The earlier proposal this one replaces, as the secretary wrote it; the inbox records
         /// the replaced card as superseded.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         revises: Option<usize>,
     },
     /// The secretary settled, or deliberately did not settle, one of the triage agent's batches.
@@ -63,15 +67,15 @@ pub enum Entry {
     /// `suzatary secretary reviews` and the Inbox all read this record.
     Reviewed {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// Which chain's replica it was against, since a batch is against one chain.
         chain: String,
         /// The batch, by its head.
         batch: String,
-        /// What was decided.
+        /// What was decided, and the objects it settled.
+        #[serde(flatten)]
         decision: Decision,
-        /// The objects settled; empty for a hold, which settles nothing.
-        objects: Vec<String>,
         /// Why, in the secretary's own words; never empty, since the reason is the whole of what
         /// the owner reads back.
         why: Words<String>,
@@ -83,7 +87,8 @@ pub enum Entry {
     /// moment.
     ReviewFailed {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The box's own words for why — the model's refusal, verbatim.
         reason: Words<String>,
         /// How many batches it left standing, recorded then because what stands now is a different
@@ -96,7 +101,8 @@ pub enum Entry {
     /// question it never answered.
     Stopped {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// Who stopped it: the actor the gate admitted.
         by: String,
     },
@@ -108,7 +114,8 @@ pub enum Entry {
         /// The first turn set aside.
         to: usize,
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// Who asked again: the actor the gate admitted.
         by: String,
     },
@@ -116,7 +123,8 @@ pub enum Entry {
     /// the memory's change was answered. A session opened fresh is told everything regardless.
     MemorySeen {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The memory's version it was told.
         version: u64,
     },
@@ -126,7 +134,8 @@ pub enum Entry {
     /// writer.
     Session {
         /// When this line was written.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The session id `--session-id`/`--resume` names.
         session: SessionId,
         /// The model it was opened with.
@@ -134,7 +143,7 @@ pub enum Entry {
         /// The directory it was opened in.
         cwd: String,
         /// The manual-and-verbs digest it was opened with; absent on older lines.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         surface: Option<String>,
     },
     /// A session opened over this conversation's turns from `from` on: what the ask that opened
@@ -142,7 +151,8 @@ pub enum Entry {
     /// the turns that stand when this line is read.
     Kept {
         /// When this line was written.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The session id `--session-id`/`--resume` names.
         session: SessionId,
         /// The model it was opened with.
@@ -150,7 +160,7 @@ pub enum Entry {
         /// The directory it was opened in.
         cwd: String,
         /// The manual-and-verbs digest it was opened with.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         surface: Option<String>,
         /// The first turn it was sent.
         from: usize,
@@ -161,7 +171,8 @@ pub enum Entry {
     /// one with the whole window.
     Unheard {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The session that did not hear it.
         session: SessionId,
         /// Who said it.
@@ -172,7 +183,8 @@ pub enum Entry {
     /// it is sent, so what its model holds is read and never guessed from the conversation's kind.
     Scoped {
         /// When this line was written.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// What the ask sent.
         scope: Scope,
     },
@@ -180,7 +192,8 @@ pub enum Entry {
     /// its state.
     Coding {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The proposal that started it, by index.
         proposal: usize,
         /// The session.
@@ -191,7 +204,8 @@ pub enum Entry {
     /// moves.
     Erased {
         /// When.
-        at: String,
+        #[serde(serialize_with = "stamped")]
+        at: Datetime,
         /// The keys whose words went.
         keys: std::collections::BTreeSet<crate::secretary::locked_text::KeyName>,
         /// Why.
@@ -202,7 +216,7 @@ pub enum Entry {
 impl Entry {
     /// When it was written: every line carries an instant.
     #[must_use]
-    pub fn at(&self) -> &str {
+    pub fn at(&self) -> Datetime {
         match self {
             Entry::Opened { at, .. }
             | Entry::Titled { at, .. }
@@ -218,7 +232,7 @@ impl Entry {
             | Entry::Unheard { at, .. }
             | Entry::Scoped { at, .. }
             | Entry::Coding { at, .. }
-            | Entry::Erased { at, .. } => at,
+            | Entry::Erased { at, .. } => *at,
         }
     }
 }
@@ -228,7 +242,7 @@ impl Entry {
     /// key's name, a restart, the owner's note on his own tap), carrying nobody else's, stamped
     /// [`Stamp::Box`] so taint reads it clean and no round counts it the owner's.
     #[must_use]
-    pub fn noted(at: String, text: String, references: Vec<Reference>) -> Self {
+    pub fn noted(at: Datetime, text: String, references: Vec<Reference>) -> Self {
         Entry::Said {
             at,
             turn: Turn::Act { text, references },
@@ -242,4 +256,9 @@ impl Entry {
 #[must_use]
 pub fn stamp(at: Datetime) -> String {
     prodrome_core::fpl::iso(prodrome_core::fpl::instant_of(at))
+}
+
+/// An instant as [`stamp`] prints it, for [`Entry`]'s print.
+fn stamped<S: serde::Serializer>(at: &Datetime, to: S) -> Result<S::Ok, S::Error> {
+    to.serialize_str(&stamp(*at))
 }

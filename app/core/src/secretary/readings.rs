@@ -309,7 +309,7 @@ pub fn conversation(
         id: stored.id.as_str().to_owned(),
         title: stored.heading().into_owned(),
         model: stored.model.clone(),
-        opened: stored.opened.clone(),
+        opened: crate::secretary::store::stamp(stored.opened),
         turns: selected
             .iter()
             .map(|&index| {
@@ -375,12 +375,11 @@ fn row(stored: &Stored, fold: &inbox::Fold) -> wire::ConversationRow {
         id: stored.id.as_str().to_owned(),
         title: stored.heading().into_owned(),
         kind: stored.kind,
-        opened: stored.opened.clone(),
+        opened: crate::secretary::store::stamp(stored.opened),
         last: last_line(stored),
-        last_at: stored
-            .turns
-            .last()
-            .map_or_else(|| stored.opened.clone(), |said| said.at.clone()),
+        last_at: crate::secretary::store::stamp(
+            stored.turns.last().map_or(stored.opened, |said| said.at),
+        ),
         turns: u32::try_from(stored.turns.len()).unwrap_or(u32::MAX),
         standing: lines
             .standings()
@@ -512,164 +511,108 @@ pub(crate) fn turn<A: Answers + ?Sized>(
         queued,
         attempt,
     } = place;
-    let at = said.at.clone();
+    let row = |text: &str, who: wire::Speaker| wire::TurnRow {
+        index,
+        text: text.to_owned(),
+        at: crate::secretary::store::stamp(said.at),
+        attempt,
+        gone: None,
+        who,
+    };
     match &said.turn {
         // Only a person's words can be queued.
         crate::capability::Turn::Person {
             text,
             references,
             attachments,
-        } => wire::TurnRow {
-            index,
-            who: wire::TurnWho::Person,
-            verb: String::new(),
-            text: text.clone(),
-            refused: false,
-            references: references.clone(),
-            attachments: attachments.iter().map(wire::AttachmentRow::from).collect(),
-            queued,
-            blocks: Vec::new(),
-            at,
-            remembered: None,
-            attempt,
-            gone: None,
-        },
+        } => row(
+            text,
+            wire::Speaker::Person {
+                references: references.clone(),
+                attachments: attachments.iter().map(wire::AttachmentRow::from).collect(),
+                queued,
+            },
+        ),
         // Neither the model speaking nor a verb answering, so drawn as its own kind: the box's
         // own note as the box's, never as the owner's.
-        crate::capability::Turn::Act { text, references } => wire::TurnRow {
-            index,
-            who: acted_by(said.by.as_ref()),
-            verb: String::new(),
-            text: text.clone(),
-            refused: false,
-            references: references.clone(),
-            attachments: Vec::new(),
-            queued: false,
-            blocks: Vec::new(),
-            at,
-            remembered: None,
-            attempt,
-            gone: None,
-        },
+        crate::capability::Turn::Act { text, references } => {
+            row(text, acted_by(said.by.as_ref(), references.clone()))
+        }
         // The calls are not listed, since each gets its own verb turn; each block's `html` is a
         // cached compile.
-        crate::capability::Turn::Model { text, .. } => wire::TurnRow {
-            index,
-            who: wire::TurnWho::Model,
-            verb: String::new(),
-            text: text.clone(),
-            refused: false,
-            references: Vec::new(),
-            attachments: Vec::new(),
-            queued: false,
-            blocks: blocks_of(answers, text),
-            at,
-            remembered: None,
-            attempt,
-            gone: None,
-        },
+        crate::capability::Turn::Model { text, .. } => row(
+            text,
+            wire::Speaker::Model {
+                blocks: blocks_of(answers, text),
+            },
+        ),
         crate::capability::Turn::Tool {
             verb,
             answer,
             refused,
             files: _,
-        } => wire::TurnRow {
-            index,
-            who: wire::TurnWho::Verb,
-            verb: verb.to_string(),
-            text: answer.clone(),
-            refused: *refused,
-            references: Vec::new(),
-            attachments: Vec::new(),
-            queued: false,
-            blocks: Vec::new(),
-            at,
-            remembered: receipt(verb, answer, *refused, memory),
-            attempt,
-            gone: None,
-        },
-        crate::capability::Turn::Erased { shape, words } => erased(
-            shape,
-            words,
-            Place {
-                index,
-                queued,
-                attempt,
+        } => row(
+            answer,
+            wire::Speaker::Verb {
+                verb: verb.to_string(),
+                refused: *refused,
+                remembered: receipt(verb, answer, *refused, memory),
             },
-            at,
-            said.by.as_ref(),
         ),
+        crate::capability::Turn::Erased { shape, words } => wire::TurnRow {
+            text: crate::secretary::turn_shape::prose(words),
+            gone: words
+                .first()
+                .and_then(crate::secretary::words::Words::gone)
+                .map(wire::TurnGone::from),
+            ..row("", erased(shape, words, said.by.as_ref()))
+        },
     }
 }
 
 /// Who an act turn is: the owner's act, when the gate stamped it so; the box's line otherwise.
-fn acted_by(by: Option<&crate::secretary::stamp::Stamp>) -> wire::TurnWho {
+fn acted_by(
+    by: Option<&crate::secretary::stamp::Stamp>,
+    references: Vec<crate::reference::Reference>,
+) -> wire::Speaker {
     if crate::secretary::stamp::Stamp::owners(by) {
-        wire::TurnWho::Act
+        wire::Speaker::Act { references }
     } else {
-        wire::TurnWho::Box
+        wire::Speaker::Box { references }
     }
 }
 
-/// An erased turn, drawn by its shape, its prose the kept words or the box's sentence for why
-/// they went.
+/// Who said an erased turn, read off its shape, which keeps everything but the words.
 fn erased(
     shape: &TurnShape,
     words: &[crate::secretary::words::Words<crate::secretary::line_words::LineWords>],
-    place: Place,
-    at: String,
     by: Option<&crate::secretary::stamp::Stamp>,
-) -> wire::TurnRow {
-    let Place { index, attempt, .. } = place;
-    let prose = crate::secretary::turn_shape::prose(words);
-    let (who, verb, refused, references) = match shape {
-        TurnShape::Person { references, .. } => (
-            wire::TurnWho::Person,
-            String::new(),
-            false,
-            references.clone(),
-        ),
-        TurnShape::Model { .. } => (wire::TurnWho::Model, String::new(), false, Vec::new()),
-        TurnShape::Tool { verb, refused, .. } => {
-            (wire::TurnWho::Verb, verb.to_string(), *refused, Vec::new())
-        }
-        TurnShape::Act { references } => (acted_by(by), String::new(), false, references.clone()),
-    };
-    // A remember answer erased by forgetting its fact is that fact's receipt still: the erasure
-    // names the fact, and the words it held were the fact's.
-    let remembered = match (shape, words.first()) {
-        (
-            TurnShape::Tool { verb, .. },
-            Some(crate::secretary::words::Words::Gone {
-                gone:
-                    crate::secretary::words::Gone::Erased {
-                        erasure: crate::secretary::erasure::Erasure::Forgot { fact },
-                    },
-            }),
-        ) if verb.verb() == Some(crate::secretary::SecretaryVerb::Remember) => {
-            Some(wire::Receipt::Forgotten {
-                fact: u32::try_from(fact.0).unwrap_or(u32::MAX),
-            })
-        }
-        _ => None,
-    };
-    wire::TurnRow {
-        index,
-        who,
-        verb,
-        text: prose,
-        refused,
-        references,
-        attachments: Vec::new(),
-        queued: false,
-        blocks: Vec::new(),
-        at,
-        remembered,
-        attempt,
-        gone: words
-            .first()
-            .and_then(crate::secretary::words::Words::gone)
-            .map(wire::TurnGone::from),
+) -> wire::Speaker {
+    match shape {
+        TurnShape::Person { references, .. } => wire::Speaker::Person {
+            references: references.clone(),
+            attachments: Vec::new(),
+            queued: false,
+        },
+        TurnShape::Model { .. } => wire::Speaker::Model { blocks: Vec::new() },
+        TurnShape::Tool { verb, refused, .. } => wire::Speaker::Verb {
+            verb: verb.to_string(),
+            refused: *refused,
+            // A remember answer erased by forgetting its fact is that fact's receipt still: the
+            // erasure names the fact, and the words it held were the fact's.
+            remembered: match words.first() {
+                Some(crate::secretary::words::Words::Gone {
+                    gone:
+                        crate::secretary::words::Gone::Erased {
+                            erasure: crate::secretary::erasure::Erasure::Forgot { fact },
+                        },
+                }) if verb.verb() == Some(crate::secretary::SecretaryVerb::Remember) => {
+                    Some(wire::Receipt::Forgotten { fact: *fact })
+                }
+                _ => None,
+            },
+        },
+        TurnShape::Act { references } => acted_by(by, references.clone()),
     }
 }
 
@@ -701,8 +644,7 @@ fn receipt(
         return None;
     }
     let answered: serde_json::Value = serde_json::from_str(answer).ok()?;
-    let id = crate::secretary::memory::FactId(answered.get("remembered")?.as_u64()?);
-    let fact = u32::try_from(id.0).unwrap_or(u32::MAX);
+    let fact = crate::secretary::memory::FactId(answered.get("remembered")?.as_u64()?);
     let Some(memory) = memory else {
         return Some(wire::Receipt::Unread { fact });
     };
@@ -1049,7 +991,7 @@ pub(crate) fn proposal(
             };
             wire::ProposedAct::Remember {
                 words,
-                about: kind.as_str().to_owned(),
+                about: *kind,
                 sentence,
             }
         }
@@ -1070,7 +1012,7 @@ pub(crate) fn proposal(
         act,
         why: standing.object.asked.reasons.why().to_owned(),
         sources: standing.object.asked.reasons.sources().to_vec(),
-        at: standing.asking.at.clone(),
+        at: crate::secretary::store::stamp(standing.asking.at),
         state,
         outcome,
         tries: u32::try_from(standing.object.tries()).unwrap_or(u32::MAX),

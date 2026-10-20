@@ -65,14 +65,14 @@ test("law: open is sorted by compare, and nothing open is settled", () =>
       const next = open[i + 1]
       if (next !== undefined) assert.ok(waiting.compare(w, next) <= 0, `seed ${seed}`)
     })
-    const settled = new Set(waiting.settledOn(ws, "2026-09-28", time.UTC).map(waiting.key))
+    const settled = new Set(waiting.settledOn(ws, "2026-09-28", time.UTC).map(s => waiting.key(s.w)))
     for (const w of open) assert.ok(!settled.has(waiting.key(w)), `seed ${seed}`)
   }))
 
 test("law: an unreadable proposal is neither open nor settled, and says why", () =>
   forAll(200, (r, seed) => {
     const ws = some(r)
-    const out = new Set([...waiting.open(ws), ...waiting.settledOn(ws, "2026-09-28", time.UTC)].map(waiting.key))
+    const out = new Set([...waiting.open(ws), ...waiting.settledOn(ws, "2026-09-28", time.UTC).map(s => s.w)].map(waiting.key))
     for (const w of ws.filter(w => w.type === "Proposal" && w.p.state.kind === "unreadable")) {
       assert.ok(!out.has(waiting.key(w)), `seed ${seed}`)
       assert.ok((waiting.unreadable(w) ?? "") !== "", `seed ${seed}`)
@@ -97,4 +97,14 @@ test("law: a proposal on a chain the reading did not hold is not yet priced, and
     if (firstUnheld >= 0) assert.ok(ws.slice(firstUnheld).every((w) => waiting.notYetPriced(w) !== null), `seed ${seed}`)
     // The box holds every chain, so its answer prices them all.
     assert.ok(waiting.all(ps, []).every((w) => waiting.notYetPriced(w) === null), `seed ${seed}`)
+  }))
+
+test("law: each thing stands open, settled with how and when, or unreadable, and only open waits", () =>
+  forAll(200, (r, seed) => {
+    for (const w of some(r)) {
+      const s = waiting.standing(w)
+      assert.equal(waiting.isOpen(w), s.type === "Open", `seed ${seed}`)
+      if (s.type === "Settled") assert.equal(s.how, w.type === "Proposal" ? w.p.state.kind : w.e.state, `seed ${seed}`)
+      assert.equal(s.type === "Unreadable", w.type === "Proposal" && w.p.state.kind === "unreadable", `seed ${seed}`)
+    }
   }))

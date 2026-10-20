@@ -208,7 +208,7 @@ fn asked(fakes: &Fakes, act: Act) {
     use suzatary_core::secretary::store::{ConversationId, Entry, Kind, Reasons};
     let id = ConversationId::new(CONNECT).expect("a slug");
     let opened = Entry::Opened {
-        at: "2026-09-02T11:00:00".to_owned(),
+        at: suzatary_core::capability::Datetime::new(2026, 9, 2, 11, 0, 0, 0).expect("an instant"),
         title: suzatary_core::secretary::words::Words::kept("Connect".to_owned()),
         model: "a fake".to_owned(),
         kind: Kind::Topic,
@@ -672,7 +672,7 @@ fn only_a_mail_account_s_removal_may_delete_its_mail() {
     );
     let payload = common::reading(&served.base, CONNECT, &[]);
     let answers = &payload["proposals"][0]["card"]["answers"];
-    assert_eq!(answers[1]["always"], true, "{payload}");
+    assert_eq!(answers[1]["asks"], "always", "{payload}");
     let (status, after) = tap(
         &served.base,
         CONNECT,

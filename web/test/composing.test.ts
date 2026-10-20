@@ -7,7 +7,8 @@ import composing from "../src/chat/composing"
 import again from "../src/chat/again"
 import { parse, print } from "../src/chat/refs"
 import type { Reference } from "../src/chat/refs"
-import type { AttachmentRow, TurnRow } from "../src/wire/generated/wire"
+import type { AttachmentRow } from "../src/wire/generated/wire"
+import turns from "../src/chat/turns"
 import { forAll, referenceText } from "./gen"
 import type { Rng } from "./gen"
 
@@ -18,18 +19,14 @@ const reference = (r: Rng): Reference => {
 }
 const file = (r: Rng): AttachmentRow => ({ id: `f${r.int(4)}`, media_type: "application/pdf", name: "form.pdf", private: "" })
 const withheld = (r: Rng): composing.Withheld => ({ base64: r.string("ab", 4), name: "id.pdf", why: "it names a number", folder: "Private" })
-const question = (r: Rng): TurnRow => ({
+const question = (r: Rng): turns.Question => ({
   index: r.int(20),
   who: "person",
-  verb: "",
   text: r.pick(["where is the form", "and the receipt?"]),
-  refused: false,
   references: r.bool() ? [] : [referenceText(r)],
   attachments: [],
   queued: false,
-  blocks: [],
   at: "2026-01-01T00:00:00",
-  remembered: null,
   attempt: "current",
   gone: null,
 })

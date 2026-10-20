@@ -983,9 +983,10 @@ mod tests {
             &Parses,
         );
         assert_eq!(problem, "");
-        assert_eq!(rows[0].act, "repriced");
+        assert_eq!(rows[0].act.word(), "repriced");
         let priced = rows[0]
-            .changes
+            .act
+            .changes()
             .iter()
             .find(|change| change.field == "priority")
             .expect("the price moved");

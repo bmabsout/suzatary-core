@@ -10,6 +10,7 @@ import type { Replica, Word } from "../src/prodrome/replica"
 import { NOTHING, boxHeadsOf, headsOf, parentsOf, pulled, replicaOf, reset, said, untrustedOf } from "../src/prodrome/replica"
 import type { StoredObject } from "../src/wire/generated/wire"
 import { forAll, type Rng } from "./gen"
+import { held as prodromes } from "./held"
 
 const box = JSON.parse(readFileSync("app/core/tests/web/replicas.json", "utf8")) as { conversations: { hash: string; text: string }[] }
 const all: StoredObject[] = box.conversations.map(o => ({ hash: o.hash, literal: o.text }))
@@ -26,7 +27,7 @@ const replica = (r: Rng): Replica => {
     held.add(next.hash)
     left.splice(left.indexOf(next), 1)
   }
-  return pulled(NOTHING, { objects, heads: headsOf(objects), untrusted: [], root: null, geneses: [], epoch: 1 }, 1 + r.int(1000))
+  return pulled(NOTHING, { objects, heads: headsOf(objects), untrusted: [], root: null, geneses: prodromes(objects), epoch: 1 }, 1 + r.int(1000))
 }
 
 const step = stores.step
@@ -66,8 +67,8 @@ test("law: a policy the box changed with no new object is a step, and the later 
     const name = r.pick(stores.NAMES)
     const t = step(stores.NONE, held(name, replica(r)))
     const was = t[name].replica
-    const w = said<Pick<Word, "heads" | "untrusted" | "root" | "fetchedAt">>(was.box, { heads: [], untrusted: [], root: null, fetchedAt: 0 }, w => w)
-    const later = pulled(was, { objects: [], heads: [...w.heads], untrusted: [...w.untrusted, "scout"], root: w.root, geneses: [], epoch: 1 }, w.fetchedAt + 1)
+    const w = said<Pick<Word, "heads" | "untrusted" | "root" | "fetchedAt" | "geneses">>(was.box, { heads: [], untrusted: [], root: null, fetchedAt: 0, geneses: [] }, w => w)
+    const later = pulled(was, { objects: [], heads: [...w.heads], untrusted: [...w.untrusted, "scout"], root: w.root, geneses: [...w.geneses], epoch: 1 }, w.fetchedAt + 1)
     const next = step(t, held(name, later))
     assert.notEqual(next, t, "the policy moved, so the reading must")
     assert.deepEqual(untrustedOf(next[name].replica), untrustedOf(later))
@@ -91,7 +92,7 @@ const word = (objects: StoredObject[], epoch: number, since: StoredObject[] = []
   heads: headsOf(objects),
   untrusted: [],
   root: null,
-  geneses: [],
+  geneses: prodromes(objects),
   epoch,
 })
 
@@ -122,7 +123,7 @@ test("law: only an answer of a later epoch than every word heard overtakes a rep
   forAll(30, r => {
     const held = replica(r)
     const epoch = held.held.words[0]?.epoch ?? 0
-    const at = (e: number) => ({ objects: [], heads: [...(boxHeadsOf(held) ?? [])], untrusted: [], root: null, geneses: [], epoch: e })
+    const at = (e: number) => ({ objects: [], heads: [...(boxHeadsOf(held) ?? [])], untrusted: [], root: null, geneses: prodromes(held.objects), epoch: e })
     assert.equal(stores.overtaken([held], at(epoch)), false, "the same epoch")
     assert.equal(stores.overtaken([held], at(epoch - 1)), false, "an earlier one, which is the box gone back")
     assert.equal(stores.overtaken([held], at(epoch + 1 + r.int(5))), held.held.words.length > 0)

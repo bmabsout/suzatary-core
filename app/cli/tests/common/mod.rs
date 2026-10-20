@@ -4020,8 +4020,15 @@ pub fn reading(base: &str, id: &str, query: &[(&str, &str)]) -> serde_json::Valu
         },
     );
     let mut read = serde_json::to_value(read).expect("a payload prints");
+    // Only a model's turn holds blocks.
     for turn in read["turns"].as_array_mut().expect("turns") {
-        for block in turn["blocks"].as_array_mut().expect("blocks") {
+        let Some(blocks) = turn
+            .get_mut("blocks")
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            continue;
+        };
+        for block in blocks {
             let sha =
                 suzatary_core::secretary::answer::sha(block["source"].as_str().expect("a source"));
             let mut rendered = get(&format!(

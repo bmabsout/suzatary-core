@@ -2,9 +2,10 @@
 // and counted when several, and what the owner must see to decide said beside it, never only in the rows.
 
 import type { ProposedObject } from "../wire/generated/wire"
+import proposed from "./proposed"
 
 export namespace digest {
-  export type Group = { readonly act: string; readonly todos: readonly string[]; readonly objects: number }
+  export type Group = { readonly act: proposed.Act; readonly todos: readonly string[]; readonly objects: number }
   export type Priced = { readonly todo: string; readonly percent: number }
   export type T = {
     readonly groups: readonly Group[]
@@ -15,26 +16,23 @@ export namespace digest {
   // SECRETARY.md's review holds a todo priced at or under this for the owner.
   export const HOLD = 45
 
-  // A row's subject: a merge names none, an act with no todo is about the chain.
-  const subject = (todo: string): string => (todo === "" ? "the chain" : todo)
-
-  // The one phrasing of an act, for a row's sentence and a group's.
-  export const phrase = (act: string, what: string): string => {
+  // The one phrasing of an act, for a row's sentence and a group's; a merge names no todo.
+  export const phrase = (act: proposed.Act, what: string): string => {
     switch (act) {
       case "added": return `add ${what}`
       case "edited": return `reword ${what}`
       case "repriced": return `reprice ${what}`
+      case "respecified": return `reprice ${what}`
       case "completed": return `complete ${what}`
       case "cancelled": return `cancel ${what}`
       case "reopened": return `reopen ${what}`
       case "tended": return `record a pass at ${what}`
       case "created": return `register ${what}`
       case "merge": return "join two histories"
-      default: return `${act} ${what}`
     }
   }
 
-  export const sentence = (o: ProposedObject): string => phrase(o.act, subject(o.todo))
+  export const sentence = (o: ProposedObject): string => phrase(o.act, proposed.todo(o)?.todo ?? "")
 
   // The box prints a price `{:.0}%` first, then any recurrence; anything else has no number to hold on.
   export const percent = (printed: string): number | null => {
@@ -62,12 +60,13 @@ export namespace digest {
   })
 
   export const one = (o: ProposedObject): T => {
-    const price = o.changes.find(c => c.field === "priority")
+    const t = proposed.todo(o)
+    const price = proposed.changes(o).find(c => c.field === "priority")
     const p = price === undefined ? null : percent(price.after)
     return {
-      groups: [{ act: o.act, todos: o.act === "merge" ? [] : [subject(o.todo)], objects: 1 }],
-      urgent: p !== null && p <= HOLD ? [{ todo: subject(o.todo), percent: p }] : [],
-      pending: o.pending_todo && o.todo !== "" ? [o.todo] : [],
+      groups: [{ act: o.act, todos: t === null ? [] : [t.todo], objects: 1 }],
+      urgent: t !== null && p !== null && p <= HOLD ? [{ todo: t.todo, percent: p }] : [],
+      pending: t !== null && t.pending_todo ? [t.todo] : [],
     }
   }
 

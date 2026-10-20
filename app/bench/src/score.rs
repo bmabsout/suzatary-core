@@ -532,6 +532,15 @@ mod tests {
 
     use super::*;
     use crate::cases::{ChainSnapshot, SnapshotBasis, Truths};
+
+    /// The secretary accepting one object.
+    fn accepted() -> suzatary_core::secretary::store::Decision {
+        suzatary_core::secretary::store::Decision::Settled {
+            how: suzatary_core::secretary::store::Settle::Accepted,
+            objects: suzatary_core::nonempty::NonEmpty::of(vec!["o".repeat(64)])
+                .expect("one object"),
+        }
+    }
     use crate::run::{Answer as RunAnswer, RoundRecord};
 
     fn triage_case(id: &str, chain: &str) -> Case {
@@ -819,9 +828,8 @@ mod tests {
             batch_head: "b".repeat(64),
             truths: Truths {
                 incumbent: crate::cases::ReviewAnswer {
-                    decision: suzatary_core::secretary::store::Decision::Accepted,
+                    decision: accepted(),
                     why: "routine".to_owned(),
-                    objects: vec!["o".repeat(64)],
                 },
                 settled: None,
             },
@@ -1016,9 +1024,8 @@ mod tests {
             batch_head: "b".repeat(64),
             truths: Truths {
                 incumbent: crate::cases::ReviewAnswer {
-                    decision: suzatary_core::secretary::store::Decision::Accepted,
+                    decision: accepted(),
                     why: "routine".to_owned(),
-                    objects: vec![],
                 },
                 settled: None,
             },

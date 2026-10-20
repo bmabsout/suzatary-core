@@ -56,13 +56,32 @@ export namespace waiting {
     const r = parse(serves)
     return r !== null && r.kind === "todo" && !held.includes(r.chain) ? r.chain : null
   }
-  export const isOpen = (w: Waiting): boolean => fold(w, (p) => p.state.kind === "open", (_, e) => e.state === "open")
-  export const state = (w: Waiting): string => fold(w, (p) => p.state.kind, (_, e) => e.state)
-  export const settledAt = (w: Waiting): string =>
-    fold(w, (p) => (p.state.kind === "completed" || p.state.kind === "cancelled" ? p.state.at : ""), (_, e) => e.at)
-  // Why a proposal's state cannot be read, or null: it never waits, since nothing can act on it.
-  export const unreadable = (w: Waiting): string | null =>
-    w.type === "Proposal" && w.p.state.kind === "unreadable" ? w.p.state.reason : null
+  // Where it stands: open on the owner, settled (how, in the box's word, and when), or a proposal whose state does not
+  // read, which never waits since nothing can act on it.
+  export type Standing =
+    | { readonly type: "Open" }
+    | { readonly type: "Settled"; readonly how: "completed" | "cancelled"; readonly at: string }
+    | { readonly type: "Unreadable"; readonly why: string }
+
+  const OPEN: Standing = { type: "Open" }
+
+  export const standing = (w: Waiting): Standing =>
+    fold<Standing>(
+      w,
+      (p) => {
+        switch (p.state.kind) {
+          case "open": return OPEN
+          case "completed": return { type: "Settled", how: "completed", at: p.state.at }
+          case "cancelled": return { type: "Settled", how: "cancelled", at: p.state.at }
+          case "unreadable": return { type: "Unreadable", why: p.state.reason }
+        }
+      },
+      (_, e) => (e.state === "open" ? OPEN : { type: "Settled", how: e.state, at: e.at }),
+    )
+
+  export const isOpen = (w: Waiting): boolean => standing(w).type === "Open"
+  // Why a proposal's state cannot be read, or null.
+  export const unreadable = (w: Waiting): string | null => ((s) => (s.type === "Unreadable" ? s.why : null))(standing(w))
   export const source = (w: Waiting): string => fold(w, (p) => asker.named(p.by), (chain) => chain)
 
   // What it asks, in one plain line: a proposal's headline, a decision's first line of body, markup marks dropped.
@@ -120,12 +139,19 @@ export namespace waiting {
 
   export const open = (ws: readonly Waiting[]): Waiting[] => ws.filter(isOpen).sort(compare)
 
-  // Settled on the owner's `today` (`YYYY-MM-DD`), most recently settled first.
-  const instant = (w: Waiting): number => time.ms(settledAt(w)) ?? -Infinity
-  export const settledOn = (ws: readonly Waiting[], today: string, zone: time.Zone): Waiting[] =>
+  // What was settled, with how and when.
+  export type Settled = { readonly w: Waiting; readonly how: "completed" | "cancelled"; readonly at: string }
+
+  // Settled on the owner's `today` (`YYYY-MM-DD`), most recently settled first; an instant that does not read is no day.
+  export const settledOn = (ws: readonly Waiting[], today: string, zone: time.Zone): Settled[] =>
     ws
-      .filter((w) => !isOpen(w) && instant(w) !== -Infinity && time.date(zone, instant(w)) === today)
-      .sort((a, b) => instant(b) - instant(a))
+      .flatMap((w): { readonly s: Settled; readonly ms: number }[] => {
+        const s = standing(w)
+        const ms = s.type === "Settled" ? time.ms(s.at) : null
+        return s.type === "Settled" && ms !== null && time.date(zone, ms) === today ? [{ s: { w, how: s.how, at: s.at }, ms }] : []
+      })
+      .sort((a, b) => b.ms - a.ms)
+      .map(({ s }) => s)
 }
 
 export default waiting

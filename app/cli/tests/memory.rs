@@ -125,6 +125,15 @@ fn his_clean_round_remembers_at_once() {
         &serde_json::json!({}),
     );
     assert_eq!(common::status(&again), 404, "a forgotten fact is gone");
+    let unnamed = common::act(
+        &format!("{base}/api/secretary/memory/first/forget"),
+        &serde_json::json!({}),
+    );
+    assert_eq!(
+        common::status(&unnamed),
+        400,
+        "a fact is named by its number, parsed at the route"
+    );
     let after = settled(&base, &id);
     assert_eq!(
         verb_turn(&after, "remember")["remembered"],

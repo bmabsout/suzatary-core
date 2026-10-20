@@ -9,6 +9,7 @@ import type { Replica } from "../src/prodrome/replica"
 import { NOTHING, ancestry, appended, boxHeadsOf, headsOf, join, parentsOf, prodromeOf, pulled, reset, said, settled, untrustedOf } from "../src/prodrome/replica"
 import type { ObjectsPayload, RefusedObject, StoredObject } from "../src/wire/generated/wire"
 import { forAll, rng, type Rng } from "./gen"
+import { held as prodromes } from "./held"
 
 const box = JSON.parse(readFileSync("app/core/tests/web/replicas.json", "utf8")) as { conversations: { hash: string; text: string }[] }
 // The box's history in the order it took the objects, so the box at any instant holds a prefix of it.
@@ -52,10 +53,10 @@ const ERAS: readonly Era[] = [
   { objects: history.slice(0, Math.max(1, history.length - 3)), geneses: [OLD], epoch: 6 },
 ]
 const [BEFORE, BOTH, DROPPED, ROLLED, BACK, EARLIER] = ERAS as [Era, Era, Era, Era, Era, Era]
-// The box at some instant of an era: what it held so far, and in the first era sometimes no word of what it serves.
+// The box at some instant of an era: what it held so far, and the prodromes it serves.
 const during = (r: Rng, era: Era): Era => ({
   objects: era.objects.slice(0, r.int(era.objects.length + 1)),
-  geneses: era.epoch === 1 && r.int(2) === 0 ? [] : era.geneses,
+  geneses: era.geneses,
   epoch: era.epoch,
 })
 const heard = (era: Era, untrusted: string[] = [], root: string | null = null): ObjectsPayload =>
@@ -119,7 +120,7 @@ test("law: the box's word that has seen more wins, whichever contact was later",
     const early = history.slice(0, r.int(k))
     const late = history.slice(0, k)
     const word = (objects: StoredObject[], untrusted: string[], at: number): Replica =>
-      pulled(NOTHING, { objects, heads: headsOf(objects), untrusted, root: null, geneses: [], epoch: 1 }, at)
+      pulled(NOTHING, { objects, heads: headsOf(objects), untrusted, root: null, geneses: prodromes(history), epoch: 1 }, at)
     // The fuller word was heard first, by the tab's clock: the clock does not decide.
     const fuller = word(late, ["scout"], 1)
     const older = word(early, [], 2)

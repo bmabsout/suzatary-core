@@ -169,7 +169,8 @@ fn a_stop_before_any_round_takes_the_question_closes_it() {
         fakes.conversations.conversations(),
         &conversation,
         &suzatary_core::secretary::store::Entry::Said {
-            at: "2026-09-02T12:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 2, 12, 0, 0, 0)
+                .expect("an instant"),
             turn: suzatary_core::capability::Turn::Person {
                 text: "read every thread".to_owned(),
                 references: Vec::new(),

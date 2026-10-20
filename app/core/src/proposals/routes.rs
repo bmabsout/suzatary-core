@@ -111,11 +111,10 @@ pub fn list(
             .filter(|(_, review)| review.chain == chain.name.as_str())
             .map(|(conversation, review)| wire::ReviewedBatch {
                 batch: review.batch,
-                decision: review.decision.word().to_owned(),
                 why: review.why.to_string(),
-                at: review.at,
-                objects: review.objects.len(),
+                at: crate::secretary::store::stamp(review.at),
                 conversation: conversation.as_str().to_owned(),
+                decision: review.decision,
             })
             .collect(),
     })

@@ -6,24 +6,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ConversationPayload, ConversationState, TurnRow } from "../src/wire/generated/wire";
+import type { ConversationPayload, ConversationState } from "../src/wire/generated/wire";
+import turns from "../src/chat/turns"
 import again from "../src/chat/again";
 import { step as sourceStep } from "../src/chat/source";
 import type { SourceState } from "../src/chat/source";
 import { forAll } from "./gen";
 
-const turn = (index: number, over: Partial<TurnRow> = {}): TurnRow => ({
+const turn = (index: number, over: Partial<turns.Question> = {}): turns.Question => ({
   index,
   who: "person",
-  verb: "",
   text: `q${index}`,
-  refused: false,
   references: [],
   attachments: [],
   queued: false,
-  blocks: [],
   at: "2026-09-25T10:00:00",
-  remembered: null,
   attempt: "current",
   gone: null,
   ...over,
@@ -34,7 +31,7 @@ const payload = (over: Partial<ConversationPayload>): ConversationPayload => ({
   title: "Secretary",
   model: "m",
   opened: "2026-09-25",
-  turns: [turn(0), turn(1, { who: "model", text: "a" })],
+  turns: [turn(0), { index: 1, who: "model", text: "a", blocks: [], at: "2026-09-25T10:00:00", attempt: "current", gone: null }],
   proposals: [],
   unplaced: [],
   state: "idle",
@@ -66,7 +63,7 @@ test("law: the box's question is offered exactly while nothing runs and the wind
   }
 });
 
-const events = (question: TurnRow): again.Event[] => [
+const events = (question: turns.Question): again.Event[] => [
   { type: "edit", offer: again.none },
   { type: "edit", offer: { type: "Last", question } },
   { type: "cancel" },
@@ -85,7 +82,7 @@ test("law: step reaches only asking, or editing the question last offered", () =
   forAll(200, (r) => {
     const questions = r.array(1 + r.int(4), () => turn(r.int(50)));
     let mode = again.asking;
-    let offered: TurnRow | null = null;
+    let offered: turns.Question | null = null;
     for (let i = r.int(30); i > 0; i -= 1) {
       const e = r.pick(events(r.pick(questions)));
       mode = again.step(mode, e);

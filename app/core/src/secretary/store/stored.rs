@@ -5,7 +5,7 @@ use super::{
     Said, Scope, Standing, Unheld, Unplaced,
 };
 
-use crate::capability::Turn;
+use crate::capability::{Datetime, Turn};
 use crate::secretary::turn_shape::TurnShape;
 use crate::secretary::words::Words;
 
@@ -15,7 +15,7 @@ pub struct Stored {
     /// Its name.
     pub id: ConversationId,
     /// When it was opened.
-    pub opened: String,
+    pub opened: Datetime,
     /// What it is about: the last [`Entry::Titled`](super::Entry::Titled), else the opening line's; empty for an untitled
     /// topic.
     pub title: Words<String>,
@@ -111,24 +111,22 @@ impl Stored {
                 self.title = title.clone().map(String::from);
             }
             Entry::Said { at, turn, by } => self.turns.push(Said {
-                at: at.clone(),
+                at: *at,
                 turn: turn.clone(),
                 by: by.clone(),
             }),
-            Entry::Proposed { at, object, .. } => proposed(self, at, object),
+            Entry::Proposed { at, object, .. } => proposed(self, *at, object),
             Entry::Reviewed {
                 at,
                 chain,
                 batch,
                 decision,
-                objects,
                 why,
             } => self.reviews.push(Review {
-                at: at.clone(),
+                at: *at,
                 chain: chain.clone(),
                 batch: batch.clone(),
-                decision: *decision,
-                objects: objects.clone(),
+                decision: decision.clone(),
                 why: why.clone(),
             }),
             Entry::ReviewFailed {
@@ -136,7 +134,7 @@ impl Stored {
                 reason,
                 standing,
             } => self.failures.push(ReviewFailure {
-                at: at.clone(),
+                at: *at,
                 reason: reason.clone(),
                 standing: *standing,
             }),
@@ -147,8 +145,8 @@ impl Stored {
                 answered(self, &self.id.clone(), *proposal)?;
                 self.coding.insert(*proposal, session.clone());
             }
-            Entry::Stopped { at, by } => stopped(self, at, by),
-            Entry::Rewound { to, at, by } => rewound(self, *to, at, by)?,
+            Entry::Stopped { at, by } => stopped(self, *at, by),
+            Entry::Rewound { to, at, by } => rewound(self, *to, *at, by)?,
             // The last session line wins: one writer, so overwriting is the register's reading.
             Entry::Session {
                 at,
@@ -159,7 +157,7 @@ impl Stored {
             } => {
                 // A line from before the opening window was recorded: what it was sent is not
                 // known, so it is read as holding every turn.
-                self.session = Some(Kept::of(session, model, cwd, at, surface.clone(), 0));
+                self.session = Some(Kept::of(session, model, cwd, *at, surface.clone(), 0));
             }
             Entry::Kept {
                 at,
@@ -169,7 +167,7 @@ impl Stored {
                 surface,
                 from,
             } => {
-                self.session = Some(Kept::of(session, model, cwd, at, surface.clone(), *from));
+                self.session = Some(Kept::of(session, model, cwd, *at, surface.clone(), *from));
             }
             Entry::Scoped { scope, .. } => self.scope = *scope,
             // Only the session that did not hear ends: a later one heard the turn.
@@ -186,13 +184,13 @@ impl Stored {
         Ok(())
     }
 
-    /// A conversation of `kind` with no line yet: what a fold begins from before its opening
-    /// line.
+    /// A conversation of `kind` opened at `opened` with no line yet: what a fold begins from
+    /// before its opening line.
     #[must_use]
-    pub fn empty(id: &ConversationId, kind: Kind) -> Self {
+    pub fn empty(id: &ConversationId, kind: Kind, opened: Datetime) -> Self {
         Self {
             id: id.clone(),
-            opened: String::new(),
+            opened,
             title: Words::kept(String::new()),
             kind,
             model: String::new(),
@@ -221,10 +219,9 @@ impl Stored {
             return Err(NotAConversation::Unopened(id.clone()));
         };
         Ok(Self {
-            opened: at.clone(),
             title: title.clone(),
             model: model.clone(),
-            ..Self::empty(id, *kind)
+            ..Self::empty(id, *kind, *at)
         })
     }
 
@@ -445,20 +442,20 @@ fn joined(asking: &Asking, inbox: &crate::secretary::inbox::Fold) -> Result<Stan
 }
 
 /// Fold one [`Entry::Proposed`](super::Entry::Proposed): push the new [`Asking`](super::Asking).
-fn proposed(stored: &mut Stored, at: &str, object: &crate::secretary::inbox::ProposalId) {
+fn proposed(stored: &mut Stored, at: Datetime, object: &crate::secretary::inbox::ProposalId) {
     stored.proposals.push(Asking {
         index: stored.proposals.len(),
-        at: at.to_owned(),
+        at,
         object: object.clone(),
         after_turn: stored.turns.len(),
     });
 }
 
 /// Fold one [`Entry::Stopped`](super::Entry::Stopped): the act a reader sees, and no session.
-fn stopped(stored: &mut Stored, at: &str, by: &str) {
+fn stopped(stored: &mut Stored, at: Datetime, by: &str) {
     stored.stops.push(stored.turns.len());
     stored.turns.push(Said {
-        at: at.to_owned(),
+        at,
         turn: Turn::Act {
             text: stopped_by(by),
             references: Vec::new(),
@@ -469,7 +466,7 @@ fn stopped(stored: &mut Stored, at: &str, by: &str) {
 }
 
 /// Fold one [`Entry::Rewound`](super::Entry::Rewound): the turns from `to` go aside, and the session with them.
-fn rewound(stored: &mut Stored, to: usize, at: &str, by: &str) -> Result<(), NotAConversation> {
+fn rewound(stored: &mut Stored, to: usize, at: Datetime, by: &str) -> Result<(), NotAConversation> {
     if to > stored.turns.len() {
         return Err(NotAConversation::Unsaid {
             id: stored.id.clone(),
@@ -479,7 +476,7 @@ fn rewound(stored: &mut Stored, to: usize, at: &str, by: &str) -> Result<(), Not
     stored.aside.push(Aside {
         from: to,
         until: stored.turns.len(),
-        at: at.to_owned(),
+        at,
         by: by.to_owned(),
     });
     stored.session = None;

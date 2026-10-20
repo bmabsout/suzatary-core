@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import type { ProposalRow, TurnRow, TurnWho } from "../src/wire/generated/wire";
+import type { ProposalRow, TurnRow } from "../src/wire/generated/wire";
 import { foldOf, rounds, verbFamily } from "../src/chat/rounds";
 import { aCard } from "./cards";
 import { forAll } from "./gen";
@@ -17,15 +17,11 @@ function person(index: number, text: string, at = "2026-09-15T09:00:00"): TurnRo
   return {
     index,
     who: "person",
-    verb: "",
     text,
-    refused: false,
     references: [],
     attachments: [],
     queued: false,
-    blocks: [],
     at,
-    remembered: null,
     attempt: "current",
     gone: null,
   };
@@ -35,15 +31,9 @@ function act(index: number, text: string, at = "2026-09-15T09:00:00"): TurnRow {
   return {
     index,
     who: "act",
-    verb: "",
     text,
-    refused: false,
     references: [],
-    attachments: [],
-    queued: false,
-    blocks: [],
     at,
-    remembered: null,
     attempt: "current",
     gone: null,
   };
@@ -53,15 +43,9 @@ function model(index: number, text: string, at = "2026-09-15T09:00:01"): TurnRow
   return {
     index,
     who: "model",
-    verb: "",
     text,
-    refused: false,
-    references: [],
-    attachments: [],
-    queued: false,
     blocks: [],
     at,
-    remembered: null,
     attempt: "current",
     gone: null,
   };
@@ -80,10 +64,6 @@ function verb(
     verb: name,
     text,
     refused,
-    references: [],
-    attachments: [],
-    queued: false,
-    blocks: [],
     at,
     remembered: null,
     attempt: "current",
@@ -260,7 +240,7 @@ test("a gap between two kept rounds (?about=) still groups each one correctly", 
 
 /** One row of `app/core/tests/about-fixture.json`. */
 interface FixtureTurn {
-  readonly who: TurnWho;
+  readonly who: TurnRow["who"];
   readonly text: string;
   readonly references: readonly string[];
   readonly at: string;

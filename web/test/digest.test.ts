@@ -3,24 +3,32 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import type { ProposedObject } from "../src/wire/generated/wire"
+import type { ProposedChange, ProposedObject } from "../src/wire/generated/wire"
 import digest from "../src/inbox/digest"
+import type proposed from "../src/inbox/proposed"
 import { forAll, type Rng } from "./gen"
 
-const row = (act: string, todo: string, more: Partial<ProposedObject> = {}): ProposedObject => ({
-  hash: `${act}-${todo}`,
-  act,
-  todo,
-  body: "",
-  at: "",
-  actor: "triage",
-  note: "",
-  changes: [],
-  needs: [],
-  pending_todo: false,
-  ...more,
-})
-const priced = (act: string, todo: string, after: string): ProposedObject =>
+type More = { readonly changes?: ProposedChange[]; readonly pending_todo?: boolean }
+// One row of each act, its todo `todo` (a merge names none).
+const row = (act: proposed.Act, todo: string, more: More = {}): ProposedObject => {
+  const hash = `${act}-${todo}`
+  const needs: string[] = []
+  const t = { todo, body: "", at: "", actor: "triage", pending_todo: more.pending_todo ?? false }
+  const changes = more.changes ?? []
+  switch (act) {
+    case "merge": return { hash, needs, act }
+    case "added": return { hash, needs, act, ...t, changes }
+    case "edited": return { hash, needs, act, ...t, changes }
+    case "repriced": return { hash, needs, act, ...t, changes }
+    case "created": return { hash, needs, act, ...t, note: "" }
+    case "completed": return { hash, needs, act, ...t, note: "" }
+    case "cancelled": return { hash, needs, act, ...t, note: "" }
+    case "reopened": return { hash, needs, act, ...t, note: "" }
+    case "tended": return { hash, needs, act, ...t, note: "" }
+    case "respecified": return { hash, needs, act, ...t, note: "" }
+  }
+}
+const priced = (act: proposed.Act, todo: string, after: string): ProposedObject =>
   row(act, todo, { changes: [{ field: "priority", before: "", after }] })
 const line = (rows: ProposedObject[]): string => digest.line(digest.of(rows))
 
@@ -47,8 +55,8 @@ test("a merge names no todo and is counted by its objects", () => {
   assert.equal(line([row("added", "x"), row("merge", ""), row("merge", "")]), "add x · join histories 2 times")
 })
 
-test("an object with no todo is about the chain", () => {
-  assert.equal(line([row("created", "")]), "register the chain")
+test("a spec revised reads as a reprice, and no rows read as nothing", () => {
+  assert.equal(line([row("respecified", "plants")]), "reprice plants")
   assert.equal(line([]), "")
 })
 
@@ -60,7 +68,7 @@ test("a price at or under the hold is said, a higher one or none is not", () => 
 })
 
 test("a todo waiting on another batch is said", () => {
-  const t = digest.of([row("completed", "x", { pending_todo: true }), row("merge", "", { pending_todo: true })])
+  const t = digest.of([row("completed", "x", { pending_todo: true }), row("merge", ""), row("added", "y")])
   assert.equal(digest.pendingLine(t), "Not on the chain yet, waiting on another batch: x")
 })
 
@@ -71,10 +79,10 @@ test("the box's printed price reads as its number, and anything else as none", (
   assert.equal(digest.percent(""), null)
 })
 
-const ACTS = ["added", "edited", "repriced", "completed", "cancelled", "reopened", "tended", "created", "merge"]
+const ACTS: readonly proposed.Act[] = ["added", "edited", "repriced", "completed", "cancelled", "reopened", "tended", "created", "respecified", "merge"]
 const anyRow = (r: Rng): ProposedObject => {
   const act = r.pick(ACTS)
-  const todo = act === "merge" ? "" : r.pick(["", "a", "b", "c"])
+  const todo = act === "merge" ? "" : r.pick(["a", "b", "c"])
   return row(act, todo, {
     changes: r.bool() ? [{ field: "priority", before: "", after: r.pick(["10%", "45%", "70%", "unpriced"]) }] : [],
     pending_todo: r.bool(0.2),

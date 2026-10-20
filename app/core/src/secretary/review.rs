@@ -6,7 +6,7 @@
 use super::Bound;
 use super::daily::{Daily, daily_round};
 use super::found::{Found, Unreadable};
-use super::store::{ConversationId, Decision, Entry, Review, Stored, stamp};
+use super::store::{ConversationId, Decision, Entry, Outcome, Review, Stored};
 use super::surface::SecretaryVerb;
 use super::verbs::{answered, listed};
 use crate::authoring::NewDecision;
@@ -34,10 +34,10 @@ pub struct Reviewed {
 impl Reviewed {
     /// The lines with one decision, for a caller printing three lists.
     #[must_use]
-    pub fn with(&self, decision: Decision) -> Vec<&Review> {
+    pub fn with(&self, outcome: Outcome) -> Vec<&Review> {
         self.decided
             .iter()
-            .filter(|review| review.decision == decision)
+            .filter(|review| review.decision.outcome() == outcome)
             .collect()
     }
 }
@@ -85,7 +85,7 @@ pub fn review(
         caps.conversations,
         &id,
         &Entry::Said {
-            at: stamp(caps.clock.now()),
+            at: caps.clock.now(),
             turn: Turn::Person {
                 text: ASK.to_owned(),
                 references: Vec::new(),
@@ -98,7 +98,7 @@ pub fn review(
         caps.conversations,
         &id,
         &Entry::Said {
-            at: stamp(caps.clock.now()),
+            at: caps.clock.now(),
             turn: Turn::Tool {
                 verb: SecretaryVerb::ProposalsList.into(),
                 answer: serde_json::to_string_pretty(&answered(&standing))
@@ -138,7 +138,7 @@ pub fn review(
                 caps.conversations,
                 &id,
                 &Entry::ReviewFailed {
-                    at: stamp(caps.clock.now()),
+                    at: caps.clock.now(),
                     reason: crate::secretary::words::Words::kept(refusal.message().to_owned()),
                     standing: heads(&standing).len(),
                 },
@@ -203,7 +203,7 @@ pub fn note_unreadable(
     transcript::push(
         caps.conversations,
         &id,
-        &Entry::noted(stamp(caps.clock.now()), text, Vec::new()),
+        &Entry::noted(caps.clock.now(), text, Vec::new()),
     )?;
     Ok(Some(crate::capability::Push::Unreadable {
         conversations: count,
@@ -228,7 +228,7 @@ fn hold_the_rest(
         .filter(|review| review.decision == Decision::Held)
         .map(|review| review.batch.clone())
         .collect();
-    let at = stamp(caps.clock.now());
+    let at = caps.clock.now();
     let held = heads(&left);
     for (chain, head) in &held {
         // Authoring is idempotent, and a batch held without a decision is invisible in the Inbox.
@@ -249,12 +249,11 @@ fn hold_the_rest(
             caps.conversations,
             id,
             &Entry::Reviewed {
-                at: at.clone(),
+                at,
                 chain: chain.clone(),
                 batch: head.clone(),
-                decision: Decision::Held,
                 // A hold is a decision about the whole batch, so it names no object.
-                objects: Vec::new(),
+                decision: Decision::Held,
                 why: crate::secretary::words::Words::kept(why.clone()),
             },
         )?;
@@ -372,13 +371,11 @@ pub fn reviews(
         stored
             .reviews
             .iter()
-            .filter(|review| on_or_after(&review.at, since))
+            .filter(|review| on_or_after(review.at, since))
             .map(|review| (stored.id.clone(), review.clone()))
             .collect::<Vec<_>>()
     });
-    found
-        .items
-        .sort_by(|left, right| left.1.at.cmp(&right.1.at));
+    found.items.sort_by_key(|(_, dated)| dated.at);
     Ok(found)
 }
 
@@ -395,13 +392,11 @@ pub fn failures(
         stored
             .failures
             .iter()
-            .filter(|failure| on_or_after(&failure.at, since))
+            .filter(|failure| on_or_after(failure.at, since))
             .map(|failure| (stored.id.clone(), failure.clone()))
             .collect::<Vec<_>>()
     });
-    found
-        .items
-        .sort_by(|left, right| left.1.at.cmp(&right.1.at));
+    found.items.sort_by_key(|(_, dated)| dated.at);
     Ok(found)
 }
 
@@ -436,7 +431,7 @@ pub fn outage(
 ) -> Result<Outage, Refusal> {
     let failed = failures(conversations, today)?.items;
     let ran = reviews(conversations, today)?.items;
-    let last_ran = ran.last().map(|(_, review)| review.at.clone());
+    let last_ran = ran.last().map(|(_, review)| review.at);
     let since: Vec<_> = failed
         .iter()
         .filter(|(_, failure)| last_ran.as_ref().is_none_or(|at| &failure.at > at))
@@ -448,10 +443,8 @@ pub fn outage(
 }
 
 /// Is this stored instant on or after that day? Parsed rather than sliced, to survive a hand edit.
-fn on_or_after(at: &str, since: chrono::NaiveDate) -> bool {
-    at.get(..10)
-        .and_then(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok())
-        .is_some_and(|day| day >= since)
+fn on_or_after(at: crate::capability::Datetime, since: chrono::NaiveDate) -> bool {
+    prodrome_core::fpl::instant_of(at).date() >= since
 }
 
 #[cfg(test)]
@@ -466,15 +459,14 @@ mod tests {
         let store = crate::secretary::conversations::InMemory::default();
         let conversations = store.conversations();
         let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 11).expect("a day");
-        let at = stamp(
-            prodrome_core::literal::Datetime::new(2026, 10, 11, 9, 0, 0, 0).expect("an instant"),
-        );
+        let at =
+            prodrome_core::literal::Datetime::new(2026, 10, 11, 9, 0, 0, 0).expect("an instant");
         let open = |id: &ConversationId| {
             transcript::start(
                 conversations,
                 id,
                 &Entry::Opened {
-                    at: at.clone(),
+                    at,
                     title: crate::secretary::words::Words::kept("Review".to_owned()),
                     model: "m".to_owned(),
                     kind: Kind::Review,
@@ -488,11 +480,10 @@ mod tests {
             conversations,
             &good,
             &Entry::Reviewed {
-                at: at.clone(),
+                at,
                 chain: "life".to_owned(),
                 batch: "a".repeat(64),
                 decision: Decision::Held,
-                objects: Vec::new(),
                 why: crate::secretary::words::Words::kept("it changes a commitment".to_owned()),
             },
         )

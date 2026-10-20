@@ -1,7 +1,7 @@
 // Every act a page takes, in data: a closed vocabulary, what of the history holds each, and how each reaches the box.
 // A monotone act is sealed into the tab's own replica; every other is a request the box answers under its lock.
 
-import type { AttachmentRow, ConversationPayload, ProposalRow } from "../wire/generated/wire"
+import type { AttachmentRow, ConversationPayload, FactId, ProposalRow } from "../wire/generated/wire"
 import { acknowledgeProposal, dismissProposal, dropSession, editQuestion, eraseTurns, forgetFact, handSession, regenerate, renameConversation, say, stopAnswer, tapProposal } from "../wire/api"
 import { parsed } from "../chat/refs"
 import type vouch from "./vouch"
@@ -31,7 +31,7 @@ export namespace asks {
     | { readonly type: "Question"; readonly kind: "Say" | "Edit"; readonly question: Question }
     | { readonly type: "Round"; readonly kind: "Stop" | "Regenerate"; readonly conversation: string; readonly after: number }
     | { readonly type: "Rename"; readonly conversation: string; readonly title: string }
-    | { readonly type: "Forget"; readonly fact: number }
+    | { readonly type: "Forget"; readonly fact: FactId }
     | { readonly type: "Erase"; readonly conversation: string; readonly turns: readonly number[] }
 
   type Of<K extends Ask["type"]> = Extract<Ask, { type: K }>

@@ -613,7 +613,7 @@ pub fn erase(
     id: &ConversationId,
     keys: std::collections::BTreeSet<KeyName>,
     erasure: Erasure,
-    at: String,
+    at: crate::capability::Datetime,
 ) -> Result<usize, StoreError> {
     {
         let _held = conversations.lines.locked()?;
@@ -716,10 +716,8 @@ mod tests {
         ConversationId::new(text).expect("a slug")
     }
 
-    fn at(second: u32) -> String {
-        crate::secretary::store::stamp(
-            Datetime::new(2026, 9, 30, 9, 0, second, 0).expect("an instant"),
-        )
+    fn at(second: u32) -> Datetime {
+        Datetime::new(2026, 9, 30, 9, 0, second, 0).expect("an instant")
     }
 
     fn opened() -> Entry {

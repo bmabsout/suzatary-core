@@ -176,7 +176,7 @@ mod tests {
 
     fn opened() -> Entry {
         Entry::Opened {
-            at: "2026-09-13T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 13, 9, 0, 0, 0).expect("an instant"),
             title: crate::secretary::words::Words::kept("Morning".to_owned()),
             model: "claude-cli/haiku".to_owned(),
             kind: crate::secretary::store::Kind::Topic,
@@ -185,7 +185,7 @@ mod tests {
 
     fn said(at: &str, turn: Turn) -> Entry {
         Entry::Said {
-            at: at.to_owned(),
+            at: crate::secretary::store::instant(at),
             turn,
             by: None,
         }
@@ -229,7 +229,13 @@ mod tests {
     /// and the owner's next turn is sent with them, in order.
     #[test]
     fn the_boxs_notes_wait_for_the_owners_turn() {
-        let noted = |at: &str, text: &str| Entry::noted(at.to_owned(), text.to_owned(), Vec::new());
+        let noted = |at: &str, text: &str| {
+            Entry::noted(
+                crate::secretary::store::instant(at),
+                text.to_owned(),
+                Vec::new(),
+            )
+        };
         let mut lines = vec![
             opened(),
             noted("2026-09-13T09:01:00", "The box asks: a key."),
@@ -245,7 +251,7 @@ mod tests {
         let pending = Pending::of(&waiting).expect("the owner's turn wakes");
         assert_eq!(pending.delta(None).turns().len(), 3, "the notes ride along");
         let dismissed = Entry::Said {
-            at: "2026-09-13T09:04:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 13, 9, 4, 0, 0).expect("an instant"),
             turn: Turn::Act {
                 text: "Ada dismissed it: not now".to_owned(),
                 references: Vec::new(),
@@ -382,7 +388,7 @@ mod tests {
 
     fn stop(at: &str) -> Entry {
         Entry::Stopped {
-            at: at.to_owned(),
+            at: crate::secretary::store::instant(at),
             by: "ada".to_owned(),
         }
     }
@@ -514,7 +520,7 @@ mod tests {
                 Step::Complete => entries.push(said(&stamp, finished_model("ok"))),
                 Step::Stop { stored_shape } => {
                     entries.push(Entry::Stopped {
-                        at: stamp.clone(),
+                        at: crate::secretary::store::instant(&stamp),
                         by: "ada".to_owned(),
                     });
                     if *stored_shape {

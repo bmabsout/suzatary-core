@@ -127,10 +127,6 @@ fn at(hour: u32, minute: u32) -> Datetime {
     Datetime::new(2026, 9, 20, hour, minute, 0, 0).expect("an instant")
 }
 
-fn iso(hour: u32, minute: u32) -> String {
-    format!("2026-09-20T{hour:02}:{minute:02}:00")
-}
-
 fn policy() -> Untrusted {
     Untrusted::of([Actor::new("triage").expect("an actor")])
 }
@@ -338,7 +334,7 @@ fn conversations(root: &Path, asked: &inbox::ProposalId) {
         opened: Box::leak(Box::default()),
     };
     let opened = |title: &str| Entry::Opened {
-        at: iso(12, 0),
+        at: at(12, 0),
         title: suzatary_core::secretary::words::Words::kept(title.to_owned()),
         model: "scripted/golden".to_owned(),
         kind: suzatary_core::secretary::store::Kind::Topic,
@@ -349,7 +345,7 @@ fn conversations(root: &Path, asked: &inbox::ProposalId) {
         store,
         &morning,
         &Entry::Said {
-            at: iso(12, 1),
+            at: at(12, 1),
             turn: Turn::Person {
                 text: "what is due".to_owned(),
                 references: vec![
@@ -367,7 +363,7 @@ fn conversations(root: &Path, asked: &inbox::ProposalId) {
         store,
         &morning,
         &Entry::Proposed {
-            at: iso(12, 2),
+            at: at(12, 2),
             object: asked.clone(),
             revises: None,
         },
@@ -759,7 +755,7 @@ fn lines_at_scale() {
     let warm: &'static suzatary_core::secretary::opened::Opened = Box::leak(Box::default());
     let id = ConversationId::new("2026-10-09-1").expect("a slug");
     let said = |k: usize| Entry::Said {
-        at: iso(
+        at: at(
             9 + u32::try_from(k / 3600).expect("few"),
             u32::try_from(k / 60 % 60).expect("few"),
         ),
@@ -774,7 +770,7 @@ fn lines_at_scale() {
         stores(warm),
         &id,
         &Entry::Opened {
-            at: iso(9, 0),
+            at: at(9, 0),
             title: suzatary_core::secretary::words::Words::kept("Long".to_owned()),
             model: "claude-cli/haiku".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Topic,
@@ -842,14 +838,14 @@ fn lines_for_a_tab() {
         renders: &suzatary_core::capability::Nothing,
         opened,
     };
-    let at = |k: usize| {
-        iso(
+    let second = |k: usize| {
+        at(
             9 + u32::try_from(k / 3600).expect("few"),
             u32::try_from(k / 60 % 60).expect("few"),
         )
     };
     let said = |k: usize| Entry::Said {
-        at: at(k),
+        at: second(k),
         turn: if k % 2 == 1 {
             Turn::Person {
                 text: format!("line {k}: {}", "a sentence of what was said ".repeat(6)),
@@ -875,7 +871,7 @@ fn lines_for_a_tab() {
             stores,
             id,
             &Entry::Opened {
-                at: iso(9, 0),
+                at: at(9, 0),
                 title: suzatary_core::secretary::words::Words::kept("Long".to_owned()),
                 model: "claude-cli/haiku".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -895,7 +891,7 @@ fn lines_for_a_tab() {
         &ids[0],
         read.lines()[line].line.keys().cloned().collect(),
         suzatary_core::secretary::erasure::Erasure::Asked { by: owner() },
-        at(2_000),
+        second(2_000),
     )
     .expect("erased");
     let objects: Vec<serde_json::Value> = lines

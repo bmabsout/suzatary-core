@@ -14,7 +14,7 @@ use crate::reference::{ProposalRef, Reference, TodoRef};
 use crate::refusal::Refusal;
 use crate::secretary::responded::{Performed, Tried};
 use crate::secretary::stamp::Stamp;
-use crate::secretary::store::{ConversationId, Entry, stamp};
+use crate::secretary::store::{ConversationId, Entry};
 
 /// One act, from a closed set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -332,7 +332,7 @@ pub fn reconcile(
         super::append(
             conversations,
             &object.asked.asked.conversation,
-            &Entry::noted(stamp(now), RESTARTED.to_owned(), Vec::new()),
+            &Entry::noted(now, RESTARTED.to_owned(), Vec::new()),
         )?;
         reconciled += 1;
     }
@@ -391,7 +391,7 @@ pub fn note_act(
         conversations,
         id,
         &Entry::Said {
-            at: stamp(line.at),
+            at: line.at,
             turn: crate::capability::Turn::Act {
                 text: describe_act(&named(&line.actor), line.verb, note),
                 references: vec![line.reference.clone()],
@@ -708,7 +708,7 @@ mod tests {
             store.lines.conversations(),
             id,
             &Entry::Opened {
-                at: "2026-09-14T08:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 14, 8, 0, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept("A grant".to_owned()),
                 model: "a fake model".to_owned(),
                 kind: crate::secretary::store::Kind::Topic,
@@ -741,7 +741,7 @@ mod tests {
             store.lines.conversations(),
             id,
             &Entry::Proposed {
-                at: "2026-09-14T08:59:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 14, 8, 59, 0, 0).expect("an instant"),
                 object: object.clone(),
                 revises: None,
             },
@@ -1029,7 +1029,7 @@ mod tests {
             store.lines.conversations(),
             id,
             &Entry::Opened {
-                at: "2026-09-15T08:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 15, 8, 0, 0, 0).expect("an instant"),
                 title: crate::secretary::words::Words::kept("A chain act".to_owned()),
                 model: "a fake model".to_owned(),
                 kind: crate::secretary::store::Kind::Topic,
@@ -1110,7 +1110,7 @@ mod tests {
         use crate::capability::ToolCall;
         use crate::secretary::store::DEFAULT;
         let said = |turn: Turn, by: Option<&str>| Entry::Said {
-            at: stamp(now()),
+            at: now(),
             turn,
             by: by.map(Into::into),
         };

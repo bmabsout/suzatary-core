@@ -147,7 +147,8 @@ fn the_decorations_are_asked_by_content() {
         .as_array()
         .expect("turns")
         .iter()
-        .flat_map(|turn| turn["blocks"].as_array().expect("blocks").clone())
+        .filter(|turn| turn["who"] == "model")
+        .flat_map(|turn| turn["blocks"].as_array().expect("a model's blocks").clone())
         .next()
         .expect("the answer has a block");
     let sha = suzatary_core::secretary::answer::sha(block["source"].as_str().expect("a source"));

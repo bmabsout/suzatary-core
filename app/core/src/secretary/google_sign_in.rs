@@ -250,11 +250,7 @@ pub fn end(
         super::append(
             conversations,
             &asked.conversation,
-            &crate::secretary::store::Entry::noted(
-                crate::secretary::store::stamp(at),
-                said,
-                vec![asked.clone().into()],
-            ),
+            &crate::secretary::store::Entry::noted(at, said, vec![asked.clone().into()]),
         )?;
     }
     Ok(Some(asked.conversation))

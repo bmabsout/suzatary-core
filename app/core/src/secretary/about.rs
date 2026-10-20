@@ -104,7 +104,7 @@ mod tests {
             other => panic!("the fixture named an unknown turn kind {other:?}"),
         };
         Said {
-            at: row.at.clone(),
+            at: crate::secretary::store::instant(&row.at),
             turn,
             by: None,
         }
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn a_leading_model_turn_still_gets_a_span() {
         let turns = vec![Said {
-            at: "2026-09-15T10:03:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 15, 10, 3, 0, 0).expect("an instant"),
             turn: Turn::Model {
                 text: "Your brief is ready.".to_owned(),
                 calls: Vec::new(),

@@ -13,6 +13,7 @@ import { NOTHING, boxHeadsOf, headsOf, join, parentsOf, prodromeOf, pulled, repl
 import type { Replica } from "../src/prodrome/replica"
 import type { StorePayload, StoredObject } from "../src/wire/generated/wire"
 import { forAllAsync } from "./gen"
+import { held as prodromes } from "./held"
 import heads from "../src/prodrome/heads"
 
 const box = JSON.parse(readFileSync("app/core/tests/web/replicas.json", "utf8")) as { conversations: { hash: string; text: string }[] }
@@ -47,7 +48,7 @@ const answer = (budget: number) => (since: readonly string[]): StorePayload => {
     if (bytes > budget && objects.length > 0) break
     objects.push(o)
   }
-  return { objects, heads: headsOf(all), untrusted: [], root: null, geneses: [], epoch: 1, keys: {}, rest: missing.length - objects.length, erased: [] }
+  return { objects, heads: headsOf(all), untrusted: [], root: null, geneses: prodromes(all), epoch: 1, keys: {}, rest: missing.length - objects.length, erased: [] }
 }
 
 // A tab's lines as `storesync` holds them: the row pages read, and beside it the pieces of a pull not yet landed. It

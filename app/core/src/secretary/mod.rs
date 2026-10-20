@@ -103,7 +103,7 @@ use crate::reference::{ProposalRef, Reference, TodoRef};
 use crate::refusal::{Refusal, Status, shown};
 use crate::verb::Request;
 pub use call::Call;
-use store::{ConversationId, Entry, Stored, stamp};
+use store::{ConversationId, Entry, Stored};
 pub use store::{ConversationState, state};
 use surface::Subset;
 pub use surface::{Effect, Powers, SecretaryCall, SecretarySurface, SecretaryVerb, tools};
@@ -216,7 +216,7 @@ pub fn converse(
         caps.conversations,
         id,
         &Entry::Said {
-            at: stamp(now),
+            at: now,
             turn: Turn::Person {
                 text: said.text.to_owned(),
                 references: said.references.to_vec(),
@@ -316,7 +316,7 @@ pub fn stop_waiting(
         conversations,
         id,
         &Entry::Stopped {
-            at: stamp(clock.now()),
+            at: clock.now(),
             by: by.as_str().to_owned(),
         },
     )?;
@@ -373,7 +373,7 @@ fn load_references(
             caps.conversations,
             id,
             &Entry::Said {
-                at: stamp(caps.clock.now()),
+                at: caps.clock.now(),
                 turn: Turn::Tool {
                     verb: tool_name::ToolName::Reference,
                     // The text form first, so the model can name the thing back.
@@ -661,7 +661,7 @@ fn heard(
         conversations,
         &card.conversation,
         &Entry::Said {
-            at: stamp(clock.now()),
+            at: clock.now(),
             turn: Turn::Act {
                 text: acts::describe_act(&acts::named(by.as_str()), verb, words),
                 references: vec![card.clone().into()],
@@ -706,7 +706,7 @@ pub fn edit(
         conversations,
         id,
         &Entry::Said {
-            at: stamp(clock.now()),
+            at: clock.now(),
             turn: said,
             by: Some(stamped),
         },
@@ -726,7 +726,7 @@ fn rewound(
         id,
         &Entry::Rewound {
             to,
-            at: stamp(clock.now()),
+            at: clock.now(),
             by: by.as_str().to_owned(),
         },
     )
@@ -745,7 +745,7 @@ pub fn start(
     at: Datetime,
 ) -> Result<Stored, Refusal> {
     let opened = Entry::Opened {
-        at: stamp(at),
+        at,
         title: crate::secretary::words::Words::kept(title.to_owned()),
         model: model.name(),
         kind,
@@ -882,7 +882,7 @@ mod tests {
 
     fn push_opened() -> Entry {
         Entry::Opened {
-            at: "2026-09-15T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 15, 9, 0, 0, 0).expect("an instant"),
             title: crate::secretary::words::Words::kept("Morning".to_owned()),
             model: "claude-cli".to_owned(),
             kind: crate::secretary::store::Kind::Topic,
@@ -891,7 +891,7 @@ mod tests {
 
     fn push_said(text: &str) -> Entry {
         Entry::Said {
-            at: "2026-09-15T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 15, 9, 1, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: text.to_owned(),
                 references: Vec::new(),
@@ -903,7 +903,7 @@ mod tests {
 
     fn push_answered(text: &str, calls: Vec<ToolCall>) -> Entry {
         Entry::Said {
-            at: "2026-09-15T09:02:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 15, 9, 2, 0, 0).expect("an instant"),
             turn: Turn::Model {
                 text: text.to_owned(),
                 calls,

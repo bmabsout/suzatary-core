@@ -9,7 +9,7 @@ use prodrome_core::event::{Hash, mk_completed};
 use suzatary_core::capability::Clock as _;
 use suzatary_core::secretary::Bound;
 use suzatary_core::secretary::review::{review, reviews};
-use suzatary_core::secretary::store::Decision;
+use suzatary_core::secretary::store::{Decision, Outcome, Settle};
 use suzatary_core::store::Prodrome as _;
 use suzatary_core::wire::EntryState;
 
@@ -141,9 +141,9 @@ fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
     assert!(replica.contains(&hisown), "the held batch is untouched");
 
     // One record line per decision.
-    let accepted = done.with(Decision::Accepted);
-    let rejected = done.with(Decision::Rejected);
-    let held = done.with(Decision::Held);
+    let accepted = done.with(Outcome::Settled(Settle::Accepted));
+    let rejected = done.with(Outcome::Settled(Settle::Rejected));
+    let held = done.with(Outcome::Held);
     assert_eq!(accepted.len(), 1, "{:?}", done.decided);
     assert_eq!(rejected.len(), 1, "{:?}", done.decided);
     assert_eq!(held.len(), 1, "{:?}", done.decided);
@@ -154,7 +154,7 @@ fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
     assert_eq!(held[0].chain, "life");
     // With no hold verb, the hold's reason is what the secretary said.
     assert_eq!(held[0].why.get().map(String::as_str), Some(SAID));
-    assert!(held[0].objects.is_empty(), "a hold settles nothing");
+    assert_eq!(held[0].decision, Decision::Held, "a hold settles nothing");
 }
 
 /// The record line's shape, which the briefing and the terminal both quote.
@@ -179,13 +179,13 @@ fn a_review_line_says_what_was_done_to_how_many_and_why() {
     )
     .expect("the review runs");
 
-    let accepted = done.with(Decision::Accepted)[0].to_string();
+    let accepted = done.with(Outcome::Settled(Settle::Accepted))[0].to_string();
     assert!(
         accepted.starts_with("accepted 1 object of batch "),
         "{accepted}"
     );
     assert!(accepted.contains("… on life: A new todo"), "{accepted}");
-    let held = done.with(Decision::Held)[0].to_string();
+    let held = done.with(Outcome::Held)[0].to_string();
     assert!(held.starts_with("held batch "), "{held}");
     assert!(held.contains("… on life: "), "{held}");
 
@@ -265,14 +265,14 @@ fn holding_the_same_batch_again_is_not_a_second_line() {
         "a brief",
     )
     .expect("the review runs");
-    assert_eq!(first.with(Decision::Held).len(), 3, "{:?}", first.decided);
+    assert_eq!(first.with(Outcome::Held).len(), 3, "{:?}", first.decided);
     assert_eq!(
         first.standing, 3,
         "all three are still standing when it ends"
     );
     assert!(
         first
-            .with(Decision::Held)
+            .with(Outcome::Held)
             .iter()
             .any(|held| held.batch == hisown.as_str())
     );
@@ -297,7 +297,7 @@ fn holding_the_same_batch_again_is_not_a_second_line() {
 #[test]
 fn an_unreadable_conversation_is_named_and_paged_once() {
     use suzatary_core::secretary::review::note_unreadable;
-    use suzatary_core::secretary::store::{ConversationId, Entry, Kind, stamp};
+    use suzatary_core::secretary::store::{ConversationId, Entry, Kind};
     use suzatary_core::secretary::transcript;
     let caps = Fakes::new("review-unreadable");
     let zone = suzatary_core::zone::Zone::UTC;
@@ -307,13 +307,13 @@ fn an_unreadable_conversation_is_named_and_paged_once() {
         "every conversation reads"
     );
     let bad = ConversationId::new("2026-01-02-1").expect("a slug");
-    let at = stamp(caps.clock.now());
+    let at = caps.clock.now();
     let lines = caps.conversations.conversations();
     transcript::start(
         lines,
         &bad,
         &Entry::Opened {
-            at: at.clone(),
+            at,
             title: suzatary_core::secretary::words::Words::kept("Topic".to_owned()),
             model: "m".to_owned(),
             kind: Kind::Topic,
@@ -512,7 +512,7 @@ fn a_held_batch_is_a_decision_accepting_or_rejecting_it_later_settles_it() {
         "a brief",
     )
     .expect("round one runs");
-    assert_eq!(first.with(Decision::Held).len(), 3, "{:?}", first.decided);
+    assert_eq!(first.with(Outcome::Held).len(), 3, "{:?}", first.decided);
 
     let open = decisions(&holding);
     assert_eq!(
@@ -541,13 +541,13 @@ fn a_held_batch_is_a_decision_accepting_or_rejecting_it_later_settles_it() {
     )
     .expect("round two runs");
     assert_eq!(
-        second.with(Decision::Accepted).len(),
+        second.with(Outcome::Settled(Settle::Accepted)).len(),
         1,
         "{:?}",
         second.decided
     );
     assert_eq!(
-        second.with(Decision::Rejected).len(),
+        second.with(Outcome::Settled(Settle::Rejected)).len(),
         1,
         "{:?}",
         second.decided
@@ -606,11 +606,11 @@ fn a_hold_recorded_without_its_decision_gets_one_on_the_next_pass() {
             holding.conversations.conversations(),
             &id,
             &suzatary_core::secretary::store::Entry::Reviewed {
-                at: "2026-09-22T00:00:00".to_owned(),
+                at: suzatary_core::capability::Datetime::new(2026, 9, 22, 0, 0, 0, 0)
+                    .expect("an instant"),
                 chain: "life".to_owned(),
                 batch: head.as_str().to_owned(),
                 decision: Decision::Held,
-                objects: Vec::new(),
                 why: suzatary_core::secretary::words::Words::kept("held earlier today".to_owned()),
             },
         )

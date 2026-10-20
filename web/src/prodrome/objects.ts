@@ -29,7 +29,7 @@ const Spoken = d.obj<Word>({
   untrusted: d.arr(d.str),
   root: d.nullable(d.str),
   fetchedAt: d.num,
-  geneses: d.nullable(d.arr(d.str)),
+  geneses: d.arr(d.str),
 });
 
 export const Stored = d.obj<Held>({
@@ -46,18 +46,44 @@ export const parseReplica = (raw: unknown): lo.Settled<Replica> => lo.map(Stored
 // --- the shell: IndexedDB ----------------------------------------------------
 
 /**
- * A row this build does not read is never read as one it does: a device holding an earlier version's rows drops them
+ * A row this build does not read is never read as one it does: a device holding rows from before version 3 drops them
  * all, and pulls each chain and store again from the box. What a dropped row held that the box had not taken is lost.
+ * Version 3's rows are carried: a word of the box that kept `null` for "did not say" is dropped, so the replica reads
+ * as unheard until its next pull, and every object it held stays.
  */
 const DB: idb.Db = {
   name: DB_NAME,
-  version: 3,
+  version: 4,
   store: STORE_NAME,
-  upgrade: (db) => {
+  upgrade: (db, tx, from) => {
+    if (from === 3) {
+      carry(tx.objectStore(STORE_NAME));
+      return;
+    }
     if (db.objectStoreNames.contains(STORE_NAME)) db.deleteObjectStore(STORE_NAME);
     db.createObjectStore(STORE_NAME);
   },
 };
+
+/** Every version 3 row rewritten in version 4's form, in the upgrade's own transaction. */
+function carry(store: IDBObjectStore): void {
+  const cursor = store.openCursor();
+  cursor.onsuccess = () => {
+    const at = cursor.result;
+    if (at === null) return;
+    at.update(carried(at.value));
+    at.continue();
+  };
+}
+
+/** A version 3 row with every word that named no geneses left out: a chain's row is a replica, a store's holds one. */
+export function carried(row: unknown): unknown {
+  if (typeof row !== "object" || row === null) return row;
+  if ("replica" in row) return { ...row, replica: carried(row.replica) };
+  if (!("words" in row) || !Array.isArray(row.words)) return row;
+  const words: unknown[] = row.words;
+  return { ...row, words: words.filter((w) => typeof w === "object" && w !== null && "geneses" in w && w.geneses !== null) };
+}
 
 /**
  * What a kind of row holds and how it reads, joins and starts over: a chain's row is its replica, a store's its replica

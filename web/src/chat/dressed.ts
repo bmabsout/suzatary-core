@@ -16,6 +16,7 @@ import rendered from "../app/rendered"
 import storesync from "../prodrome/storesync"
 import { loadCore } from "../prodrome/core"
 import { heldChains, setOf, watchOthers, watchReplica } from "../prodrome/sync"
+import turns from "../chat/turns"
 
 export namespace dressed {
   // A block the box will not render stays its source, which the view draws.
@@ -27,7 +28,7 @@ export namespace dressed {
   }
 
   const turnOf = (id: string, t: TurnRow): Promise<TurnRow> =>
-    t.blocks.length === 0 ? Promise.resolve(t) : Promise.all(t.blocks.map(b => blockOf(id, b))).then(blocks => ({ ...t, blocks }))
+    t.who !== "model" || t.blocks.length === 0 ? Promise.resolve(t) : Promise.all(t.blocks.map(b => blockOf(id, b))).then(blocks => ({ ...t, blocks }))
 
   // The card counts what it draws, so a drawn proposal is the box's whole row; a secret's card links to where the
   // deployment's own declarations say it is issued, and a connection's names what its plugin may reach now.
@@ -64,7 +65,7 @@ export namespace dressed {
   export const asked = (): Promise<MemoryPayload | null> => getMemory().catch(() => null)
 
   const memory = (w: ConversationPayload): Promise<MemoryPayload | null> =>
-    w.turns.some(t => t.remembered !== null) || w.proposals.some(p => p.act.kind === "remember")
+    w.turns.some(t => turns.remembered(t) !== null) || w.proposals.some(p => p.act.kind === "remember")
       ? asked()
       : Promise.resolve(null)
 

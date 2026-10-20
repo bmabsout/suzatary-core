@@ -8,7 +8,7 @@ use crate::conversation::ask::{Answered, Ask, Asked, Sent};
 use crate::escape::escape_markup;
 use crate::refusal::Refusal;
 use crate::secretary::queue;
-use crate::secretary::store::{ConversationId, Entry, Scope, Stored, stamp};
+use crate::secretary::store::{ConversationId, Entry, Scope, Stored};
 use crate::secretary::surface::{SecretaryCall, Subset};
 use crate::secretary::tool_name::ToolName;
 use crate::secretary::transcript;
@@ -307,13 +307,13 @@ impl Round {
             self.append(
                 at,
                 Entry::MemorySeen {
-                    at: stamp(at.clock.now()),
+                    at: at.clock.now(),
                     version,
                 },
             )?;
         }
         match &asked.answered {
-            Answered::Opened(_, kept) => self.append(at, kept.line(stamp(at.clock.now())))?,
+            Answered::Opened(_, kept) => self.append(at, kept.line(at.clock.now()))?,
             Answered::Stateless { by, .. } => self.unheard(at, stored, by)?,
             Answered::Resumed(_) => {}
         }
@@ -321,7 +321,7 @@ impl Round {
             self.append(
                 at,
                 Entry::Scoped {
-                    at: stamp(at.clock.now()),
+                    at: at.clock.now(),
                     scope,
                 },
             )?;
@@ -331,7 +331,7 @@ impl Round {
         self.append(
             at,
             Entry::Said {
-                at: stamp(at.clock.now()),
+                at: at.clock.now(),
                 turn: Turn::Model {
                     text: asked.reply.say,
                     calls: asked.reply.calls,
@@ -353,7 +353,7 @@ impl Round {
             .iter()
             .map(|(name, value)| (name.clone(), value.clone()))
             .collect();
-        let stamped = stamp(at.clock.now());
+        let stamped = at.clock.now();
         let answer = rules
             .verbs
             .find(&called.verb)
@@ -378,7 +378,7 @@ impl Round {
             Why::Stopped(by) => self.append(
                 at,
                 Entry::Stopped {
-                    at: stamp(at.clock.now()),
+                    at: at.clock.now(),
                     by: by.as_str().to_owned(),
                 },
             ),
@@ -387,7 +387,7 @@ impl Round {
                 self.append(
                     at,
                     Entry::Said {
-                        at: stamp(at.clock.now()),
+                        at: at.clock.now(),
                         turn: Turn::Model {
                             text: escape_markup(&why.said()).as_str().to_owned(),
                             calls: Vec::new(),
@@ -408,7 +408,7 @@ impl Round {
         self.append(
             at,
             Entry::Unheard {
-                at: stamp(at.clock.now()),
+                at: at.clock.now(),
                 session: kept.session.id.clone(),
                 model: by.to_owned(),
             },

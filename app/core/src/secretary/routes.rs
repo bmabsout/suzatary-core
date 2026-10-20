@@ -22,7 +22,7 @@ use crate::secretary::decide;
 use crate::secretary::inbox::{self, ProposalId, Response};
 use crate::secretary::readings::{self, Draw, Dress, Window};
 use crate::secretary::responded::{Done, Performed, Tried, Withdrawal};
-use crate::secretary::store::{ConversationId, Draft, Entry, Kind, Proposal, Stored, Title, stamp};
+use crate::secretary::store::{ConversationId, Draft, Entry, Kind, Proposal, Stored, Title};
 use crate::secretary::tap::Tap;
 use crate::secretary::transcript;
 use crate::settings::CLAUDE_CODE_OAUTH_TOKEN;
@@ -325,7 +325,7 @@ pub fn erase(
             crate::secretary::erasure::Erasure::Asked {
                 by: tap.who().clone(),
             },
-            stamp(caps.clock.now()),
+            caps.clock.now(),
         )?;
     }
     // The summaries that read them are copies, deleted by the memory's sweep.
@@ -432,7 +432,7 @@ pub fn say(
         caps.conversations,
         id,
         &Entry::Said {
-            at: stamp(caps.clock.now()),
+            at: caps.clock.now(),
             turn,
             by: Some(by),
         },
@@ -1102,7 +1102,7 @@ fn afterwards(
                 caps.conversations,
                 &card.conversation,
                 &Entry::noted(
-                    stamp(caps.clock.now()),
+                    caps.clock.now(),
                     format!("Removing {}: {said}.", account.email),
                     vec![card.clone().into()],
                 ),
@@ -1710,7 +1710,7 @@ fn erased(
         crate::secretary::erasure::Erasure::Asked {
             by: tap.who().clone(),
         },
-        stamp(caps.clock.now()),
+        caps.clock.now(),
     )?;
     Ok(Done::Acted {
         what: format!(
@@ -2118,9 +2118,9 @@ pub fn forget(
     memories: crate::secretary::memories::Memories<'_>,
     clock: &dyn Clock,
     by: &prodrome_core::event::Actor,
-    id: u64,
+    id: crate::secretary::memory::FactId,
 ) -> Answered<wire::MemoryPayload> {
-    memories.forget(crate::secretary::memory::FactId(id), clock.now(), by)?;
+    memories.forget(id, clock.now(), by)?;
     memory(memories)
 }
 
@@ -2131,10 +2131,10 @@ fn memory_payload(memory: &crate::secretary::memory::Memory) -> wire::MemoryPayl
             .facts
             .iter()
             .map(|remembered| wire::FactRow {
-                id: u32::try_from(remembered.id.0).unwrap_or(u32::MAX),
-                at: remembered.at.clone(),
+                id: remembered.id,
+                at: crate::secretary::store::stamp(remembered.at),
                 fact: remembered.fact.as_str().to_owned(),
-                kind: remembered.kind.as_str().to_owned(),
+                kind: remembered.kind,
                 said: match &remembered.said {
                     crate::secretary::memory::Origin::Turn { conversation, turn } => {
                         wire::SaidOn::Turn {
@@ -2153,11 +2153,7 @@ fn memory_payload(memory: &crate::secretary::memory::Memory) -> wire::MemoryPayl
             })
             .collect(),
         cap: number(crate::secretary::memory::MAX_LIVE),
-        forgotten: memory
-            .forgotten
-            .iter()
-            .map(|gone| u32::try_from(gone.id.0).unwrap_or(u32::MAX))
-            .collect(),
+        forgotten: memory.forgotten.iter().map(|gone| gone.id).collect(),
         cards: Vec::new(),
     }
 }
@@ -2205,7 +2201,7 @@ mod tests {
         Standing {
             asking: Asking {
                 index: 0,
-                at: stamp(at),
+                at,
                 object: id,
                 after_turn: 0,
             },
@@ -2293,9 +2289,11 @@ mod tests {
         assert_eq!(problem, "", "the act still builds against this chain");
         assert_eq!(changes.len(), 1, "one act, one row: {changes:?}");
         // The row names what the event did, as a batch's rows do.
-        assert_eq!(changes[0].act, "added");
-        assert_eq!(changes[0].todo, "permitfiling2");
-        assert_eq!(changes[0].body, "File the second permit renewal");
+        let wire::ObjectAct::Added { todo, .. } = &changes[0].act else {
+            panic!("a new todo's row reads as {:?}", changes[0].act);
+        };
+        assert_eq!(todo.todo, "permitfiling2");
+        assert_eq!(todo.body, "File the second permit renewal");
     }
 
     /// An act that no longer builds draws no rows and a `problem` line.
@@ -2552,12 +2550,57 @@ mod tests {
         }
     }
 
+    /// A row prints its speaker as `who` beside only that speaker's fields: a person's row has
+    /// no verb, refusal, receipt or blocks to misread.
+    #[test]
+    fn a_turn_row_holds_only_its_speakers_fields() {
+        let person = turn(
+            &NeverAsked,
+            &Said {
+                at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
+                turn: crate::capability::Turn::Person {
+                    text: "what changed".to_owned(),
+                    references: Vec::new(),
+                    attachments: Vec::new(),
+                },
+                by: None,
+            },
+            Place::at(0),
+            None,
+        );
+        let printed = serde_json::to_value(&person).expect("a row prints");
+        let keys: std::collections::BTreeSet<&str> = printed
+            .as_object()
+            .expect("an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                "at",
+                "attachments",
+                "attempt",
+                "gone",
+                "index",
+                "queued",
+                "references",
+                "text",
+                "who"
+            ]
+            .into_iter()
+            .collect(),
+            "{printed}"
+        );
+        assert_eq!(printed["who"], "person");
+    }
+
     #[test]
     fn a_verb_turn_says_which_verb_and_whether_it_was_refused() {
         let row = turn(
             &NeverAsked,
             &Said {
-                at: "2026-09-09T09:02:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 9, 9, 2, 0, 0).expect("an instant"),
                 turn: crate::capability::Turn::Tool {
                     verb: "propose_email".into(),
                     answer: "to must name at least one recipient".to_owned(),
@@ -2570,10 +2613,15 @@ mod tests {
             None,
         );
         assert_eq!(row.index, 4);
-        assert_eq!(row.who, wire::TurnWho::Verb);
-        assert_eq!(row.verb, "propose_email");
-        assert!(row.refused);
-        assert!(!row.queued, "only a person's own turn can be queued");
+        assert_eq!(
+            row.who,
+            wire::Speaker::Verb {
+                verb: "propose_email".to_owned(),
+                refused: true,
+                remembered: None,
+            },
+            "a verb's row carries no person's fields, so it cannot be queued"
+        );
         assert_eq!(row.at, "2026-09-09T09:02:00", "the said line's own instant");
     }
 
@@ -2585,7 +2633,7 @@ mod tests {
         let memory = Memory {
             facts: vec![Remembered {
                 id: FactId(1),
-                at: "2026-10-02T09:00:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
                 fact: Fact::new("He takes the 7:40 train").expect("a fact"),
                 kind: Kind::Owner,
                 said: Origin::Turn {
@@ -2595,55 +2643,57 @@ mod tests {
             }],
             forgotten: vec![Forgotten {
                 id: FactId(2),
-                at: "2026-10-02T09:02:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 10, 2, 9, 2, 0, 0).expect("an instant"),
                 by: "ada".to_owned(),
                 version: 3,
             }],
             version: 3,
         };
-        let drawn = |answer: &str, memory: Option<&Memory>| {
-            turn(
-                &NeverAsked,
-                &Said {
-                    at: "2026-10-02T09:00:00".to_owned(),
-                    turn: crate::capability::Turn::Tool {
-                        verb: "remember".into(),
-                        answer: answer.to_owned(),
-                        refused: false,
-                        files: Vec::new(),
-                    },
-                    by: None,
+        let drawn = |answer: &str, memory: Option<&Memory>| match turn(
+            &NeverAsked,
+            &Said {
+                at: crate::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
+                turn: crate::capability::Turn::Tool {
+                    verb: "remember".into(),
+                    answer: answer.to_owned(),
+                    refused: false,
+                    files: Vec::new(),
                 },
-                Place::at(2),
-                memory.map(memory_payload).as_ref(),
-            )
-            .remembered
+                by: None,
+            },
+            Place::at(2),
+            memory.map(memory_payload).as_ref(),
+        )
+        .who
+        {
+            wire::Speaker::Verb { remembered, .. } => remembered,
+            other => panic!("a verb's turn reads as {other:?}"),
         };
         let earlier = r#"{"remembered": 1, "fact": "Something else", "kind": "owner"}"#;
         assert_eq!(
             drawn(earlier, Some(&memory)),
             Some(wire::Receipt::Standing {
-                fact: 1,
+                fact: FactId(1),
                 text: "He takes the 7:40 train".to_owned()
             })
         );
         let gone = r#"{"remembered": 2, "fact": "Mira is the accountant", "kind": "person"}"#;
         assert_eq!(
             drawn(gone, Some(&memory)),
-            Some(wire::Receipt::Forgotten { fact: 2 })
+            Some(wire::Receipt::Forgotten { fact: FactId(2) })
         );
         assert_eq!(
             drawn(r#"{"remembered": 2, "kind": "person"}"#, Some(&memory)),
-            Some(wire::Receipt::Forgotten { fact: 2 })
+            Some(wire::Receipt::Forgotten { fact: FactId(2) })
         );
         assert_eq!(
             drawn(r#"{"remembered": 9, "kind": "person"}"#, Some(&memory)),
-            Some(wire::Receipt::Unread { fact: 9 }),
+            Some(wire::Receipt::Unread { fact: FactId(9) }),
             "a fact whose words are lost"
         );
         assert_eq!(
             drawn(gone, None),
-            Some(wire::Receipt::Unread { fact: 2 }),
+            Some(wire::Receipt::Unread { fact: FactId(2) }),
             "a memory that will not read"
         );
         assert_eq!(drawn(r#"{"proposed": 0}"#, Some(&memory)), None);
@@ -2677,14 +2727,19 @@ mod tests {
     #[test]
     fn a_model_turns_blocks_each_ask_the_renderer() {
         let model_turn = Said {
-            at: "2026-09-09T09:02:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 2, 0, 0).expect("an instant"),
             turn: crate::capability::Turn::Model {
                 text: "= Hello\n\n#html.elem(\"b\")[x]".to_owned(),
                 calls: Vec::new(),
             },
             by: None,
         };
-        let rendered = turn(&AlwaysRenders, &model_turn, Place::at(0), None).blocks;
+        let blocks =
+            |answers: &dyn Answers| match turn(answers, &model_turn, Place::at(0), None).who {
+                wire::Speaker::Model { blocks } => blocks,
+                other => panic!("a model's turn reads as {other:?}"),
+            };
+        let rendered = blocks(&AlwaysRenders);
         assert_eq!(rendered.len(), 2);
         assert_eq!(rendered[0].html.as_deref(), Some("<p>= Hello</p>"));
         assert_eq!(rendered[0].plain, "Hello");
@@ -2694,7 +2749,7 @@ mod tests {
             Some("<p>#html.elem(\"b\")[x]</p>"),
             "the renderer, not a scan, answers for this block"
         );
-        let refused = turn(&NeverRenders, &model_turn, Place::at(0), None).blocks;
+        let refused = blocks(&NeverRenders);
         assert!(refused.iter().all(|block| block.html.is_none()));
     }
 
@@ -2702,7 +2757,7 @@ mod tests {
     #[test]
     fn only_a_model_turn_is_ever_rendered() {
         let person = Said {
-            at: "2026-09-09T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
             turn: crate::capability::Turn::Person {
                 text: "what changed".to_owned(),
                 references: Vec::new(),
@@ -2710,24 +2765,22 @@ mod tests {
             },
             by: None,
         };
-        assert!(
-            turn(&NeverAsked, &person, Place::at(0), None)
-                .blocks
-                .is_empty()
-        );
+        assert!(matches!(
+            turn(&NeverAsked, &person, Place::at(0), None).who,
+            wire::Speaker::Person { .. }
+        ));
         let act = Said {
-            at: "2026-09-09T09:03:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 3, 0, 0).expect("an instant"),
             turn: crate::capability::Turn::Act {
                 text: "dismissed proposal 0".to_owned(),
                 references: Vec::new(),
             },
             by: None,
         };
-        assert!(
-            turn(&NeverAsked, &act, Place::at(0), None)
-                .blocks
-                .is_empty()
-        );
+        assert!(matches!(
+            turn(&NeverAsked, &act, Place::at(0), None).who,
+            wire::Speaker::Box { .. }
+        ));
     }
 
     /// The tap's own [`Tap`], minted as the gate mints it.

@@ -104,30 +104,41 @@ fn shown_object(
     on_chain: &std::collections::BTreeSet<TodoId>,
     authored: &mut std::collections::BTreeSet<TodoId>,
 ) -> wire::ProposedObject {
-    let name = &row.name;
+    let hash = row.name.clone();
     let needs = row.needs.clone();
     let Some(event) = row.event else {
         // A merge has nothing to diff, but is still a row: it is an object a pick has to take.
         return wire::ProposedObject {
-            hash: name.clone(),
-            act: "merge".to_owned(),
-            todo: String::new(),
-            body: String::new(),
-            at: String::new(),
-            actor: String::new(),
-            note: String::new(),
-            changes: Vec::new(),
+            hash,
             needs,
-            pending_todo: false,
+            act: wire::ObjectAct::Merge,
         };
     };
     let todo = event.todo().clone();
-    let (act, changes) = match event {
+    let about = |current: &BTreeMap<TodoId, Authored>,
+                 authored: &std::collections::BTreeSet<TodoId>| {
+        wire::ProposedTodo {
+            todo: todo.as_str().to_owned(),
+            // The action line as of this object; "" when nothing has authored one.
+            body: current
+                .get(&todo)
+                .map(|record| crate::escape::markup_text(record.payload.body.as_str()))
+                .unwrap_or_default(),
+            at: iso(event.at()),
+            actor: event.actor().as_str().to_owned(),
+            // True only for a todo that another proposal would put on the chain.
+            pending_todo: !on_chain.contains(&todo) && !authored.contains(&todo),
+        }
+    };
+    let act = match event {
         TodoEvent::Authored(record) => {
             let before = current.get(&todo).cloned();
             let changes = changed(before.as_ref(), record);
-            let act = if before.is_none() {
-                "added"
+            current.insert(todo.clone(), (**record).clone());
+            authored.insert(todo.clone());
+            let todo = about(current, authored);
+            if before.is_none() {
+                wire::ObjectAct::Added { todo, changes }
             } else if changes
                 .iter()
                 .all(|c| matches!(c.field.as_str(), "priority" | "rationale"))
@@ -135,47 +146,37 @@ fn shown_object(
             {
                 // Only the number and its reason moved: the edit `todo_update` refuses without a
                 // fresh rationale.
-                "repriced"
+                wire::ObjectAct::Repriced { todo, changes }
             } else {
-                "edited"
-            };
-            current.insert(todo.clone(), (**record).clone());
-            authored.insert(todo.clone());
-            (act, changes)
+                wire::ObjectAct::Edited { todo, changes }
+            }
         }
-        TodoEvent::Created(_) => ("created", Vec::new()),
-        TodoEvent::Completed(_) => ("completed", Vec::new()),
-        TodoEvent::Cancelled(_) => ("cancelled", Vec::new()),
-        TodoEvent::Reopened(_) => ("reopened", Vec::new()),
-        TodoEvent::Tended(_) => ("tended", Vec::new()),
-        TodoEvent::SpecRevised(_) => ("repriced", Vec::new()),
+        TodoEvent::Created(e) => wire::ObjectAct::Created {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
+        TodoEvent::Completed(e) => wire::ObjectAct::Completed {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
+        TodoEvent::Cancelled(e) => wire::ObjectAct::Cancelled {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
+        TodoEvent::Reopened(e) => wire::ObjectAct::Reopened {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
+        TodoEvent::Tended(e) => wire::ObjectAct::Tended {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
+        TodoEvent::SpecRevised(e) => wire::ObjectAct::Respecified {
+            todo: about(current, authored),
+            note: e.note.clone(),
+        },
     };
-    let note = match event {
-        TodoEvent::Created(e) => e.note.clone(),
-        TodoEvent::Completed(e)
-        | TodoEvent::Cancelled(e)
-        | TodoEvent::Reopened(e)
-        | TodoEvent::Tended(e) => e.note.clone(),
-        TodoEvent::SpecRevised(e) => e.note.clone(),
-        TodoEvent::Authored(_) => String::new(),
-    };
-    wire::ProposedObject {
-        hash: name.clone(),
-        act: act.to_owned(),
-        // The action line as of this object; "" when nothing has authored one.
-        body: current
-            .get(&todo)
-            .map(|record| crate::escape::markup_text(record.payload.body.as_str()))
-            .unwrap_or_default(),
-        todo: todo.as_str().to_owned(),
-        at: iso(event.at()),
-        actor: event.actor().as_str().to_owned(),
-        note,
-        changes,
-        needs,
-        // True only for a todo that another proposal would put on the chain.
-        pending_todo: !on_chain.contains(&todo) && !authored.contains(&todo),
-    }
+    wire::ProposedObject { hash, needs, act }
 }
 
 /// Every changed field a person prices or reads, before and after.

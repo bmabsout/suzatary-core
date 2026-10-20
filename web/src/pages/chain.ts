@@ -10,7 +10,7 @@ import { chip, iso, shortHash } from "../view/format";
 import type { Mounted } from "../view/page";
 import { hrefOf } from "../shell/route";
 import type { ChainVerdict, ObjectVerdict } from "../prodrome/verify";
-import { found, summarise, verifyChain } from "../prodrome/verify";
+import { condition, eventOf, found, summarise, verifyChain } from "../prodrome/verify";
 import frame from "../view/frame";
 import placeholder from "../view/placeholder";
 import rows from "../view/rows";
@@ -88,12 +88,13 @@ const depthOf = (v: ObjectVerdict): string => (v.walk.type === "Reached" ? Strin
 
 // `index` is the row's place in the whole table, its header the first.
 function verdictRow(verdict: ObjectVerdict, wrote: Provenance | undefined, focused: boolean, index: number): HTMLElement {
-  const ok = verdict.hashOk && verdict.problem === "";
+  const ok = verdict.condition.type === "Clean";
+  const event = eventOf(verdict);
   return el(
     "tr",
     {
       class: `${ok ? "ok-row" : "bad-row"}${focused ? " focused" : ""}`,
-      "data-todo": verdict.todo,
+      "data-todo": event?.todo,
       "data-hash": verdict.hash,
       "aria-rowindex": String(index),
     },
@@ -101,11 +102,11 @@ function verdictRow(verdict: ObjectVerdict, wrote: Provenance | undefined, focus
     el("td", { class: "num" }, depthOf(verdict)),
     el("td", null, shortHash(verdict.hash)),
     el("td", null, verdict.kind),
-    el("td", null, el("a", { href: hrefOf({ type: "todo", id: verdict.todo }) }, verdict.todo)),
-    el("td", null, verdict.actor),
+    el("td", null, event === null ? null : el("a", { href: hrefOf({ type: "todo", id: event.todo }) }, event.todo)),
+    el("td", null, event?.actor),
     wroteCell(wrote),
-    el("td", { class: "num" }, iso(verdict.at)),
-    el("td", { class: "problem" }, verdict.problem),
+    el("td", { class: "num" }, event === null ? null : iso(event.at)),
+    el("td", { class: "problem" }, condition.said(verdict.condition)),
   );
 }
 
@@ -173,7 +174,8 @@ async function loaded(): Promise<Loaded> {
 
 // What the filter reads of a row: every cell's words and the whole hash.
 function rowText(v: ObjectVerdict, wrote: Provenance | undefined): string {
-  return [v.hash, v.walk.type === "Reached" ? v.walk.depth : "", v.kind, v.todo, v.actor, wroteCell(wrote).textContent, iso(v.at), v.problem, v.hashOk && v.problem === "" ? "verified" : "failed"]
+  const event = eventOf(v);
+  return [v.hash, v.walk.type === "Reached" ? v.walk.depth : "", v.kind, event?.todo ?? "", event?.actor ?? "", wroteCell(wrote).textContent, event === null ? "" : iso(event.at), condition.said(v.condition), v.condition.type === "Clean" ? "verified" : "failed"]
     .join(" ")
     .toLowerCase();
 }

@@ -15,37 +15,53 @@ use ts_rs::{Dependency, TS, TypeVisitor};
 
 use crate::reference::Reference;
 
-/// One stored object. A merge carries no event: `todo`, `actor` and `at` are
-/// `""` and `kind` names the envelope, rather than inventing a claim.
+/// One stored object: an event about a todo, or an envelope that carries none.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 pub struct Link {
     /// The object's hash, which `literal` rehashes to.
     pub hash: String,
-    /// `parents[0]`, or `""` at genesis; the name readers written before the DAG walk.
-    pub prev: String,
-    /// Every object this one rests on.
+    /// Every object this one rests on; none at a genesis.
     pub parents: Vec<String>,
-    /// The event's constructor, or the envelope's for a merge.
-    pub kind: String,
-    /// The todo it is about.
-    pub todo: String,
-    /// Who appended it.
-    pub actor: String,
-    /// ISO 8601.
-    pub at: String,
-    /// The event's own note, as written.
-    pub note: String,
-    /// What it reverses, read once from its note.
-    pub reverses: Reverses,
     /// The canonical literal, the bytes the store holds.
     pub literal: String,
+    /// What it holds.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub holds: Holds,
 }
 
-/// What a stored object reverses: nothing, or the object an undo or a redo names.
+/// What a stored object holds: an envelope with no event (a merge, a genesis, a signature), or an
+/// event, with who wrote it and when. An envelope claims no todo, writer or instant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "holds", rename_all = "lowercase")]
+pub enum Holds {
+    /// No event.
+    Envelope {
+        /// The envelope's constructor.
+        kind: String,
+    },
+    /// An event about one todo.
+    Event {
+        /// The event's constructor.
+        kind: String,
+        /// The todo it is about.
+        todo: String,
+        /// Who appended it.
+        actor: String,
+        /// When, ISO 8601.
+        at: String,
+        /// The event's own note, as written.
+        note: String,
+        /// What it reverses, read once from its note.
+        reverses: Reverses,
+    },
+}
+
+/// What a stored event reverses: nothing, or the object an undo or a redo names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Reverses {
-    /// An ordinary event, or no event.
+    /// An ordinary event.
     Nothing,
     /// The inverse of `of`.
     Undo {
@@ -1111,22 +1127,182 @@ pub struct ProposedChange {
 pub struct ProposedObject {
     /// Its name, what an accept or reject carries.
     pub hash: String,
-    /// `added`, `edited`, `completed`, … or `merge`: the row reads as a sentence.
-    pub act: String,
-    /// The todo, `""` for a merge.
+    /// The names in this batch it rests on, so a pick can close over them.
+    pub needs: Vec<String>,
+    /// What it does, the row read as a sentence.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub act: ObjectAct,
+}
+
+/// What one proposed object does: a merge, which says nothing about a todo, or one act on a
+/// todo, carrying what its kind of act shows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "act", rename_all = "lowercase")]
+pub enum ObjectAct {
+    /// Two histories joined.
+    Merge,
+    /// A todo's first content.
+    Added {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// Every field it writes.
+        changes: Vec<ProposedChange>,
+    },
+    /// A todo's content reworded.
+    Edited {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// What it changes.
+        changes: Vec<ProposedChange>,
+    },
+    /// A todo's content with only its price and its reason moved.
+    Repriced {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// What it changes.
+        changes: Vec<ProposedChange>,
+    },
+    /// A todo registered.
+    Created {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+    /// A todo done.
+    Completed {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+    /// A todo given up.
+    Cancelled {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+    /// A todo opened again.
+    Reopened {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+    /// A pass at a recurring todo.
+    Tended {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+    /// A todo's spec revised.
+    Respecified {
+        /// The todo it is about.
+        #[serde(flatten)]
+        #[ts(flatten)]
+        todo: ProposedTodo,
+        /// The event's note.
+        note: String,
+    },
+}
+
+impl ObjectAct {
+    /// The word the row's sentence starts from, as the wire tags it.
+    #[must_use]
+    pub fn word(&self) -> &'static str {
+        match self {
+            Self::Merge => "merge",
+            Self::Added { .. } => "added",
+            Self::Edited { .. } => "edited",
+            Self::Repriced { .. } => "repriced",
+            Self::Created { .. } => "created",
+            Self::Completed { .. } => "completed",
+            Self::Cancelled { .. } => "cancelled",
+            Self::Reopened { .. } => "reopened",
+            Self::Tended { .. } => "tended",
+            Self::Respecified { .. } => "respecified",
+        }
+    }
+
+    /// The todo it acts on; none for a merge.
+    #[must_use]
+    pub fn todo(&self) -> Option<&ProposedTodo> {
+        match self {
+            Self::Merge => None,
+            Self::Added { todo, .. }
+            | Self::Edited { todo, .. }
+            | Self::Repriced { todo, .. }
+            | Self::Created { todo, .. }
+            | Self::Completed { todo, .. }
+            | Self::Cancelled { todo, .. }
+            | Self::Reopened { todo, .. }
+            | Self::Tended { todo, .. }
+            | Self::Respecified { todo, .. } => Some(todo),
+        }
+    }
+
+    /// What a content write changes; none for a lifecycle event or a merge.
+    #[must_use]
+    pub fn changes(&self) -> &[ProposedChange] {
+        match self {
+            Self::Added { changes, .. }
+            | Self::Edited { changes, .. }
+            | Self::Repriced { changes, .. } => changes,
+            Self::Merge
+            | Self::Created { .. }
+            | Self::Completed { .. }
+            | Self::Cancelled { .. }
+            | Self::Reopened { .. }
+            | Self::Tended { .. }
+            | Self::Respecified { .. } => &[],
+        }
+    }
+
+    /// A lifecycle event's note; none for a content write or a merge.
+    #[must_use]
+    pub fn note(&self) -> Option<&str> {
+        match self {
+            Self::Created { note, .. }
+            | Self::Completed { note, .. }
+            | Self::Cancelled { note, .. }
+            | Self::Reopened { note, .. }
+            | Self::Tended { note, .. }
+            | Self::Respecified { note, .. } => Some(note),
+            Self::Merge | Self::Added { .. } | Self::Edited { .. } | Self::Repriced { .. } => None,
+        }
+    }
+}
+
+/// The todo an object acts on, as the row shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct ProposedTodo {
+    /// The todo's id.
     pub todo: String,
-    /// The todo's action line in prose.
+    /// The todo's action line in prose, as of this object; `""` while nothing has authored one.
     pub body: String,
     /// The instant the event claims.
     pub at: String,
     /// Who wrote it.
     pub actor: String,
-    /// A lifecycle event's note.
-    pub note: String,
-    /// What it changes; empty on a lifecycle event.
-    pub changes: Vec<ProposedChange>,
-    /// The names in this batch it rests on, so a pick can close over them.
-    pub needs: Vec<String>,
     /// Its todo has no content on the target chain: it waits on another batch.
     pub pending_todo: bool,
 }
@@ -1150,16 +1326,16 @@ pub struct ProposedBatch {
 pub struct ReviewedBatch {
     /// The batch's head.
     pub batch: String,
-    /// `accepted`, `rejected` or `held`.
-    pub decision: String,
     /// The secretary's words, never empty.
     pub why: String,
     /// When.
     pub at: String,
-    /// Objects settled; 0 for a hold.
-    pub objects: usize,
     /// The conversation it was decided in.
     pub conversation: String,
+    /// Settled, with the objects it settled, or held whole.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub decision: crate::secretary::store::Decision,
 }
 
 /// `GET /api/proposals`: every batch standing against one chain.
@@ -1195,21 +1371,48 @@ pub struct RejectedPayload {
     pub removed: Vec<String>,
 }
 
-/// Who a turn is. The route's match over `Turn` has no wildcard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[serde(rename_all = "lowercase")]
-pub enum TurnWho {
+/// Who said a turn, and what only that speaker's turn carries. The route's match over `Turn`
+/// has no wildcard.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "who", rename_all = "lowercase")]
+pub enum Speaker {
     /// What the owner typed.
-    Person,
+    Person {
+        /// What the turn points at.
+        #[ts(type = "Array<string>")]
+        references: Vec<Reference>,
+        /// Its photos and PDFs.
+        attachments: Vec<AttachmentRow>,
+        /// No round has read it yet.
+        queued: bool,
+    },
     /// What the model answered.
-    Model,
+    Model {
+        /// The answer split at top-level blank lines.
+        blocks: Vec<BlockRow>,
+    },
     /// What a verb answered.
-    Verb,
+    Verb {
+        /// The verb's name.
+        verb: String,
+        /// The call was declined.
+        refused: bool,
+        /// What a `remember` wrote.
+        remembered: Option<Receipt>,
+    },
     /// What the owner did rather than said, as the gate stamped it.
-    Act,
+    Act {
+        /// What the act points at.
+        #[ts(type = "Array<string>")]
+        references: Vec<Reference>,
+    },
     /// What the box said rather than the owner: a note of its own state (a card it filed, a
     /// restart, a grant stored) or another's words it relays (a sign-in's link and code).
-    Box,
+    Box {
+        /// What the note points at.
+        #[ts(type = "Array<string>")]
+        references: Vec<Reference>,
+    },
 }
 
 /// Which attempt at its round a turn belongs to; a rewind sets turns aside.
@@ -1269,38 +1472,26 @@ impl From<&crate::attachment::Attachment> for AttachmentRow {
     }
 }
 
-/// One turn, flat, for a page that draws a speaker, text and a marker.
-/// `text` is the least trusted string served and is drawn as text.
+/// One turn, for a page that draws a speaker, text and a marker, tagged by who said it so a row
+/// holds only its speaker's fields. `text` is the least trusted string served and is drawn as
+/// text.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 pub struct TurnRow {
     /// Its absolute index; an `?about=` window has gaps.
     pub index: usize,
-    /// Who.
-    pub who: TurnWho,
-    /// The verb's name on a verb turn.
-    pub verb: String,
     /// What was said, or what the verb answered.
     pub text: String,
-    /// A verb turn that was declined.
-    pub refused: bool,
-    /// What a person's turn or an act points at; a model names things in prose.
-    #[ts(type = "Array<string>")]
-    pub references: Vec<Reference>,
-    /// A person turn's photos and PDFs.
-    pub attachments: Vec<AttachmentRow>,
-    /// A person turn no round has read yet.
-    pub queued: bool,
-    /// A model turn's answer split at top-level blank lines.
-    pub blocks: Vec<BlockRow>,
     /// When it was said, as stored beside the turn.
     pub at: String,
-    /// What a `remember` wrote, on its verb turn.
-    pub remembered: Option<Receipt>,
     /// Which attempt; `index` still names an earlier one's turn.
     pub attempt: Attempt,
     /// Why its words are not here, when they are not: `text` is then the box's sentence for it,
     /// drawn in their place and never as anybody's words.
     pub gone: Option<TurnGone>,
+    /// Who said it, with what only that speaker's turn carries.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub who: Speaker,
 }
 
 /// Why a turn's words are not here.
@@ -1314,8 +1505,7 @@ pub enum TurnGone {
     },
     /// Erased when a fact their remembering wrote was forgotten.
     Forgot {
-        /// The fact; a fact's number stays far below the 2^53 a page's number holds exactly.
-        #[ts(type = "number")]
+        /// The fact.
         fact: crate::secretary::memory::FactId,
     },
     /// Their key is not here: lost in a restore, or never given to this replica.
@@ -1361,19 +1551,19 @@ pub enum Receipt {
     /// Still in the memory.
     Standing {
         /// Its number, which Forget names.
-        fact: u32,
+        fact: crate::secretary::memory::FactId,
         /// Its words as the memory holds them, model text drawn as text.
         text: String,
     },
     /// Forgotten since: its words are gone.
     Forgotten {
         /// Its number.
-        fact: u32,
+        fact: crate::secretary::memory::FactId,
     },
     /// The memory would not read, or holds no words for it that are not forgotten.
     Unread {
         /// Its number, which Forget still names.
-        fact: u32,
+        fact: crate::secretary::memory::FactId,
     },
 }
 
@@ -1385,7 +1575,7 @@ pub struct MemoryPayload {
     /// How many may stand at once.
     pub cap: u32,
     /// The numbers of the facts forgotten, oldest first: a receipt naming one says so.
-    pub forgotten: Vec<u32>,
+    pub forgotten: Vec<crate::secretary::memory::FactId>,
     /// The words the memory's text store keeps for remember cards, by the name a card gives
     /// them: a card whose name is not here has had its words deleted.
     pub cards: Vec<CardWords>,
@@ -1403,14 +1593,14 @@ pub struct CardWords {
 /// One standing fact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct FactRow {
-    /// Its number.
-    pub id: u32,
+    /// Its number, which the forget route names.
+    pub id: crate::secretary::memory::FactId,
     /// When it was remembered.
     pub at: String,
     /// The fact, model text drawn as text.
     pub fact: String,
-    /// `owner`, `person`, `preference` or `standing`.
-    pub kind: String,
+    /// What it is about.
+    pub kind: crate::secretary::memory::Kind,
     /// Where it was said.
     pub said: SaidOn,
 }
@@ -1702,8 +1892,8 @@ pub enum ProposedAct {
     Remember {
         /// The fact's words, read from the memory's text store, or gone.
         words: RememberWords,
-        /// `owner`, `person`, `preference` or `standing`.
-        about: String,
+        /// What the fact is about.
+        about: crate::secretary::memory::Kind,
         /// The imperative, or what became of the words.
         sentence: String,
     },
@@ -1863,19 +2053,48 @@ pub struct CardAnswer {
     pub verb: String,
     /// The button.
     pub label: String,
-    /// The confirm step's question, `""` when none is needed.
-    pub question: String,
-    /// The confirm step's yes.
-    pub yes: String,
     /// What the app says once done.
     pub done: String,
-    /// Whether the tap carries `always`.
-    pub always: bool,
-    /// A typed value's label, `""` otherwise; the value is sent only in the tap's body.
-    pub input: String,
-    /// Whether the tap carries this device's signature of the card: a yes only a trusted
-    /// device can give.
-    pub endorse: bool,
+    /// What the answer asks of the owner before its tap, and what the tap carries.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub asks: Asks,
+}
+
+/// What a card's answer asks before its tap: nothing, a confirm step (whose tap carries the
+/// owner's note, `always`, or this device's signature of the card), or a typed value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "asks", rename_all = "lowercase")]
+pub enum Asks {
+    /// Nothing: the button taps at once.
+    Now,
+    /// A confirm step; the tap carries the owner's note.
+    Confirm {
+        /// The confirm step's question.
+        question: String,
+        /// The confirm step's yes.
+        yes: String,
+    },
+    /// A confirm step; the tap carries `always`, the card's wider yes.
+    Always {
+        /// The confirm step's question.
+        question: String,
+        /// The confirm step's yes.
+        yes: String,
+    },
+    /// A confirm step; the tap carries this device's signature of the card, a yes only a
+    /// trusted device can give.
+    Endorse {
+        /// The confirm step's question.
+        question: String,
+        /// The confirm step's yes.
+        yes: String,
+    },
+    /// A typed value, sent only in the tap's body, with no confirm step.
+    Value {
+        /// The field's label.
+        input: String,
+    },
 }
 
 /// Proposals drawn against the todo chains, in the order their indices were asked.
@@ -2245,16 +2464,60 @@ pub struct ObjectVerdict {
     pub hash_ok: bool,
     /// Where the walk from the heads put it.
     pub walk: Walk,
-    /// Its event's constructor, or its envelope's.
-    pub kind: String,
-    /// The todo its event is about, `""` for none.
-    pub todo: String,
-    /// Who wrote its event, `""` for none.
-    pub actor: String,
-    /// When, ISO 8601, `""` for none.
-    pub at: String,
-    /// What is wrong with it, `""` when it is clean.
-    pub problem: String,
+    /// Whether anything is wrong with it.
+    pub condition: Condition,
+    /// What it holds, as the verifier read it.
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub holds: Verified,
+}
+
+/// What a verified object holds: an envelope with no event, or an event with its todo, writer and
+/// instant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "holds", rename_all = "lowercase")]
+pub enum Verified {
+    /// No event.
+    Envelope {
+        /// The envelope's constructor.
+        kind: String,
+    },
+    /// An event.
+    Event {
+        /// The event's constructor.
+        kind: String,
+        /// The todo it is about.
+        todo: String,
+        /// Who wrote it.
+        actor: String,
+        /// When, ISO 8601.
+        at: String,
+    },
+}
+
+/// Whether the verifier found anything wrong with one object.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "type")]
+pub enum Condition {
+    /// Nothing.
+    Clean,
+    /// One thing, as the verifier says it.
+    Flawed {
+        /// What is wrong.
+        problem: String,
+    },
+}
+
+impl Condition {
+    /// The Prodrome's print of a verdict, which says clean with an empty sentence.
+    #[must_use]
+    pub fn of(problem: String) -> Self {
+        if problem.is_empty() {
+            Self::Clean
+        } else {
+            Self::Flawed { problem }
+        }
+    }
 }
 
 /// Where the walk from the heads put one object.

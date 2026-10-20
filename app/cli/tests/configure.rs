@@ -185,7 +185,8 @@ impl Served {
             self.fakes.conversations.conversations(),
             &id,
             &Entry::Opened {
-                at: "2026-09-02T11:00:00".to_owned(),
+                at: suzatary_core::capability::Datetime::new(2026, 9, 2, 11, 0, 0, 0)
+                    .expect("an instant"),
                 title: suzatary_core::secretary::words::Words::kept("Models".to_owned()),
                 model: "a fake".to_owned(),
                 kind: Kind::Topic,

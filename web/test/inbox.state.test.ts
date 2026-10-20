@@ -19,7 +19,7 @@ type Loaded = inboxState.T;
 type Event = frame.Event<Loaded, inboxState.Event>;
 const step = frame.step(inboxState.step, inboxState.keeps);
 const { pickedFor } = inboxState;
-const answer = (rows: Row[], settled: waiting.Waiting[], me: string | null): Event =>
+const answer = (rows: Row[], settled: waiting.Settled[], me: string | null): Event =>
   frame.read(lo.val({ rows, settled, unreadable: [], unplaced: [], me, writes: me !== null, picks: new Map(), expanded: new Set(), settledOpen: false, opening: null, problem: null, box: "Answered", intents: intents.EMPTY, titles: new Map() }));
 
 function object(r: Rng, hash: string, needs: string[]): ProposedObject {
@@ -149,7 +149,7 @@ function row(r: Rng): Row {
 }
 
 function arrived(r: Rng): Event {
-  return answer(r.array(r.int(3), () => row(r)), r.array(r.int(3), () => waitingOf(r)), r.bool() ? null : r.string("abc", 4));
+  return answer(r.array(r.int(3), () => row(r)), r.array(r.int(3), (): waiting.Settled => ({ w: waitingOf(r), how: r.pick(["completed", "cancelled"] as const), at: "2026-09-17T08:30:00" })), r.bool() ? null : r.string("abc", 4));
 }
 
 function event(r: Rng): Event {
@@ -199,7 +199,7 @@ test("failed: fails the page when nothing has been read, and leaves the queue on
 /** A fixed `ProposedObject`, for tests that care about `hash` and `needs`
  * only — the rest of the fields are unread by `closure`/`pickedFor`. */
 function fixed(hash: string, needs: string[]): ProposedObject {
-  return { hash, act: "added", todo: "t1", body: "", at: "", actor: "", note: "", changes: [], needs, pending_todo: false };
+  return { hash, act: "added", todo: "t1", body: "", at: "", actor: "", changes: [], needs, pending_todo: false };
 }
 
 /** One `batch`-kind row, carrying `b` — `toggled`'s own guard reads the

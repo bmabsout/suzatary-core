@@ -3,7 +3,7 @@
 
 use crate::capability::Secretary;
 use crate::refusal::{Refusal, Status};
-use crate::secretary::store::{ConversationId, Kind, Stored, stamp};
+use crate::secretary::store::{ConversationId, Kind, Stored};
 use crate::secretary::words::Words;
 use crate::zone::Zone;
 
@@ -68,10 +68,9 @@ impl Round {
     pub fn idle(self, caps: &Secretary<'_>) -> Stored {
         let Round { id, daily, held } = self;
         held.unwrap_or_else(|| Stored {
-            opened: stamp(caps.clock.now()),
             title: Words::kept(daily.title().to_owned()),
             model: caps.model.name(),
-            ..Stored::empty(&id, Kind::Review)
+            ..Stored::empty(&id, Kind::Review, caps.clock.now())
         })
     }
 

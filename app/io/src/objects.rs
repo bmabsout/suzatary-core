@@ -548,11 +548,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("a scratch dir");
         let store = lines_at(dir.path().join("conversations"));
         let id = ConversationId::new("2026-09-30-1").expect("an id");
-        let at = |second| {
-            suzatary_core::secretary::store::stamp(
-                Datetime::new(2026, 9, 30, 9, 0, second, 0).expect("an instant"),
-            )
-        };
+        let at = |second| Datetime::new(2026, 9, 30, 9, 0, second, 0).expect("an instant");
         transcript::start(
             store.conversations(),
             &id,
@@ -775,12 +771,12 @@ mod tests {
     /// A conversation of 48 lines on disk under `dir`, enough to settle a node of the digest.
     fn spoken(dir: &std::path::Path) -> crate::conversations::ConversationStores {
         use suzatary_core::capability::Turn;
-        use suzatary_core::secretary::store::{ConversationId, Entry, stamp};
+        use suzatary_core::secretary::store::{ConversationId, Entry};
         use suzatary_core::secretary::transcript;
 
         let lines = lines_at(dir.join("conversations"));
         let id = ConversationId::new("default").expect("a slug");
-        let minute = |m: u32| stamp(Datetime::new(2026, 10, 6, 9, m, 0, 0).expect("an instant"));
+        let minute = |m: u32| Datetime::new(2026, 10, 6, 9, m, 0, 0).expect("an instant");
         let opened = Entry::Opened {
             at: minute(0),
             title: suzatary_core::secretary::words::Words::kept("Morning".to_owned()),

@@ -181,7 +181,7 @@ fn written(
         conversations,
         id,
         &Entry::Coding {
-            at: stamp(at),
+            at,
             proposal: index,
             session: session.clone(),
         },
@@ -190,7 +190,7 @@ fn written(
         conversations,
         id,
         &Entry::Said {
-            at: stamp(at),
+            at,
             turn: Turn::Act {
                 text,
                 references: vec![Reference::Proposal(ProposalRef {

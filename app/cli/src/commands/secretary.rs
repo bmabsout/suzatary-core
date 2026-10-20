@@ -618,7 +618,7 @@ impl Flow<'_> {
         };
 
         let started = suzatary_io::clock::SystemClock.now();
-        let at = stamp(started);
+        let at = started;
         // A deadline past the code's own expiry is the belt for an endpoint that keeps answering
         // pending; saturating and clamped, so an absurd server answer cannot overflow it.
         let deadline_seconds = code
@@ -635,7 +635,7 @@ impl Flow<'_> {
             "{} for {account}; the code expires at {expires_at}",
             code.message
         );
-        append_act_turn(conversations, (id, index), at.clone(), announced);
+        append_act_turn(conversations, (id, index), at, announced);
         tracing::info!("secretary: act auth {named} began, expires at {expires_at}");
 
         let done_account = account.clone();
@@ -659,7 +659,7 @@ impl Flow<'_> {
         });
 
         Performed::Tried(Tried::Running {
-            began: at,
+            began: stamp(at),
             expires_at,
         })
     }
@@ -692,13 +692,7 @@ fn finish_act<P: suzatary_core::mail::oauth::Protocol + Send + 'static>(
         .recv_timeout(std::time::Duration::from_secs(deadline_seconds))
         .map_err(|_| ());
     let now = suzatary_io::clock::SystemClock.now();
-    let (outcome, line) = completion(
-        account,
-        named,
-        P::SLOT,
-        finished,
-        suzatary_core::secretary::store::stamp(now),
-    );
+    let (outcome, line) = completion(account, named, P::SLOT, finished, now);
     append_completion(conversations, inbox, id, object, now, outcome, &line);
     workers.announce(id);
 }
@@ -712,7 +706,7 @@ fn web_turn(
     answered: Result<suzatary_core::capability::WebAnswer, suzatary_core::capability::WebFailure>,
 ) -> Performed {
     use suzatary_core::capability::{Clock as _, Turn};
-    use suzatary_core::secretary::store::{Entry, stamp};
+    use suzatary_core::secretary::store::Entry;
 
     let (answer, refused, outcome) = match answered {
         Ok(page) => (
@@ -731,7 +725,7 @@ fn web_turn(
             }),
         ),
     };
-    let at = stamp(suzatary_io::clock::SystemClock.now());
+    let at = suzatary_io::clock::SystemClock.now();
     if let Err(failed) = suzatary_core::secretary::transcript::push(
         conversations.conversations(),
         id,
@@ -763,7 +757,7 @@ fn drive_turn(
     use suzatary_core::capability::Clock as _;
     use suzatary_core::file_read::FileRead;
     use suzatary_core::refusal::Refusal;
-    use suzatary_core::secretary::store::{Entry, stamp};
+    use suzatary_core::secretary::store::Entry;
     use suzatary_core::secretary::verb_answer::VerbAnswer;
 
     let (answer, outcome) = match read {
@@ -798,7 +792,7 @@ fn drive_turn(
             }),
         ),
     };
-    let at = stamp(suzatary_io::clock::SystemClock.now());
+    let at = suzatary_io::clock::SystemClock.now();
     if let Err(failed) = suzatary_core::secretary::transcript::push(
         conversations.conversations(),
         id,
@@ -818,7 +812,7 @@ fn drive_turn(
 fn append_act_turn(
     conversations: &suzatary_io::conversations::ConversationStores,
     (id, index): (&suzatary_core::secretary::store::ConversationId, usize),
-    at: String,
+    at: suzatary_core::capability::Datetime,
     text: String,
 ) {
     use suzatary_core::capability::Turn;
@@ -853,7 +847,7 @@ fn append_act_turn(
 fn append_note(
     conversations: &suzatary_io::conversations::ConversationStores,
     id: &suzatary_core::secretary::store::ConversationId,
-    at: String,
+    at: suzatary_core::capability::Datetime,
     text: String,
 ) {
     use suzatary_core::secretary::store::Entry;
@@ -875,8 +869,6 @@ fn maybe_append_triage_alarm(
     conversations: &suzatary_io::conversations::ConversationStores,
     id: &suzatary_core::secretary::store::ConversationId,
 ) {
-    use suzatary_core::secretary::store::stamp;
-
     let now = clock.now();
     let outcome = corpus.last_triage_outcome();
     if let Some(line) = suzatary_core::secretary::heartbeat::alarm(
@@ -885,7 +877,7 @@ fn maybe_append_triage_alarm(
         STALE_HOURS,
         &outcome,
     ) {
-        append_note(conversations, id, stamp(now), line);
+        append_note(conversations, id, now, line);
     }
 }
 
@@ -898,7 +890,7 @@ fn completion<E: std::fmt::Display>(
     named: &str,
     slot: &str,
     finished: Result<Result<(), E>, ()>,
-    at: String,
+    at: suzatary_core::capability::Datetime,
 ) -> (Performed, suzatary_core::secretary::store::Entry) {
     use suzatary_core::capability::Turn;
     use suzatary_core::secretary::store::Entry;
@@ -973,7 +965,6 @@ fn begin_recording(
     act: &suzatary_core::secretary::acts::Act,
 ) -> Performed {
     use suzatary_core::secretary::acts::Act;
-    use suzatary_core::secretary::store::stamp;
 
     let (account, slot) = match act {
         Act::Auth { account } => (account, "imap"),
@@ -1003,13 +994,13 @@ fn begin_recording(
     // Fixed, so a browser scene against this arm is byte-stable.
     let now =
         prodrome_core::literal::Datetime::new(2026, 9, 14, 9, 0, 0, 0).expect("a real instant");
-    let at = stamp(now);
+    let at = now;
     let expires_at = "2026-09-14T09:15:00".to_owned();
     let announced = format!(
         "To sign in, use a web browser to open the page https://microsoft.com/devicelogin and \
          enter the code ABCD-EFGH to authenticate for {account}; the code expires at {expires_at}"
     );
-    append_act_turn(conversations, (id, index), at.clone(), announced);
+    append_act_turn(conversations, (id, index), at, announced);
     let what = format!("{slot} grant stored for {account}");
     append_note(conversations, id, at, what.clone());
     workers.announce(id);
@@ -1684,12 +1675,8 @@ fn review(
         "secretary: reviewed in {} round(s) — {}",
         reviewed.rounds, reviewed.stored.id
     );
-    for decision in [
-        suzatary_core::secretary::store::Decision::Accepted,
-        suzatary_core::secretary::store::Decision::Rejected,
-        suzatary_core::secretary::store::Decision::Held,
-    ] {
-        for line in reviewed.with(decision) {
+    for outcome in suzatary_core::secretary::store::Outcome::ALL {
+        for line in reviewed.with(outcome) {
             println!("  {line}");
         }
     }
@@ -1857,22 +1844,28 @@ fn reviews(instance: &Instance, since: Option<&str>) -> anyhow::Result<()> {
         println!("secretary: no batches were reviewed on or after {day}");
         return Ok(());
     }
-    let mut lines: Vec<(String, String)> = found
+    let mut lines: Vec<(suzatary_core::capability::Datetime, String)> = found
         .into_iter()
         .map(|(conversation, review)| {
             (
-                review.at.clone(),
-                format!("{}  {conversation}  {review}", review.at),
+                review.at,
+                format!(
+                    "{}  {conversation}  {review}",
+                    suzatary_core::secretary::store::stamp(review.at)
+                ),
             )
         })
         .chain(failed.iter().map(|(conversation, failure)| {
             (
-                failure.at.clone(),
-                format!("{}  {conversation}  {failure}", failure.at),
+                failure.at,
+                format!(
+                    "{}  {conversation}  {failure}",
+                    suzatary_core::secretary::store::stamp(failure.at)
+                ),
             )
         }))
         .collect();
-    lines.sort_by(|left, right| left.0.cmp(&right.0));
+    lines.sort_by_key(|(at, _)| *at);
     for (_, line) in lines {
         println!("{line}");
     }
@@ -1881,8 +1874,8 @@ fn reviews(instance: &Instance, since: Option<&str>) -> anyhow::Result<()> {
         println!(
             "secretary: {} review(s) could not run between {} and {} — {} batch(es) stood unanswered at the last one",
             failed.len(),
-            first.1.at,
-            last.1.at,
+            suzatary_core::secretary::store::stamp(first.1.at),
+            suzatary_core::secretary::store::stamp(last.1.at),
             last.1.standing
         );
     }
@@ -2032,7 +2025,7 @@ mod triage_alarm_wiring {
     use suzatary_core::capability::{Clock, Corpus, CorpusError, Datetime, Query};
     use suzatary_core::mail::state::Decision;
     use suzatary_core::mail::verbs::{Marked, NoiseAdded, Show, Summary, SyncReport};
-    use suzatary_core::secretary::store::{ConversationId, Entry, stamp};
+    use suzatary_core::secretary::store::{ConversationId, Entry};
 
     use super::maybe_append_triage_alarm;
 
@@ -2106,7 +2099,7 @@ mod triage_alarm_wiring {
             conversations.conversations(),
             &id,
             &Entry::Opened {
-                at: stamp(now),
+                at: now,
                 title: suzatary_core::secretary::words::Words::kept("wiring test".to_owned()),
                 model: "fixed".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -2229,12 +2222,11 @@ mod sign_in_completion {
         let inbox: super::ActingInbox = Box::leak(Box::new(InMemory::default()));
         let at =
             prodrome_core::literal::Datetime::new(2026, 10, 7, 9, 0, 0, 0).expect("an instant");
-        let stamp = suzatary_core::secretary::store::stamp(at);
         transcript::start(
             conversations.conversations(),
             &DEFAULT,
             &Entry::Opened {
-                at: stamp.clone(),
+                at,
                 title: suzatary_core::secretary::words::Words::kept(String::new()),
                 model: "m".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -2246,7 +2238,7 @@ mod sign_in_completion {
             "imap",
             "account 1 (microsoft)",
             finished,
-            stamp.clone(),
+            at,
         );
         let object = ProposalId::new("pa23516260fe817183ac61e782efdc198").expect("an id");
         append_completion(
@@ -2260,7 +2252,7 @@ mod sign_in_completion {
         );
         for line in [
             Entry::Said {
-                at: stamp.clone(),
+                at,
                 turn: Turn::Person {
                     text: "remember I moved".to_owned(),
                     references: Vec::new(),
@@ -2269,7 +2261,7 @@ mod sign_in_completion {
                 by: Some("ada".into()),
             },
             Entry::Said {
-                at: stamp,
+                at,
                 turn: Turn::Model {
                     text: String::new(),
                     calls: vec![ToolCall {

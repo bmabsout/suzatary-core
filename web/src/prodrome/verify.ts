@@ -5,13 +5,13 @@
  * the reached objects have no cycle, and nothing sent is left off the walk.
  */
 
-import type { Found, Link, ObjectVerdict, Walk } from "../wire/generated/wire";
+import type { Condition, Found, Link, ObjectVerdict, Walk } from "../wire/generated/wire";
 
 /**
  * Where the walk put an object, what verifying found and one object's verdict: the wire's (`wire::Walk`,
  * `wire::Found`, `wire::ObjectVerdict`), so this browser's check and the core's say it in one shape.
  */
-export type { Found, ObjectVerdict, Walk };
+export type { Condition, Found, ObjectVerdict, Walk };
 
 export namespace found {
   export const REACHED: Found = { type: "Reached" };
@@ -47,28 +47,29 @@ export async function sha256Hex(literal: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function blank(link: Link, computed: string, problem: string): ObjectVerdict {
-  return {
-    hash: link.hash,
-    computed,
-    hashOk: computed === link.hash,
-    walk: { type: "Unreached" },
-    kind: link.kind,
-    todo: link.todo,
-    actor: link.actor,
-    at: link.at,
-    problem,
-  };
+export namespace condition {
+  export const CLEAN: Condition = { type: "Clean" };
+  export const flawed = (problem: string): Condition => ({ type: "Flawed", problem });
+  /** What is wrong, as a table cell says it: nothing for a clean object. */
+  export const said = (c: Condition): string => (c.type === "Clean" ? "" : c.problem);
 }
+
+function blank(link: Link, computed: string, condition: Condition): ObjectVerdict {
+  const base = { hash: link.hash, computed, hashOk: computed === link.hash, walk: UNREACHED, condition };
+  return link.holds === "envelope"
+    ? { ...base, holds: "envelope", kind: link.kind }
+    : { ...base, holds: "event", kind: link.kind, todo: link.todo, actor: link.actor, at: link.at };
+}
+
+const UNREACHED: Walk = { type: "Unreached" };
+
+/** The event a verdict read, or null for an envelope, which claims no todo, writer or instant. */
+export const eventOf = (v: ObjectVerdict): Extract<ObjectVerdict, { holds: "event" }> | null => (v.holds === "event" ? v : null);
 
 // Read off the object's own constructor: a change that supersedes nothing names no parents and begins nothing.
 const isRoot = (link: Link): boolean => /^(Genesis\(|Sealed\(prev='',)/.test(link.literal);
 
-/** `parents` is the truth; `prev` is read only when a payload carries no parents at all. */
-function parentsOf(link: Link): readonly string[] {
-  if (link.parents.length > 0) return link.parents;
-  return link.prev === "" ? [] : [link.prev];
-}
+
 
 /** Indexed by the claimed name, not the computed hash, so a tampered object reads as tampered rather than as a broken link. */
 export async function verifyChain(links: readonly Link[], tips: readonly string[]): Promise<ChainVerdict> {
@@ -85,9 +86,9 @@ export async function verifyChain(links: readonly Link[], tips: readonly string[
     const verdict = blank(
       link,
       computed,
-      computed === link.hash ? "" : `does not hash to its own name — this browser computed ${computed}`,
+      computed === link.hash ? condition.CLEAN : condition.flawed(`does not hash to its own name — this browser computed ${computed}`),
     );
-    if (!verdict.hashOk) problems.push(`object ${link.hash} ${verdict.problem}`);
+    if (verdict.condition.type === "Flawed") problems.push(`object ${link.hash} ${verdict.condition.problem}`);
     verdicts.set(link.hash, verdict);
     byHash.set(link.hash, link);
   }
@@ -120,7 +121,7 @@ export async function verifyChain(links: readonly Link[], tips: readonly string[
     walk.push(verdict);
     const link = byHash.get(name);
     // Cannot be undefined: `byHash` and `verdicts` are filled from one loop.
-    const named = link === undefined ? [] : parentsOf(link);
+    const named = link === undefined ? [] : link.parents;
     parents.set(name, named);
     if (link !== undefined && isRoot(link)) genesis.push(name);
     for (const parent of named) queue.push({ name: parent, depth: depth + 1 });
@@ -132,7 +133,7 @@ export async function verifyChain(links: readonly Link[], tips: readonly string[
 
   const orphans = [...verdicts.values()].filter((verdict) => verdict.walk.type === "Unreached");
   for (const orphan of orphans) {
-    orphan.problem = orphan.problem || "not reachable from any head by its parents";
+    if (orphan.condition.type === "Clean") orphan.condition = condition.flawed("not reachable from any head by its parents");
     problems.push(`object ${orphan.hash} is not reachable from any head`);
   }
 

@@ -129,7 +129,7 @@ test("settledOn: kept to what was resolved today, dropping open ones and other d
   ];
   // Newest first.
   assert.deepEqual(
-    waiting.settledOn(waiting.all(proposals, folds), "2026-09-17", time.UTC).map(waiting.key),
+    waiting.settledOn(waiting.all(proposals, folds), "2026-09-17", time.UTC).map(s => waiting.key(s.w)),
     ["today1", "sent", "today2"],
   );
 });
@@ -146,7 +146,7 @@ test("settledOn: the day is the owner's, so a decision settled at 21:00 in New Y
     { chain: "life", entries: [entry({ todo: "late", state: "completed", at: "2026-09-18 01:00:00" })] },
   ];
   const all = waiting.all([], folds);
-  assert.deepEqual(waiting.settledOn(all, "2026-09-17", { name: "America/New_York" }).map(waiting.key), ["late"]);
+  assert.deepEqual(waiting.settledOn(all, "2026-09-17", { name: "America/New_York" }).map(s => waiting.key(s.w)), ["late"]);
   assert.deepEqual(waiting.settledOn(all, "2026-09-17", time.UTC), []);
 });
 
@@ -216,7 +216,7 @@ function batchOf(over: Partial<ProposedBatch> = {}): ProposedBatch {
 }
 
 function object(hash: string, needs: string[]): ProposedObject {
-  return { hash, act: "added", todo: "t1", body: "", at: "", actor: "triage", note: "", changes: [], needs, pending_todo: false };
+  return { hash, act: "added", todo: "t1", body: "", at: "", actor: "triage", changes: [], needs, pending_todo: false };
 }
 
 /** A held batch that grew after the hold: `a1b2c3d4` was the head the

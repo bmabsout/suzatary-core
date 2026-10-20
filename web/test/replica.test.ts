@@ -212,11 +212,12 @@ test("a pull drops a prodrome the box no longer holds, and all that rests on it,
   assert.deepEqual(after.refused, [], "a refusal of a gone object goes with it");
 });
 
-test("a pull that names no geneses drops nothing: no knowledge is not an empty store", () => {
+test("a pull that names no geneses says the box holds no prodrome: every prodrome held is forgotten, a legacy object stays", () => {
   const OLD = name("1");
-  const before = replica({ objects: [genesisObject(OLD), change(A, OLD, [])], synced: [OLD, A] });
-  const after = pulled(before, { objects: [], heads: [A], untrusted: [], root: null, geneses: [], epoch: 1 }, 1_700_000_000_000);
-  assert.deepEqual(after.objects.map((object) => object.hash), [OLD, A]);
+  const before = replica({ objects: [sealed(C, ""), genesisObject(OLD), change(A, OLD, [])], synced: [C, OLD, A] });
+  const after = pulled(before, { objects: [], heads: [C], untrusted: [], root: null, geneses: [], epoch: 2 }, 1_700_000_000_000);
+  assert.deepEqual(after.objects.map((object) => object.hash), [C]);
+  assert.deepEqual(after.gone, [OLD]);
 });
 
 // --- What a receipt teaches ------------------------------------------------------
@@ -335,7 +336,7 @@ test("a row as kept now reads back as the replica it was", () => {
 test("the box's heads, epoch, policy and root are one word, the last pull's, and none before the box has spoken", () => {
   const first = pulled(NOTHING, { objects: [sealed(A, "")], heads: [A], untrusted: [], root: null, geneses: [], epoch: 1 }, 1);
   const second = pulled(first, { objects: [sealed(B, A)], heads: [B], untrusted: ["triage"], root: ROOT, geneses: [], epoch: 2 }, 2);
-  assert.deepEqual(second.box, { type: "Heard", word: { epoch: 2, heads: [B], untrusted: ["triage"], root: ROOT, fetchedAt: 2, geneses: null } });
+  assert.deepEqual(second.box, { type: "Heard", word: { epoch: 2, heads: [B], untrusted: ["triage"], root: ROOT, fetchedAt: 2, geneses: [] } });
   assert.deepEqual(NOTHING.box, { type: "Unheard" });
   assert.equal(boxHeadsOf(NOTHING), null, "never heard is not heard to hold nothing");
 });

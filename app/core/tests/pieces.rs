@@ -16,13 +16,13 @@ use suzatary_core::routes::{self, Cut};
 use suzatary_core::secretary::conversations::InMemory;
 use suzatary_core::secretary::erasure::Erasure;
 use suzatary_core::secretary::line_event::LineEvent;
-use suzatary_core::secretary::store::{ConversationId, Entry, Kind, stamp};
+use suzatary_core::secretary::store::{ConversationId, Entry, Kind};
 use suzatary_core::secretary::transcript;
 use suzatary_core::secretary::words::Words;
 use suzatary_core::store::{Doc as _, Prodrome as _};
 
-fn at(n: u32) -> String {
-    stamp(Datetime::new(2026, 9, 30, 9, n / 60, n % 60, 0).expect("an instant"))
+fn at(n: u32) -> Datetime {
+    Datetime::new(2026, 9, 30, 9, n / 60, n % 60, 0).expect("an instant")
 }
 
 fn now() -> Datetime {

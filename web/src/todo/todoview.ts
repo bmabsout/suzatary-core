@@ -37,6 +37,7 @@ import data from "../algebra/data";
 import disclosure from "../view/disclosure";
 import ui from "../app/ui";
 import registers from "../app/registers";
+import proposedObject from "../inbox/proposed";
 
 // Who wrote the content and on which day, in one line; whether its number counts it, behind that line. A todo with no
 // content has nothing to attribute, and its content section says so.
@@ -237,7 +238,8 @@ function diffTable(changes: FieldChange[] | undefined): HTMLElement | null {
 
 // `kindOfHash` names what an undo or a redo points at in the same stream.
 function eventItem(link: Link, diffs: TodoPayload["diffs"], kindOfHash: (hash: string) => string | undefined): HTMLElement {
-  const act = actLabel(link.reverses, kindOfHash);
+  const event = link.holds === "event" ? link : null;
+  const act = event === null ? null : actLabel(event.reverses, kindOfHash);
   return el(
     "li",
     { class: "tlitem" },
@@ -246,10 +248,10 @@ function eventItem(link: Link, diffs: TodoPayload["diffs"], kindOfHash: (hash: s
       { class: "tlhead" },
       el("strong", null, link.kind),
       act === null ? null : chip(act),
-      el("span", { class: "meta" }, `${iso(link.at)} · ${link.actor}`),
+      event === null ? null : el("span", { class: "meta" }, `${iso(event.at)} · ${event.actor}`),
     ),
     diffTable(diffs[link.hash]),
-    el("div", { class: "hashes" }, "hash ", hashLink(link.hash), link.prev === "" ? " · genesis" : null),
+    el("div", { class: "hashes" }, "hash ", hashLink(link.hash), link.parents.length === 0 ? " · genesis" : null),
   );
 }
 
@@ -370,7 +372,7 @@ export namespace todoview {
         void fetchProposals()
           .then((listed) => {
             if (destroyed) return;
-            const standing = listed.batches.flatMap((batch) => batch.objects).filter((object) => object.todo === id);
+            const standing = listed.batches.flatMap((batch) => batch.objects).filter((object) => proposedObject.todo(object)?.todo === id);
             node.replaceChildren(
               ...(standing.length === 0
                 ? []

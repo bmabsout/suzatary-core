@@ -9,7 +9,7 @@ use crate::refusal::Refusal;
 use crate::secretary::inbox::{self, ProposalId};
 use crate::secretary::inbox_event::InboxEvent;
 use crate::secretary::proposer::Proposer;
-use crate::secretary::store::{ConversationId, Entry, Kind, Proposal, Reasons, stamp};
+use crate::secretary::store::{ConversationId, Entry, Kind, Proposal, Reasons};
 use crate::secretary::transcript;
 use crate::store::{Prodrome, StoreError};
 
@@ -107,7 +107,7 @@ fn file_held(
         conversations,
         conversation,
         &Entry::Proposed {
-            at: stamp(at),
+            at,
             object: object.clone(),
             revises,
         },
@@ -154,7 +154,7 @@ pub fn offer(
     let plugin = offer.plugin();
     let conversation = conversation_of(plugin);
     let opened = Entry::Opened {
-        at: stamp(at),
+        at,
         title: crate::secretary::words::Words::kept(format!("Proposed by the {plugin} plugin")),
         model: format!("the {plugin} plugin"),
         kind: Kind::Review,

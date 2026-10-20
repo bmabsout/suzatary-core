@@ -14,7 +14,7 @@ export function aCard(over: Partial<Card> = {}): Card {
     files: [],
     problem: "",
     answers: [
-      { verb: "send", label: "Send", question: "Send?", yes: "Yes, send it", done: "sent", always: false, input: "", endorse: false },
+      { verb: "send", label: "Send", done: "sent", asks: "confirm", question: "Send?", yes: "Yes, send it" },
     ],
     uncertain: "It may have been sent. Check Sent; it is never sent again.",
     readonly: "Only the owner's own device can send this.",

@@ -10,7 +10,7 @@ import again from "../src/chat/again"
 import drafts from "../src/chat/drafts"
 import { parse, print } from "../src/chat/refs"
 import type { Reference } from "../src/chat/refs"
-import type { TurnRow } from "../src/wire/generated/wire"
+import turns from "../src/chat/turns"
 import app from "../src/app/app"
 import time from "../src/app/time"
 import ui from "../src/app/ui"
@@ -215,18 +215,14 @@ test("a blank box sends nothing", () => {
 
 test("a reworded question leaves Editing when sent, and a failed one comes back still being edited", async () => {
   const c = mounted()
-  const question: TurnRow = {
+  const question: turns.Question = {
     index: 0,
     who: "person",
-    verb: "",
     text: "where is the form",
-    refused: false,
     references: [],
     attachments: [],
     queued: false,
-    blocks: [],
     at: "2026-01-01T00:00:00",
-    remembered: null,
     attempt: "current",
     gone: null,
   }

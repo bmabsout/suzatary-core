@@ -351,7 +351,7 @@ mod tests {
             serde_json::json!("the owner's sister lives in London"),
         );
         let line = rendered(&Entry::Said {
-            at: "2026-10-06T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 6, 9, 0, 0, 0).expect("an instant"),
             turn: Turn::Model {
                 text: "Noting it.".to_owned(),
                 calls: vec![ToolCall {
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn a_long_line_is_cut_and_says_so_and_whole_is_not() {
         let entry = Entry::Said {
-            at: "2026-10-06T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 6, 9, 0, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: "é".repeat(LINE_BYTES),
                 references: Vec::new(),

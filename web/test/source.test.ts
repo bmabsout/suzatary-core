@@ -10,25 +10,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { ConversationPayload, Frame, TurnRow } from "../src/wire/generated/wire";
+import turns from "../src/chat/turns"
 import type asks from "../src/prodrome/asks";
 import { answering, createSource, step } from "../src/chat/source";
 import type { SourceDeps, SourceEvent, SourceState } from "../src/chat/source";
 import type stream from "../src/algebra/stream";
 import { forAll } from "./gen";
 
-function turn(index: number, over: Partial<TurnRow> = {}): TurnRow {
+function turn(index: number, over: Partial<turns.Question> = {}): turns.Question {
   return {
     index,
     who: "person",
-    verb: "",
     text: "hi",
-    refused: false,
     references: [],
     attachments: [],
     queued: false,
-    blocks: [],
     at: "2026-09-16T10:00:00",
-    remembered: null,
     attempt: "current",
     gone: null,
     ...over,
@@ -252,7 +249,7 @@ test("property: no illegal state is reachable over a random walk of events", () 
 // the refetch its `turn` frame asked for.
 test("law: say's answer landing after the round it started is past, and moves nothing", () => {
   const asked = turn(0, { queued: true });
-  const answered = [turn(0), turn(1, { who: "model" })];
+  const answered: TurnRow[] = [turn(0), { index: 1, who: "model", text: "hi", blocks: [], at: "2026-09-16T10:00:00", attempt: "current", gone: null }];
   const events: SourceEvent[] = [
     windowEvent({ payload: payload() }),
     { kind: "frame", frame: { kind: "state", state: "thinking" }, at: 1 },
@@ -407,7 +404,7 @@ test("say reads the window again once the box took the turn, never its answer", 
   );
   await source.say("hello", []);
   const state = source.state();
-  assert.equal(state.kind === "loaded" ? state.turns[0]?.queued : undefined, true);
+  assert.equal(state.kind === "loaded" && state.turns[0] !== undefined ? turns.queued(state.turns[0]) : undefined, true);
 });
 
 test("stop asks the box once and reads the window again", async () => {

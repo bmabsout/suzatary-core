@@ -34,29 +34,32 @@ pub fn provisional_content(entry: &Entry) -> bool {
     )
 }
 
-/// One stored object on the wire; a merge's `todo`, `actor` and `at` are "", never invented.
+/// One stored object on the wire: an event with its todo, writer and instant, or an envelope that
+/// claims none of them.
 #[must_use]
 pub fn link(name: &Hash, envelope: &Envelope) -> wire::Link {
-    let parents = parents_of(envelope);
-    let event = envelope.event();
     wire::Link {
         hash: name.as_str().to_owned(),
-        prev: parents
-            .first()
-            .map_or_else(String::new, |p| p.as_str().to_owned()),
-        parents: parents.iter().map(|p| p.as_str().to_owned()).collect(),
-        kind: event.map_or_else(
-            || envelope_kind(envelope).to_owned(),
-            |e| e.kind_name().to_owned(),
-        ),
-        todo: event.map_or_else(String::new, |e| e.todo().as_str().to_owned()),
-        actor: event.map_or_else(String::new, |e| e.actor().as_str().to_owned()),
-        at: event.map_or_else(String::new, |e| fpl::iso(fpl::instant_of(e.at()))),
-        note: event.map_or_else(String::new, note_of),
-        reverses: wire::Reverses::from(
-            event.and_then(|e| crate::authoring::Reversal::of_note(&note_of(e))),
-        ),
+        parents: parents_of(envelope)
+            .iter()
+            .map(|p| p.as_str().to_owned())
+            .collect(),
         literal: prodrome_core::event::canonical_envelope(envelope),
+        holds: match envelope.event() {
+            None => wire::Holds::Envelope {
+                kind: envelope_kind(envelope).to_owned(),
+            },
+            Some(event) => wire::Holds::Event {
+                kind: event.kind_name().to_owned(),
+                todo: event.todo().as_str().to_owned(),
+                actor: event.actor().as_str().to_owned(),
+                at: fpl::iso(fpl::instant_of(event.at())),
+                note: note_of(event),
+                reverses: wire::Reverses::from(crate::authoring::Reversal::of_note(&note_of(
+                    event,
+                ))),
+            },
+        },
     }
 }
 
@@ -1093,11 +1096,18 @@ mod tests {
         let sealed = mk_sealed(None, event);
         let named = seal_hash(&sealed);
         let wired = link(&named, &sealed);
-        assert_eq!(wired.kind, "Completed");
-        assert_eq!(wired.todo, "alpha");
-        assert_eq!(wired.prev, "");
+        assert_eq!(
+            wired.holds,
+            wire::Holds::Event {
+                kind: "Completed".to_owned(),
+                todo: "alpha".to_owned(),
+                actor: "ada".to_owned(),
+                at: "2026-09-02T12:00:00".to_owned(),
+                note: String::new(),
+                reverses: wire::Reverses::Nothing,
+            }
+        );
         assert_eq!(wired.parents, Vec::<String>::new());
-        assert_eq!(wired.at, "2026-09-02T12:00:00");
         assert_eq!(wired.hash, named.as_str());
 
         let merge = prodrome_core::event::mk_woven(
@@ -1106,12 +1116,21 @@ mod tests {
         )
         .expect("two parents");
         let joined = link(&seal_hash(&merge), &merge);
-        assert_eq!(joined.kind, "Woven");
-        assert_eq!(joined.todo, "");
-        assert_eq!(joined.actor, "");
-        assert_eq!(joined.at, "");
+        assert_eq!(
+            joined.holds,
+            wire::Holds::Envelope {
+                kind: "Woven".to_owned()
+            }
+        );
         assert_eq!(joined.parents.len(), 2);
-        assert_eq!(joined.prev, joined.parents[0]);
+    }
+
+    /// What an event's link reverses; an envelope reverses nothing, being no event.
+    fn reverses(link: &wire::Link) -> Option<&wire::Reverses> {
+        match &link.holds {
+            wire::Holds::Event { reverses, .. } => Some(reverses),
+            wire::Holds::Envelope { .. } => None,
+        }
     }
 
     /// A link says what its event reverses as a value read from the note, and an ordinary
@@ -1125,18 +1144,18 @@ mod tests {
             mk_reopened("alpha", at(3), "ada", &note).expect("valid"),
         );
         assert_eq!(
-            link(&seal_hash(&undo), &undo).reverses,
-            wire::Reverses::Undo {
+            reverses(&link(&seal_hash(&undo), &undo)),
+            Some(&wire::Reverses::Undo {
                 of: target.as_str().to_owned()
-            }
+            })
         );
         let plain = mk_sealed(
             None,
             mk_completed("alpha", at(2), "ada", "moved").expect("valid"),
         );
         assert_eq!(
-            link(&seal_hash(&plain), &plain).reverses,
-            wire::Reverses::Nothing
+            reverses(&link(&seal_hash(&plain), &plain)),
+            Some(&wire::Reverses::Nothing)
         );
     }
 

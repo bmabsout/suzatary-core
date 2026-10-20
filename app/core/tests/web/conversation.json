@@ -6,30 +6,24 @@
   "turns": [
     {
       "index": 0,
-      "who": "person",
-      "verb": "",
       "text": "email Harrow about the deed",
-      "refused": false,
+      "at": "2026-09-02T12:00:01",
+      "attempt": "current",
+      "gone": null,
+      "who": "person",
       "references": [
         "todo:life/email-harrow"
       ],
       "attachments": [],
-      "queued": false,
-      "blocks": [],
-      "at": "2026-09-02T12:00:01",
-      "remembered": null,
-      "attempt": "current",
-      "gone": null
+      "queued": false
     },
     {
       "index": 1,
-      "who": "model",
-      "verb": "",
       "text": "I will draft that now.",
-      "refused": false,
-      "references": [],
-      "attachments": [],
-      "queued": false,
+      "at": "2026-09-02T12:00:20",
+      "attempt": "current",
+      "gone": null,
+      "who": "model",
       "blocks": [
         {
           "source": "I will draft that now.",
@@ -37,36 +31,26 @@
           "kind": "prose",
           "html": null
         }
-      ],
-      "at": "2026-09-02T12:00:20",
-      "remembered": null,
-      "attempt": "current",
-      "gone": null
+      ]
     },
     {
       "index": 2,
-      "who": "person",
-      "verb": "",
       "text": "thanks — anything else on it?",
-      "refused": false,
+      "at": "2026-09-02T12:01:30",
+      "attempt": "current",
+      "gone": null,
+      "who": "person",
       "references": [],
       "attachments": [],
-      "queued": false,
-      "blocks": [],
-      "at": "2026-09-02T12:01:30",
-      "remembered": null,
-      "attempt": "current",
-      "gone": null
+      "queued": false
     },
     {
       "index": 3,
-      "who": "model",
-      "verb": "",
       "text": "Nothing else today.",
-      "refused": false,
-      "references": [],
-      "attachments": [],
-      "queued": false,
+      "at": "2026-09-02T12:01:35",
+      "attempt": "current",
+      "gone": null,
+      "who": "model",
       "blocks": [
         {
           "source": "Nothing else today.",
@@ -74,11 +58,7 @@
           "kind": "prose",
           "html": null
         }
-      ],
-      "at": "2026-09-02T12:01:35",
-      "remembered": null,
-      "attempt": "current",
-      "gone": null
+      ]
     }
   ],
   "proposals": [
@@ -123,12 +103,10 @@
           {
             "verb": "send",
             "label": "Send",
-            "question": "Send to counsel@example.test?",
-            "yes": "Yes, send it",
             "done": "sent to counsel@example.test",
-            "always": false,
-            "input": "",
-            "endorse": false
+            "asks": "confirm",
+            "question": "Send to counsel@example.test?",
+            "yes": "Yes, send it"
           }
         ],
         "uncertain": "It may have been sent. Check Sent; it is never sent again.",

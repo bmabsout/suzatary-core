@@ -17,11 +17,11 @@ use prodrome_core::store::EventStore;
 
 use suzatary_core::capability::{SessionId, ToolCall, Turn};
 use suzatary_core::cast::CAST;
-use suzatary_core::redact::Scrubbed;
 use suzatary_core::secretary::conversations::Counting;
 use suzatary_core::secretary::inbox::{self, ProposalId};
 use suzatary_core::secretary::inbox_event::{InboxEvent, Said};
 use suzatary_core::secretary::line_event::{LineEvent, LineVocabulary};
+use suzatary_core::secretary::line_shape;
 use suzatary_core::secretary::locked_text::KeyName;
 use suzatary_core::secretary::queue;
 use suzatary_core::secretary::responded::{Done, Responded, Tried};
@@ -58,8 +58,8 @@ fn id() -> ConversationId {
     ConversationId::new("2026-09-30-1").expect("a slug")
 }
 
-fn at(n: u32) -> String {
-    stamp(Datetime::new(2026, 9, 30, 9, n / 60, n % 60, 0).expect("an instant"))
+fn at(n: u32) -> Datetime {
+    Datetime::new(2026, 9, 30, 9, n / 60, n % 60, 0).expect("an instant")
 }
 
 /// A scratch directory of this process's own, gone when dropped.
@@ -83,8 +83,26 @@ impl Drop for Scratch {
     }
 }
 
-fn scrubbed(entry: &Entry) -> Scrubbed<Entry> {
-    Scrubbed::of(entry).expect("scrubs")
+/// Line `entry` of conversation `id` as the store keeps it: each slot of its words through the
+/// redaction door, as `LineEvent::write` sends them.
+fn scrubbed(id: &ConversationId, entry: &Entry) -> Entry {
+    let (shape, words) = line_shape::split(entry);
+    let words = words
+        .expect("a line with its words")
+        .iter()
+        .map(|words| Words::kept(words.scrubbed().expect("scrubs")))
+        .collect();
+    line_shape::join(id, shape, entry.at(), words)
+}
+
+/// How many bytes the words of `entry` print to, which is most of what a line weighs.
+fn weight(entry: &Entry) -> usize {
+    line_shape::split(entry)
+        .1
+        .expect("a line with its words")
+        .iter()
+        .map(|words| suzatary_core::secretary::salted_text::Words::print(words).len())
+        .sum()
 }
 
 fn opened() -> Entry {
@@ -275,12 +293,12 @@ fn conversation(script: &[(Step, u32)]) -> Vec<Entry> {
                     continue;
                 }
                 Entry::Coding {
-                    at: at.clone(),
+                    at,
                     proposal: proposals - 1,
                     session: suzatary_core::coding::Session::Fired {
                         id: "session_1".parse().expect("a session id"),
                         url: "https://claude.ai/code/session_1".parse().expect("a url"),
-                        at,
+                        at: stamp(at),
                     },
                 }
             }
@@ -291,7 +309,7 @@ fn conversation(script: &[(Step, u32)]) -> Vec<Entry> {
 }
 
 /// The line ending the session `stored` keeps, at `at`; the box writes it for no other.
-fn unheard(stored: &Stored, at: String) -> Option<Entry> {
+fn unheard(stored: &Stored, at: Datetime) -> Option<Entry> {
     stored.session.as_ref().map(|kept| Entry::Unheard {
         at,
         session: kept.session.id.clone(),
@@ -376,7 +394,6 @@ fn bookkeeping(step: &Step, second: u32, sessions: &mut u32) -> Entry {
             chain: "life".to_owned(),
             batch: format!("{second:064x}"),
             decision: Decision::Held,
-            objects: Vec::new(),
             why: suzatary_core::secretary::words::Words::kept("about money".to_owned()),
         },
         Step::ReviewFailed => Entry::ReviewFailed {
@@ -455,10 +472,7 @@ fn inbox_of(proposals: usize, answers: &[u8], dropped: &[bool]) -> inbox::Fold {
 
 /// The lines through the door: what the store holds and what `Stored::of` is asked about.
 fn through_the_door(lines: &[Entry]) -> Vec<Entry> {
-    lines
-        .iter()
-        .map(|line| scrubbed(line).into_inner())
-        .collect()
+    lines.iter().map(|line| scrubbed(&id(), line)).collect()
 }
 
 /// The lines written into a fresh store, one push each, and read back.
@@ -535,12 +549,12 @@ proptest! {
             let words = words.expect("a line the box writes holds its words");
             prop_assert_eq!(words.len(), shape.slots());
             let kept: Vec<_> = words.iter().cloned().map(Words::kept).collect();
-            prop_assert_eq!(join(&id(), shape.clone(), entry.at().to_owned(), kept.clone()), entry.clone());
+            prop_assert_eq!(join(&id(), shape.clone(), entry.at(), kept.clone()), entry.clone());
             if !kept.is_empty() {
                 let mut lost = kept;
                 let at = gone.index(lost.len());
                 lost[at] = Gone::Missing.into();
-                let read = join(&id(), shape.clone(), entry.at().to_owned(), lost);
+                let read = join(&id(), shape.clone(), entry.at(), lost);
                 prop_assert_ne!(&read, &entry);
                 prop_assert_eq!(split(&read).0, shape);
             }
@@ -952,9 +966,7 @@ fn live_shaped(lines: usize) -> Vec<Entry> {
             };
             said(u32::try_from(n).expect("a second"), turn)
         };
-        let around = serde_json::to_string(&line(String::new()))
-            .expect("serialises")
-            .len();
+        let around = weight(&line(String::new()));
         entries.push(line(prose(size.saturating_sub(around).max(16), n)));
     }
     entries
@@ -972,10 +984,7 @@ fn timed<T>(what: &str, work: impl FnOnce() -> T) -> T {
 
 /// The sizes of one conversation's lines, printed.
 fn describe(entries: &[Entry]) {
-    let mut bytes: Vec<usize> = entries
-        .iter()
-        .map(|entry| serde_json::to_string(entry).expect("serialises").len())
-        .collect();
+    let mut bytes: Vec<usize> = entries.iter().map(weight).collect();
     bytes.sort_unstable();
     println!(
         "per conversation: lines {}, median {} B, p99 {} B, largest {} B, total {} B",
@@ -1076,7 +1085,7 @@ fn measure_the_store_at_the_live_size() {
     assert_eq!(all.len(), CONVERSATIONS);
     let door: Vec<Entry> = entries
         .iter()
-        .map(|entry| scrubbed(entry).into_inner())
+        .map(|entry| scrubbed(&ids[0], entry))
         .collect();
     assert_eq!(all[&ids[0]].entries(), door);
     let findings = timed("verify: the store's fsck", || store.verify());

@@ -113,7 +113,7 @@ pub fn search(conversations: &[Stored], needle: &Needle, context: usize, limit: 
                         title: stored.heading().into_owned(),
                         kind: stored.kind,
                         turn: index,
-                        at: said.at.clone(),
+                        at: crate::secretary::store::stamp(said.at),
                         side,
                         excerpt,
                     })
@@ -168,7 +168,7 @@ mod tests {
 
     fn conversation(slug: &str, title: &str, turns: &[(&str, Turn)]) -> Stored {
         let mut entries = vec![Entry::Opened {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             title: crate::secretary::words::Words::kept(title.to_owned()),
             model: "m".to_owned(),
             kind: if slug == "default" {
@@ -178,7 +178,7 @@ mod tests {
             },
         }];
         entries.extend(turns.iter().map(|(at, turn)| Entry::Said {
-            at: (*at).to_owned(),
+            at: crate::secretary::store::instant(at),
             turn: turn.clone(),
             by: None,
         }));

@@ -21,7 +21,7 @@ use crate::secretary::inbox::{self, ProposalId};
 use crate::secretary::inbox_event::InboxEvent;
 use crate::secretary::proposer::Proposer;
 use crate::secretary::responded::Withdrawal;
-use crate::secretary::store::{ConversationId, Entry, Kind, Proposal, Reasons, stamp};
+use crate::secretary::store::{ConversationId, Entry, Kind, Proposal, Reasons};
 use crate::secretary::transcript;
 use crate::store::{Prodrome, StoreError};
 
@@ -156,7 +156,7 @@ impl Owed {
             }
             // Opened by the first card it draws, so a box that owes nothing has no conversation.
             let opened = Entry::Opened {
-                at: stamp(at),
+                at,
                 title: crate::secretary::words::Words::kept("Setup".to_owned()),
                 model: Proposer::Box.named(),
                 kind: Kind::Review,
@@ -175,7 +175,7 @@ impl Owed {
             super::append(
                 conversations,
                 conversation,
-                &Entry::noted(stamp(at), why.clone(), vec![card.clone()]),
+                &Entry::noted(at, why.clone(), vec![card.clone()]),
             )?;
             let reasons = Reasons::new(why, vec![card])
                 .map_err(|failed| Refusal::internal(failed.to_string()))?;

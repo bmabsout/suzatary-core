@@ -125,7 +125,8 @@ fn a_round_over_a_session() {
             caps.conversations.conversations(),
             &id(),
             &suzatary_core::secretary::store::Entry::Said {
-                at: "2026-09-02T12:00:00".to_owned(),
+                at: suzatary_core::capability::Datetime::new(2026, 9, 2, 12, 0, 0, 0)
+                    .expect("an instant"),
                 turn: suzatary_core::capability::Turn::Person {
                     text: said.to_owned(),
                     references: Vec::new(),
@@ -225,7 +226,8 @@ fn said_first(caps: &Fakes) {
         caps.conversations.conversations(),
         &id(),
         &suzatary_core::secretary::store::Entry::Said {
-            at: "2026-09-02T12:00:00".to_owned(),
+            at: suzatary_core::capability::Datetime::new(2026, 9, 2, 12, 0, 0, 0)
+                .expect("an instant"),
             turn: suzatary_core::capability::Turn::Person {
                 text: "go".to_owned(),
                 references: Vec::new(),

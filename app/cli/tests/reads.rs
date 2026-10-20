@@ -44,8 +44,8 @@ fn every_literal_rehashes_to_its_own_name() {
     }
 }
 
-/// Every object's parents come before it, in the linearisation's order, and `prev` is the first
-/// of them.
+/// Every object's parents come before it, in the linearisation's order, and a link names them
+/// once, as `parents`.
 #[test]
 fn parents_come_before_the_object() {
     let body = chain(&base());
@@ -53,10 +53,7 @@ fn parents_come_before_the_object() {
     let mut seen = std::collections::BTreeSet::new();
     for link in links {
         let parents = link["parents"].as_array().expect("parents");
-        assert_eq!(
-            link["prev"],
-            parents.first().cloned().unwrap_or_else(|| "".into())
-        );
+        assert!(link.get("prev").is_none(), "{link}");
         for parent in parents {
             assert!(seen.contains(parent.as_str().expect("a name")), "{link}");
         }

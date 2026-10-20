@@ -4,7 +4,8 @@
  * both are drawn when `/api/me` answers, never assumed.
  */
 
-import type { AttachmentRow, TurnRow } from "../wire/generated/wire";
+import type { AttachmentRow } from "../wire/generated/wire";
+import turns from "./turns";
 import type { Reference } from "./refs";
 import { upload } from "../wire/api";
 import app from "../app/app";
@@ -55,7 +56,7 @@ export interface Composer {
   /** Quote a turn's text into the box: a quote, not a reference, because a turn is not a destination. */
   quote: (text: string) => void;
   /** Bring a question back to be reworded — Edit on the transcript, and ↑. */
-  edit: (question: TurnRow) => void;
+  edit: (question: turns.Question) => void;
   destroy: () => void;
 }
 
@@ -236,7 +237,7 @@ export function mountComposer(options: ComposerOptions): Composer {
     atEnd();
   }
 
-  function edit(question: TurnRow): void {
+  function edit(question: turns.Question): void {
     dispatch({ type: "Edit", question });
     atEnd();
   }

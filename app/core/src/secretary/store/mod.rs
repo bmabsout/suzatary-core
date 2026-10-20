@@ -38,7 +38,7 @@ mod title;
 pub use aside::Aside;
 pub use asking::Asking;
 pub use conversation_id::{ConversationId, DEFAULT, NotAnId};
-pub use decision::Decision;
+pub use decision::{Decision, Outcome, Settle};
 pub use draft::{Draft, EMAIL};
 pub use entry::{Entry, stamp};
 pub use kept::Kept;
@@ -60,3 +60,23 @@ pub use title::{NotATitle, Title};
 
 #[cfg(test)]
 mod tests;
+
+/// The instant a test names: an ISO stamp, or `t<n>` for second `n` of one morning (`t` is `t0`).
+#[cfg(test)]
+pub(crate) fn instant(at: &str) -> crate::capability::Datetime {
+    match at.strip_prefix('t').and_then(|n| {
+        if n.is_empty() {
+            Some(0)
+        } else {
+            n.parse::<u32>().ok()
+        }
+    }) {
+        Some(n) => {
+            crate::capability::Datetime::new(2026, 9, 9, 9, n / 60, n % 60, 0).expect("an instant")
+        }
+        None => prodrome_core::fpl::datetime_of(
+            prodrome_core::fpl::parse_iso(at).expect("an ISO stamp"),
+        )
+        .expect("an instant"),
+    }
+}

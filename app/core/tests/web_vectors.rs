@@ -402,7 +402,7 @@ impl Bundle {
         };
         let assistant = Actor::new("assistant").expect("an actor");
         ConversationEntry::Proposed {
-            at: stamp(at),
+            at,
             object: inbox::ask(&self.inbox, asked, &assistant, at).expect("filed"),
             revises: None,
         }
@@ -565,13 +565,13 @@ fn scripted_conversation(bundle: &Bundle, id: &ConversationId) -> Vec<Conversati
 
     vec![
         ConversationEntry::Opened {
-            at: stamp(opened),
+            at: opened,
             title: suzatary_core::secretary::words::Words::kept("About the deed".to_owned()),
             model: "vectors-fixture".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Topic,
         },
         ConversationEntry::Said {
-            at: stamp(asked),
+            at: asked,
             turn: Turn::Person {
                 text: format!("email {} about the deed", CAST.counsel.name),
                 references: vec![reference_todo.clone().into()],
@@ -580,7 +580,7 @@ fn scripted_conversation(bundle: &Bundle, id: &ConversationId) -> Vec<Conversati
             by: None,
         },
         ConversationEntry::Said {
-            at: stamp(answered),
+            at: answered,
             turn: Turn::Model {
                 text: "I will draft that now.".to_owned(),
                 calls: Vec::new(),
@@ -607,7 +607,7 @@ fn scripted_conversation(bundle: &Bundle, id: &ConversationId) -> Vec<Conversati
             proposed,
         ),
         ConversationEntry::Said {
-            at: stamp(followed_up),
+            at: followed_up,
             turn: Turn::Person {
                 text: "thanks — anything else on it?".to_owned(),
                 references: Vec::new(),
@@ -616,7 +616,7 @@ fn scripted_conversation(bundle: &Bundle, id: &ConversationId) -> Vec<Conversati
             by: None,
         },
         ConversationEntry::Said {
-            at: stamp(closed),
+            at: closed,
             turn: Turn::Model {
                 text: "Nothing else today.".to_owned(),
                 calls: Vec::new(),
@@ -918,7 +918,7 @@ fn every_stage(bundle: &Bundle, id: &ConversationId) -> Vec<ConversationEntry> {
         })
     };
     let mut entries = vec![ConversationEntry::Opened {
-        at: stamp(opened),
+        at: opened,
         title: suzatary_core::secretary::words::Words::kept("Every stage".to_owned()),
         model: "vectors-fixture".to_owned(),
         kind: suzatary_core::secretary::store::Kind::Topic,
@@ -993,7 +993,7 @@ fn with_an_unreadable_proposal(bundle: &Bundle, id: &ConversationId) -> (Proposa
         id,
         &[
             ConversationEntry::Opened {
-                at: stamp(opened),
+                at: opened,
                 title: suzatary_core::secretary::words::Words::kept("Two proposals".to_owned()),
                 model: "vectors-fixture".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -1105,7 +1105,7 @@ fn with_unplaced_lines(bundle: &Bundle, id: &ConversationId) {
         id,
         &[
             ConversationEntry::Opened {
-                at: stamp(at),
+                at,
                 title: suzatary_core::secretary::words::Words::kept("Three proposals".to_owned()),
                 model: "vectors-fixture".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -1378,7 +1378,7 @@ fn erase_the_first_answer(bundle: &Bundle, id: &ConversationId) {
         suzatary_core::secretary::erasure::Erasure::Asked {
             by: actor(CAST.owner.actor),
         },
-        stamp(later(now(), 300)),
+        later(now(), 300),
     )
     .expect("erased");
 }
@@ -1496,13 +1496,13 @@ fn remembering(bundle: &Bundle, id: &ConversationId) -> Vec<ConversationEntry> {
     let opened = later(now(), 200);
     vec![
         ConversationEntry::Opened {
-            at: stamp(opened),
+            at: opened,
             title: suzatary_core::secretary::words::Words::kept("Trains".to_owned()),
             model: "vectors-fixture".to_owned(),
             kind: suzatary_core::secretary::store::Kind::Topic,
         },
         ConversationEntry::Said {
-            at: stamp(later(opened, 1)),
+            at: later(opened, 1),
             turn: Turn::Person {
                 text: "remember that I take the early train".to_owned(),
                 references: Vec::new(),
@@ -1511,7 +1511,7 @@ fn remembering(bundle: &Bundle, id: &ConversationId) -> Vec<ConversationEntry> {
             by: None,
         },
         ConversationEntry::Said {
-            at: stamp(later(opened, 2)),
+            at: later(opened, 2),
             turn: Turn::Tool {
                 verb: "remember".into(),
                 answer: r#"{"remembered": 1, "kind": "owner"}"#.to_owned(),
@@ -1521,7 +1521,7 @@ fn remembering(bundle: &Bundle, id: &ConversationId) -> Vec<ConversationEntry> {
             by: None,
         },
         ConversationEntry::Said {
-            at: stamp(later(opened, 3)),
+            at: later(opened, 3),
             turn: Turn::Model {
                 text: "= Noted\n\nThe early train, from now on.".to_owned(),
                 calls: Vec::new(),
@@ -1753,10 +1753,10 @@ fn the_replicas_vector_is_what_the_box_answers() {
 fn memory_of(bundle: &Bundle, trains: &ConversationId) -> wire::MemoryPayload {
     wire::MemoryPayload {
         facts: vec![wire::FactRow {
-            id: 1,
+            id: suzatary_core::secretary::memory::FactId(1),
             at: stamp(later(now(), 202)),
             fact: "Takes the early train".to_owned(),
-            kind: "owner".to_owned(),
+            kind: suzatary_core::secretary::memory::Kind::Owner,
             said: wire::SaidOn::Turn {
                 conversation: trains.to_string(),
                 turn: 0,
@@ -1945,7 +1945,7 @@ fn the_answers_vector_holds_every_answer() {
             lines.conversations(),
             &ConversationId::new("pulled").expect("a slug"),
             &ConversationEntry::Opened {
-                at: stamp(at),
+                at,
                 title: suzatary_core::secretary::words::Words::kept("Pulled".to_owned()),
                 model: "vectors-fixture".to_owned(),
                 kind: suzatary_core::secretary::store::Kind::Topic,
@@ -2099,38 +2099,96 @@ fn the_answers_vector_holds_every_answer() {
         error: "refused".to_owned(),
     }]);
 
-    let object = wire::ProposedObject {
-        hash: "b".repeat(64),
-        act: "add".to_owned(),
+    let todo = |pending_todo| wire::ProposedTodo {
         todo: CAST.todos.agents.id.to_owned(),
         body: "Reply".to_owned(),
         at: stamp(at),
         actor: "triage".to_owned(),
-        note: String::new(),
-        changes: vec![wire::ProposedChange {
-            field: "body".to_owned(),
-            before: String::new(),
-            after: "Reply".to_owned(),
-        }],
-        needs: Vec::new(),
-        pending_todo: false,
+        pending_todo,
     };
+    let object = wire::ProposedObject {
+        hash: "b".repeat(64),
+        needs: Vec::new(),
+        act: wire::ObjectAct::Added {
+            todo: todo(false),
+            changes: vec![wire::ProposedChange {
+                field: "body".to_owned(),
+                before: String::new(),
+                after: "Reply".to_owned(),
+            }],
+        },
+    };
+    // Every other act an object can be, so the tab decodes each.
+    let others = [
+        wire::ObjectAct::Merge,
+        wire::ObjectAct::Edited {
+            todo: todo(false),
+            changes: Vec::new(),
+        },
+        wire::ObjectAct::Repriced {
+            todo: todo(false),
+            changes: Vec::new(),
+        },
+        wire::ObjectAct::Created {
+            todo: todo(true),
+            note: "registered".to_owned(),
+        },
+        wire::ObjectAct::Completed {
+            todo: todo(true),
+            note: "done".to_owned(),
+        },
+        wire::ObjectAct::Cancelled {
+            todo: todo(false),
+            note: String::new(),
+        },
+        wire::ObjectAct::Reopened {
+            todo: todo(false),
+            note: String::new(),
+        },
+        wire::ObjectAct::Tended {
+            todo: todo(false),
+            note: String::new(),
+        },
+        wire::ObjectAct::Respecified {
+            todo: todo(false),
+            note: String::new(),
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(n, act)| wire::ProposedObject {
+        hash: format!("{n:064x}"),
+        needs: vec!["b".repeat(64)],
+        act,
+    });
     samples.add([wire::ProposalsPayload {
         chain: "life".to_owned(),
         batches: vec![wire::ProposedBatch {
             head: "b".repeat(64),
             at: stamp(at),
             actor: "triage".to_owned(),
-            objects: vec![object],
+            objects: std::iter::once(object).chain(others).collect(),
         }],
-        reviews: vec![wire::ReviewedBatch {
-            batch: "b".repeat(64),
-            decision: "accept".to_owned(),
-            why: "it carries its evidence".to_owned(),
-            at: stamp(at),
-            objects: 1,
-            conversation: "review".to_owned(),
-        }],
+        reviews: vec![
+            wire::ReviewedBatch {
+                batch: "b".repeat(64),
+                why: "it carries its evidence".to_owned(),
+                at: stamp(at),
+                conversation: "review".to_owned(),
+                decision: suzatary_core::secretary::store::Decision::Settled {
+                    how: suzatary_core::secretary::store::Settle::Accepted,
+                    objects: suzatary_core::nonempty::NonEmpty::of(vec!["b".repeat(64)])
+                        .expect("one object"),
+                },
+            },
+            wire::ReviewedBatch {
+                batch: "c".repeat(64),
+                why: "it changes a commitment".to_owned(),
+                at: stamp(at),
+                conversation: "review".to_owned(),
+                decision: suzatary_core::secretary::store::Decision::Held,
+            },
+        ],
     }]);
     samples.add([wire::AcceptedPayload {
         chain: "life".to_owned(),
@@ -2215,20 +2273,20 @@ fn the_answers_vector_holds_every_answer() {
     samples.add([wire::MemoryPayload {
         facts: vec![
             wire::FactRow {
-                id: 1,
+                id: suzatary_core::secretary::memory::FactId(1),
                 at: stamp(at),
                 fact: "Takes the early train".to_owned(),
-                kind: "person".to_owned(),
+                kind: suzatary_core::secretary::memory::Kind::Person,
                 said: wire::SaidOn::Turn {
                     conversation: deed.to_string(),
                     turn: 0,
                 },
             },
             wire::FactRow {
-                id: 2,
+                id: suzatary_core::secretary::memory::FactId(2),
                 at: stamp(at),
                 fact: format!("{} keeps the books", CAST.counsel.name),
-                kind: "person".to_owned(),
+                kind: suzatary_core::secretary::memory::Kind::Person,
                 said: wire::SaidOn::Tapped {
                     conversation: deed.to_string(),
                     proposal: 1,
@@ -2236,7 +2294,7 @@ fn the_answers_vector_holds_every_answer() {
             },
         ],
         cap: 200,
-        forgotten: vec![3],
+        forgotten: vec![suzatary_core::secretary::memory::FactId(3)],
         cards: vec![wire::CardWords {
             text: "c".repeat(64),
             fact: "Prefers mornings".to_owned(),
@@ -2497,23 +2555,35 @@ fn the_answers_vector_holds_every_answer() {
 
     // The browser's module's own answers: the verifier's, with every arm of its walk and of
     // what it found, and who wrote each object, with every arm of its proof.
-    let verdict = |hash: &str, walk: wire::Walk| wire::ObjectVerdict {
+    let verdict = |hash: &str, walk: wire::Walk, condition: wire::Condition| wire::ObjectVerdict {
         hash: hash.to_owned(),
         computed: hash.to_owned(),
         hash_ok: true,
         walk,
-        kind: "Created".to_owned(),
-        todo: CAST.todos.agents.id.to_owned(),
-        actor: "owner".to_owned(),
-        at: "2026-09-02T12:00:00".to_owned(),
-        problem: String::new(),
+        condition,
+        holds: if hash.starts_with('a') {
+            wire::Verified::Event {
+                kind: "Created".to_owned(),
+                todo: CAST.todos.agents.id.to_owned(),
+                actor: "owner".to_owned(),
+                at: "2026-09-02T12:00:00".to_owned(),
+            }
+        } else {
+            wire::Verified::Envelope {
+                kind: "Woven".to_owned(),
+            }
+        },
     };
     let tip = "a".repeat(64);
     let stray = "b".repeat(64);
     samples.add([
         wire::VerifiedPayload {
             tips: vec![tip.clone()],
-            objects: vec![verdict(&tip, wire::Walk::Reached { depth: 0 })],
+            objects: vec![verdict(
+                &tip,
+                wire::Walk::Reached { depth: 0 },
+                wire::Condition::Clean,
+            )],
             walked: 1,
             verified: 1,
             genesis: vec![tip.clone()],
@@ -2523,8 +2593,18 @@ fn the_answers_vector_holds_every_answer() {
         wire::VerifiedPayload {
             tips: vec![tip.clone()],
             objects: vec![
-                verdict(&tip, wire::Walk::Reached { depth: 0 }),
-                verdict(&stray, wire::Walk::Unreached),
+                verdict(
+                    &tip,
+                    wire::Walk::Reached { depth: 0 },
+                    wire::Condition::Clean,
+                ),
+                verdict(
+                    &stray,
+                    wire::Walk::Unreached,
+                    wire::Condition::Flawed {
+                        problem: "not reachable from any head by its parents".to_owned(),
+                    },
+                ),
             ],
             walked: 1,
             verified: 2,

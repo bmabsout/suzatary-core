@@ -79,7 +79,7 @@ app.scene("a chain that moves under a scrolled table, then a filtered one, keeps
     await app.page.waitFor(`${box}.scrollTop === ${scrolled}`, { timeout: 10000 });
 
     // The query is a todo the table holds and the next todo's id does not contain.
-    const query = await app.page.evaluate<string>(`[...document.querySelectorAll("#chain tbody tr[aria-rowindex]")].map((r) => r.dataset.todo).find((t) => t !== "") ?? ""`);
+    const query = await app.page.evaluate<string>(`[...document.querySelectorAll("#chain tbody tr[aria-rowindex]")].map((r) => r.dataset.todo).find((t) => t !== undefined) ?? ""`);
     assert.notEqual(query, "", "a drawn row names a todo");
     assert.ok(!"chainmovedunderafilter".includes(query), query);
     const drawn = `document.querySelectorAll("#chain tbody tr[aria-rowindex]").length`;

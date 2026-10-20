@@ -7,7 +7,7 @@ use prodrome_core::event::Actor;
 
 use crate::capability::{Clock, Conversation, Model, Turn};
 use crate::refusal::Refusal;
-use crate::secretary::store::{ConversationId, Entry, Kind, Namer, Stored, Title, stamp};
+use crate::secretary::store::{ConversationId, Entry, Kind, Namer, Stored, Title};
 use crate::secretary::transcript;
 
 /// The opening words of the job's one question, which a scripted fixture keys on.
@@ -151,7 +151,7 @@ fn titled(
         conversations,
         id,
         &Entry::Titled {
-            at: stamp(clock.now()),
+            at: clock.now(),
             title: crate::secretary::words::Words::kept(title),
             by,
         },
@@ -166,13 +166,13 @@ mod tests {
 
     fn stored(kind: Kind, title: &str, turns: Vec<Turn>) -> Stored {
         let mut entries = vec![Entry::Opened {
-            at: "2026-09-25T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
             title: crate::secretary::words::Words::kept(title.to_owned()),
             model: "m".to_owned(),
             kind,
         }];
         entries.extend(turns.into_iter().map(|turn| Entry::Said {
-            at: "2026-09-25T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 1, 0, 0).expect("an instant"),
             turn,
             by: None,
         }));
@@ -288,7 +288,7 @@ mod tests {
 
     fn lines_of(stored: &Stored) -> Lines {
         let mut entries = vec![Entry::Opened {
-            at: stored.opened.clone(),
+            at: stored.opened,
             title: stored.title.clone(),
             model: stored.model.clone(),
             kind: stored.kind,
@@ -298,7 +298,7 @@ mod tests {
                 .turns
                 .iter()
                 .map(|Said { at, turn, by }| Entry::Said {
-                    at: at.clone(),
+                    at: *at,
                     turn: turn.clone(),
                     by: by.clone(),
                 }),

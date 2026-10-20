@@ -45,13 +45,7 @@ pub fn briefs(stored: &Stored) -> Vec<Brief> {
         if text != BRIEF {
             continue;
         }
-        let Some(date) = said
-            .at
-            .get(..10)
-            .and_then(|day| NaiveDate::parse_from_str(day, "%Y-%m-%d").ok())
-        else {
-            continue;
-        };
+        let date = prodrome_core::fpl::instant_of(said.at).date();
         let round: Vec<&(usize, &Said)> = live[at + 1..]
             .iter()
             .take_while(|(_, later)| !matches!(later.turn, Turn::Person { .. } | Turn::Act { .. }))
@@ -132,7 +126,7 @@ mod tests {
 
     fn said(at: &str, turn: Turn) -> Said {
         Said {
-            at: at.to_owned(),
+            at: crate::secretary::store::instant(at),
             turn,
             by: None,
         }
@@ -170,13 +164,15 @@ mod tests {
 
     fn stored(turns: Vec<Said>) -> Stored {
         Stored {
-            opened: "2026-09-14T11:05:41".to_owned(),
+            opened: crate::capability::Datetime::new(2026, 9, 14, 11, 5, 41, 0)
+                .expect("an instant"),
             title: crate::secretary::words::Words::kept("Secretary".to_owned()),
             model: "m".to_owned(),
             turns,
             ..Stored::empty(
                 &crate::secretary::store::DEFAULT,
                 crate::secretary::store::Kind::Default,
+                crate::capability::Datetime::new(2026, 9, 14, 11, 5, 41, 0).expect("an instant"),
             )
         }
     }

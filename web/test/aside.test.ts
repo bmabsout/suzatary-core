@@ -18,15 +18,11 @@ import { forAll } from "./gen";
 const turn = (index: number): TurnRow => ({
   index,
   who: "person",
-  verb: "",
   text: "hi",
-  refused: false,
   references: [],
   attachments: [],
   queued: false,
-  blocks: [],
   at: "2026-09-16T10:00:00",
-  remembered: null,
   attempt: "current",
   gone: null,
 });

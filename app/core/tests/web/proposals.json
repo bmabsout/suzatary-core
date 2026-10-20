@@ -40,12 +40,10 @@
         {
           "verb": "send",
           "label": "Send",
-          "question": "Send to counsel@example.test?",
-          "yes": "Yes, send it",
           "done": "sent to counsel@example.test",
-          "always": false,
-          "input": "",
-          "endorse": false
+          "asks": "confirm",
+          "question": "Send to counsel@example.test?",
+          "yes": "Yes, send it"
         }
       ],
       "uncertain": "It may have been sent. Check Sent; it is never sent again.",
@@ -213,12 +211,10 @@
         {
           "verb": "send",
           "label": "Try again",
-          "question": "Send to counsel@example.test?",
-          "yes": "Yes, send it",
           "done": "sent to counsel@example.test",
-          "always": false,
-          "input": "",
-          "endorse": false
+          "asks": "confirm",
+          "question": "Send to counsel@example.test?",
+          "yes": "Yes, send it"
         }
       ],
       "uncertain": "It may have been sent. Check Sent; it is never sent again.",

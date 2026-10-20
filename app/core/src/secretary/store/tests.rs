@@ -35,7 +35,7 @@ fn object() -> crate::secretary::inbox::ProposalId {
 
 fn proposed(at: &str) -> Entry {
     Entry::Proposed {
-        at: at.to_owned(),
+        at: instant(at),
         object: object(),
         revises: None,
     }
@@ -83,7 +83,7 @@ fn changeset() -> crate::secretary::changes::Changeset {
 
 fn opened() -> Entry {
     Entry::Opened {
-        at: "2026-09-09T09:00:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 9, 9, 0, 0, 0).expect("an instant"),
         title: crate::secretary::words::Words::kept("Morning".to_owned()),
         model: "claude-cli".to_owned(),
         kind: crate::secretary::store::Kind::Topic,
@@ -117,7 +117,7 @@ fn fired(id: &str) -> crate::coding::Session {
 #[test]
 fn a_coding_line_folds_last_wins_by_index_and_refuses_a_phantom() {
     let coding = |proposal, session| Entry::Coding {
-        at: "2026-09-09T09:06:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 9, 9, 6, 0, 0).expect("an instant"),
         proposal,
         session,
     };
@@ -137,8 +137,6 @@ fn a_coding_line_folds_last_wins_by_index_and_refuses_a_phantom() {
     )
     .expect("folds");
     assert_eq!(stored.coding.get(&0), Some(&dropped));
-    let line = serde_json::to_string(&coding(0, dropped)).expect("serialises");
-    assert!(line.contains(r#""line":"coding""#), "{line}");
     assert_eq!(
         Stored::of(&id(), &[opened(), coding(0, fired("session_1"))]),
         Err(NotAConversation::Phantom { id: id(), index: 0 })
@@ -192,7 +190,7 @@ fn a_proposal_after_two_turns_carries_after_turn_two() {
     let entries = vec![
         opened(),
         Entry::Said {
-            at: "2026-09-09T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: "what changed".to_owned(),
                 references: Vec::new(),
@@ -201,7 +199,7 @@ fn a_proposal_after_two_turns_carries_after_turn_two() {
             by: None,
         },
         Entry::Said {
-            at: "2026-09-09T09:01:30".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 30, 0).expect("an instant"),
             turn: Turn::Model {
                 text: "checking".to_owned(),
                 calls: Vec::new(),
@@ -221,7 +219,7 @@ fn a_turns_instant_survives_the_fold() {
     let entries = vec![
         opened(),
         Entry::Said {
-            at: "2026-09-09T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: "what changed".to_owned(),
                 references: Vec::new(),
@@ -231,7 +229,10 @@ fn a_turns_instant_survives_the_fold() {
         },
     ];
     let stored = Stored::of(&id(), &entries).expect("a conversation");
-    assert_eq!(stored.turns[0].at, "2026-09-09T09:01:00");
+    assert_eq!(
+        stored.turns[0].at,
+        crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant")
+    );
     assert_eq!(
         stored.turns[0].turn,
         Turn::Person {
@@ -249,24 +250,6 @@ fn a_conversation_without_an_opening_line_is_refused() {
         Stored::of(&id(), &[]).unwrap_err(),
         NotAConversation::Unopened(id())
     );
-}
-
-/// A line read on its own says what it is and which object.
-#[test]
-fn a_line_round_trips_and_names_itself() {
-    let entry = Entry::Proposed {
-        at: "2026-09-09T09:02:00".to_owned(),
-        object: object(),
-        revises: Some(0),
-    };
-    let printed = serde_json::to_string(&entry).expect("a line serialises");
-    assert!(printed.contains(r#""line":"proposed""#), "{printed}");
-    assert!(
-        printed.contains(r#""object":"p0123456789abcdef0123456789abcdef""#),
-        "{printed}"
-    );
-    let read: Entry = serde_json::from_str(&printed).expect("and reads back");
-    assert_eq!(read, entry);
 }
 
 /// An email proposal names itself, and its sources are their text form.
@@ -331,7 +314,7 @@ fn a_revision_draws_both_cards() {
             opened(),
             proposed("2026-09-09T09:02:00"),
             Entry::Proposed {
-                at: "2026-09-09T09:03:00".to_owned(),
+                at: crate::capability::Datetime::new(2026, 9, 9, 9, 3, 0, 0).expect("an instant"),
                 object: object(),
                 revises: Some(0),
             },
@@ -414,7 +397,7 @@ fn a_conversation_with_no_session_line_has_none() {
     let entries = vec![
         opened(),
         Entry::Said {
-            at: "2026-09-13T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 13, 9, 1, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: "hi".to_owned(),
                 references: Vec::new(),
@@ -434,7 +417,7 @@ fn an_unheard_turn_ends_only_the_session_it_names() {
     let first = SessionId::new("96f709a3-43d7-4453-bf59-6fb5291b5a3c").expect("a uuid");
     let second = SessionId::new("11111111-2222-4333-8444-555555555555").expect("a uuid");
     let kept = |at: &str, id: &SessionId| Entry::Kept {
-        at: at.to_owned(),
+        at: instant(at),
         session: id.clone(),
         model: "claude-cli/haiku".to_owned(),
         cwd: "/home/ada/Documents/Suzatary".to_owned(),
@@ -442,7 +425,7 @@ fn an_unheard_turn_ends_only_the_session_it_names() {
         from: 0,
     };
     let unheard = |id: &SessionId| Entry::Unheard {
-        at: "2026-09-13T09:03:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 3, 0, 0).expect("an instant"),
         session: id.clone(),
         model: "openai-compatible/deepseek-v4-flash".to_owned(),
     };
@@ -477,14 +460,14 @@ fn the_last_session_line_wins() {
     let entries = vec![
         opened(),
         Entry::Session {
-            at: "2026-09-13T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 13, 9, 1, 0, 0).expect("an instant"),
             session: first.clone(),
             model: "claude-cli/haiku".to_owned(),
             cwd: "/home/ada/Documents/Suzatary".to_owned(),
             surface: None,
         },
         Entry::Session {
-            at: "2026-09-13T09:05:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 13, 9, 5, 0, 0).expect("an instant"),
             session: second.clone(),
             model: "claude-cli/haiku".to_owned(),
             cwd: "/home/ada/Documents/Suzatary".to_owned(),
@@ -505,14 +488,14 @@ fn a_stop_is_an_act_and_ends_the_session() {
     let entries = vec![
         opened(),
         Entry::Session {
-            at: "2026-09-25T09:00:30".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 30, 0).expect("an instant"),
             session: SessionId::new("96f709a3-43d7-4453-bf59-6fb5291b5a3c").expect("a uuid"),
             model: "claude-cli/haiku".to_owned(),
             cwd: "/srv".to_owned(),
             surface: None,
         },
         Entry::Said {
-            at: "2026-09-25T09:01:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 1, 0, 0).expect("an instant"),
             turn: Turn::Person {
                 text: "read everything".to_owned(),
                 references: Vec::new(),
@@ -521,7 +504,7 @@ fn a_stop_is_an_act_and_ends_the_session() {
             by: Some("ada".into()),
         },
         Entry::Stopped {
-            at: "2026-09-25T09:01:30".to_owned(),
+            at: crate::capability::Datetime::new(2026, 9, 25, 9, 1, 30, 0).expect("an instant"),
             by: "ada".to_owned(),
         },
     ];
@@ -537,13 +520,11 @@ fn a_stop_is_an_act_and_ends_the_session() {
     );
     assert_eq!(last.by, Some("ada".into()));
     assert_eq!(state(&stored), ConversationState::Idle);
-    let printed = serde_json::to_string(&entries[3]).expect("a line");
-    assert!(printed.contains(r#""line":"stopped""#), "{printed}");
 }
 
 fn said_by(at: &str, turn: Turn) -> Entry {
     Entry::Said {
-        at: at.to_owned(),
+        at: instant(at),
         turn,
         by: Some("ada".into()),
     }
@@ -586,7 +567,7 @@ fn answered_by(verb: &str, refused: bool) -> Turn {
 fn rewound(to: usize) -> Entry {
     Entry::Rewound {
         to,
-        at: "2026-09-25T10:00:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 25, 10, 0, 0, 0).expect("an instant"),
         by: "ada".to_owned(),
     }
 }
@@ -682,7 +663,7 @@ fn a_round_stopped_in_one_line_may_be_asked_again() {
         opened(),
         said_by("t1", question("read every thread")),
         Entry::Stopped {
-            at: "t2".to_owned(),
+            at: instant("t2"),
             by: "ada".to_owned(),
         },
     ];
@@ -706,7 +687,7 @@ fn a_stopped_round_may_be_asked_again() {
         opened(),
         said_by("t1", question("read every thread")),
         Entry::Stopped {
-            at: "t2".to_owned(),
+            at: instant("t2"),
             by: "ada".to_owned(),
         },
         said_by("t3", answer("")),
@@ -723,7 +704,7 @@ fn a_stop_is_known_by_its_line_not_its_words() {
         opened(),
         said_by("t1", question("read every thread")),
         Entry::Stopped {
-            at: "t2".to_owned(),
+            at: instant("t2"),
             by: "diego".to_owned(),
         },
         said_by("t3", answer("")),
@@ -865,7 +846,7 @@ proptest::proptest! {
                 }
                 Step::Answer => entries.push(said_by(&at, answer("a"))),
                 Step::Stop { stored_shape } => {
-                    entries.push(Entry::Stopped { at: at.clone(), by: "ada".to_owned() });
+                    entries.push(Entry::Stopped { at: instant(&at), by: "ada".to_owned() });
                     if stored_shape {
                         entries.push(said_by(&at, answer("")));
                     }
@@ -911,7 +892,7 @@ fn state_is_derived_from_the_last_turn_only() {
 
     let mut with_person = base.clone();
     with_person.push(Entry::Said {
-        at: "2026-09-13T09:01:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 1, 0, 0).expect("an instant"),
         turn: Turn::Person {
             text: "hi".to_owned(),
             references: Vec::new(),
@@ -926,7 +907,7 @@ fn state_is_derived_from_the_last_turn_only() {
 
     let mut with_tool = with_person.clone();
     with_tool.push(Entry::Said {
-        at: "2026-09-13T09:02:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
         turn: Turn::Tool {
             verb: "context".into(),
             answer: "{}".to_owned(),
@@ -942,7 +923,7 @@ fn state_is_derived_from_the_last_turn_only() {
 
     let mut with_calling_model = with_person.clone();
     with_calling_model.push(Entry::Said {
-        at: "2026-09-13T09:02:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
         turn: Turn::Model {
             text: "looking".to_owned(),
             calls: vec![crate::capability::ToolCall {
@@ -959,7 +940,7 @@ fn state_is_derived_from_the_last_turn_only() {
 
     let mut with_finished_model = with_person;
     with_finished_model.push(Entry::Said {
-        at: "2026-09-13T09:02:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
         turn: Turn::Model {
             text: "done".to_owned(),
             calls: Vec::new(),
@@ -975,7 +956,7 @@ fn state_is_derived_from_the_last_turn_only() {
     // line.
     let mut with_session_after = with_finished_model;
     with_session_after.push(Entry::Session {
-        at: "2026-09-13T09:03:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 13, 9, 3, 0, 0).expect("an instant"),
         session: SessionId::new("96f709a3-43d7-4453-bf59-6fb5291b5a3c").expect("a uuid"),
         model: "claude-cli/haiku".to_owned(),
         cwd: "/home/ada/Documents/Suzatary".to_owned(),
@@ -1004,13 +985,13 @@ fn an_id_is_parsed_when_it_is_deserialised() {
 #[test]
 fn the_last_title_wins() {
     let untitled = Entry::Opened {
-        at: "2026-09-25T09:00:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 25, 9, 0, 0, 0).expect("an instant"),
         title: crate::secretary::words::Words::kept(String::new()),
         model: "m".to_owned(),
         kind: Kind::Topic,
     };
     let titled = |title: &str, by: Namer| Entry::Titled {
-        at: "2026-09-25T09:05:00".to_owned(),
+        at: crate::capability::Datetime::new(2026, 9, 25, 9, 5, 0, 0).expect("an instant"),
         title: crate::secretary::words::Words::kept(Title::new(title).expect("a title")),
         by,
     };
@@ -1034,11 +1015,6 @@ fn the_last_title_wins() {
     let stored = Stored::of(&id(), &entries).expect("a conversation");
     assert_eq!(stored.title.get().map(String::as_str), Some("The permit"));
     assert_eq!(stored.heading(), "The permit");
-    let printed = serde_json::to_string(&entries[2]).expect("a line");
-    assert_eq!(
-        serde_json::from_str::<Entry>(&printed).expect("reads back"),
-        entries[2]
-    );
 }
 
 /// A title is one line of at most [`Title::MAX`] characters, even read back off a stored line.

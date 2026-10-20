@@ -1,6 +1,6 @@
 /** The secretary's memory: its page's body, and the receipt line a round draws. */
 
-import type { FactRow, MemoryPayload, Receipt, SaidOn } from "../wire/generated/wire"
+import type { FactId, FactKind, FactRow, MemoryPayload, Receipt, SaidOn } from "../wire/generated/wire"
 import empty from "../view/empty"
 import type { Child } from "../view/dom"
 import { el } from "../view/dom"
@@ -11,20 +11,22 @@ import intentsync from "../prodrome/intentsync"
 import lo from "../algebra/lo"
 
 export namespace memory {
-  export type Group = { kind: string; label: string; facts: FactRow[] }
+  export type Group = { kind: FactKind; label: string; facts: FactRow[] }
   /** Forgetting, for a login that writes; `null` offers no Forget at all. */
-  export type Forget = ((id: number) => void) | null
+  export type Forget = ((id: FactId) => void) | null
 
   /** A fact forgotten is a fact the next reading no longer holds, so `after` reads again; a refusal names the fact. */
   export const forgets = (writes: boolean, after: () => unknown): Forget =>
     writes ? id => void intentsync.asked({ type: "Forget", fact: id }).then(after, (e: unknown) => toast(`Could not forget fact ${id}: ${lo.reason(e)}`)) : null
 
-  export const KINDS: readonly { kind: string; label: string }[] = [
-    { kind: "owner", label: "About you" },
-    { kind: "person", label: "People" },
-    { kind: "preference", label: "Preferences" },
-    { kind: "standing", label: "Standing instructions" },
-  ]
+  const LABELS: { readonly [K in FactKind]: string } = {
+    owner: "About you",
+    person: "People",
+    preference: "Preferences",
+    standing: "Standing instructions",
+  }
+  const ORDER: readonly FactKind[] = ["owner", "person", "preference", "standing"]
+  export const KINDS: readonly { kind: FactKind; label: string }[] = ORDER.map(kind => ({ kind, label: LABELS[kind] }))
 
   /** Facts by kind, in `KINDS`' order, oldest first, empty kinds left out. */
   export const group = (p: MemoryPayload): Group[] =>
@@ -39,7 +41,7 @@ export namespace memory {
   export const saidIn = (s: SaidOn): string =>
     s.kind === "turn" ? `said in ${s.conversation}, turn ${s.turn}` : `tapped in ${s.conversation}, card ${s.proposal}`
 
-  const forgetButton = (id: number, forget: (id: number) => void): Node =>
+  const forgetButton = (id: FactId, forget: (id: FactId) => void): Node =>
     el("button", { type: "button", class: "act forget", onclick: () => forget(id) }, "Forget")
 
   const fact = (f: FactRow, forget: Forget): Node =>

@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use prodrome_core::literal::{ProdromeError, Value};
 
+use crate::capability::Datetime;
 use crate::literal::{Fields, Literal, Signature, record};
 use crate::refusal::{Refusal, shown};
 use crate::secretary::store::ConversationId;
@@ -120,8 +121,11 @@ impl std::fmt::Display for Fact {
 }
 
 /// What a fact is about, closed so a model cannot invent a fifth drawer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ts_rs::TS,
+)]
 #[serde(rename_all = "lowercase")]
+#[ts(rename = "FactKind")]
 pub enum Kind {
     /// About the owner: where they live, what they do.
     Owner,
@@ -158,10 +162,32 @@ impl Kind {
 /// A fact's number, and the memory's version when it was written: ids and versions are one
 /// counter, so "what changed since version 7" is "every event numbered above 7".
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    Default,
+    ts_rs::TS,
 )]
-#[serde(transparent)]
-pub struct FactId(pub u64);
+pub struct FactId(
+    // A fact's number stays far below the 2^53 a page's number holds exactly.
+    #[ts(type = "number")] pub u64,
+);
+
+impl std::str::FromStr for FactId {
+    type Err = std::num::ParseIntError;
+
+    /// A fact's number as a path or a verb names it, in decimal.
+    fn from_str(said: &str) -> Result<Self, Self::Err> {
+        said.parse().map(Self)
+    }
+}
 
 impl std::fmt::Display for FactId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -237,12 +263,12 @@ impl Origin {
 }
 
 /// A fact as remembered.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Remembered {
     /// Its number, which was the memory's version when it was written.
     pub id: FactId,
     /// When.
-    pub at: String,
+    pub at: Datetime,
     /// What.
     pub fact: Fact,
     /// About whom or what.
@@ -252,12 +278,12 @@ pub struct Remembered {
 }
 
 /// A fact forgotten: the id, never the text, whose file is deleted.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Forgotten {
     /// Which fact.
     pub id: FactId,
     /// When.
-    pub at: String,
+    pub at: Datetime,
     /// Who: the gate's actor, or `assistant` for the verb.
     pub by: String,
     /// The memory's version this forgetting made.
@@ -289,7 +315,7 @@ impl Memory {
             .filter_map(|(id, kept)| {
                 Some(Remembered {
                     id,
-                    at: crate::secretary::store::stamp(kept.at),
+                    at: kept.at,
                     fact: words(&kept.text)?,
                     kind: kept.kind,
                     said: kept.said.clone(),
@@ -301,7 +327,7 @@ impl Memory {
             .iter()
             .map(|(&id, gone)| Forgotten {
                 id,
-                at: crate::secretary::store::stamp(gone.at),
+                at: gone.at,
                 by: gone.by.as_str().to_owned(),
                 version: gone.version,
             })
@@ -490,7 +516,7 @@ mod tests {
     fn a_change_is_the_whole_memory_or_what_moved_since() {
         let fact = |id: u64, text: &str| Remembered {
             id: FactId(id),
-            at: "2026-10-02T09:00:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
             fact: Fact::new(text).expect("a fact"),
             kind: Kind::Owner,
             said: Origin::Turn {
@@ -500,7 +526,7 @@ mod tests {
         };
         let gone = |id: u64, version: u64| Forgotten {
             id: FactId(id),
-            at: "2026-10-02T09:05:00".to_owned(),
+            at: crate::capability::Datetime::new(2026, 10, 2, 9, 5, 0, 0).expect("an instant"),
             by: "ada".to_owned(),
             version,
         };

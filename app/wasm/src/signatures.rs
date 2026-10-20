@@ -6,7 +6,7 @@ use prodrome_core::event::{Actor, Envelope, Hash, canonical_envelope, seal_hash}
 use prodrome_core::sign::{PublicKey, Registrar, Signature, Signed};
 use suzatary_core::signatures::{Enrolment, Trust};
 use suzatary_core::wire::{
-    Found, ObjectVerdict, ProvenanceRow, SignedObject, VerifiedPayload, Walk,
+    Condition, Found, ObjectVerdict, ProvenanceRow, SignedObject, Verified, VerifiedPayload, Walk,
 };
 use wasm_bindgen::prelude::*;
 
@@ -192,16 +192,24 @@ impl Answered {
                         ));
                     }
                 };
+                // The Prodrome prints an envelope's todo, writer and instant as "".
+                let holds = if row.todo.is_empty() {
+                    Verified::Envelope { kind: row.kind }
+                } else {
+                    Verified::Event {
+                        kind: row.kind,
+                        todo: row.todo,
+                        actor: row.actor,
+                        at: row.at,
+                    }
+                };
                 Ok(ObjectVerdict {
                     hash: row.hash,
                     computed: row.computed,
                     hash_ok: row.hash_ok,
                     walk,
-                    kind: row.kind,
-                    todo: row.todo,
-                    actor: row.actor,
-                    at: row.at,
-                    problem: row.problem,
+                    condition: Condition::of(row.problem),
+                    holds,
                 })
             })
             .collect::<Result<_, _>>()?;
@@ -254,6 +262,7 @@ mod tests {
         .expect("reads");
         assert_eq!(read.found, Found::Reached);
         assert_eq!(read.objects[0].walk, Walk::Reached { depth: 0 });
+        assert_eq!(read.objects[0].condition, Condition::Clean);
         let kept = answered(
             &serde_json::json!([row(false, None)]),
             &["object a was sent twice"],
@@ -265,6 +274,43 @@ mod tests {
             Found::of(vec!["object a was sent twice".to_owned()])
         );
         assert_eq!(kept.objects[0].walk, Walk::Unreached);
+    }
+
+    /// The Prodrome's empty sentence is a clean object, and any other is the object's flaw.
+    #[test]
+    fn a_row_says_clean_or_its_flaw() {
+        let mut flawed = row(true, Some(0));
+        flawed["problem"] = serde_json::json!("does not hash to its own name");
+        let read = answered(&serde_json::json!([row(true, Some(0)), flawed]), &[])
+            .verified(&std::collections::BTreeSet::new())
+            .expect("reads");
+        assert_eq!(read.objects[0].condition, Condition::Clean);
+        assert_eq!(
+            read.objects[1].condition,
+            Condition::Flawed {
+                problem: "does not hash to its own name".to_owned()
+            }
+        );
+    }
+
+    /// A row the Prodrome prints with no todo is an envelope, which claims no writer or instant.
+    #[test]
+    fn a_row_with_no_todo_is_an_envelope() {
+        let mut merge = row(true, Some(0));
+        merge["kind"] = serde_json::json!("Woven");
+        merge["todo"] = serde_json::json!("");
+        merge["actor"] = serde_json::json!("");
+        merge["at"] = serde_json::json!("");
+        let read = answered(&serde_json::json!([merge, row(true, Some(1))]), &[])
+            .verified(&std::collections::BTreeSet::new())
+            .expect("reads");
+        assert_eq!(
+            read.objects[0].holds,
+            Verified::Envelope {
+                kind: "Woven".to_owned()
+            }
+        );
+        assert!(matches!(read.objects[1].holds, Verified::Event { .. }));
     }
 
     /// A row the walk reached with no depth, or one it did not reach at a depth, is refused.

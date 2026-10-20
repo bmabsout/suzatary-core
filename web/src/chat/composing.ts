@@ -1,6 +1,7 @@
 // What the composer holds: the box's draft, the mode it is asked in, the files on their way and the ones held back.
 
-import type { AttachmentRow, TurnRow } from "../wire/generated/wire"
+import type { AttachmentRow } from "../wire/generated/wire"
+import turns from "./turns"
 import type { Reference } from "./refs"
 import { parsed, print } from "./refs"
 import again from "./again"
@@ -37,7 +38,7 @@ export namespace composing {
     | { readonly type: "Unkept"; readonly w: Withheld }
     | { readonly type: "Kept"; readonly w: Withheld; readonly file: AttachmentRow }
     | { readonly type: "Dropped"; readonly w: Withheld }
-    | { readonly type: "Edit"; readonly question: TurnRow }
+    | { readonly type: "Edit"; readonly question: turns.Question }
     | { readonly type: "Cancel" }
     | { readonly type: "Send" }
     | { readonly type: "Failed"; readonly sent: Sent }

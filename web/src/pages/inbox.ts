@@ -216,16 +216,16 @@ export namespace inboxPage {
       titles: v.titles,
     })
 
-  const settledSection = (settled: readonly waiting.Waiting[], open: boolean, fx: Fx): HTMLElement | null => {
+  const settledSection = (settled: readonly waiting.Settled[], open: boolean, fx: Fx): HTMLElement | null => {
     if (settled.length === 0) return null
     const details = el("details", { class: "settledtoday", open },
       el("summary", null, `Settled today: ${settled.length} decision${settled.length === 1 ? "" : "s"}`),
-      settled.map(w =>
-        el("div", { class: `settledbatch settled-${waiting.state(w)}`, "data-settled": waiting.key(w) },
+      settled.map(({ w, how, at }) =>
+        el("div", { class: `settledbatch settled-${how}`, "data-settled": waiting.key(w) },
           el("p", { class: "settledhead" },
-            el("span", { class: "settledwhat" }, waiting.state(w)),
+            el("span", { class: "settledwhat" }, how),
             el("span", { class: "settledchain" }, waiting.source(w)),
-            el("span", { class: "settledwhen" }, waiting.settledAt(w) === "" ? "—" : iso(waiting.settledAt(w)))),
+            el("span", { class: "settledwhen" }, iso(at))),
           waiting.fold(
             w,
             p => el("p", { class: "settledwhy" }, p.headline),

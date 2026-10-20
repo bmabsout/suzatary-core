@@ -5,6 +5,7 @@ import assert from "node:assert/strict"
 
 import type { FactRow, MemoryPayload } from "../src/wire/generated/wire"
 import memory from "../src/chat/memory"
+import payloads from "../src/wire/generated/payload"
 import { parseRoute } from "../src/shell/route"
 import { forAll, type Rng } from "./gen"
 
@@ -33,6 +34,14 @@ test("grouping keeps every fact once, in its kind, in the kinds' order and the f
       assert.ok(g.facts.every((f) => f.kind === g.kind))
     }
   }))
+
+test("a fact's kind is one of the four the box names, and its number is a number", () => {
+  const row = { id: 3, at: "2026-09-25T09:00:00", fact: "f", kind: "owner", said: { kind: "turn", conversation: "default", turn: 0 } }
+  const answer = (f: unknown) => payloads.MemoryPayload({ facts: [f], cap: 200, forgotten: [2], cards: [] }).type
+  assert.equal(answer(row), "Val")
+  assert.equal(answer({ ...row, kind: "pet" }), "Error", "a fifth kind does not read")
+  assert.equal(answer({ ...row, id: "3" }), "Error", "a fact's number is not a string")
+})
 
 test("a fact links to the round that said it, and a tapped one to its card", () =>
   forAll(100, (r) => {

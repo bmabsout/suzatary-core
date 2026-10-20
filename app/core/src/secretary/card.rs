@@ -6,7 +6,7 @@ use crate::repos::Visibility;
 use crate::secretary::inbox_reading::Reading;
 use crate::web::WebKind;
 use crate::wire::{
-    Asker, Cached, Card, CardAnswer, CardField, CardLink, ProposedAct, RememberWords,
+    Asker, Asks, Cached, Card, CardAnswer, CardField, CardLink, ProposedAct, RememberWords,
 };
 
 /// The card for a proposal.
@@ -30,9 +30,11 @@ pub fn of(act: &ProposedAct) -> Card {
         } => changeset(changes, problem),
         ProposedAct::Auth { account, sentence } => Card {
             answers: vec![CardAnswer {
-                question: question(sentence),
-                yes: "Yes, run it".to_owned(),
                 done: format!("running: authorising {account}"),
+                asks: Asks::Confirm {
+                    question: question(sentence),
+                    yes: "Yes, run it".to_owned(),
+                },
                 ..answer("run", "Run")
             }],
             ..card(
@@ -73,7 +75,7 @@ pub fn of(act: &ProposedAct) -> Card {
             words,
             about,
             sentence,
-        } => remember(words, about, sentence),
+        } => remember(words, *about, sentence),
         ProposedAct::CodingSession { task, sentence } => coding_session(task, sentence),
         ProposedAct::Device {
             actor,
@@ -154,7 +156,9 @@ fn google_client(redirect: &str, steps: &[String]) -> Card {
     Card {
         answers: vec![CardAnswer {
             done: "kept the Google client".to_owned(),
-            input: "The client's downloaded file (JSON)".to_owned(),
+            asks: Asks::Value {
+                input: "The client's downloaded file (JSON)".to_owned(),
+            },
             ..answer("store", "Keep it")
         }],
         link: Some(CardLink {
@@ -179,12 +183,13 @@ fn google_client(redirect: &str, steps: &[String]) -> Card {
 fn google_sign_in(account: &str, parts: &[String], consent: Option<&str>, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!(
-                "Sign {account} in with Google? The box opens Google's consent page; choose \
-                 {account} there and allow every part it lists."
-            ),
-            yes: "Yes, sign in".to_owned(),
             done: "the consent is open: press Continue to Google".to_owned(),
+            asks: Asks::Confirm {
+                question: format!(
+                    "Sign {account} in with Google? The box opens Google's consent page; choose {account} there and allow every part it lists."
+                ),
+                yes: "Yes, sign in".to_owned(),
+            },
             ..answer("sign_in", "Sign in with Google")
         }],
         link: consent.map(|href| CardLink {
@@ -212,9 +217,11 @@ fn google_sign_in(account: &str, parts: &[String], consent: Option<&str>, senten
 fn calendar_event(account: &str, event: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!("Add {event} to {account}'s calendar?"),
-            yes: "Yes, add it".to_owned(),
             done: "added to the calendar".to_owned(),
+            asks: Asks::Confirm {
+                question: format!("Add {event} to {account}'s calendar?"),
+                yes: "Yes, add it".to_owned(),
+            },
             ..answer("add", "Add to calendar")
         }],
         uncertain: "It may have been added. Check the calendar; it is never added again."
@@ -232,12 +239,13 @@ fn calendar_event(account: &str, event: &str, sentence: &str) -> Card {
 fn auth_send(account: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!(
-                "Sign {account} in to send mail? The box shows a code to enter on Microsoft's \
-                 page; reading is not touched."
-            ),
-            yes: "Yes, sign in to send".to_owned(),
             done: format!("running: authorising {account} to send"),
+            asks: Asks::Confirm {
+                question: format!(
+                    "Sign {account} in to send mail? The box shows a code to enter on Microsoft's page; reading is not touched."
+                ),
+                yes: "Yes, sign in to send".to_owned(),
+            },
             ..answer("run", "Sign in to send")
         }],
         ..card(
@@ -266,11 +274,8 @@ fn connect(
     ];
     Card {
         answers: vec![CardAnswer {
-            question: "Connect it? The box writes it into the instance file, then files a card \
-                       for each step."
-                .to_owned(),
-            yes: "Yes, connect it".to_owned(),
             done: "connected".to_owned(),
+            asks: Asks::Confirm { question: "Connect it? The box writes it into the instance file, then files a card for each step." .to_owned(), yes: "Yes, connect it".to_owned() },
             ..answer("connect", "Connect")
         }],
         ..card(
@@ -292,9 +297,11 @@ fn disconnect(
     sentence: &str,
 ) -> Card {
     let remove = CardAnswer {
-        question: "Remove it from the instance file?".to_owned(),
-        yes: "Yes, remove it".to_owned(),
         done: "removed".to_owned(),
+        asks: Asks::Confirm {
+            question: "Remove it from the instance file?".to_owned(),
+            yes: "Yes, remove it".to_owned(),
+        },
         ..answer("remove", "Remove")
     };
     let (stays, answers) = match cached {
@@ -304,15 +311,20 @@ fn disconnect(
              with its mail; a message no longer kept reads as no longer stored.",
             vec![
                 CardAnswer {
-                    question: "Remove it, and keep its mail on the box?".to_owned(),
                     label: "Remove, keep its mail".to_owned(),
+                    asks: Asks::Confirm {
+                        question: "Remove it, and keep its mail on the box?".to_owned(),
+                        yes: "Yes, remove it".to_owned(),
+                    },
                     ..remove
                 },
                 CardAnswer {
-                    question: "Remove it, and delete the mail kept for it on the box?".to_owned(),
-                    yes: "Yes, remove it and its mail".to_owned(),
                     done: "removed, and its mail deleted".to_owned(),
-                    always: true,
+                    asks: Asks::Always {
+                        question: "Remove it, and delete the mail kept for it on the box?"
+                            .to_owned(),
+                        yes: "Yes, remove it and its mail".to_owned(),
+                    },
                     ..answer("forget", "Remove and delete its mail")
                 },
             ],
@@ -339,12 +351,14 @@ fn disconnect(
 fn grant(plugin: &str, origin: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!(
-                "Let {} fetch from {origin}?",
-                crate::connect::plugin_called(plugin)
-            ),
-            yes: "Yes, allow it".to_owned(),
             done: "allowed".to_owned(),
+            asks: Asks::Confirm {
+                question: format!(
+                    "Let {} fetch from {origin}?",
+                    crate::connect::plugin_called(plugin)
+                ),
+                yes: "Yes, allow it".to_owned(),
+            },
             ..answer("allow", "Allow")
         }],
         ..card(
@@ -372,9 +386,13 @@ fn grant(plugin: &str, origin: &str, sentence: &str) -> Card {
 fn configure(setting: &str, from: &str, to: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!("Change {setting}? The box writes it only if it still reads {from}."),
-            yes: "Yes, change it".to_owned(),
             done: "changed".to_owned(),
+            asks: Asks::Confirm {
+                question: format!(
+                    "Change {setting}? The box writes it only if it still reads {from}."
+                ),
+                yes: "Yes, change it".to_owned(),
+            },
             ..answer("change", "Change")
         }],
         ..card(
@@ -402,7 +420,7 @@ pub fn at(card: Card, reading: &Reading) -> Card {
             answers: card
                 .answers
                 .into_iter()
-                .filter(|answer| !answer.always)
+                .filter(|answer| !matches!(answer.asks, Asks::Always { .. }))
                 .take(1)
                 .map(|answer| CardAnswer {
                     label: "Try again".to_owned(),
@@ -424,12 +442,8 @@ fn coding_session(task: &str, sentence: &str) -> Card {
     Card {
         body: task.to_owned(),
         answers: vec![CardAnswer {
-            question: "Start a cloud coding session on this task? It spends the account's \
-                       usage and hands the repository to an agent, which pushes a claude/ \
-                       branch and a report; nothing is merged."
-                .to_owned(),
-            yes: "Yes, start it".to_owned(),
             done: "started".to_owned(),
+            asks: Asks::Confirm { question: "Start a cloud coding session on this task? It spends the account's usage and hands the repository to an agent, which pushes a claude/ branch and a report; nothing is merged." .to_owned(), yes: "Yes, start it".to_owned() },
             ..answer("start", "Start")
         }],
         uncertain:
@@ -444,13 +458,13 @@ fn coding_session(task: &str, sentence: &str) -> Card {
 fn device(actor: &str, key: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!(
-                "Trust this device to write as {actor}? Say yes only for a device you added \
-                 yourself: what it signs will stand as yours."
-            ),
-            yes: "Yes, trust it".to_owned(),
             done: "trusted".to_owned(),
-            endorse: true,
+            asks: Asks::Endorse {
+                question: format!(
+                    "Trust this device to write as {actor}? Say yes only for a device you added yourself: what it signs will stand as yours."
+                ),
+                yes: "Yes, trust it".to_owned(),
+            },
             ..answer("trust", "Trust")
         }],
         ..card(
@@ -477,16 +491,18 @@ fn decision(
     Card {
         body: body.to_owned(),
         answers: vec![CardAnswer {
-            question: if supersedes.is_empty() {
-                "Record this decision as yours?".to_owned()
-            } else {
-                format!(
-                    "Record this decision as yours? It supersedes {}, which stop being in force.",
-                    supersedes.join(", ")
-                )
-            },
-            yes: "Yes, record it".to_owned(),
             done: "recorded".to_owned(),
+            asks: Asks::Confirm {
+                question: if supersedes.is_empty() {
+                    "Record this decision as yours?".to_owned()
+                } else {
+                    format!(
+                        "Record this decision as yours? It supersedes {}, which stop being in force.",
+                        supersedes.join(", ")
+                    )
+                },
+                yes: "Yes, record it".to_owned(),
+            },
             ..answer("record", "Record")
         }],
         ..card("Record this decision?", sentence, fields, "record")
@@ -495,15 +511,18 @@ fn decision(
 
 /// A remember card: the fact whole, and Remember; once its words are deleted, or where they are
 /// not read, what it was about and no answer, since there is nothing to show to remember.
-fn remember(words: &RememberWords, about: &str, sentence: &str) -> Card {
+fn remember(words: &RememberWords, about: crate::secretary::memory::Kind, sentence: &str) -> Card {
+    let about = about.as_str();
     match words {
         RememberWords::Kept { fact } => Card {
             answers: vec![CardAnswer {
-                question: format!(
-                    "Remember this? Every conversation from now on reads it as background: {fact}"
-                ),
-                yes: "Yes, remember it".to_owned(),
                 done: "remembered".to_owned(),
+                asks: Asks::Confirm {
+                    question: format!(
+                        "Remember this? Every conversation from now on reads it as background: {fact}"
+                    ),
+                    yes: "Yes, remember it".to_owned(),
+                },
                 ..answer("remember", "Remember")
             }],
             ..card(
@@ -542,16 +561,17 @@ fn patch(
     Card {
         body: diff.to_owned(),
         answers: vec![CardAnswer {
-            question: if visibility == Visibility::Public {
-                format!(
-                    "Open a pull request on {repo}? It is public: anyone can read its branch \
-                     once pushed."
-                )
-            } else {
-                format!("Open a pull request on {repo}?")
-            },
-            yes: "Yes, open it".to_owned(),
             done: format!("pull request opened on {repo}"),
+            asks: Asks::Confirm {
+                question: if visibility == Visibility::Public {
+                    format!(
+                        "Open a pull request on {repo}? It is public: anyone can read its branch once pushed."
+                    )
+                } else {
+                    format!("Open a pull request on {repo}?")
+                },
+                yes: "Yes, open it".to_owned(),
+            },
             ..answer("open", "Open pull request")
         }],
         uncertain: format!(
@@ -578,23 +598,23 @@ fn document(name: &str, folder: &str, size: &str, sentence: &str) -> Card {
     Card {
         answers: vec![
             CardAnswer {
-                question: format!(
-                    "Allow {name} once? It is read into this conversation, with any SSN, ITIN, \
-                     TIN or EIN replaced by [redacted], and the copy read can go on an email \
-                     you tap."
-                ),
-                yes: "Yes, allow once".to_owned(),
                 done: format!("reading {name}"),
+                asks: Asks::Confirm {
+                    question: format!(
+                        "Allow {name} once? It is read into this conversation, with any SSN, ITIN, TIN or EIN replaced by [redacted], and the copy read can go on an email you tap."
+                    ),
+                    yes: "Yes, allow once".to_owned(),
+                },
                 ..answer("read", "Allow once")
             },
             CardAnswer {
-                question: format!(
-                    "Always allow {folder}? This file is read now, and any later file under \
-                     that folder is read without asking."
-                ),
-                yes: "Yes, always".to_owned(),
                 done: format!("allowed: {folder}"),
-                always: true,
+                asks: Asks::Always {
+                    question: format!(
+                        "Always allow {folder}? This file is read now, and any later file under that folder is read without asking."
+                    ),
+                    yes: "Yes, always".to_owned(),
+                },
                 ..answer("always", "Always allow this folder")
             },
         ],
@@ -632,20 +652,17 @@ pub(crate) fn bytes(size: u64) -> String {
 /// A web request's card: Allow, and Always allow when a rule was drafted.
 fn web(request: WebKind, target: &str, host: &str, always: &str, sentence: &str) -> Card {
     let mut answers = vec![CardAnswer {
-        question: question(sentence),
-        yes: "Yes, allow it".to_owned(),
         done: format!("reading {host}"),
+        asks: Asks::Confirm {
+            question: question(sentence),
+            yes: "Yes, allow it".to_owned(),
+        },
         ..answer("allow", "Allow")
     }];
     if !always.is_empty() {
         answers.push(CardAnswer {
-            question: format!(
-                "Always allow {always}? This request goes now, and any later one it \
-                         covers runs without asking."
-            ),
-            yes: "Yes, always".to_owned(),
             done: format!("allowed: {always}"),
-            always: true,
+            asks: Asks::Always { question: format!( "Always allow {always}? This request goes now, and any later one it covers runs without asking." ), yes: "Yes, always".to_owned() },
             ..answer("always", "Always allow")
         });
     }
@@ -689,9 +706,11 @@ fn email(
     Card {
         body: body.to_owned(),
         answers: vec![CardAnswer {
-            question: format!("Send to {to}{carrying}?"),
-            yes: "Yes, send it".to_owned(),
             done: format!("sent to {to}"),
+            asks: Asks::Confirm {
+                question: format!("Send to {to}{carrying}?"),
+                yes: "Yes, send it".to_owned(),
+            },
             ..answer("send", "Send")
         }],
         uncertain: "It may have been sent. Check Sent; it is never sent again.".to_owned(),
@@ -727,7 +746,9 @@ fn secret(label: &str, found: Option<&str>, link: Option<&str>) -> Card {
     Card {
         answers: vec![CardAnswer {
             done: format!("stored {label}"),
-            input: capitalised(label),
+            asks: Asks::Value {
+                input: capitalised(label),
+            },
             ..answer("store", "Store")
         }],
         link: link.map(|href| CardLink {
@@ -768,11 +789,8 @@ fn capitalised(words: &str) -> String {
 fn sign_in(sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: "Start the sign-in? The box runs claude setup-token and gives you its link \
-                       to open."
-                .to_owned(),
-            yes: "Yes, start it".to_owned(),
             done: "sign-in started".to_owned(),
+            asks: Asks::Confirm { question: "Start the sign-in? The box runs claude setup-token and gives you its link to open." .to_owned(), yes: "Yes, start it".to_owned() },
             ..answer("connect", "Connect")
         }],
         ..card("Connect a model", sentence, Vec::new(), "connect")
@@ -784,6 +802,7 @@ fn unlock_store(sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
             done: "the store answers".to_owned(),
+            asks: Asks::Now,
             ..answer("check", "Check again")
         }],
         ..card("Unlock the secret store", sentence, Vec::new(), "unlock")
@@ -797,13 +816,15 @@ fn changeset(changes: &[crate::wire::ProposedObject], problem: &str) -> Card {
         rows: changes.to_vec(),
         problem: problem.to_owned(),
         answers: vec![CardAnswer {
-            question: if n == 1 {
-                "Apply this change?".to_owned()
-            } else {
-                format!("Apply these {n} changes?")
-            },
-            yes: "Yes, confirm it".to_owned(),
             done: "applied".to_owned(),
+            asks: Asks::Confirm {
+                question: if n == 1 {
+                    "Apply this change?".to_owned()
+                } else {
+                    format!("Apply these {n} changes?")
+                },
+                yes: "Yes, confirm it".to_owned(),
+            },
             ..answer("confirm", "Confirm")
         }],
         uncertain: "Some of it may already be applied. Check the todos, then dismiss it."
@@ -816,13 +837,15 @@ fn changeset(changes: &[crate::wire::ProposedObject], problem: &str) -> Card {
 fn erase(sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
-            question: format!(
-                "{} {}",
-                question(sentence),
-                crate::secretary::erasure::Erasure::FOR_GOOD
-            ),
-            yes: "Yes, erase them".to_owned(),
             done: "erased".to_owned(),
+            asks: Asks::Confirm {
+                question: format!(
+                    "{} {}",
+                    question(sentence),
+                    crate::secretary::erasure::Erasure::FOR_GOOD
+                ),
+                yes: "Yes, erase them".to_owned(),
+            },
             ..answer("erase", "Erase")
         }],
         ..card(
@@ -839,7 +862,9 @@ fn sign_in_code(url: &str, sentence: &str) -> Card {
     Card {
         answers: vec![CardAnswer {
             done: "signed in".to_owned(),
-            input: "Code from the sign-in page".to_owned(),
+            asks: Asks::Value {
+                input: "Code from the sign-in page".to_owned(),
+            },
             ..answer("finish", "Finish")
         }],
         link: Some(CardLink {
@@ -859,16 +884,13 @@ fn sign_in_code(url: &str, sentence: &str) -> Card {
     }
 }
 
+/// The answer `verb`, drawn as `label`, tapped at once; a caller says what it asks first.
 fn answer(verb: &str, label: &str) -> CardAnswer {
     CardAnswer {
         verb: verb.to_owned(),
         label: label.to_owned(),
-        question: String::new(),
-        yes: String::new(),
         done: String::new(),
-        always: false,
-        input: String::new(),
-        endorse: false,
+        asks: Asks::Now,
     }
 }
 
@@ -890,6 +912,40 @@ fn question(sentence: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The confirm step's question an answer asks, or "" for one with none.
+    fn asked(answer: &CardAnswer) -> &str {
+        match &answer.asks {
+            Asks::Confirm { question, .. }
+            | Asks::Always { question, .. }
+            | Asks::Endorse { question, .. } => question,
+            Asks::Now | Asks::Value { .. } => "",
+        }
+    }
+
+    /// The typed value's label an answer asks for, or "" for one that asks none.
+    fn typed(answer: &CardAnswer) -> &str {
+        match &answer.asks {
+            Asks::Value { input } => input,
+            Asks::Now | Asks::Confirm { .. } | Asks::Always { .. } | Asks::Endorse { .. } => "",
+        }
+    }
+
+    /// Whether an answer's tap carries `always`.
+    fn widens(answer: &CardAnswer) -> bool {
+        matches!(answer.asks, Asks::Always { .. })
+    }
+
+    /// Unlocking the store asks again at once: there is nothing to confirm, so its answer opens
+    /// no confirm step, where a blank question and a blank yes were drawn before.
+    #[test]
+    fn checking_the_store_again_asks_nothing_first() {
+        let card = of(&ProposedAct::UnlockStore {
+            sentence: "unlock the secret store".to_owned(),
+        });
+        assert_eq!(card.answers[0].verb, "check");
+        assert_eq!(card.answers[0].asks, Asks::Now);
+    }
 
     /// The client's card says every step in the order they are taken, with the exact address
     /// written into its step, why the app must be published (and what Testing costs), and takes
@@ -931,7 +987,10 @@ mod tests {
             card.link.as_ref().map(|link| link.href.as_str()),
             Some(crate::google::CONSOLE)
         );
-        assert_eq!(card.answers[0].input, "The client's downloaded file (JSON)");
+        assert_eq!(
+            typed(&card.answers[0]),
+            "The client's downloaded file (JSON)"
+        );
     }
 
     /// The sign-in card draws Google's consent as its button only while one is open.
@@ -951,7 +1010,10 @@ mod tests {
             open.link.map(|link| link.label),
             Some("Continue to Google".to_owned())
         );
-        assert!(open.answers[0].input.is_empty(), "a sign-in takes no value");
+        assert!(
+            typed(&open.answers[0]).is_empty(),
+            "a sign-in takes no value"
+        );
     }
     use crate::secretary::inbox_reading::Answer;
     use crate::secretary::responded::{Done, Responded, Tried};
@@ -985,7 +1047,7 @@ mod tests {
         assert_eq!(card.body, "the whole body, never clamped");
         assert_eq!(card.answers[0].verb, "send");
         assert_eq!(
-            card.answers[0].question,
+            asked(&card.answers[0]),
             "Send to a@example.test, b@example.test?"
         );
     }
@@ -1004,7 +1066,7 @@ mod tests {
         let labels: Vec<&str> = card.fields.iter().map(|f| f.label.as_str()).collect();
         assert_eq!(labels, ["Title", "Why", "Supersedes"]);
         assert_eq!(card.body, "A plugin is a *component*.");
-        assert!(card.answers[0].question.contains("supersedes userrepo"));
+        assert!(asked(&card.answers[0]).contains("supersedes userrepo"));
     }
 
     /// A patch's card is the whole diff, and a public repository's says so in the question.
@@ -1025,12 +1087,8 @@ mod tests {
         let public = patch(Visibility::Public);
         assert!(public.body.contains("+b"));
         assert_eq!(public.answers[0].verb, "open");
-        assert!(public.answers[0].question.contains("anyone can read it"));
-        assert!(
-            !patch(Visibility::Private).answers[0]
-                .question
-                .contains("anyone")
-        );
+        assert!(asked(&public.answers[0]).contains("anyone can read it"));
+        assert!(!asked(&patch(Visibility::Private).answers[0]).contains("anyone"));
     }
 
     /// A coding session's card is the whole task, and the question says what starting one spends.
@@ -1043,7 +1101,7 @@ mod tests {
         assert_eq!(card.title, "Proposed coding session");
         assert_eq!(card.body, "Fix the typo in the README.\nRun the gates.");
         assert_eq!(card.answers[0].verb, "start");
-        assert!(card.answers[0].question.contains("usage"));
+        assert!(asked(&card.answers[0]).contains("usage"));
         assert_eq!(
             card.readonly,
             "This device can read this but not start it. Use one of your own devices."
@@ -1058,7 +1116,7 @@ mod tests {
             problem: "stale".to_owned(),
         });
         assert_eq!(card.title, "Proposed changes");
-        assert_eq!(card.answers[0].question, "Apply these 0 changes?");
+        assert_eq!(asked(&card.answers[0]), "Apply these 0 changes?");
         assert!(
             !format!("{card:?}").contains("life"),
             "the chain's id is on no card"
@@ -1071,10 +1129,15 @@ mod tests {
         let card = of(&secret_act("DATABRICKS_TOKEN", None));
         let store = &card.answers[0];
         assert_eq!(
-            (store.verb.as_str(), store.question.as_str()),
-            ("store", "")
+            (store.verb.as_str(), &store.asks),
+            (
+                "store",
+                &Asks::Value {
+                    input: "The Databricks token".to_owned()
+                }
+            ),
+            "a value is asked for with no confirm step"
         );
-        assert_eq!(store.input, "The Databricks token");
         assert_eq!(card.title, "Store the Databricks token");
         assert!(
             !format!("{card:?}").contains("DATABRICKS_TOKEN"),
@@ -1143,9 +1206,9 @@ mod tests {
         );
         assert_eq!(card.answers[0].verb, "read");
         assert_eq!(card.answers[0].label, "Allow once");
-        assert!(card.answers[0].question.contains("[redacted]"));
+        assert!(asked(&card.answers[0]).contains("[redacted]"));
         let always = &card.answers[1];
-        assert!(always.always);
+        assert!(widens(always));
         assert_eq!(always.label, "Always allow this folder");
         assert_eq!(always.done, "allowed: /my-files/Docs");
         assert_eq!(bytes(812), "812 B");
@@ -1174,7 +1237,7 @@ mod tests {
         });
         assert_eq!(card.files, vec![notice]);
         assert_eq!(
-            card.answers[0].question,
+            asked(&card.answers[0]),
             "Send to a@example.test with 1 attachment?"
         );
     }
@@ -1211,7 +1274,7 @@ mod tests {
         assert_eq!(again.answers.len(), 1);
         assert_eq!(again.answers[0].label, "Try again");
         assert_eq!(again.answers[0].verb, "send");
-        assert_eq!(again.answers[0].question, "Send to a@example.test?");
+        assert_eq!(asked(&again.answers[0]), "Send to a@example.test?");
         assert_eq!(
             again.uncertain,
             "It may have been sent. Check Sent; it is never sent again."
@@ -1242,7 +1305,7 @@ mod tests {
             &tried("timed out"),
         );
         assert_eq!(ruled.answers.len(), 1);
-        assert!(!ruled.answers[0].always);
+        assert!(!widens(&ruled.answers[0]));
     }
 
     #[test]
@@ -1250,13 +1313,13 @@ mod tests {
         let plain = of(&web(""));
         assert_eq!(plain.answers.len(), 1);
         assert_eq!(
-            plain.answers[0].question,
+            asked(&plain.answers[0]),
             "Open https://www.gov.uk/tenancy-deposit-protection?"
         );
         assert_eq!(plain.fields[0].label, "URL");
         let ruled = of(&web("any page on gov.uk or its subdomains"));
         let always = &ruled.answers[1];
-        assert!(always.always);
+        assert!(widens(always));
         assert_eq!(always.verb, "always");
         assert_eq!(always.done, "allowed: any page on gov.uk or its subdomains");
     }

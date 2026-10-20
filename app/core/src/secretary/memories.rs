@@ -22,7 +22,7 @@ use crate::secretary::memory::{
 };
 use crate::secretary::memory_event::MemoryEvent;
 use crate::secretary::salted_text::{Text, TextName};
-use crate::secretary::store::{Proposal, stamp};
+use crate::secretary::store::Proposal;
 use crate::secretary::two_phase::TwoPhase;
 use crate::store::{Doc, Prodrome, WriteLock};
 
@@ -190,7 +190,7 @@ impl Held<'_> {
         }
         Ok(Remembered {
             id,
-            at: stamp(at),
+            at,
             fact: fact.clone(),
             kind,
             said: said.clone(),
@@ -220,7 +220,7 @@ impl Held<'_> {
             .append(remembered(id, at, text.clone(), kind, said))?;
         Ok(Remembered {
             id,
-            at: stamp(at),
+            at,
             fact,
             kind,
             said: said.clone(),
@@ -277,7 +277,7 @@ impl Held<'_> {
         self.sweep_after_write();
         Ok(Forgotten {
             id,
-            at: stamp(at),
+            at,
             by: by.as_str().to_owned(),
             version,
         })
@@ -345,7 +345,7 @@ impl Held<'_> {
                     conversation,
                     caused.erased,
                     crate::secretary::erasure::Erasure::Forgot { fact: *fact },
-                    stamp(gone.at),
+                    gone.at,
                 )?;
             }
             if !caused.offered.is_empty() {
