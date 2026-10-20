@@ -1,0 +1,31 @@
+# HOME and the runtime directory
+secretspec = /home/ada/.local/state/suzatary/secretspec/%2Fsrv%2Fsuzatary%2Fdata
+oauth = /home/ada/.local/state/suzatary/oauth
+imap_state = /home/ada/.local/state/suzatary/imap
+devices = /home/ada/.local/state/suzatary/devices
+markup_cache = /home/ada/.cache/suzatary/markup
+repos = /home/ada/.cache/suzatary/repos
+usage_cache = /home/ada/.cache/suzatary/usage
+last_sync = /home/ada/.local/state/suzatary/last-sync.json
+transcripts = /home/ada/.claude/projects
+home = /home/ada
+drive_cli = /home/ada/bin/proton-drive
+drive_scratch = /run/user/1000/suzatary-drive
+bridge_cert = /home/ada/.config/protonmail/bridge-cert.pem
+whois_socket = /run/tailscale/tailscaled.sock
+
+# with XDG
+secretspec = /xdg/state/suzatary/secretspec/%2Fsrv%2Fsuzatary%2Fdata
+oauth = /xdg/state/suzatary/oauth
+imap_state = /xdg/state/suzatary/imap
+devices = /xdg/state/suzatary/devices
+markup_cache = /xdg/cache/suzatary/markup
+repos = /xdg/cache/suzatary/repos
+usage_cache = /xdg/cache/suzatary/usage
+last_sync = /xdg/state/suzatary/last-sync.json
+transcripts = /home/ada/.claude/projects
+home = /home/ada
+drive_cli = /home/ada/bin/proton-drive
+drive_scratch = /run/user/1000/suzatary-drive
+bridge_cert = /home/ada/.config/protonmail/bridge-cert.pem
+whois_socket = /run/tailscale/tailscaled.sock

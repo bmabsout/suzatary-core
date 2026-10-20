@@ -1,0 +1,116 @@
+//! The triage agent's credential (`scripts/claude-auth.sh`, sourced by the triage wrapper):
+//! whichever model `suzatary init` was told, the secret its steps set is one the wrapper puts
+//! in `claude`'s environment, so no choice leaves the agent "Not logged in".
+
+use super::{Scratch, repo};
+use std::process::Command;
+
+use clap::ValueEnum as _;
+use suzatary_cli::commands::init::Brain;
+use suzatary_core::connect::Reach;
+
+/// The variables `claude` reads a credential from.
+const CLAUDE_READS: [&str; 2] = ["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"];
+
+/// A `secretspec` that holds `name` alone.
+fn secretspec_holding(dir: &std::path::Path, name: &str) {
+    let script = format!(
+        "#!/usr/bin/env bash\n[ \"$1\" = get ] && [ \"$2\" = {name} ] && {{ echo held-value; exit 0; }}\nexit 1\n"
+    );
+    let path = dir.join("secretspec");
+    std::fs::write(&path, script).expect("the stub");
+    let mut perms = std::fs::metadata(&path).expect("stat").permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
+    std::fs::set_permissions(&path, perms).expect("chmod");
+}
+
+#[test]
+fn every_model_init_offers_leaves_the_triage_agent_a_credential_claude_reads() {
+    let auth = repo().join("scripts/claude-auth.sh");
+    for brain in Brain::value_variants() {
+        let key = brain.preset().key_name();
+        assert!(
+            brain
+                .steps(&Reach::Installed)
+                .iter()
+                .any(|step| step.command.contains(&format!("secretspec set {key} "))),
+            "{brain:?}'s steps do not set {key}"
+        );
+        let stub = Scratch::new(&format!("claude-auth-{key}"));
+        secretspec_holding(&stub, key);
+        let out = Command::new("bash")
+            .arg("-c")
+            .arg(format!(". {} && claude_auth && env", auth.display()))
+            .env(
+                "PATH",
+                format!(
+                    "{}:{}",
+                    stub.display(),
+                    std::env::var("PATH").unwrap_or_default()
+                ),
+            )
+            .env_remove("CLAUDE_CODE_OAUTH_TOKEN")
+            .env_remove("ANTHROPIC_API_KEY")
+            .output()
+            .expect("bash runs");
+        assert!(out.status.success(), "{brain:?}: no credential resolved");
+        let env = String::from_utf8_lossy(&out.stdout);
+        let held: Vec<&str> = CLAUDE_READS
+            .into_iter()
+            .filter(|name| env.lines().any(|line| line == format!("{name}=held-value")))
+            .collect();
+        assert_eq!(held, vec![key], "{brain:?}: the environment holds {held:?}");
+    }
+
+    // With neither secret set, the wrapper falls back to the interactive login and says so.
+    let none = Scratch::new("claude-auth-none");
+    secretspec_holding(&none, "NOTHING");
+    let out = Command::new("bash")
+        .arg("-c")
+        .arg(format!(". {} && claude_auth", auth.display()))
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                none.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
+        .output()
+        .expect("bash runs");
+    assert!(!out.status.success());
+}
+
+/// The triage agent's `claude` is started by the wrapper, not the binary, so the wrapper
+/// exports every switch [`suzatary_io::model::QUIET`] names, and copies no memory directory.
+#[test]
+fn the_triage_agent_runs_quiet_and_reads_no_main_session_memory() {
+    let wrapper = std::fs::read_to_string(repo().join("scripts/hourly-triage.sh"))
+        .expect("the wrapper reads");
+    let exported: String = wrapper
+        .lines()
+        .skip_while(|line| !line.starts_with("export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"))
+        .take_while(|line| !line.starts_with("claude "))
+        .collect::<Vec<_>>()
+        .join(" ");
+    for (name, value) in suzatary_io::model::QUIET {
+        assert!(
+            exported.contains(&format!("{name}={value}")),
+            "hourly-triage.sh does not export {name}={value}"
+        );
+    }
+    assert!(
+        !wrapper.contains("cp -a \"$MEMORY_SRC\""),
+        "the wrapper copies the main session's memory"
+    );
+    let call: Vec<&str> = wrapper
+        .lines()
+        .skip_while(|line| !line.starts_with("claude -p"))
+        .take_while(|line| line.trim_end().ends_with('\\'))
+        .collect();
+    assert!(
+        call.iter()
+            .any(|line| line.contains("--no-session-persistence")),
+        "the triage agent's session, mail included, would be kept under ~/.claude/projects"
+    );
+}

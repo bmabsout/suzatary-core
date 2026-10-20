@@ -1,0 +1,1 @@
+Genesis(label='inbox', nonce='9489e7a48a5d0fa2ab37e9fbcd61ca62')

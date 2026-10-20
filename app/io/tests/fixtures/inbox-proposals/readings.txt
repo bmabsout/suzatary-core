@@ -1,0 +1,60 @@
+p00f1d3e636c1277f0989efdbe97716fa at=2026-09-28T13:20:00 reading=Dismissed(reason='not this week') at 2026-09-28T13:21:00 open=false performs=false tries=0 value=Some(Absent(Absent))
+  responses=[Dismissed(reason='not this week')]
+  decide=answer
+p07b5df6c7e6c8e80f1433561c8d1084f at=2026-09-28T15:00:00 reading=Dismissed(reason='never mind') at 2026-09-28T15:03:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused'), Dismissed(reason='never mind')]
+  decide=answer
+p0d563d96eb622262b4ad96d118da5b90 at=2026-09-28T00:00:00 reading=standing open=true performs=true tries=0 value=Some(Absent(Absent))
+  responses=[]
+  decide=perform
+p11d71057fcea31034b1b4f369bd558e1 at=2026-09-28T20:00:00 reading=Dismissed(reason='superseded by proposal 13') at 2026-09-28T20:01:00 open=false performs=false tries=0 value=Some(Absent(Absent))
+  responses=[Dismissed(reason='superseded by proposal 13')]
+  decide=answer
+p18c0acfa56c0d4b94b681c7d7de928b2 at=2026-09-28T08:20:00 reading=Applied(objects=('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), chain='life') at 2026-09-28T08:21:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Applied(objects=('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), chain='life')]
+  decide=answer
+p2b873ad26f68b383c08dac9eab2db9de at=2026-09-28T18:20:00 reading=Applied(objects=('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), chain='life') at 2026-09-28T18:23:00 open=false performs=false tries=2 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused'), Applied(objects=('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), chain='life')]
+  decide=answer
+p40c7cf35fa1bf34adf1efcb90a088727 at=2026-09-28T03:20:00 reading=NotSent(attempt=2, reason='refused again') at 2026-09-28T03:23:00 open=true performs=true tries=2 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused'), NotSent(attempt=2, reason='refused again')]
+  decide=perform
+p464c39557e0ef77d95c01e5f04561108 at=2026-09-28T16:40:00 reading=Checked(reason='cut off') at 2026-09-28T16:45:00 open=false performs=false tries=2 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused'), MayHaveGone(reason='cut off'), Checked()]
+  decide=answer
+p4c975ca160855479de670df40a05db85 at=2026-09-29T07:40:00 reading=Acted(what='signed in') at 2026-09-29T07:41:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Acted(what='signed in')]
+  decide=answer
+p53fb002c46c87f967ac75ccb5e90048d at=2026-09-28T11:40:00 reading=Checked(reason='no answer') at 2026-09-28T11:43:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[MayHaveGone(reason='no answer'), Checked()]
+  decide=answer
+p5fdbea44b8efb79d1f7e476a21029a2d at=2026-09-28T06:40:00 reading=Sent(recipients=('mira@example.com',), message_id='<4@box>') at 2026-09-28T06:41:00 open=false performs=false tries=1 value=Some(Number(0.3))
+  responses=[Sent(recipients=('mira@example.com',), message_id='<4@box>')]
+  decide=answer
+p60a3fba88484422b45afca98cfb77a6a at=2026-09-29T02:40:00 reading=NotSent(attempt=2, reason='the box restarted') at 2026-09-29T02:43:00 open=true performs=true tries=1 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-10-30T09:00:00'), NotSent(attempt=2, reason='the box restarted')]
+  decide=perform
+p83704f31bffe29f5aa224511f5ca7462 at=2026-09-28T21:40:00 reading=Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-10-30T09:00:00') at 2026-09-28T21:41:00 open=true performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-10-30T09:00:00')]
+  decide=answer
+p83f443aa7b6cec0633f7a76c65380759 at=2026-09-29T06:00:00 reading=Acted(what='signed in') at 2026-09-29T06:05:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-09-28T10:00:00'), Started(attempt=2, began='2026-09-28T10:10:00', expires_at='2026-10-30T09:00:00'), Acted(what='signed in')]
+  decide=answer
+pb1798c8f533b941be7ffa766cdd105ed at=2026-09-29T04:20:00 reading=Started(attempt=3, began='2026-09-28T09:03:00', expires_at='2026-10-30T09:00:00') at 2026-09-29T04:25:00 open=true performs=false tries=2 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-10-30T09:00:00'), NotSent(attempt=2, reason='expired'), Started(attempt=3, began='2026-09-28T09:03:00', expires_at='2026-10-30T09:00:00')]
+  decide=answer
+pb47cf14d27497672762acd104f4f1364 at=2026-09-29T01:00:00 reading=Acted(what='signed in') at 2026-09-29T01:03:00 open=false performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-10-30T09:00:00'), Acted(what='signed in')]
+  decide=answer
+pd564ce031224db3cd29641f87cf857a8 at=2026-09-28T10:00:00 reading=MayHaveGone(reason='no answer') at 2026-09-28T10:01:00 open=true performs=false tries=1 value=Some(Absent(Absent))
+  responses=[MayHaveGone(reason='no answer')]
+  decide=answer
+pdfb96d9c03b061bcbb97504ea38d1783 at=2026-09-28T01:40:00 reading=NotSent(attempt=1, reason='refused') at 2026-09-28T01:41:00 open=true performs=true tries=1 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused')]
+  decide=perform
+pe04baf960f4bd23a9b44f9bc0cda4c21 at=2026-09-28T05:00:00 reading=Sent(recipients=('mira@example.com',), message_id='<3@box>') at 2026-09-28T05:03:00 open=false performs=false tries=2 value=Some(Absent(Absent))
+  responses=[NotSent(attempt=1, reason='refused'), Sent(recipients=('mira@example.com',), message_id='<3@box>')]
+  decide=answer
+pfa2eb228e60476e46b656106d8381fb8 at=2026-09-28T23:20:00 reading=Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-09-28T10:00:00') at 2026-09-28T23:21:00 open=true performs=false tries=1 value=Some(Absent(Absent))
+  responses=[Started(attempt=1, began='2026-09-28T09:01:00', expires_at='2026-09-28T10:00:00')]
+  decide=perform

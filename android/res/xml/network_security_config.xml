@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is refused everywhere, this app's own host included.
+
+  The box serves https or nothing (scripts/serve-web.sh refuses to start
+  without the certificate `tailscale cert` mints), and MainActivity refuses to
+  proceed past an SSL error, so "https that does not validate" is never
+  accepted and nothing is ever retried over plain http: an error is the
+  offline screen, whose retry asks over https again.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

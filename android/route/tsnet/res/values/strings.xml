@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The tsnet route's words (Route.java), overlaid on android/res: its own name on
+  the launcher, so it can sit beside the portal, and what to say about a node
+  that is starting, signing in, or down.
+-->
+<resources>
+    <string name="app_name">Suzatary tsnet</string>
+    <string name="offline_body">This app is a window onto the box through its own tailnet node. Check that suzatary-web.service is running on the box.</string>
+    <string name="widget_unreachable">Not reached — the widget reaches the box only through the Tailscale app.</string>
+
+    <string name="tsnet_starting">Joining the tailnet</string>
+    <string name="tsnet_login_title">Sign in to Tailscale</string>
+    <string name="tsnet_login_body">This app joins your tailnet as a device of its own, so this phone needs no Tailscale app. Sign in with the account the box knows. The sign-in happens in your browser, never in this app.</string>
+    <string name="tsnet_login_action">Sign in</string>
+    <string name="tsnet_down_title">The tailnet node stopped</string>
+    <string name="tsnet_no_proxy">This phone\'s WebView cannot send a page through a proxy. Update Android System WebView from the Play Store.</string>
+</resources>

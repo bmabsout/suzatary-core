@@ -1,0 +1,5484 @@
+{
+  "AboutPayload": [
+    {
+      "value": {
+        "build": "dev",
+        "completes": [
+          {
+            "held": {
+              "row": {
+                "state": "completed",
+                "todo": "calendarlinks",
+                "unconfirmed": false,
+                "value": 1.0
+              },
+              "title": "calendar links"
+            },
+            "todo": "calendarlinks"
+          },
+          {
+            "held": null,
+            "todo": "elsewhere"
+          }
+        ],
+        "version": "1.15.0"
+      },
+      "maps": []
+    }
+  ],
+  "AcceptedPayload": [
+    {
+      "value": {
+        "adopted": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "already": [],
+        "chain": "life",
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "AttachmentRow": [
+    {
+      "value": {
+        "id": "1111111111111111111111111111111111111111111111111111111111111111",
+        "media_type": "application/pdf",
+        "name": "email-harrow.pdf",
+        "private": ""
+      },
+      "maps": []
+    }
+  ],
+  "AuthoredPayload": [
+    {
+      "value": {
+        "event": "Created(...)",
+        "revision": null,
+        "todo": "email-harrow"
+      },
+      "maps": []
+    }
+  ],
+  "BlockRender": [
+    {
+      "value": {
+        "html": "<h2>Plan</h2>",
+        "key": "222797806e3ec6c48a2679451058a1cd6a7aac75a7bc7f9ebc7e48530eaa2faa 266d2060e6dac05335b265a3e597db872813ff00b7cae23d2ac4d21b986bf55a"
+      },
+      "maps": []
+    }
+  ],
+  "BriefingPayload": [
+    {
+      "value": {
+        "date": "2026-09-02",
+        "day": {
+          "blocks": [
+            {
+              "html": "<h2>Plan</h2>",
+              "kind": "heading",
+              "plain": "Plan",
+              "source": "= Plan"
+            }
+          ],
+          "conversation": "about-the-deed",
+          "kind": "brief",
+          "text": "= Plan",
+          "turn": 1
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "date": "2026-09-01",
+        "day": {
+          "kind": "saved",
+          "rich": null,
+          "source": "= Monday"
+        }
+      },
+      "maps": []
+    }
+  ],
+  "BriefingsPayload": [
+    {
+      "value": {
+        "briefings": [
+          {
+            "date": "2026-09-02",
+            "title": "Tuesday",
+            "words": 120
+          }
+        ],
+        "briefs": [
+          {
+            "conversation": "about-the-deed",
+            "date": "2026-09-02",
+            "text": "= Plan",
+            "title": "Plan",
+            "turn": 1,
+            "words": 40
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "CalendarPayload": [
+    {
+      "value": {
+        "days": 7,
+        "from": "2026-09-02",
+        "rich": null,
+        "text": "Nothing booked"
+      },
+      "maps": []
+    }
+  ],
+  "ChainPayload": [
+    {
+      "value": {
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "links": [
+          {
+            "actor": "",
+            "at": "",
+            "hash": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "kind": "Genesis",
+            "literal": "Genesis(label='todos', nonce='00000000000000000000000000000000')",
+            "note": "",
+            "parents": [],
+            "prev": "",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": ""
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='file-permit', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='permit renewal', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "file-permit"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "email-harrow"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='renew-card', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "renew-card"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-13T12:00:00",
+            "hash": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e',), event=Authored(todo='renew-card', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "renew-card"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='book-flight', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "book-flight"
+          },
+          {
+            "actor": "triage",
+            "at": "2026-08-15T12:00:00",
+            "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "email-harrow"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-13T12:00:00",
+            "hash": "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91',), event=Authored(todo='book-flight', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "book-flight"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='pack-bags', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "pack-bags"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-13T12:00:00",
+            "hash": "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c',), event=Authored(todo='pack-bags', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Pack for the trip', spec=Flat(value=0.72), rationale=(), category='home', waiting_on='', detail='After #link(\"todo:book-flight\")[the flight] is booked.', source=None, subtodos=(SubTodo(body='[tickets]', done=True), SubTodo(body='[chargers]', done=False)), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+              "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "pack-bags"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-14T12:00:00",
+            "hash": "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+            "kind": "Completed",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40',), event=Completed(todo='renew-card', at=datetime(2026, 8, 14, 12, 0, 0), actor='ada', note=''))",
+            "note": "",
+            "parents": [
+              "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "renew-card"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='water-plants', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "water-plants"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-13T12:00:00",
+            "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00',), event=Authored(todo='water-plants', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+              "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "water-plants"
+          },
+          {
+            "actor": "ada",
+            "at": "2026-08-13T12:00:00",
+            "hash": "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e',), event=Authored(todo='file-permit', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='File the *permit* renewal', spec=Decay(start=0.6, end=0.05, end_date=datetime(2026, 9, 4, 12, 0, 0), lead_up=timedelta(days=14), start_date=datetime(2026, 8, 21, 12, 0, 0)), rationale=('Missing it is not recoverable.',), category='work', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "file-permit"
+          }
+        ],
+        "root": "836884e1723c7b17f8b87e76a0272f012de6cff08f134eb9dcdb2670695b1818",
+        "untrusted": [
+          "triage"
+        ],
+        "verify": []
+      },
+      "maps": []
+    }
+  ],
+  "ConversationsPayload": [
+    {
+      "value": {
+        "conversations": [
+          {
+            "id": "every-stage",
+            "kind": "topic",
+            "last": "",
+            "last_at": "2026-09-02T12:00:00",
+            "opened": "2026-09-02T12:00:00",
+            "standing": 2,
+            "title": "Every stage",
+            "turns": 0,
+            "unplaced": []
+          },
+          {
+            "id": "about-the-deed",
+            "kind": "topic",
+            "last": "Nothing else today.",
+            "last_at": "2026-09-02T12:01:35",
+            "opened": "2026-09-02T12:00:00",
+            "standing": 1,
+            "title": "About the deed",
+            "turns": 4,
+            "unplaced": []
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "DevicePayload": [
+    {
+      "value": {
+        "devices": 1,
+        "ok": true
+      },
+      "maps": []
+    }
+  ],
+  "DrawnPayload": [
+    {
+      "value": {
+        "proposals": [
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (0)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:00",
+            "card": {
+              "answers": [
+                {
+                  "always": false,
+                  "done": "sent to counsel@example.test",
+                  "endorse": false,
+                  "input": "",
+                  "label": "Send",
+                  "question": "Send to counsel@example.test?",
+                  "verb": "send",
+                  "yes": "Yes, send it"
+                }
+              ],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (0)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 0,
+            "outcome": "",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "standing",
+            "tries": 0,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (1)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:01",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (1)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 1,
+            "outcome": "counsel@example.test",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "sent",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (2)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:02",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (2)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 2,
+            "outcome": "1 change",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "applied",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (3)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:03",
+            "card": {
+              "answers": [
+                {
+                  "always": false,
+                  "done": "sent to counsel@example.test",
+                  "endorse": false,
+                  "input": "",
+                  "label": "Try again",
+                  "question": "Send to counsel@example.test?",
+                  "verb": "send",
+                  "yes": "Yes, send it"
+                }
+              ],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (3)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 3,
+            "outcome": "auth: 535 5.7.8 Authentication failed",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "failed",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (4)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:04",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (4)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 4,
+            "outcome": "the message was handed over and no answer came: reset",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "unknown",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (5)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:05",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (5)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 5,
+            "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "started",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (6)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:06",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (6)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 6,
+            "outcome": "the grant is stored",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "acted",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (7)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:07",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (7)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 7,
+            "outcome": "wrong person",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "dismissed",
+            "tries": 0,
+            "turn": 0,
+            "why": "the deed is due"
+          },
+          {
+            "act": {
+              "account": "her@example.invalid",
+              "attachments": [],
+              "body": "Following up on the deed.",
+              "cc": [],
+              "kind": "email",
+              "subject": "Your deed (8)",
+              "to": [
+                "counsel@example.test"
+              ]
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:08",
+            "card": {
+              "answers": [],
+              "body": "Following up on the deed.",
+              "by": {
+                "kind": "secretary"
+              },
+              "fields": [
+                {
+                  "label": "From",
+                  "value": "her@example.invalid"
+                },
+                {
+                  "label": "To",
+                  "value": "counsel@example.test"
+                },
+                {
+                  "label": "Subject",
+                  "value": "Your deed (8)"
+                }
+              ],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "This device can read this but not send it. Use one of your own devices.",
+              "rows": [],
+              "sentence": "",
+              "title": "Proposed email",
+              "uncertain": "It may have been sent. Check Sent; it is never sent again."
+            },
+            "coding": null,
+            "index": 8,
+            "outcome": "the message was handed over and no answer came: reset",
+            "sources": [
+              "briefing:2026-09-27"
+            ],
+            "state": "checked",
+            "tries": 1,
+            "turn": 0,
+            "why": "the deed is due"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "ErrorPayload": [
+    {
+      "value": {
+        "error": "refused"
+      },
+      "maps": []
+    }
+  ],
+  "FieldChange": [
+    {
+      "value": {
+        "after": "'Reply'",
+        "before": "",
+        "field": "body"
+      },
+      "maps": []
+    }
+  ],
+  "FoldPayload": [
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "entries": [
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Book the flight to Oslo",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Book the flight to Oslo",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 c2072248859e3446b96ddf260cb31e52173a78941bb49e95c9793e63a6f956a2",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.55
+              },
+              "subtodos": [],
+              "text": "Book the flight to Oslo",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+              "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311"
+            ],
+            "todo": "book-flight",
+            "unconfirmed": false,
+            "value": 0.55
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "triage",
+              "at": "2026-08-15T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Email *Harrow* about the deed",
+              "category": "other",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": null,
+                "detail": null,
+                "keys": {
+                  "body": null,
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": {
+                "date": "2026-08-13",
+                "hash": "e2e0000message0000hash0000000000000000000000000000000000000000",
+                "message_id": "",
+                "sender": "counsel@example.test",
+                "subject": "Harrow asked for one more signature",
+                "thread_id": ""
+              },
+              "spec": {
+                "kind": "flat",
+                "value": 0.66
+              },
+              "subtodos": [],
+              "text": "Email Harrow about the deed",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+              "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c"
+            ],
+            "todo": "email-harrow",
+            "unconfirmed": true,
+            "value": 0.66
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "File the *permit* renewal",
+              "category": "work",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [
+                "Missing it is not recoverable."
+              ],
+              "rich": {
+                "body": "File the *permit* renewal",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 896c2340da6b59b9d43a810338accc2a0a7365e00e7232103b6dbf5baa69f19b",
+                  "detail": null,
+                  "rationale": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 ca90975d3f41c6abd1237c1e01904cda7d9ddcf94265032ba2baad295f27da9b",
+                  "waiting_on": null
+                },
+                "rationale": "Missing it is not recoverable.",
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "end": 0.05,
+                "endDate": "2026-09-04T12:00:00",
+                "kind": "decay",
+                "leadUpHours": 336.0,
+                "start": 0.6,
+                "startDate": "2026-08-21T12:00:00"
+              },
+              "subtodos": [],
+              "text": "File the permit renewal",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+              "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+            ],
+            "todo": "file-permit",
+            "unconfirmed": false,
+            "value": 0.1285714285714286
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Pack for the trip",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+              "rationale": [],
+              "rich": {
+                "body": "Pack for the trip",
+                "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 a252ebd0578c647109521c8b48f313f2085ad44097445c4e230e8cd0476ac242",
+                  "detail": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 dc59c280347aec710bb475535f6e988793eb62a4f59b644e9b083e164f393b3f",
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.72
+              },
+              "subtodos": [
+                {
+                  "body": "[tickets]",
+                  "done": true
+                },
+                {
+                  "body": "[chargers]",
+                  "done": false
+                }
+              ],
+              "text": "Pack for the trip",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+              "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a"
+            ],
+            "todo": "pack-bags",
+            "unconfirmed": false,
+            "value": 0.86
+          },
+          {
+            "at": "2026-08-14 12:00:00",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Renew the library card",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Renew the library card",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 f2727cc595a94a7eddd5f8085b5005f9d6b4513bdd5e2023a8a6f3515d13139d",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.4
+              },
+              "subtodos": [],
+              "text": "Renew the library card",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "completed",
+            "states": [
+              "completed"
+            ],
+            "stream": [
+              "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+              "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+              "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d"
+            ],
+            "todo": "renew-card",
+            "unconfirmed": false,
+            "value": 1.0
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Water the plants",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Water the plants",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 3000954fb14594d63173b3b5d99f178bcfecea8d0473e561ae51e5c1398aff6a",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.88
+              },
+              "subtodos": [],
+              "text": "Water the plants",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+              "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73"
+            ],
+            "todo": "water-plants",
+            "unconfirmed": false,
+            "value": 0.88
+          }
+        ],
+        "failed": [],
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "next": {
+          "at": "2026-09-02T14:10:54.545455",
+          "exact": true
+        }
+      },
+      "maps": [
+        [
+          "entries",
+          0,
+          "conflicts"
+        ],
+        [
+          "entries",
+          1,
+          "conflicts"
+        ],
+        [
+          "entries",
+          2,
+          "conflicts"
+        ],
+        [
+          "entries",
+          3,
+          "conflicts"
+        ],
+        [
+          "entries",
+          4,
+          "conflicts"
+        ],
+        [
+          "entries",
+          5,
+          "conflicts"
+        ]
+      ]
+    },
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "entries": [
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Book the flight to Oslo",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Book the flight to Oslo",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 c2072248859e3446b96ddf260cb31e52173a78941bb49e95c9793e63a6f956a2",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.55
+              },
+              "subtodos": [],
+              "text": "Book the flight to Oslo",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {
+              "state": [
+                "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+                "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+                "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+                "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+                "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+                "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+              ]
+            },
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+              "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311"
+            ],
+            "todo": "book-flight",
+            "unconfirmed": false,
+            "value": 0.55
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "triage",
+              "at": "2026-08-15T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Email *Harrow* about the deed",
+              "category": "other",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": null,
+                "detail": null,
+                "keys": {
+                  "body": null,
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": {
+                "date": "2026-08-13",
+                "hash": "e2e0000message0000hash0000000000000000000000000000000000000000",
+                "message_id": "",
+                "sender": "counsel@example.test",
+                "subject": "Harrow asked for one more signature",
+                "thread_id": ""
+              },
+              "spec": {
+                "kind": "flat",
+                "value": 0.66
+              },
+              "subtodos": [],
+              "text": "Email Harrow about the deed",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+              "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c"
+            ],
+            "todo": "email-harrow",
+            "unconfirmed": true,
+            "value": 0.66
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "File the *permit* renewal",
+              "category": "work",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [
+                "Missing it is not recoverable."
+              ],
+              "rich": {
+                "body": "File the *permit* renewal",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 896c2340da6b59b9d43a810338accc2a0a7365e00e7232103b6dbf5baa69f19b",
+                  "detail": null,
+                  "rationale": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 ca90975d3f41c6abd1237c1e01904cda7d9ddcf94265032ba2baad295f27da9b",
+                  "waiting_on": null
+                },
+                "rationale": "Missing it is not recoverable.",
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "end": 0.05,
+                "endDate": "2026-09-04T12:00:00",
+                "kind": "decay",
+                "leadUpHours": 336.0,
+                "start": 0.6,
+                "startDate": "2026-08-21T12:00:00"
+              },
+              "subtodos": [],
+              "text": "File the permit renewal",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+              "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+            ],
+            "todo": "file-permit",
+            "unconfirmed": false,
+            "value": 0.1285714285714286
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Pack for the trip",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+              "rationale": [],
+              "rich": {
+                "body": "Pack for the trip",
+                "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 a252ebd0578c647109521c8b48f313f2085ad44097445c4e230e8cd0476ac242",
+                  "detail": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 dc59c280347aec710bb475535f6e988793eb62a4f59b644e9b083e164f393b3f",
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.72
+              },
+              "subtodos": [
+                {
+                  "body": "[tickets]",
+                  "done": true
+                },
+                {
+                  "body": "[chargers]",
+                  "done": false
+                }
+              ],
+              "text": "Pack for the trip",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+              "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a"
+            ],
+            "todo": "pack-bags",
+            "unconfirmed": false,
+            "value": 0.86
+          },
+          {
+            "at": "2026-08-14 12:00:00",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Renew the library card",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Renew the library card",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 f2727cc595a94a7eddd5f8085b5005f9d6b4513bdd5e2023a8a6f3515d13139d",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.4
+              },
+              "subtodos": [],
+              "text": "Renew the library card",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "completed",
+            "states": [
+              "completed"
+            ],
+            "stream": [
+              "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+              "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+              "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d"
+            ],
+            "todo": "renew-card",
+            "unconfirmed": false,
+            "value": 1.0
+          },
+          {
+            "at": "",
+            "authored": {
+              "actor": "ada",
+              "at": "2026-08-13T12:00:00",
+              "block": {
+                "kind": "todo",
+                "name": "todo"
+              },
+              "body": "Water the plants",
+              "category": "home",
+              "created": "2026-08-13",
+              "detail": "",
+              "rationale": [],
+              "rich": {
+                "body": "Water the plants",
+                "detail": null,
+                "keys": {
+                  "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 3000954fb14594d63173b3b5d99f178bcfecea8d0473e561ae51e5c1398aff6a",
+                  "detail": null,
+                  "rationale": null,
+                  "waiting_on": null
+                },
+                "rationale": null,
+                "waiting_on": null
+              },
+              "source": null,
+              "spec": {
+                "kind": "flat",
+                "value": 0.88
+              },
+              "subtodos": [],
+              "text": "Water the plants",
+              "waiting_on": ""
+            },
+            "candidates": [],
+            "claimed": "",
+            "conflicts": {},
+            "recurring": false,
+            "state": "open",
+            "states": [
+              "open"
+            ],
+            "stream": [
+              "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+              "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73"
+            ],
+            "todo": "water-plants",
+            "unconfirmed": false,
+            "value": 0.88
+          }
+        ],
+        "failed": [
+          {
+            "chain": "suzatary",
+            "why": "two geneses: the chain is two prodromes"
+          }
+        ],
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "next": {
+          "at": "2026-09-02T14:10:54.545455",
+          "exact": true
+        }
+      },
+      "maps": [
+        [
+          "entries",
+          0,
+          "conflicts"
+        ],
+        [
+          "entries",
+          1,
+          "conflicts"
+        ],
+        [
+          "entries",
+          2,
+          "conflicts"
+        ],
+        [
+          "entries",
+          3,
+          "conflicts"
+        ],
+        [
+          "entries",
+          4,
+          "conflicts"
+        ],
+        [
+          "entries",
+          5,
+          "conflicts"
+        ]
+      ]
+    }
+  ],
+  "Frame": [
+    {
+      "value": {
+        "kind": "state",
+        "state": "thinking"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "kind": "delta",
+        "text": "Hel"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "kind": "turn"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "kind": "working",
+        "verb": "context"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "kind": "block",
+        "n": 0,
+        "sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "source": "= Plan"
+      },
+      "maps": []
+    }
+  ],
+  "InboxPayload": [
+    {
+      "value": {
+        "accounts": [
+          "her@example.invalid"
+        ],
+        "messages": [
+          {
+            "account": "her@example.invalid",
+            "container": "inbox",
+            "date": "2026-09-02T12:00:00",
+            "disposition": {
+              "kind": "undecided"
+            },
+            "hash": "aaaaaaaaaaaaaaaa",
+            "id": "m1@example.test",
+            "sender": "counsel@example.test",
+            "subject": "The deed"
+          },
+          {
+            "account": "her@example.invalid",
+            "container": "inbox",
+            "date": "2026-09-02T12:00:00",
+            "disposition": {
+              "kind": "noise"
+            },
+            "hash": "aaaaaaaaaaaaaaaa",
+            "id": "m1@example.test",
+            "sender": "counsel@example.test",
+            "subject": "The deed"
+          },
+          {
+            "account": "her@example.invalid",
+            "container": "inbox",
+            "date": "2026-09-02T12:00:00",
+            "disposition": {
+              "kind": "skip"
+            },
+            "hash": "aaaaaaaaaaaaaaaa",
+            "id": "m1@example.test",
+            "sender": "counsel@example.test",
+            "subject": "The deed"
+          },
+          {
+            "account": "her@example.invalid",
+            "container": "inbox",
+            "date": "2026-09-02T12:00:00",
+            "disposition": {
+              "kind": "todo",
+              "todo": "email-harrow"
+            },
+            "hash": "aaaaaaaaaaaaaaaa",
+            "id": "m1@example.test",
+            "sender": "counsel@example.test",
+            "subject": "The deed"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "InboxProposalsPayload": [
+    {
+      "value": {
+        "at": "2026-09-02T12:06:40",
+        "failed": [],
+        "proposals": [
+          {
+            "asked": "proposal:every-stage/0",
+            "at": "2026-09-02T12:00:00",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (0)",
+            "id": "pdf0b0eb2a8fb2cb4171683b4960a3504",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/1",
+            "at": "2026-09-02T12:00:01",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (1)",
+            "id": "pc4eee64cbf6ba08ba9dae848a0990bf1",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/2",
+            "at": "2026-09-02T12:00:02",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (2)",
+            "id": "pa2ac208eeba032952a041b43717e7cc1",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/3",
+            "at": "2026-09-02T12:00:03",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (3)",
+            "id": "p18602ce05b8a2240ef3b2981a1387195",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/4",
+            "at": "2026-09-02T12:00:04",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (4)",
+            "id": "pf90805efc793c48ccc402e5231a26a38",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/5",
+            "at": "2026-09-02T12:00:05",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (5)",
+            "id": "p44b0ea0991617eca60209b906c905cc9",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/6",
+            "at": "2026-09-02T12:00:06",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (6)",
+            "id": "pc7b28e99e193fd0fc0c7046f5e9a7704",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/7",
+            "at": "2026-09-02T12:00:07",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (7)",
+            "id": "p792da8264bc159c4fbbb93d333866e6a",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "cancelled"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/8",
+            "at": "2026-09-02T12:00:08",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (8)",
+            "id": "pe95f34d0e1b0f2ba1bb6c8a25e412a31",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:about-the-deed/0",
+            "at": "2026-09-02T12:00:21",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed",
+            "id": "p86f99cf7e3106689524da6e1f3bff7c5",
+            "serves": "todo:life/email-harrow",
+            "state": {
+              "kind": "open"
+            },
+            "value": 0.66,
+            "why": "the deed is due and nothing has gone out yet"
+          }
+        ]
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "at": "2026-09-02T12:06:40",
+        "failed": [
+          {
+            "chain": "suzatary",
+            "why": "two geneses: the chain is two prodromes"
+          }
+        ],
+        "proposals": [
+          {
+            "asked": "proposal:every-stage/0",
+            "at": "2026-09-02T12:00:00",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (0)",
+            "id": "pdf0b0eb2a8fb2cb4171683b4960a3504",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/1",
+            "at": "2026-09-02T12:00:01",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (1)",
+            "id": "pc4eee64cbf6ba08ba9dae848a0990bf1",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/2",
+            "at": "2026-09-02T12:00:02",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (2)",
+            "id": "pa2ac208eeba032952a041b43717e7cc1",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/3",
+            "at": "2026-09-02T12:00:03",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (3)",
+            "id": "p18602ce05b8a2240ef3b2981a1387195",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/4",
+            "at": "2026-09-02T12:00:04",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (4)",
+            "id": "pf90805efc793c48ccc402e5231a26a38",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/5",
+            "at": "2026-09-02T12:00:05",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (5)",
+            "id": "p44b0ea0991617eca60209b906c905cc9",
+            "serves": null,
+            "state": {
+              "kind": "open"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/6",
+            "at": "2026-09-02T12:00:06",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (6)",
+            "id": "pc7b28e99e193fd0fc0c7046f5e9a7704",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/7",
+            "at": "2026-09-02T12:00:07",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (7)",
+            "id": "p792da8264bc159c4fbbb93d333866e6a",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "cancelled"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:every-stage/8",
+            "at": "2026-09-02T12:00:08",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed (8)",
+            "id": "pe95f34d0e1b0f2ba1bb6c8a25e412a31",
+            "serves": null,
+            "state": {
+              "at": "2026-09-02T12:00:00",
+              "kind": "completed"
+            },
+            "value": "absent",
+            "why": "the deed is due"
+          },
+          {
+            "asked": "proposal:about-the-deed/0",
+            "at": "2026-09-02T12:00:21",
+            "by": {
+              "kind": "secretary"
+            },
+            "headline": "email counsel@example.test — Your deed",
+            "id": "p86f99cf7e3106689524da6e1f3bff7c5",
+            "serves": "todo:life/email-harrow",
+            "state": {
+              "kind": "open"
+            },
+            "value": 0.66,
+            "why": "the deed is due and nothing has gone out yet"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "MailSearchPayload": [
+    {
+      "value": {
+        "accounts": [],
+        "messages": [
+          {
+            "account": "her@example.invalid",
+            "container": "inbox",
+            "date": "2026-09-02T12:00:00",
+            "disposition": {
+              "kind": "todo",
+              "todo": "email-harrow"
+            },
+            "hash": "aaaaaaaaaaaaaaaa",
+            "id": "m1@example.test",
+            "sender": "counsel@example.test",
+            "subject": "The deed"
+          }
+        ],
+        "q": "from:counsel"
+      },
+      "maps": []
+    }
+  ],
+  "MePayload": [
+    {
+      "value": {
+        "actor": "ada",
+        "categories": [
+          "work"
+        ],
+        "chains": [
+          "life"
+        ],
+        "login": "her@example.invalid",
+        "zone": "America/New_York"
+      },
+      "maps": []
+    }
+  ],
+  "MemoryPayload": [
+    {
+      "value": {
+        "cap": 200,
+        "cards": [
+          {
+            "fact": "Prefers mornings",
+            "text": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        ],
+        "facts": [
+          {
+            "at": "2026-09-02T12:00:00",
+            "fact": "Takes the early train",
+            "id": 1,
+            "kind": "person",
+            "said": {
+              "conversation": "about-the-deed",
+              "kind": "turn",
+              "turn": 0
+            }
+          },
+          {
+            "at": "2026-09-02T12:00:00",
+            "fact": "Harrow keeps the books",
+            "id": 2,
+            "kind": "person",
+            "said": {
+              "conversation": "about-the-deed",
+              "kind": "tapped",
+              "proposal": 1
+            }
+          }
+        ],
+        "forgotten": [
+          3
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "ObjectsPayload": [
+    {
+      "value": {
+        "epoch": 1788350400,
+        "geneses": [
+          "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+        ],
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "objects": [
+          {
+            "hash": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "literal": "Genesis(label='todos', nonce='00000000000000000000000000000000')"
+          },
+          {
+            "hash": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='file-permit', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='permit renewal', note=''))"
+          },
+          {
+            "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+          },
+          {
+            "hash": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='renew-card', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+          },
+          {
+            "hash": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e',), event=Authored(todo='renew-card', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+          },
+          {
+            "hash": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='book-flight', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+          },
+          {
+            "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))"
+          },
+          {
+            "hash": "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91',), event=Authored(todo='book-flight', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+          },
+          {
+            "hash": "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='pack-bags', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+          },
+          {
+            "hash": "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c',), event=Authored(todo='pack-bags', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Pack for the trip', spec=Flat(value=0.72), rationale=(), category='home', waiting_on='', detail='After #link(\"todo:book-flight\")[the flight] is booked.', source=None, subtodos=(SubTodo(body='[tickets]', done=True), SubTodo(body='[chargers]', done=False)), notes=(), note=''))"
+          },
+          {
+            "hash": "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40',), event=Completed(todo='renew-card', at=datetime(2026, 8, 14, 12, 0, 0), actor='ada', note=''))"
+          },
+          {
+            "hash": "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='water-plants', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+          },
+          {
+            "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00',), event=Authored(todo='water-plants', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+          },
+          {
+            "hash": "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e',), event=Authored(todo='file-permit', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='File the *permit* renewal', spec=Decay(start=0.6, end=0.05, end_date=datetime(2026, 9, 4, 12, 0, 0), lead_up=timedelta(days=14), start_date=datetime(2026, 8, 21, 12, 0, 0)), rationale=('Missing it is not recoverable.',), category='work', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+          }
+        ],
+        "root": "836884e1723c7b17f8b87e76a0272f012de6cff08f134eb9dcdb2670695b1818",
+        "untrusted": [
+          "triage"
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "Overview": [
+    {
+      "value": {
+        "ask": "setup",
+        "groups": [
+          {
+            "group": "models",
+            "lines": [
+              {
+                "cards": [],
+                "detail": "Chat, in a sentence.",
+                "key": "job:secretary",
+                "label": "Chat",
+                "standing": {
+                  "at": "2026-09-02T12:00:00",
+                  "kind": "answered"
+                }
+              },
+              {
+                "cards": [],
+                "detail": "Phala, in a sentence.",
+                "key": "provider:phala",
+                "label": "Phala",
+                "standing": {
+                  "kind": "unused"
+                }
+              }
+            ]
+          },
+          {
+            "group": "mail",
+            "lines": [
+              {
+                "cards": [
+                  "proposal:setup/2"
+                ],
+                "detail": "her@example.invalid, in a sentence.",
+                "key": "account:ada@example.test",
+                "label": "her@example.invalid",
+                "standing": {
+                  "at": "2026-09-02T12:00:00",
+                  "class": {
+                    "kind": "needs_login"
+                  },
+                  "kind": "failing",
+                  "since": "2026-09-02T12:00:00",
+                  "words": "token expired"
+                }
+              }
+            ]
+          },
+          {
+            "group": "calendar",
+            "lines": [
+              {
+                "cards": [],
+                "detail": "Home, in a sentence.",
+                "key": "credential:ics/home",
+                "label": "Home",
+                "standing": {
+                  "at": "2026-09-02T12:00:00",
+                  "kind": "synced"
+                }
+              },
+              {
+                "cards": [
+                  "proposal:setup/1"
+                ],
+                "detail": "Work, in a sentence.",
+                "key": "credential:ics/work",
+                "label": "Work",
+                "standing": {
+                  "kind": "missing",
+                  "what": [
+                    "your Work calendar's secret link"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "group": "drive",
+            "lines": []
+          },
+          {
+            "group": "storage",
+            "lines": [
+              {
+                "cards": [],
+                "detail": "Data repository, in a sentence.",
+                "key": "repository",
+                "label": "Data repository",
+                "standing": {
+                  "kind": "kept"
+                }
+              }
+            ]
+          },
+          {
+            "group": "notifications",
+            "lines": [
+              {
+                "cards": [],
+                "detail": "ntfy, in a sentence.",
+                "key": "channel:ntfy",
+                "label": "ntfy",
+                "standing": {
+                  "kind": "locked"
+                }
+              },
+              {
+                "cards": [],
+                "detail": "fcm, in a sentence.",
+                "key": "channel:fcm",
+                "label": "fcm",
+                "standing": {
+                  "kind": "store_failed"
+                }
+              }
+            ]
+          },
+          {
+            "group": "coding",
+            "lines": []
+          },
+          {
+            "group": "plugins",
+            "lines": [
+              {
+                "cards": [],
+                "detail": "due, in a sentence.",
+                "key": "plugin:due",
+                "label": "due",
+                "standing": {
+                  "kind": "unobserved"
+                }
+              },
+              {
+                "cards": [],
+                "detail": "rota, in a sentence.",
+                "key": "plugin:rota",
+                "label": "rota",
+                "standing": {
+                  "kind": "unreadable",
+                  "words": "its store could not be read"
+                }
+              }
+            ]
+          },
+          {
+            "group": "box",
+            "lines": []
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "Phase": [
+    {
+      "value": {
+        "attempt": 1,
+        "phase": "trying",
+        "running": false
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "sent"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "applied"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "acted"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "mayHaveGone"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "checked"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "phase": "dismissed"
+      },
+      "maps": []
+    }
+  ],
+  "ProposalsPayload": [
+    {
+      "value": {
+        "batches": [
+          {
+            "actor": "triage",
+            "at": "2026-09-02T12:00:00",
+            "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "objects": [
+              {
+                "act": "add",
+                "actor": "triage",
+                "at": "2026-09-02T12:00:00",
+                "body": "Reply",
+                "changes": [
+                  {
+                    "after": "Reply",
+                    "before": "",
+                    "field": "body"
+                  }
+                ],
+                "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "needs": [],
+                "note": "",
+                "pending_todo": false,
+                "todo": "email-harrow"
+              }
+            ]
+          }
+        ],
+        "chain": "life",
+        "reviews": [
+          {
+            "at": "2026-09-02T12:00:00",
+            "batch": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "conversation": "review",
+            "decision": "accept",
+            "objects": 1,
+            "why": "it carries its evidence"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "ProvenanceRow": [
+    {
+      "value": {
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "proof": {
+          "key": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "kind": "proven"
+        },
+        "said": "signed by the key cccccccc"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "proof": {
+          "kind": "predates"
+        },
+        "said": "written before signatures"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "proof": {
+          "kind": "unproven"
+        },
+        "said": "not proven: no key signs it"
+      },
+      "maps": []
+    }
+  ],
+  "ReceiptPayload": [
+    {
+      "value": {
+        "adopted": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "already": [],
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ],
+        "refused": [
+          {
+            "hash": "",
+            "kind": "final",
+            "reason": "not an object"
+          },
+          {
+            "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+            "kind": "trust",
+            "reason": "its signatures do not prove it: unsigned"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "RejectedPayload": [
+    {
+      "value": {
+        "chain": "life",
+        "removed": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "ReleasesPayload": [
+    {
+      "value": {
+        "chain": "suzatary",
+        "reads": "1.14",
+        "releases": [
+          {
+            "held": {
+              "row": {
+                "state": "open",
+                "todo": "suzatarytwo",
+                "unconfirmed": false,
+                "value": 0.42
+              },
+              "title": "Suzatary 2.0"
+            },
+            "items": [
+              {
+                "held": {
+                  "row": {
+                    "state": "open",
+                    "todo": "portsuites",
+                    "unconfirmed": false,
+                    "value": 0.55
+                  },
+                  "title": "ports as suites"
+                },
+                "named": "current",
+                "standing": "open",
+                "todo": "portsuites"
+              },
+              {
+                "held": {
+                  "row": {
+                    "state": "completed",
+                    "todo": "calendarlinks",
+                    "unconfirmed": false,
+                    "value": 1.0
+                  },
+                  "title": "calendar links"
+                },
+                "named": "current",
+                "standing": "counted",
+                "todo": "calendarlinks"
+              },
+              {
+                "held": {
+                  "row": {
+                    "state": "open",
+                    "todo": "wireonce",
+                    "unconfirmed": false,
+                    "value": 0.6
+                  },
+                  "title": "the wire once"
+                },
+                "named": "current",
+                "standing": "counted",
+                "todo": "wireonce"
+              },
+              {
+                "held": {
+                  "row": {
+                    "state": "cancelled",
+                    "todo": "instancesplit",
+                    "unconfirmed": false,
+                    "value": 1.0
+                  },
+                  "title": "split the instance"
+                },
+                "named": "current",
+                "standing": "cancelled",
+                "todo": "instancesplit"
+              },
+              {
+                "held": {
+                  "row": {
+                    "state": "open",
+                    "todo": "onboarding",
+                    "unconfirmed": false,
+                    "value": 0.5
+                  },
+                  "title": "onboarding"
+                },
+                "named": "dropped",
+                "standing": "open",
+                "todo": "onboarding"
+              }
+            ],
+            "lot": "open",
+            "major": 2,
+            "place": "next",
+            "todo": "suzatarytwo"
+          },
+          {
+            "held": null,
+            "items": [],
+            "lot": "open",
+            "major": 2,
+            "place": "later",
+            "todo": "suzatarytwoone"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "SayPayload": [
+    {
+      "value": {
+        "conversation": {
+          "again": 2,
+          "first": 0,
+          "id": "about-the-deed",
+          "model": "vectors-fixture",
+          "opened": "2026-09-02T12:00:00",
+          "proposals": [
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed — draft attached.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:21",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Send",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed — draft attached.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 0,
+              "outcome": "",
+              "sources": [
+                "mail:e2e0000000000000000000000000000000000000000000000000000000000000"
+              ],
+              "state": "standing",
+              "tries": 0,
+              "turn": 2,
+              "why": "the deed is due and nothing has gone out yet"
+            }
+          ],
+          "state": "idle",
+          "title": "About the deed",
+          "total": 4,
+          "turns": [
+            {
+              "at": "2026-09-02T12:00:01",
+              "attachments": [],
+              "attempt": "current",
+              "blocks": [],
+              "gone": null,
+              "index": 0,
+              "queued": false,
+              "references": [
+                "todo:life/email-harrow"
+              ],
+              "refused": false,
+              "remembered": null,
+              "text": "email Harrow about the deed",
+              "verb": "",
+              "who": "person"
+            },
+            {
+              "at": "2026-09-02T12:00:20",
+              "attachments": [],
+              "attempt": "current",
+              "blocks": [
+                {
+                  "html": null,
+                  "kind": "prose",
+                  "plain": "I will draft that now.",
+                  "source": "I will draft that now."
+                }
+              ],
+              "gone": null,
+              "index": 1,
+              "queued": false,
+              "references": [],
+              "refused": false,
+              "remembered": null,
+              "text": "I will draft that now.",
+              "verb": "",
+              "who": "model"
+            },
+            {
+              "at": "2026-09-02T12:01:30",
+              "attachments": [],
+              "attempt": "current",
+              "blocks": [],
+              "gone": null,
+              "index": 2,
+              "queued": false,
+              "references": [],
+              "refused": false,
+              "remembered": null,
+              "text": "thanks — anything else on it?",
+              "verb": "",
+              "who": "person"
+            },
+            {
+              "at": "2026-09-02T12:01:35",
+              "attachments": [],
+              "attempt": "current",
+              "blocks": [
+                {
+                  "html": null,
+                  "kind": "prose",
+                  "plain": "Nothing else today.",
+                  "source": "Nothing else today."
+                }
+              ],
+              "gone": null,
+              "index": 3,
+              "queued": false,
+              "references": [],
+              "refused": false,
+              "remembered": null,
+              "text": "Nothing else today.",
+              "verb": "",
+              "who": "model"
+            }
+          ],
+          "unplaced": []
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "conversation": {
+          "again": null,
+          "first": 0,
+          "id": "every-stage",
+          "model": "vectors-fixture",
+          "opened": "2026-09-02T12:00:00",
+          "proposals": [
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (0)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:00",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Send",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (0)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 0,
+              "outcome": "",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "standing",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (1)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:01",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (1)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 1,
+              "outcome": "counsel@example.test",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "sent",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (2)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:02",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (2)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 2,
+              "outcome": "1 change",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "applied",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (3)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:03",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Try again",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (3)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 3,
+              "outcome": "auth: 535 5.7.8 Authentication failed",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "failed",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (4)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:04",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (4)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 4,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "unknown",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (5)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:05",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (5)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 5,
+              "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "started",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (6)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:06",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (6)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 6,
+              "outcome": "the grant is stored",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "acted",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (7)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:07",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (7)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 7,
+              "outcome": "wrong person",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "dismissed",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (8)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:08",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (8)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 8,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "checked",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            }
+          ],
+          "state": "idle",
+          "title": "Every stage",
+          "total": 0,
+          "turns": [],
+          "unplaced": []
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "conversation": {
+          "again": null,
+          "first": 0,
+          "id": "every-stage",
+          "model": "vectors-fixture",
+          "opened": "2026-09-02T12:00:00",
+          "proposals": [
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [
+                  {
+                    "from": {
+                      "kind": "mail",
+                      "message": "aaaaaaaaaaaaaaaa"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "kind": "drive",
+                      "path": "Documents/lease.pdf"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "id": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "kind": "upload"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "kind": "kept"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "kind": "repo",
+                      "path": "cv.typ",
+                      "repo": "bmabsout/resume_typst"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  }
+                ],
+                "body": "Attached.",
+                "cc": [],
+                "kind": "email",
+                "subject": "The deed",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:00",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Send",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (0)"
+                  }
+                ],
+                "files": [
+                  {
+                    "from": {
+                      "kind": "mail",
+                      "message": "aaaaaaaaaaaaaaaa"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "kind": "drive",
+                      "path": "Documents/lease.pdf"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "id": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "kind": "upload"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "kind": "kept"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  },
+                  {
+                    "from": {
+                      "at": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "kind": "repo",
+                      "path": "cv.typ",
+                      "repo": "bmabsout/resume_typst"
+                    },
+                    "media": "application/pdf",
+                    "name": "lease.pdf",
+                    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "size": "12 KB"
+                  }
+                ],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 0,
+              "outcome": "",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "standing",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (1)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:01",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (1)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 1,
+              "outcome": "counsel@example.test",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "sent",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (2)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:02",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (2)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 2,
+              "outcome": "1 change",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "applied",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (3)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:03",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Try again",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (3)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 3,
+              "outcome": "auth: 535 5.7.8 Authentication failed",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "failed",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (4)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:04",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (4)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 4,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "unknown",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (5)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:05",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (5)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 5,
+              "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "started",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (6)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:06",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (6)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 6,
+              "outcome": "the grant is stored",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "acted",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (7)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:07",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (7)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 7,
+              "outcome": "wrong person",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "dismissed",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (8)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:08",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (8)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 8,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "checked",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            }
+          ],
+          "state": "idle",
+          "title": "Every stage",
+          "total": 0,
+          "turns": [],
+          "unplaced": []
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "conversation": {
+          "again": null,
+          "first": 0,
+          "id": "every-stage",
+          "model": "vectors-fixture",
+          "opened": "2026-09-02T12:00:00",
+          "proposals": [
+            {
+              "act": {
+                "from": "nothing chosen, so the fallback answers",
+                "kind": "configure",
+                "sentence": "change Chat: nothing chosen, so the fallback answers → anthropic/claude-b",
+                "setting": "Chat",
+                "to": "anthropic/claude-b"
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:00",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "changed",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Change",
+                    "question": "Change Chat? The box writes it only if it still reads nothing chosen, so the fallback answers.",
+                    "verb": "change",
+                    "yes": "Yes, change it"
+                  }
+                ],
+                "body": "",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "Setting",
+                    "value": "Chat"
+                  },
+                  {
+                    "label": "From",
+                    "value": "nothing chosen, so the fallback answers"
+                  },
+                  {
+                    "label": "To",
+                    "value": "anthropic/claude-b"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not change it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "Change Chat: nothing chosen, so the fallback answers → anthropic/claude-b.",
+                "title": "Change Chat",
+                "uncertain": "It may have gone through; it is never done again."
+              },
+              "coding": null,
+              "index": 0,
+              "outcome": "",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "standing",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (1)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:01",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (1)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 1,
+              "outcome": "counsel@example.test",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "sent",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (2)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:02",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (2)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 2,
+              "outcome": "1 change",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "applied",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (3)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:03",
+              "card": {
+                "answers": [
+                  {
+                    "always": false,
+                    "done": "sent to counsel@example.test",
+                    "endorse": false,
+                    "input": "",
+                    "label": "Try again",
+                    "question": "Send to counsel@example.test?",
+                    "verb": "send",
+                    "yes": "Yes, send it"
+                  }
+                ],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (3)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 3,
+              "outcome": "auth: 535 5.7.8 Authentication failed",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "failed",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (4)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:04",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (4)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 4,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "unknown",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (5)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:05",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (5)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 5,
+              "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "started",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (6)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:06",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (6)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 6,
+              "outcome": "the grant is stored",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "acted",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (7)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:07",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (7)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 7,
+              "outcome": "wrong person",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "dismissed",
+              "tries": 0,
+              "turn": 0,
+              "why": "the deed is due"
+            },
+            {
+              "act": {
+                "account": "her@example.invalid",
+                "attachments": [],
+                "body": "Following up on the deed.",
+                "cc": [],
+                "kind": "email",
+                "subject": "Your deed (8)",
+                "to": [
+                  "counsel@example.test"
+                ]
+              },
+              "announced": null,
+              "at": "2026-09-02T12:00:08",
+              "card": {
+                "answers": [],
+                "body": "Following up on the deed.",
+                "by": {
+                  "kind": "secretary"
+                },
+                "fields": [
+                  {
+                    "label": "From",
+                    "value": "her@example.invalid"
+                  },
+                  {
+                    "label": "To",
+                    "value": "counsel@example.test"
+                  },
+                  {
+                    "label": "Subject",
+                    "value": "Your deed (8)"
+                  }
+                ],
+                "files": [],
+                "link": null,
+                "problem": "",
+                "readonly": "This device can read this but not send it. Use one of your own devices.",
+                "rows": [],
+                "sentence": "",
+                "title": "Proposed email",
+                "uncertain": "It may have been sent. Check Sent; it is never sent again."
+              },
+              "coding": null,
+              "index": 8,
+              "outcome": "the message was handed over and no answer came: reset",
+              "sources": [
+                "briefing:2026-09-27"
+              ],
+              "state": "checked",
+              "tries": 1,
+              "turn": 0,
+              "why": "the deed is due"
+            }
+          ],
+          "state": "idle",
+          "title": "Every stage",
+          "total": 0,
+          "turns": [],
+          "unplaced": []
+        }
+      },
+      "maps": []
+    }
+  ],
+  "SearchPayload": [
+    {
+      "value": {
+        "hits": [
+          {
+            "at": "2026-09-02T12:00:01",
+            "conversation": "about-the-deed",
+            "excerpt": "email Harrow about the deed",
+            "kind": "topic",
+            "side": "person",
+            "title": "About the deed",
+            "turn": 0
+          }
+        ],
+        "query": "deed"
+      },
+      "maps": []
+    }
+  ],
+  "SignedObject": [
+    {
+      "value": {
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "text": "Signed(object='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', key='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', signature='')"
+      },
+      "maps": []
+    }
+  ],
+  "StorePayload": [
+    {
+      "value": {
+        "epoch": 1788350400,
+        "erased": [],
+        "geneses": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "heads": [
+          "77075e671755f23c57f4e25cd8a1fb99a078f12ebeaf43feba848f92eff8525c"
+        ],
+        "keys": {
+          "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        },
+        "objects": [
+          {
+            "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+            "literal": "Genesis(label='memory', nonce='00000000000000000000000000000000')"
+          },
+          {
+            "hash": "77075e671755f23c57f4e25cd8a1fb99a078f12ebeaf43feba848f92eff8525c",
+            "literal": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='pulled', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd', box='Y5oxXcKShOsxFTUVwyZsC9rFmoGNyHlmzqiJfkZQEX4PiAht0e48XZ2BWCRkDgA8m6D2Xt5dWc4NKkp/MZVazULyLdynSpLVbKeK7ymOcjtgI382R+q+t/PgnDDOgOPihKgCG4pcCySUzTyNWxNQfsfnoHhN9KPi6oFi0mHFnSPnqxHA9zw7frCYOVCz4sSgj4Q9qV+3/LPxNFaBa1G3gk3y+b1WE9S07ZUv2FjNG5hKy/j/H9GnyAbYHKjkrjss/9uhGCdYjEOPVDTqyVa+j5WgQ60Ezf0Kl9f6SdQNCZ7iLVMurXcAQPrjVFZbSgPyHfqUGj1PdvT5niCR5aBVZYur3Z7CK3Fi9td3p0jLuN8='),)))"
+          }
+        ],
+        "rest": 0,
+        "root": null,
+        "untrusted": []
+      },
+      "maps": [
+        [
+          "keys"
+        ]
+      ]
+    }
+  ],
+  "ThreadPayload": [
+    {
+      "value": {
+        "messages": [
+          {
+            "body": "The signature is due.",
+            "headers": [
+              {
+                "name": "From",
+                "value": "counsel@example.test"
+              }
+            ],
+            "links": [
+              {
+                "label": "Upload",
+                "url": "https://example.com/deed"
+              }
+            ],
+            "row": {
+              "account": "her@example.invalid",
+              "container": "inbox",
+              "date": "2026-09-02T12:00:00",
+              "disposition": {
+                "kind": "todo",
+                "todo": "email-harrow"
+              },
+              "hash": "aaaaaaaaaaaaaaaa",
+              "id": "m1@example.test",
+              "sender": "counsel@example.test",
+              "subject": "The deed"
+            },
+            "thread": "000000000000c3fb",
+            "todos": [],
+            "truncated": false
+          }
+        ],
+        "thread": "000000000000c3fb"
+      },
+      "maps": []
+    }
+  ],
+  "TipFrame": [
+    {
+      "value": {
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "TipPayload": [
+    {
+      "value": {
+        "heads": [
+          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+        ]
+      },
+      "maps": []
+    }
+  ],
+  "TodoPayload": [
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "diffs": {
+          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c": [
+            {
+              "after": "'todo'",
+              "before": "",
+              "field": "kind"
+            },
+            {
+              "after": "datetime(2026, 8, 13, 12, 0, 0)",
+              "before": "",
+              "field": "created"
+            },
+            {
+              "after": "'Email *Harrow* about the deed'",
+              "before": "",
+              "field": "body"
+            },
+            {
+              "after": "Flat(value=0.66)",
+              "before": "",
+              "field": "spec"
+            },
+            {
+              "after": "'other'",
+              "before": "",
+              "field": "category"
+            },
+            {
+              "after": "Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id='')",
+              "before": "",
+              "field": "source"
+            }
+          ]
+        },
+        "entry": {
+          "at": "",
+          "authored": {
+            "actor": "triage",
+            "at": "2026-08-15T12:00:00",
+            "block": {
+              "kind": "todo",
+              "name": "todo"
+            },
+            "body": "Email *Harrow* about the deed",
+            "category": "other",
+            "created": "2026-08-13",
+            "detail": "",
+            "rationale": [],
+            "rich": {
+              "body": null,
+              "detail": null,
+              "keys": {
+                "body": null,
+                "detail": null,
+                "rationale": null,
+                "waiting_on": null
+              },
+              "rationale": null,
+              "waiting_on": null
+            },
+            "source": {
+              "date": "2026-08-13",
+              "hash": "e2e0000message0000hash0000000000000000000000000000000000000000",
+              "message_id": "",
+              "sender": "counsel@example.test",
+              "subject": "Harrow asked for one more signature",
+              "thread_id": ""
+            },
+            "spec": {
+              "kind": "flat",
+              "value": 0.66
+            },
+            "subtodos": [],
+            "text": "Email Harrow about the deed",
+            "waiting_on": ""
+          },
+          "candidates": [],
+          "claimed": "",
+          "conflicts": {},
+          "recurring": false,
+          "state": "open",
+          "states": [
+            "open"
+          ],
+          "stream": [
+            "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c"
+          ],
+          "todo": "email-harrow",
+          "unconfirmed": true,
+          "value": 0.66
+        },
+        "links": {
+          "in": [],
+          "out": []
+        },
+        "reading": "#let el(tag, class, ..body) = html.elem(tag, attrs: (class: class), ..body)\n#let bare(tag, ..body) = html.elem(tag, ..body)\n#let chevron = html.elem(\"svg\", attrs: (viewBox: \"0 0 24 24\", width: \"22\", height: \"22\", fill: \"none\", stroke: \"currentColor\", \"stroke-width\": \"1.7\", \"stroke-linecap\": \"round\", \"stroke-linejoin\": \"round\", \"aria-hidden\": \"true\"), html.elem(\"path\", attrs: (d: \"M8.5 5.5l7 6.5-7 6.5\")))\n#let fold(summary, ..body) = html.elem(\"details\", attrs: (class: \"why\", open: \"\"), { html.elem(\"summary\", { summary; chevron }); body.pos().join() })\n#el(\"div\", \"todohead\")[#el(\"div\", \"todofulfil\")[#el(\"span\", \"todopct\")[#\"66.0%\"]]#el(\"div\", \"todolead\")[#el(\"div\", \"todobody assource\")[#\"Email *Harrow* about the deed\"]]#el(\"code\", \"todoid\")[#\"email-harrow\"]#el(\"div\", \"cardmeta\")[#el(\"span\", \"chip\")[#\"open\"]#el(\"span\", \"chip cat\")[#\"other\"]#el(\"span\", \"chip kind\")[#\"todo\"]#el(\"span\", \"chip prov\")[#\"unconfirmed\"]]#el(\"p\", \"legend\")[#\"Shown the way it was written until you confirm it.\"]]#el(\"section\", \"whytree\")[#el(\"h2\", \"\")[#\"Why this number — 66.0%\"]#el(\"p\", \"says\")[#\"66.0%, flat: the same whatever the date.\"]]",
+        "stream": [
+          {
+            "actor": "ada",
+            "at": "2026-08-03T12:00:00",
+            "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "kind": "Created",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))",
+            "note": "",
+            "parents": [
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "email-harrow"
+          },
+          {
+            "actor": "triage",
+            "at": "2026-08-15T12:00:00",
+            "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+            "kind": "Authored",
+            "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))",
+            "note": "",
+            "parents": [
+              "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+              "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+            ],
+            "prev": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+            "reverses": {
+              "kind": "nothing"
+            },
+            "todo": "email-harrow"
+          }
+        ],
+        "todo": "email-harrow"
+      },
+      "maps": [
+        [
+          "entry",
+          "conflicts"
+        ],
+        [
+          "diffs"
+        ]
+      ]
+    }
+  ],
+  "TreePayload": [
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "by": "category",
+        "root": {
+          "by": "all",
+          "children": [
+            {
+              "by": "category",
+              "children": [
+                {
+                  "category": "work",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='file-permit')",
+                  "title": "File the permit renewal",
+                  "todo": "file-permit",
+                  "worth": {
+                    "value": 0.1285714285714286
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "work",
+              "term": "Ref(todo='file-permit')",
+              "worth": {
+                "value": 0.1285714285714286
+              }
+            },
+            {
+              "by": "category",
+              "children": [
+                {
+                  "category": "other",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='email-harrow')",
+                  "title": "Email Harrow about the deed",
+                  "todo": "email-harrow",
+                  "worth": {
+                    "value": 0.66
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "other",
+              "term": "Ref(todo='email-harrow')",
+              "worth": {
+                "value": 0.66
+              }
+            },
+            {
+              "by": "category",
+              "children": [
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='book-flight')",
+                  "title": "Book the flight to Oslo",
+                  "todo": "book-flight",
+                  "worth": {
+                    "value": 0.55
+                  }
+                },
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='pack-bags')",
+                  "title": "Pack for the trip",
+                  "todo": "pack-bags",
+                  "worth": {
+                    "value": 0.86
+                  }
+                },
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='water-plants')",
+                  "title": "Water the plants",
+                  "todo": "water-plants",
+                  "worth": {
+                    "value": 0.88
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "home",
+              "term": "Conj(terms=(Ref(todo='book-flight'), Ref(todo='pack-bags'), Ref(todo='water-plants')), p=-4.0)",
+              "worth": {
+                "value": 0.6753205686317643
+              }
+            }
+          ],
+          "kind": "group",
+          "label": "",
+          "term": "Conj(terms=(Conj(terms=(Ref(todo='book-flight'), Ref(todo='pack-bags'), Ref(todo='water-plants')), p=-4.0), Ref(todo='email-harrow'), Ref(todo='file-permit')), p=-4.0)",
+          "worth": {
+            "value": 0.1690932170918832
+          }
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "by": "urgency",
+        "root": {
+          "by": "all",
+          "children": [
+            {
+              "by": "urgency",
+              "children": [
+                {
+                  "category": "work",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='file-permit')",
+                  "title": "File the permit renewal",
+                  "todo": "file-permit",
+                  "worth": {
+                    "value": 0.1285714285714286
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "Problem",
+              "term": "Ref(todo='file-permit')",
+              "worth": {
+                "value": 0.1285714285714286
+              }
+            },
+            {
+              "by": "urgency",
+              "children": [
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='book-flight')",
+                  "title": "Book the flight to Oslo",
+                  "todo": "book-flight",
+                  "worth": {
+                    "value": 0.55
+                  }
+                },
+                {
+                  "category": "other",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='email-harrow')",
+                  "title": "Email Harrow about the deed",
+                  "todo": "email-harrow",
+                  "worth": {
+                    "value": 0.66
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "Watch",
+              "term": "Conj(terms=(Ref(todo='book-flight'), Ref(todo='email-harrow')), p=-4.0)",
+              "worth": {
+                "value": 0.592774615614807
+              }
+            },
+            {
+              "by": "urgency",
+              "children": [
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='pack-bags')",
+                  "title": "Pack for the trip",
+                  "todo": "pack-bags",
+                  "worth": {
+                    "value": 0.86
+                  }
+                },
+                {
+                  "category": "home",
+                  "children": [],
+                  "kind": "todo",
+                  "term": "Ref(todo='water-plants')",
+                  "title": "Water the plants",
+                  "todo": "water-plants",
+                  "worth": {
+                    "value": 0.88
+                  }
+                }
+              ],
+              "kind": "group",
+              "label": "Fine",
+              "term": "Conj(terms=(Ref(todo='pack-bags'), Ref(todo='water-plants')), p=-4.0)",
+              "worth": {
+                "value": 0.8697127480238617
+              }
+            }
+          ],
+          "kind": "group",
+          "label": "",
+          "term": "Conj(terms=(Ref(todo='file-permit'), Conj(terms=(Ref(todo='book-flight'), Ref(todo='email-harrow')), p=-4.0), Conj(terms=(Ref(todo='pack-bags'), Ref(todo='water-plants')), p=-4.0)), p=-4.0)",
+          "worth": {
+            "value": 0.16909587953174335
+          }
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00",
+        "by": "flat",
+        "root": {
+          "by": "all",
+          "children": [
+            {
+              "category": "work",
+              "children": [],
+              "kind": "todo",
+              "term": "Ref(todo='file-permit')",
+              "title": "File the permit renewal",
+              "todo": "file-permit",
+              "worth": {
+                "value": 0.1285714285714286
+              }
+            },
+            {
+              "category": "home",
+              "children": [],
+              "kind": "todo",
+              "term": "Ref(todo='book-flight')",
+              "title": "Book the flight to Oslo",
+              "todo": "book-flight",
+              "worth": {
+                "value": 0.55
+              }
+            },
+            {
+              "category": "other",
+              "children": [],
+              "kind": "todo",
+              "term": "Ref(todo='email-harrow')",
+              "title": "Email Harrow about the deed",
+              "todo": "email-harrow",
+              "worth": {
+                "value": 0.66
+              }
+            },
+            {
+              "category": "home",
+              "children": [],
+              "kind": "todo",
+              "term": "Ref(todo='pack-bags')",
+              "title": "Pack for the trip",
+              "todo": "pack-bags",
+              "worth": {
+                "value": 0.86
+              }
+            },
+            {
+              "category": "home",
+              "children": [],
+              "kind": "todo",
+              "term": "Ref(todo='water-plants')",
+              "title": "Water the plants",
+              "todo": "water-plants",
+              "worth": {
+                "value": 0.88
+              }
+            }
+          ],
+          "kind": "group",
+          "label": "",
+          "term": "Conj(terms=(Ref(todo='book-flight'), Ref(todo='email-harrow'), Ref(todo='file-permit'), Ref(todo='pack-bags'), Ref(todo='water-plants')), p=-4.0)",
+          "worth": {
+            "value": 0.1920013296054453
+          }
+        }
+      },
+      "maps": []
+    }
+  ],
+  "Uploaded": [
+    {
+      "value": {
+        "file": {
+          "id": "2222222222222222222222222222222222222222222222222222222222222222",
+          "media_type": "application/pdf",
+          "name": "email-harrow.pdf",
+          "private": ""
+        },
+        "kind": "kept"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "folder": "Private",
+        "kind": "sensitive",
+        "why": "it names a tax number"
+      },
+      "maps": []
+    }
+  ],
+  "UsagePayload": [
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00Z",
+        "five_hour": {
+          "allowance": {
+            "as_of": "2026-09-02T12:00:00Z",
+            "kind": "reported",
+            "resets_at": "2026-09-02T12:00:00Z",
+            "utilization": 0.4
+          },
+          "by_model": [],
+          "by_who": [],
+          "cache_hit": null,
+          "elsewhere": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "last_refusal": null,
+          "most_seen_before_refusal": null,
+          "on_credits": null,
+          "requests": 0,
+          "since": "2026-09-02T07:00:00Z",
+          "tokens": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "window": "five_hour"
+        },
+        "scope": {
+          "counted": [],
+          "not_counted": []
+        },
+        "seen": {
+          "cache_read": 0,
+          "cache_write": 0,
+          "fresh": 0,
+          "output": 0
+        },
+        "seen_requests": 0,
+        "seen_since": null,
+        "seven_day": {
+          "allowance": {
+            "kind": "rate_limited",
+            "last_reported": {
+              "as_of": "2026-09-02T12:00:00Z",
+              "resets_at": "2026-09-02T12:00:00Z",
+              "utilization": 0.4
+            },
+            "retry_after_seconds": 60,
+            "since": "2026-09-02T12:00:00Z"
+          },
+          "by_model": [],
+          "by_who": [],
+          "cache_hit": null,
+          "elsewhere": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "last_refusal": null,
+          "most_seen_before_refusal": null,
+          "on_credits": null,
+          "requests": 0,
+          "since": "2026-08-26T12:00:00Z",
+          "tokens": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "window": "seven_day"
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "at": "2026-09-02T12:00:00Z",
+        "five_hour": {
+          "allowance": {
+            "at": "2026-09-02T12:00:00Z",
+            "kind": "refused",
+            "status": 403,
+            "words": "no profile scope"
+          },
+          "by_model": [],
+          "by_who": [],
+          "cache_hit": null,
+          "elsewhere": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "last_refusal": null,
+          "most_seen_before_refusal": null,
+          "on_credits": null,
+          "requests": 0,
+          "since": "2026-09-02T07:00:00Z",
+          "tokens": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "window": "five_hour"
+        },
+        "scope": {
+          "counted": [
+            "this box"
+          ],
+          "not_counted": [
+            "claude.ai"
+          ]
+        },
+        "seen": {
+          "cache_read": 0,
+          "cache_write": 0,
+          "fresh": 0,
+          "output": 0
+        },
+        "seen_requests": 0,
+        "seen_since": null,
+        "seven_day": {
+          "allowance": {
+            "kind": "unknown"
+          },
+          "by_model": [],
+          "by_who": [],
+          "cache_hit": null,
+          "elsewhere": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "last_refusal": null,
+          "most_seen_before_refusal": null,
+          "on_credits": null,
+          "requests": 0,
+          "since": "2026-08-26T12:00:00Z",
+          "tokens": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "fresh": 0,
+            "output": 0
+          },
+          "window": "seven_day"
+        }
+      },
+      "maps": []
+    }
+  ],
+  "VerifiedPayload": [
+    {
+      "value": {
+        "found": {
+          "type": "Reached"
+        },
+        "genesis": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "linearisation": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "objects": [
+          {
+            "actor": "owner",
+            "at": "2026-09-02T12:00:00",
+            "computed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "hashOk": true,
+            "kind": "Created",
+            "problem": "",
+            "todo": "email-harrow",
+            "walk": {
+              "depth": 0,
+              "type": "Reached"
+            }
+          }
+        ],
+        "tips": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "verified": 1,
+        "walked": 1
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "found": {
+          "problems": [
+            "object bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb is not reachable from any head"
+          ],
+          "type": "Unreached"
+        },
+        "genesis": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "linearisation": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "objects": [
+          {
+            "actor": "owner",
+            "at": "2026-09-02T12:00:00",
+            "computed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "hashOk": true,
+            "kind": "Created",
+            "problem": "",
+            "todo": "email-harrow",
+            "walk": {
+              "depth": 0,
+              "type": "Reached"
+            }
+          },
+          {
+            "actor": "owner",
+            "at": "2026-09-02T12:00:00",
+            "computed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "hashOk": true,
+            "kind": "Created",
+            "problem": "",
+            "todo": "email-harrow",
+            "walk": {
+              "type": "Unreached"
+            }
+          }
+        ],
+        "tips": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "verified": 2,
+        "walked": 1
+      },
+      "maps": []
+    }
+  ],
+  "WaitingPayload": [
+    {
+      "value": {
+        "count": 2
+      },
+      "maps": []
+    }
+  ]
+}

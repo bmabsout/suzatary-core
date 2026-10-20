@@ -1,0 +1,1 @@
+Sealed(prev='491a5ce99885300d4c17584ff9387a8e9ca552891e84c17ebba1b211c1261a63', event=Authored(todo='book-flight', at=datetime(2026, 9, 10, 12, 12, 29), actor='ada', kind='todo', created=datetime(2026, 9, 10, 12, 12, 29), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))

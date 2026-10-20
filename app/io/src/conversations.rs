@@ -1,0 +1,112 @@
+//! The conversations on disk as one value: the lines, the keys that open their words, box-local
+//! and never pushed, the cache of what their words were rendered to, and the system's generator
+//! for new keys.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use suzatary_core::capability::RenderCache;
+use suzatary_core::secretary::conversations::Conversations;
+use suzatary_core::secretary::opened::Opened;
+
+use crate::objects;
+use crate::text_keys::{self, TextKeys};
+use crate::texts::SystemEntropy;
+
+/// The lines and their keys, at their two directories.
+pub struct ConversationStores {
+    /// The lines, pushed.
+    pub lines: objects::Conversations,
+    /// The keys, box-local, vaulted, never pushed.
+    pub keys: TextKeys,
+    /// Where the keys are, so the stores can be opened again.
+    keys_at: PathBuf,
+    /// The rendered answer blocks, the one a server draws through, so an erasure empties it.
+    renders: Arc<dyn RenderCache + Send + Sync>,
+    /// The words opened so far under these keys, one cache per keys directory in the process, so
+    /// a sweep by any holder forgets them for every holder.
+    opened: Arc<Opened>,
+}
+
+impl ConversationStores {
+    /// The lines at `lines`, their keys at `keys`, and `renders`, the cache their answers are
+    /// drawn through.
+    #[must_use]
+    pub fn open(
+        lines: impl Into<PathBuf>,
+        keys: PathBuf,
+        renders: Arc<dyn RenderCache + Send + Sync>,
+    ) -> Self {
+        Self {
+            lines: objects::Objects::lines(lines),
+            keys: text_keys::open(keys.clone()),
+            opened: opened_at(&keys),
+            keys_at: keys,
+            renders,
+        }
+    }
+
+    /// The same stores opened again, for a second holder of them.
+    #[must_use]
+    pub fn reopened(&self) -> Self {
+        Self::open(
+            self.lines.inner().root().to_path_buf(),
+            self.keys_at.clone(),
+            Arc::clone(&self.renders),
+        )
+    }
+
+    /// The stores as one value, keys drawn from the system's generator.
+    #[must_use]
+    pub fn conversations(&self) -> Conversations<'_> {
+        Conversations {
+            lines: &self.lines,
+            keys: &self.keys,
+            entropy: &SystemEntropy,
+            renders: &*self.renders,
+            opened: &self.opened,
+        }
+    }
+}
+
+/// The one cache of words opened under the keys at `keys` in this process: every
+/// [`ConversationStores`] opened over one keys directory shares it, so the server, the acts it
+/// performs and the pollers it starts forget an erased slot together.
+fn opened_at(keys: &std::path::Path) -> Arc<Opened> {
+    static OPENED: std::sync::LazyLock<
+        std::sync::Mutex<std::collections::HashMap<PathBuf, Arc<Opened>>>,
+    > = std::sync::LazyLock::new(std::sync::Mutex::default);
+    let at = std::path::absolute(keys).unwrap_or_else(|_| keys.to_path_buf());
+    Arc::clone(
+        OPENED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entry(at)
+            .or_default(),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Two holders of the stores at one keys directory hold one cache; another directory's is
+    /// another.
+    #[test]
+    fn one_cache_per_keys_directory() {
+        let dir = tempfile::tempdir().expect("a scratch dir");
+        let renders: Arc<dyn RenderCache + Send + Sync> =
+            Arc::new(suzatary_core::capability::Nothing);
+        let open = |keys: &str| {
+            ConversationStores::open(
+                dir.path().join("lines"),
+                dir.path().join(keys),
+                Arc::clone(&renders),
+            )
+        };
+        let (one, two, other) = (open("keys"), open("keys"), open("other-keys"));
+        assert!(Arc::ptr_eq(&one.opened, &two.opened));
+        assert!(Arc::ptr_eq(&one.opened, &one.reopened().opened));
+        assert!(!Arc::ptr_eq(&one.opened, &other.opened));
+    }
+}

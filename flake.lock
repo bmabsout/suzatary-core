@@ -1,0 +1,164 @@
+{
+  "nodes": {
+    "blocklist-project": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784552733,
+        "narHash": "sha256-TGR2W8BDqsDEIVsJNAPJoCWA/JSA/qY4640ITEut1hE=",
+        "owner": "blocklistproject",
+        "repo": "Lists",
+        "rev": "ee3bdbaddf49c756cf3340bb2e6a9dee5282d1c6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "blocklistproject",
+        "repo": "Lists",
+        "type": "github"
+      }
+    },
+    "crane": {
+      "locked": {
+        "lastModified": 1790899423,
+        "narHash": "sha256-THGtz65UGJU+sonZidRboyCMk+9DclpMF7pwL4uDV4M=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "47b6b27ed9a3a9181415e4367d0c30ab2a0e0250",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
+    "disposable-email-domains": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791008781,
+        "narHash": "sha256-qZGMsjX+vvNq2Nt10gIFDFOVRahqFRCv/gR2FQbS/8M=",
+        "owner": "disposable-email-domains",
+        "repo": "disposable-email-domains",
+        "rev": "db468d422f8e8e1af3d4d67131ab071239d704f7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "disposable-email-domains",
+        "repo": "disposable-email-domains",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1790822859,
+        "narHash": "sha256-69xHQhAeMAD2wDXO7T2pcOZIF9Sga2W+JkmY2a11Ops=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "c59305bab2065cfecc4944690d9eedbb56f3a9fa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "prodrome": {
+      "inputs": {
+        "crane": [
+          "crane"
+        ],
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "typst-design": [
+          "typst-design"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791272963,
+        "narHash": "sha256-ZoTabkYKMIq21OTKu7GPRe31ZLeMeXOTdrx/sDfb/LQ=",
+        "owner": "bmabsout",
+        "repo": "prodrome",
+        "rev": "de71cccc7565c770ce282eba07b1718d612b87bd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "bmabsout",
+        "repo": "prodrome",
+        "rev": "de71cccc7565c770ce282eba07b1718d612b87bd",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "blocklist-project": "blocklist-project",
+        "crane": "crane",
+        "disposable-email-domains": "disposable-email-domains",
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs",
+        "prodrome": "prodrome",
+        "typst-design": "typst-design"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "typst-design": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791074730,
+        "narHash": "sha256-QVCvbzOSapq46Ukw1XgMv2Mq3phKGiRuUwbRyOc7yYo=",
+        "owner": "bmabsout",
+        "repo": "typst-design",
+        "rev": "79d9dbafcd6457f269c3cd8b6f88c0ac27e35851",
+        "type": "github"
+      },
+      "original": {
+        "owner": "bmabsout",
+        "repo": "typst-design",
+        "rev": "79d9dbafcd6457f269c3cd8b6f88c0ac27e35851",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

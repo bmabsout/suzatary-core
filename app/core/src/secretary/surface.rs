@@ -1,0 +1,287 @@
+//! The secretary's verbs, as one closed sum.
+//!
+//! A separate sum from `crate::agent::TriageVerb` on purpose, so widening one never widens the
+//! other; neither `send` nor `confirm` may ever appear here.
+
+use serde_json::Value;
+
+use super::Call;
+use super::taint::Taint;
+use super::tool_name::ToolName;
+use super::verb_answer::VerbAnswer;
+use super::verbs::{
+    Attachments, Briefing, BriefingDelta, Calendar, Context, Decisions, DraftNote, DriveList,
+    DriveRead, Forget, GitDiffSummary, History, JunkDigest, JunkShow, ListOpenTodos,
+    ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
+    ProposeCodingSession, ProposeDecision, ProposeEmail, ProposePatch, Recall, Record, Remember,
+    RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail, TodoAdd,
+    TodoShow, TodoUpdate, Weather, Web, WithdrawProposal, Zoom,
+};
+use crate::agent::{Holds, Says};
+use crate::authoring::Writer;
+use crate::capability::Agent;
+use crate::chains::ChainPolicy;
+use crate::refusal::{Refusal, shown};
+use crate::verb::{Surface, verbs};
+
+/// The secretary's verbs: each runs against a [`Call`], and answers JSON and the files it hands
+/// the model.
+pub enum SecretarySurface {}
+
+impl Surface for SecretarySurface {
+    type Call<'a> = Call<'a>;
+    type Answer = VerbAnswer;
+    type Class = Powers;
+}
+
+impl Holds for SecretarySurface {
+    const WRITES_AS: Writer = super::WRITES_AS;
+    const SAYS: Says = Says {
+        list_open_todos: "Every currently-open todo, as {id, kind, category, priority, body, \
+        waiting_on, authored_by}, folded straight off the chain and priced as of \
+        now. Read it before you author, so you update an existing todo instead \
+        of making a second one.\n\n\
+        ⚠️ IT IS ONE CHAIN'S LIST. Leaving `chain` out reads the owner's own todos; \
+        `chain=\"suzatary\"` reads this system's own work.",
+        git_diff_summary: "What is uncommitted in the working tree, as a summary. Orientation about \
+        the state of the box, never something to act on.",
+        history: "Every event on the chain that mentions this todo, oldest first, one \
+        line each with its kind, time, actor and note — what happened to it and when.",
+        todo_show: "One todo's full current fields — body, detail, rationale, source, \
+        subtodos, waiting_on. Use it before deciding whether something belongs \
+        to a todo that already exists.",
+        show: "One message in full: headers, plain-text body, and every link with its \
+        anchor label. Takes the `id` from a `search` row, or a canonical hash \
+        (full, or the prefix a todo's `source.hash` carries).",
+        search: "Any notmuch query over the mail corpus, newest first \
+        (e.g. `from:counsel@example.com`). Use it to find the thread a question \
+        is about before you answer it.",
+        record: "Close, cancel, reopen or tend a todo: kind is 'completed', \
+        'cancelled', 'reopened' or 'tended'. 'tended' is a pass at a RECURRING \
+        todo (its price holds a Recur): done again, still open, its price \
+        restarting from now — never 'completed' for one of those. Recorded as \
+        `assistant`, so it BINDS — a completion here is the todo being done, \
+        not a claim awaiting confirmation. Only when the owner has said so.",
+    };
+
+    fn agent<'a>(call: &Self::Call<'a>) -> Agent<'a> {
+        call.caps.agent()
+    }
+
+    fn chain<'a>(call: &Self::Call<'a>) -> &'a ChainPolicy {
+        call.chain
+    }
+}
+
+/// What a verb may do to the world, and whether its answer can carry somebody else's words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Powers {
+    /// What it does.
+    pub effect: Effect,
+    /// What its answer can carry.
+    pub taint: Taint,
+}
+
+/// What a verb does to the world, so a round scoped to fewer powers is a set of effects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Effect {
+    /// Reads, or runs something that writes neither a chain nor a proposal.
+    Reads,
+    /// Stores something the owner taps, binding nothing until he does.
+    Proposes,
+    /// Appends to a chain as the trusted actor, binding at once.
+    Writes,
+    /// Accepts or rejects the triage agent's standing batches.
+    Settles,
+    /// Starts the timer's own mail sync early: nothing the timer does not reach, and nothing a
+    /// rewind could take back.
+    Syncs,
+    /// Searches a mail server for mail older than the routine sync's window and keeps what
+    /// matched on the box, read-only on the server and nothing a rewind could take back.
+    Pulls,
+    /// Writes the secretary's own memory, or in a tainted round stores a card that would.
+    Remembers,
+}
+
+const fn powers(effect: Effect, taint: Taint) -> Powers {
+    Powers { effect, taint }
+}
+
+use Effect::{Proposes, Pulls, Reads, Remembers, Settles, Syncs, Writes};
+use Taint::{Clean, Tainted};
+
+verbs! {
+    /// Every verb the secretary may call, and its powers. A verb is [`Clean`] only where this
+    /// says so.
+    pub enum SecretaryVerb;
+    /// One call of a [`SecretaryVerb`], its arguments parsed.
+    pub enum SecretaryCall;
+    on SecretarySurface;
+    Context: powers(Reads, Clean),
+    Remember: powers(Remembers, Clean),
+    Forget: powers(Remembers, Clean),
+    Recall: powers(Reads, Tainted),
+    // Its answer carries the node's own taint, which `taint::turn` reads; a refusal stays here.
+    Zoom: powers(Reads, Tainted),
+    ListOpenTodos: powers(Reads, Tainted),
+    TodoShow: powers(Reads, Tainted),
+    History: powers(Reads, Tainted),
+    Search: powers(Reads, Tainted),
+    Show: powers(Reads, Tainted),
+    Attachments: powers(Reads, Tainted),
+    SyncMail: powers(Syncs, Tainted),
+    SearchOlder: powers(Pulls, Tainted),
+    BriefingDelta: powers(Reads, Tainted),
+    Briefing: powers(Reads, Tainted),
+    GitDiffSummary: powers(Reads, Tainted),
+    TodoAdd: powers(Writes, Tainted),
+    TodoUpdate: powers(Writes, Tainted),
+    Record: powers(Writes, Tainted),
+    ProposeEmail: powers(Proposes, Tainted),
+    ProposeAct: powers(Proposes, Tainted),
+    ProposeChanges: powers(Proposes, Tainted),
+    WithdrawProposal: powers(Proposes, Tainted),
+    Weather: powers(Reads, Clean),
+    Calendar: powers(Reads, Tainted),
+    Decisions: powers(Reads, Tainted),
+    Web: powers(Proposes, Tainted),
+    DriveList: powers(Reads, Tainted),
+    DriveRead: powers(Proposes, Tainted),
+    JunkDigest: powers(Reads, Tainted),
+    JunkShow: powers(Reads, Tainted),
+    ReposList: powers(Reads, Tainted),
+    RepoTree: powers(Reads, Tainted),
+    RepoRead: powers(Reads, Tainted),
+    RepoGrep: powers(Reads, Tainted),
+    ProposePatch: powers(Proposes, Tainted),
+    ProposeCodingSession: powers(Proposes, Tainted),
+    ProposeDecision: powers(Proposes, Tainted),
+    DraftNote: powers(Proposes, Tainted),
+    ProposalsList: powers(Reads, Tainted),
+    ProposalsAccept: powers(Settles, Tainted),
+    ProposalsReject: powers(Settles, Tainted),
+}
+
+/// Some of the verbs: the ones a round's model is shown and may call, and the refusal a call of
+/// any other gets.
+pub struct Subset {
+    /// Whether a verb is in it.
+    pub allows: fn(SecretaryVerb) -> bool,
+    /// The refusal of `called`, given the names the subset lists.
+    pub refuses: fn(called: &str, listed: &str) -> Refusal,
+}
+
+impl Subset {
+    /// Every verb.
+    pub const ALL: Self = Self {
+        allows: |_| true,
+        refuses: |called, listed| {
+            Refusal::not_found(format!(
+                "no verb named {} — the secretary's verbs are {listed}",
+                shown(called)
+            ))
+        },
+    };
+
+    /// Its verbs, in [`SecretaryVerb::ALL`]'s order.
+    pub fn verbs(&self) -> impl Iterator<Item = SecretaryVerb> + '_ {
+        SecretaryVerb::ALL
+            .iter()
+            .copied()
+            .filter(|verb| (self.allows)(*verb))
+    }
+
+    /// Its verbs as the JSON a model is shown.
+    #[must_use]
+    pub fn tools(&self) -> Value {
+        tools_of(self.verbs())
+    }
+
+    /// The verb `called` names, if the subset lists it.
+    ///
+    /// # Errors
+    /// [`Subset::refuses`]'s refusal for any other name.
+    pub fn find(&self, called: &ToolName) -> Result<SecretaryVerb, Refusal> {
+        called
+            .verb()
+            .filter(|verb| (self.allows)(*verb))
+            .ok_or_else(|| {
+                (self.refuses)(
+                    called.as_str(),
+                    &self
+                        .verbs()
+                        .map(SecretaryVerb::name)
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )
+            })
+    }
+}
+
+/// The whole surface as JSON, in the same shape the agent's `tools/list` uses.
+#[must_use]
+pub fn tools() -> Value {
+    Subset::ALL.tools()
+}
+
+/// The same JSON over some of the verbs, for a round scoped to fewer.
+#[must_use]
+pub fn tools_of(verbs: impl Iterator<Item = SecretaryVerb>) -> Value {
+    Value::Array(verbs.map(SecretaryVerb::tool).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use super::*;
+
+    /// Neither a send-shaped nor a confirm-shaped name may join this list.
+    #[test]
+    fn there_is_no_send_verb_and_no_confirm_verb() {
+        for verb in SecretaryVerb::ALL.iter().map(|verb| verb.name()) {
+            assert!(
+                !verb.contains("confirm"),
+                "the secretary's writes are already trusted; a confirm verb confirms nothing: {verb}",
+            );
+            assert!(
+                verb == "propose_email" || !verb.contains("send"),
+                "sending is structurally human-only: {verb}",
+            );
+        }
+    }
+
+    /// The secretary reads everything the agent reads that a person would want.
+    #[test]
+    fn every_read_the_agent_has_that_a_person_would_want_is_here() {
+        let names: BTreeSet<&str> = SecretaryVerb::ALL.iter().map(|verb| verb.name()).collect();
+        for shared in [
+            "context",
+            "list_open_todos",
+            "todo_show",
+            "history",
+            "search",
+            "show",
+            "todo_add",
+            "todo_update",
+            "record",
+        ] {
+            assert!(names.contains(shared), "{shared} is missing");
+        }
+    }
+
+    #[test]
+    fn every_verb_is_named_once() {
+        let names: BTreeSet<&str> = SecretaryVerb::ALL.iter().map(|verb| verb.name()).collect();
+        assert_eq!(names.len(), SecretaryVerb::ALL.len());
+    }
+
+    /// `named` inverts `name`, and the tool a model is shown carries the same name.
+    #[test]
+    fn a_verb_is_named_by_its_name_and_its_tool() {
+        for &verb in SecretaryVerb::ALL {
+            assert_eq!(SecretaryVerb::named(verb.name()), Some(verb));
+            assert_eq!(verb.tool()["name"], verb.name());
+        }
+    }
+}

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE WIDGET'S FRAME. Empty of content by construction: every row is added at
+  update time (Widget.draw) from what /api/fold answered, and nothing in this
+  file says anything about a todo.
+
+  ⚠️ THESE ARE THE ONLY VIEWS A RemoteViews MAY HOLD. A widget's layout is
+  inflated in the LAUNCHER's process, so the platform allows a fixed list of
+  view classes and nothing custom — LinearLayout and TextView are two of them.
+  That restriction is the same rule as everywhere else here pointed one client
+  further out: the app hands over a description of a picture and something else
+  draws it. CONFIDENCE: HIGH, documented.
+
+  Colours are literals, as on MainActivity's offline screen and for the same
+  reason: this app authors no HTML and owns no theme system, and a home screen
+  is a surface whose own colours it cannot ask about on API 26.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#fbfbfa"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- What the numbers below MEAN, in the app's own words (the list page's
+         count line says the same sentence). It is also the tap target that
+         opens the app on the whole list. -->
+    <TextView
+        android:id="@+id/widget_heading"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="@string/widget_heading"
+        android:textColor="#8a8a86"
+        android:textSize="10sp" />
+
+    <!-- The rows go here. Empty in this file; filled by removeAllViews +
+         addView at update time. -->
+    <LinearLayout
+        android:id="@+id/widget_rows"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <!-- The one line that is ABOUT the widget rather than about a todo:
+         nothing open, never reached, or these rows are old. Gone while the
+         rows are current, which is almost always. -->
+    <TextView
+        android:id="@+id/widget_note"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:paddingTop="4dp"
+        android:textColor="#8a8a86"
+        android:textSize="11sp"
+        android:visibility="gone" />
+</LinearLayout>

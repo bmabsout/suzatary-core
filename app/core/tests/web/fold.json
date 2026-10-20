@@ -1,0 +1,347 @@
+{
+  "at": "2026-09-02T12:00:00",
+  "heads": [
+    "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+    "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+    "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+    "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+    "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+    "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+  ],
+  "entries": [
+    {
+      "todo": "book-flight",
+      "state": "open",
+      "states": [
+        "open"
+      ],
+      "at": "",
+      "claimed": "",
+      "value": 0.55,
+      "recurring": false,
+      "unconfirmed": false,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": "Book the flight to Oslo",
+          "detail": null,
+          "rationale": null,
+          "waiting_on": null,
+          "keys": {
+            "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 c2072248859e3446b96ddf260cb31e52173a78941bb49e95c9793e63a6f956a2",
+            "detail": null,
+            "rationale": null,
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "Book the flight to Oslo",
+        "text": "Book the flight to Oslo",
+        "detail": "",
+        "category": "home",
+        "waiting_on": "",
+        "rationale": [],
+        "spec": {
+          "kind": "flat",
+          "value": 0.55
+        },
+        "actor": "ada",
+        "at": "2026-08-13T12:00:00",
+        "source": null,
+        "subtodos": []
+      },
+      "candidates": [],
+      "stream": [
+        "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+        "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311"
+      ]
+    },
+    {
+      "todo": "email-harrow",
+      "state": "open",
+      "states": [
+        "open"
+      ],
+      "at": "",
+      "claimed": "",
+      "value": 0.66,
+      "recurring": false,
+      "unconfirmed": true,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": null,
+          "detail": null,
+          "rationale": null,
+          "waiting_on": null,
+          "keys": {
+            "body": null,
+            "detail": null,
+            "rationale": null,
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "Email *Harrow* about the deed",
+        "text": "Email Harrow about the deed",
+        "detail": "",
+        "category": "other",
+        "waiting_on": "",
+        "rationale": [],
+        "spec": {
+          "kind": "flat",
+          "value": 0.66
+        },
+        "actor": "triage",
+        "at": "2026-08-15T12:00:00",
+        "source": {
+          "sender": "counsel@example.test",
+          "subject": "Harrow asked for one more signature",
+          "date": "2026-08-13",
+          "hash": "e2e0000message0000hash0000000000000000000000000000000000000000",
+          "thread_id": "",
+          "message_id": ""
+        },
+        "subtodos": []
+      },
+      "candidates": [],
+      "stream": [
+        "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+        "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c"
+      ]
+    },
+    {
+      "todo": "file-permit",
+      "state": "open",
+      "states": [
+        "open"
+      ],
+      "at": "",
+      "claimed": "",
+      "value": 0.1285714285714286,
+      "recurring": false,
+      "unconfirmed": false,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": "File the *permit* renewal",
+          "detail": null,
+          "rationale": "Missing it is not recoverable.",
+          "waiting_on": null,
+          "keys": {
+            "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 896c2340da6b59b9d43a810338accc2a0a7365e00e7232103b6dbf5baa69f19b",
+            "detail": null,
+            "rationale": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 ca90975d3f41c6abd1237c1e01904cda7d9ddcf94265032ba2baad295f27da9b",
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "File the *permit* renewal",
+        "text": "File the permit renewal",
+        "detail": "",
+        "category": "work",
+        "waiting_on": "",
+        "rationale": [
+          "Missing it is not recoverable."
+        ],
+        "spec": {
+          "end": 0.05,
+          "endDate": "2026-09-04T12:00:00",
+          "kind": "decay",
+          "leadUpHours": 336.0,
+          "start": 0.6,
+          "startDate": "2026-08-21T12:00:00"
+        },
+        "actor": "ada",
+        "at": "2026-08-13T12:00:00",
+        "source": null,
+        "subtodos": []
+      },
+      "candidates": [],
+      "stream": [
+        "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+        "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+      ]
+    },
+    {
+      "todo": "pack-bags",
+      "state": "open",
+      "states": [
+        "open"
+      ],
+      "at": "",
+      "claimed": "",
+      "value": 0.86,
+      "recurring": false,
+      "unconfirmed": false,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": "Pack for the trip",
+          "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+          "rationale": null,
+          "waiting_on": null,
+          "keys": {
+            "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 a252ebd0578c647109521c8b48f313f2085ad44097445c4e230e8cd0476ac242",
+            "detail": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 dc59c280347aec710bb475535f6e988793eb62a4f59b644e9b083e164f393b3f",
+            "rationale": null,
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "Pack for the trip",
+        "text": "Pack for the trip",
+        "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+        "category": "home",
+        "waiting_on": "",
+        "rationale": [],
+        "spec": {
+          "kind": "flat",
+          "value": 0.72
+        },
+        "actor": "ada",
+        "at": "2026-08-13T12:00:00",
+        "source": null,
+        "subtodos": [
+          {
+            "body": "[tickets]",
+            "done": true
+          },
+          {
+            "body": "[chargers]",
+            "done": false
+          }
+        ]
+      },
+      "candidates": [],
+      "stream": [
+        "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+        "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a"
+      ]
+    },
+    {
+      "todo": "renew-card",
+      "state": "completed",
+      "states": [
+        "completed"
+      ],
+      "at": "2026-08-14 12:00:00",
+      "claimed": "",
+      "value": 1.0,
+      "recurring": false,
+      "unconfirmed": false,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": "Renew the library card",
+          "detail": null,
+          "rationale": null,
+          "waiting_on": null,
+          "keys": {
+            "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 f2727cc595a94a7eddd5f8085b5005f9d6b4513bdd5e2023a8a6f3515d13139d",
+            "detail": null,
+            "rationale": null,
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "Renew the library card",
+        "text": "Renew the library card",
+        "detail": "",
+        "category": "home",
+        "waiting_on": "",
+        "rationale": [],
+        "spec": {
+          "kind": "flat",
+          "value": 0.4
+        },
+        "actor": "ada",
+        "at": "2026-08-13T12:00:00",
+        "source": null,
+        "subtodos": []
+      },
+      "candidates": [],
+      "stream": [
+        "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+        "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+        "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d"
+      ]
+    },
+    {
+      "todo": "water-plants",
+      "state": "open",
+      "states": [
+        "open"
+      ],
+      "at": "",
+      "claimed": "",
+      "value": 0.88,
+      "recurring": false,
+      "unconfirmed": false,
+      "conflicts": {},
+      "authored": {
+        "rich": {
+          "body": "Water the plants",
+          "detail": null,
+          "rationale": null,
+          "waiting_on": null,
+          "keys": {
+            "body": "6f6d1f33c5b4160bd7ed77fbf344c63f61211627b85e53a612fdcdb8eedae381 3000954fb14594d63173b3b5d99f178bcfecea8d0473e561ae51e5c1398aff6a",
+            "detail": null,
+            "rationale": null,
+            "waiting_on": null
+          }
+        },
+        "block": {
+          "kind": "todo",
+          "name": "todo"
+        },
+        "created": "2026-08-13",
+        "body": "Water the plants",
+        "text": "Water the plants",
+        "detail": "",
+        "category": "home",
+        "waiting_on": "",
+        "rationale": [],
+        "spec": {
+          "kind": "flat",
+          "value": 0.88
+        },
+        "actor": "ada",
+        "at": "2026-08-13T12:00:00",
+        "source": null,
+        "subtodos": []
+      },
+      "candidates": [],
+      "stream": [
+        "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+        "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73"
+      ]
+    }
+  ],
+  "failed": [],
+  "next": {
+    "at": "2026-09-02T14:10:54.545455",
+    "exact": true
+  }
+}

@@ -1,0 +1,392 @@
+//! The mail corpus as the agent operates it: the interpreter of `Corpus` on this box.
+//!
+//! It only composes the notmuch reads, the state writes and the sync; its answers are a versioned
+//! contract the stateless agent re-binds to every run. Nothing here sends.
+
+use std::path::PathBuf;
+
+use suzatary_core::capability::{Clock, Corpus, CorpusError, Query};
+use suzatary_core::mail::known::Known;
+use suzatary_core::mail::local_state::Kept;
+use suzatary_core::mail::state::Decision;
+use suzatary_core::mail::verbs;
+
+use crate::mailbox::Notmuch;
+use crate::sync::Syncer;
+
+/// The corpus operations, run against this box.
+pub struct Operator {
+    sync_status: PathBuf,
+    /// How the triage passes have ended.
+    pulse: crate::pulse::Pulse,
+    /// The corpus, read-only.
+    mail: Notmuch,
+    /// The triage's bookkeeping, for the writes `mark` and `noise add` perform.
+    ledger: crate::state::Ledger,
+    /// The pull.
+    syncer: Syncer,
+    /// Each account's sync health, which every sync joins its report into.
+    health: crate::mail_health::Health,
+    /// The clock, for the sync window.
+    clock: crate::clock::SystemClock,
+    /// The owner's zone, whose day the sync window counts back from.
+    zone: suzatary_core::zone::Zone,
+}
+
+impl std::fmt::Debug for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Operator")
+            .field("ledger", &self.ledger)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Operator {
+    /// The corpus, the dedup authority, the syncer, where a triage pass
+    /// marks that it reached its trusted push, where each sync keeps its report, and the
+    /// owner's zone.
+    #[must_use]
+    pub fn new(
+        mail: Notmuch,
+        ledger: crate::state::Ledger,
+        syncer: Syncer,
+        heartbeat: impl Into<PathBuf>,
+        sync_status: impl Into<PathBuf>,
+        zone: suzatary_core::zone::Zone,
+    ) -> Self {
+        let heartbeat = heartbeat.into();
+        Self {
+            sync_status: sync_status.into(),
+            health: crate::mail_health::Health::beside(&heartbeat),
+            pulse: crate::pulse::Pulse::at(&heartbeat),
+            mail,
+            ledger,
+            syncer,
+            clock: crate::clock::SystemClock,
+            zone,
+        }
+    }
+
+    /// The triage's bookkeeping, read fresh.
+    fn state(&self) -> Result<Known, CorpusError> {
+        self.ledger.read().map_err(CorpusError::Refused)
+    }
+
+    fn write(&self, known: &Known) -> Result<(), CorpusError> {
+        self.ledger.write(known).map_err(CorpusError::Refused)
+    }
+
+    /// The owner's today, as the syncer's window is measured from.
+    fn today(&self) -> chrono::NaiveDate {
+        self.zone
+            .day(prodrome_core::fpl::instant_of(self.clock.now()))
+    }
+
+    /// A one-off widening of the corpus; the CLI's alone, since the routine run must stay cheap.
+    pub fn backfill(
+        &self,
+        email: &str,
+        folder: &str,
+        subdir: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<verbs::Backfilled, CorpusError> {
+        let account = self.syncer.accounts().microsoft(email).ok_or_else(|| {
+            let known: Vec<&str> = self
+                .syncer
+                .accounts()
+                .accounts()
+                .iter()
+                .filter(|a| a.microsoft().is_some())
+                .map(|a| a.email.as_str())
+                .collect();
+            CorpusError::Refused(format!(
+                "{email} is not a Microsoft account in the roster (have: {})",
+                known.join(", ")
+            ))
+        })?;
+        self.syncer
+            .backfill(account, folder, subdir, limit)
+            .map_err(|failed| CorpusError::Refused(failed.to_string()))
+    }
+
+    /// The syncer, for the CLI's own `sync`.
+    #[must_use]
+    pub fn syncer(&self) -> &Syncer {
+        &self.syncer
+    }
+}
+
+impl Corpus for Operator {
+    /// Every sync, the timer's and the one `sync_mail` starts early alike, records each
+    /// account's health; one whose health is not recorded fails rather than passing silently.
+    /// Its report is kept where [`Operator::new`] was told, readable by this user alone, for the
+    /// gate, the briefing and the agent's `last_sync`.
+    fn sync(&self) -> Result<verbs::SyncReport, CorpusError> {
+        let report = self.syncer.sync(self.today());
+        suzatary_core::mail::health::record(
+            &self.health,
+            &report,
+            prodrome_core::fpl::instant_of(self.clock.now()),
+        )
+        .map_err(|failed| {
+            CorpusError::Refused(format!(
+                "the sync ran, and its accounts' health was not recorded: {failed}"
+            ))
+        })?;
+        let answer = serde_json::to_string(&report).map_err(|failed| {
+            CorpusError::Refused(format!("the sync report did not serialise: {failed}"))
+        })?;
+        crate::durable::replace(
+            &self.sync_status,
+            answer.as_bytes(),
+            crate::durable::Mode::Private,
+        )
+        .map_err(|failed| {
+            CorpusError::Refused(format!(
+                "the sync ran, and its report was not kept at {}: {failed}",
+                self.sync_status.display()
+            ))
+        })?;
+        Ok(report)
+    }
+
+    fn queue(&self, limit: Option<usize>) -> Result<Vec<verbs::Summary>, CorpusError> {
+        let state = self.state()?;
+        self.mail
+            .queue(&state, limit)
+            .map_err(|failed| CorpusError::Refused(failed.to_string()))
+    }
+
+    fn search(
+        &self,
+        query: &Query,
+        limit: Option<usize>,
+    ) -> Result<Vec<verbs::Summary>, CorpusError> {
+        self.mail
+            .summaries(query.as_str(), limit)
+            .map_err(|failed| CorpusError::Refused(failed.to_string()))
+    }
+
+    /// One message in full; a miss or an ambiguous prefix is an answer the agent reads, the
+    /// latter naming the colliding hashes so it can correct itself.
+    fn show(&self, id: &str) -> Result<verbs::Show, CorpusError> {
+        let state = self.state()?;
+        self.mail
+            .full_message(id, &state)
+            .map_err(|failed| CorpusError::Refused(failed.to_string()))
+    }
+
+    /// Record a decision about a canonical message; without `native` it reuses a recorded
+    /// locator, and only then pays for a rescan, which a write may and a read may not.
+    fn mark(
+        &self,
+        hash: &str,
+        decision: Decision,
+        note: Option<&str>,
+        native: Option<&str>,
+    ) -> Result<verbs::Marked, CorpusError> {
+        let state = self.state()?;
+        let known = state.local.messages.get(hash);
+        let locator = match native {
+            Some(id) => Some(id.to_owned()),
+            None => match known.and_then(|kept| kept.native_id.clone()) {
+                Some(id) => Some(id),
+                None => self
+                    .mail
+                    .scan_for_hash(hash)
+                    .map_err(|failed| CorpusError::Refused(failed.to_string()))?,
+            },
+        };
+        let disposition = decision.disposition();
+        self.write(&state.mark(
+            hash,
+            decision,
+            Kept {
+                native_id: locator,
+                note: note.unwrap_or_default().to_owned(),
+            },
+        ))?;
+        Ok(verbs::Marked {
+            marked: hash.to_owned(),
+            disposition,
+        })
+    }
+
+    fn noise_add(&self, sender: &str) -> Result<verbs::NoiseAdded, CorpusError> {
+        let known = self.state()?;
+        self.write(&Known {
+            local: known.local.add_noise(sender),
+            ..known
+        })?;
+        Ok(verbs::NoiseAdded {
+            noise_added: sender.to_lowercase(),
+        })
+    }
+
+    fn last_sync(&self) -> Option<verbs::SyncReport> {
+        crate::mail_sync::read_report(&self.sync_status)
+            .ok()
+            .flatten()
+            .map(|(report, _)| report)
+    }
+
+    fn last_triage_pass(&self) -> Option<String> {
+        self.pulse.last_pass()
+    }
+
+    fn last_triage_outcome(&self) -> suzatary_core::secretary::heartbeat::PassOutcome {
+        self.pulse.last_outcome()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+    use suzatary_core::mail::account::{MailAccount, Roster, Sync};
+
+    fn operator(root: &Path) -> Operator {
+        let roster = Roster::new(vec![MailAccount {
+            email: suzatary_core::mail::account_email::AccountEmail::new("her@example.test")
+                .expect("a lower-case address"),
+            subdir: "her".to_owned(),
+            sync: Sync::Gmail,
+        }])
+        .expect("a roster");
+        let mail = Notmuch::new(root.join("Mail"), ledger(root), roster.clone())
+            .with_binary("/nonexistent/notmuch");
+        let syncer = Syncer::new(
+            roster,
+            root.join("Mail"),
+            "/nonexistent/notmuch",
+            root.join("mbsyncrc"),
+            root.join("imap"),
+            (
+                crate::oauth::TokenStore::new(root.join("oauth")),
+                crate::google::Grants::new(
+                    crate::google::Google::new(suzatary_core::google::Endpoints::google()),
+                    std::sync::Arc::new(crate::secrets::Secretspec::new(
+                        root.join("secretspec.toml"),
+                    )),
+                ),
+            ),
+        );
+        Operator::new(
+            mail,
+            ledger(root),
+            syncer,
+            root.join("triage-heartbeat"),
+            root.join("last-sync.json"),
+            suzatary_core::zone::Zone::UTC,
+        )
+    }
+
+    fn ledger(root: &Path) -> crate::state::Ledger {
+        crate::state::Ledger::new(
+            root.join("state.json"),
+            root.join("local/mail.json"),
+            || {
+                Ok(suzatary_core::mail::dedup_key::DedupKey::of(
+                    &suzatary_core::capability::Secret::new("12".repeat(32)),
+                )
+                .expect("a key"))
+            },
+        )
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "suzatary-corpus-{name}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).expect("a writable temp directory");
+        dir
+    }
+
+    #[test]
+    fn an_absent_sync_status_is_absence_and_not_a_failure() {
+        let root = scratch("last-sync");
+        assert!(operator(&root).last_sync().is_none());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_mark_records_the_decision_and_the_locator_it_was_given() {
+        let root = scratch("mark");
+        let operator = operator(&root);
+        let answer = operator
+            .mark(
+                "abc123",
+                Decision::parse("todo", Some("renewinsurance")).expect("a decision"),
+                Some("why"),
+                Some("msg-1"),
+            )
+            .expect("marks");
+        assert_eq!(
+            answer,
+            verbs::Marked {
+                marked: "abc123".to_owned(),
+                disposition: suzatary_core::mail::state::Disposition::Todo,
+            }
+        );
+
+        let known = ledger(&root).read().expect("reads");
+        assert_eq!(
+            known.decided("abc123"),
+            Some(&Decision::parse("todo", Some("renewinsurance")).expect("a decision"))
+        );
+        let kept = &known.local.messages["abc123"];
+        assert_eq!(kept.note, "why");
+        assert_eq!(kept.native_id.as_deref(), Some("msg-1"));
+        let pushed = std::fs::read_to_string(root.join("state.json")).expect("reads");
+        for private in ["abc123", "why", "msg-1"] {
+            assert!(!pushed.contains(private), "{private} was pushed");
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn adding_a_noise_sender_answers_the_stored_spelling() {
+        let root = scratch("noise");
+        let operator = operator(&root);
+        assert_eq!(
+            operator.noise_add("Alerts@Example.TEST").expect("adds"),
+            verbs::NoiseAdded {
+                noise_added: "alerts@example.test".to_owned()
+            }
+        );
+        assert!(
+            ledger(&root)
+                .read()
+                .expect("reads")
+                .is_noise("alerts@example.test")
+        );
+        let pushed = std::fs::read_to_string(root.join("state.json")).expect("reads");
+        assert!(!pushed.contains("alerts"), "a sender is box-local");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_unreachable_index_is_reported_and_never_panics() {
+        let root = scratch("unreachable");
+        let operator = operator(&root);
+        let failed = operator.queue(Some(5)).unwrap_err();
+        assert!(matches!(failed, CorpusError::Refused(_)), "{failed}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_backfill_for_an_account_that_is_not_microsofts_says_which_are() {
+        let root = scratch("backfill");
+        let operator = operator(&root);
+        let refused = operator
+            .backfill("stranger@example.test", "Sent Items", None, None)
+            .unwrap_err();
+        assert!(
+            matches!(&refused, CorpusError::Refused(said) if said.contains("not a Microsoft account")),
+            "{refused}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+}

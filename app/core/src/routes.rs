@@ -1,0 +1,1860 @@
+//! The routes as functions: each takes the capabilities it needs and the URL's parameters and
+//! answers a wire type or a [`Refusal`], with nothing known about HTTP.
+//!
+//! The bounds are the point: a route that cannot name a capability cannot use it.
+
+use std::collections::BTreeMap;
+
+use crate::believed::{Believed, records};
+use crate::record::{Node, TodoEvent};
+use chrono::NaiveDate;
+use prodrome_core::fpl;
+use prodrome_core::observe::Observation;
+use prodrome_core::policy::Untrusted;
+
+use crate::chain_set::ChainSet;
+
+use crate::capability::{Answers, Briefings, Clock, Datetime, Mailbox, Query, Render, SecretState};
+use crate::chains::{ChainName, ChainPolicy};
+use crate::deployment::Deployment;
+use crate::refusal::{Answered, Refusal, shown};
+use crate::store::Prodrome;
+use crate::tree::{By, Classifier, Monoid};
+use crate::{mail, query, reading};
+use crate::{view, wire};
+
+/// Every head, sorted: what a replica compares against and asks `since=` by, with no one of
+/// them picked, since no writer needs a single head.
+pub(crate) fn head_set<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+) -> Result<Vec<String>, Refusal> {
+    Ok(store
+        .tips()?
+        .iter()
+        .map(|h| h.as_str().to_owned())
+        .collect())
+}
+
+/// Names as the wire spells them, in the set's order.
+fn names(set: &std::collections::BTreeSet<prodrome_core::event::Hash>) -> Vec<String> {
+    set.iter().map(|h| h.as_str().to_owned()).collect()
+}
+
+/// Every object in linearisation order with its hash, parents and canonical literal, so the
+/// browser rehashes rather than believes.
+///
+/// `untrusted` is the deployment's trust policy, sent because the browser folds these objects
+/// offline with the same core.
+pub fn chain(store: &dyn Prodrome<TodoEvent>, chain: &ChainPolicy) -> Answered<wire::ChainPayload> {
+    let objects = store.objects()?;
+    Ok(wire::ChainPayload {
+        heads: head_set(store)?,
+        untrusted: chain.untrusted_names(),
+        root: chain.root.as_str().to_owned(),
+        verify: store.verify(),
+        links: objects
+            .iter()
+            .map(|(name, envelope)| view::link(name, envelope))
+            .collect(),
+    })
+}
+
+/// The heads and nothing else, for a phone polling whether anything changed.
+///
+/// # Errors
+/// The chain unreadable.
+pub fn tip(store: &dyn Prodrome<TodoEvent>) -> Answered<wire::TipPayload> {
+    Ok(wire::TipPayload {
+        heads: head_set(store)?,
+    })
+}
+
+/// Every todo the chain has mentioned, as the folds see it at `t`; `limit` selects the most
+/// owed, ascending.
+///
+/// It reads the chain's name and trust policy alone, so the tab, which holds no root key, answers
+/// it from its replica as the box does.
+pub fn fold(
+    render: &dyn Render,
+    name: &ChainName,
+    untrusted: &Untrusted,
+    set: &ChainSet<'_>,
+    limit: Option<usize>,
+) -> Answered<wire::FoldPayload> {
+    let at = set.at();
+    let (by_hash, _, rows) = rows(set, name)?;
+    let next = set
+        .next(name, &rows, Observation::PERCENT)
+        .map_err(not_a_member)?;
+    let entries: Vec<wire::Entry> = rows
+        .iter()
+        .map(|row| view::entry(render, row, &by_hash, untrusted, at))
+        .collect();
+    let heads = set.held(name).map_err(not_a_member)?.dag.tips();
+    Ok(wire::FoldPayload {
+        at: fpl::iso(fpl::instant_of(at)),
+        heads: names(&heads),
+        entries: match limit {
+            None => entries,
+            Some(n) => most_owed(entries, n),
+        },
+        failed: set.failed(),
+        next: wire::NextChange::of(next),
+    })
+}
+
+/// The chain `name` as the set read it: its objects by name, its nodes and its rows, each priced through
+/// the whole set.
+#[allow(clippy::type_complexity)]
+fn rows<'s>(
+    set: &'s ChainSet<'_>,
+    name: &ChainName,
+) -> Answered<(
+    std::collections::BTreeMap<prodrome_core::event::Hash, &'s crate::record::Envelope>,
+    &'s [crate::record::Node],
+    Vec<crate::record::Entry>,
+)> {
+    let held = set.held(name).map_err(not_a_member)?;
+    let rows = set.entries(name).map_err(not_a_member)?;
+    let by_hash = held
+        .dag
+        .objects()
+        .iter()
+        .map(|(name, envelope)| (name.clone(), envelope))
+        .collect();
+    Ok((by_hash, held.nodes, rows))
+}
+
+/// A chain the set could not read, as a refusal: one it does not hold is not found.
+fn not_a_member(failure: crate::chain_set::NotAMember) -> Refusal {
+    match failure {
+        crate::chain_set::NotAMember::Absent(_) => Refusal::not_found(failure.to_string()),
+        other => Refusal::internal(other.to_string()),
+    }
+}
+
+/// The `n` open todos most in need of attention, ascending in the fold's own `value`; ties
+/// keep the fold's order.
+fn most_owed(entries: Vec<wire::Entry>, n: usize) -> Vec<wire::Entry> {
+    let mut owed: Vec<(f64, wire::Entry)> = Vec::with_capacity(entries.len());
+    for entry in entries {
+        if entry.state != wire::EntryState::Open {
+            continue;
+        }
+        if let Some(value) = entry.value.and_then(wire::Fulfillment::number) {
+            owed.push((value, entry));
+        }
+    }
+    // `total_cmp`, so a NaN orders rather than panicking a read.
+    owed.sort_by(|a, b| a.0.total_cmp(&b.0));
+    owed.truncate(n);
+    owed.into_iter().map(|(_, entry)| entry).collect()
+}
+
+/// One todo in full; an id no event mentions is a 404, not an empty page.
+pub fn todo(
+    render: &dyn Render,
+    chain: &ChainPolicy,
+    zone: crate::zone::Zone,
+    set: &ChainSet<'_>,
+    id: &str,
+) -> Answered<wire::TodoPayload> {
+    let (at, untrusted) = (set.at(), &chain.untrusted);
+    let id = todo_id(id)?;
+    let (by_hash, nodes, rows) = rows(set, &chain.name)?;
+    let Some(row) = rows.iter().find(|row| row.key.as_str() == id) else {
+        return Err(Refusal::not_found(format!(
+            "no event on the chain mentions todo {}",
+            shown(id)
+        )));
+    };
+    let env = Believed::of(nodes, at, untrusted)
+        .map_err(|e| Refusal::internal(e.to_string()))?
+        .env;
+    let refs = view::references(&rows, &by_hash);
+    let back = view::backlinks(&refs);
+    let neighbours = |named: Option<&Vec<String>>| -> Vec<wire::Neighbour> {
+        named
+            .map(|names| {
+                names
+                    .iter()
+                    .filter_map(|name| rows.iter().find(|row| row.key.as_str() == name))
+                    .map(view::neighbour)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let entry = view::entry(render, row, &by_hash, untrusted, at);
+    let content =
+        view::content_of(row, &by_hash).map(|record| view::content(render, record, untrusted));
+    let why = view::explain(row, at, &env).map(reading::Explained::of);
+    let reading = render
+        .page(&reading::todo(&entry, content.as_ref(), why.as_ref(), zone))
+        .ok()
+        .map(|html| html.as_str().to_owned());
+    Ok(wire::TodoPayload {
+        todo: id.to_owned(),
+        at: fpl::iso(fpl::instant_of(at)),
+        entry,
+        reading,
+        stream: row
+            .stream
+            .iter()
+            .filter_map(|name| by_hash.get(name).map(|e| view::link(name, e)))
+            .collect(),
+        diffs: view::diffs(&row.stream, &by_hash),
+        links: wire::TodoLinks {
+            out: neighbours(refs.get(id)),
+            inward: neighbours(back.get(id)),
+        },
+    })
+}
+
+/// The open todos as one tree of terms, each node valued at `t`.
+pub fn tree(
+    chain: &ChainPolicy,
+    set: &ChainSet<'_>,
+    by: wire::TreeBy,
+) -> Answered<wire::TreePayload> {
+    let (at, untrusted) = (set.at(), &chain.untrusted);
+    let (by_hash, nodes, rows) = rows(set, &chain.name)?;
+    let members = view::members(&rows, &by_hash);
+    let env = Believed::of(nodes, at, untrusted)
+        .map_err(|e| Refusal::internal(e.to_string()))?
+        .env;
+    let classifier = match by {
+        wire::TreeBy::Category => Classifier::by(By::Category),
+        wire::TreeBy::Urgency => Classifier::by(By::Urgency),
+        wire::TreeBy::Flat => Classifier::empty(),
+    }
+    .combine(Classifier::by(By::Ancestry));
+    Ok(wire::TreePayload {
+        at: fpl::iso(fpl::instant_of(at)),
+        by,
+        root: view::tree_node(view::tree(&rows, &members, &classifier, at, &env), &members),
+    })
+}
+
+/// Every day the assistant has saved a briefing for, newest first.
+pub fn briefings(
+    briefings: &dyn Briefings,
+    conversations: crate::secretary::conversations::Conversations<'_>,
+) -> Answered<wire::BriefingsPayload> {
+    let saved = briefings
+        .all()
+        .map_err(|e| Refusal::internal(e.to_string()))?;
+    let mut briefs: Vec<crate::secretary::briefs::Brief> = crate::secretary::list(conversations)?
+        .iter()
+        .flat_map(crate::secretary::briefs::briefs)
+        .collect();
+    briefs.sort_by(|a, b| b.date.cmp(&a.date).then(b.turn.cmp(&a.turn)));
+    Ok(wire::BriefingsPayload {
+        briefs: briefs
+            .into_iter()
+            .take(query::MAX_BRIEFINGS)
+            .map(|brief| wire::BriefRow {
+                date: brief.date.to_string(),
+                conversation: brief.conversation.as_str().to_owned(),
+                turn: u32::try_from(brief.turn).unwrap_or(u32::MAX),
+                title: crate::secretary::briefs::headline(&brief.text),
+                words: u32::try_from(crate::secretary::briefs::words(&brief.text))
+                    .unwrap_or(u32::MAX),
+                text: brief.text,
+            })
+            .collect(),
+        briefings: saved
+            .into_iter()
+            .take(query::MAX_BRIEFINGS)
+            .map(|(day, source)| wire::BriefingRow {
+                title: briefing_title(&source, day),
+                words: u32::try_from(source.split_whitespace().count()).unwrap_or(u32::MAX),
+                date: day.to_string(),
+            })
+            .collect(),
+    })
+}
+
+/// The first `= …` heading's text, or the date when the file has none, without a compile.
+fn briefing_title(source: &str, day: NaiveDate) -> String {
+    source
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with('='))
+        .map(|line| line.trim_start_matches('=').trim())
+        .find(|text| !text.is_empty())
+        .map_or_else(|| day.to_string(), str::to_owned)
+}
+
+/// One day's briefing: that day's secretary brief rendered block by block, else the saved
+/// file, which renders unconditionally because `briefings/` is trusted by convention.
+pub fn briefing(
+    briefings: &dyn Briefings,
+    render: &dyn Render,
+    conversations: crate::secretary::conversations::Conversations<'_>,
+    answers: &dyn Answers,
+    day: NaiveDate,
+) -> Answered<wire::BriefingPayload> {
+    let brief = crate::secretary::list(conversations)?
+        .iter()
+        .flat_map(crate::secretary::briefs::briefs)
+        .filter(|brief| brief.date == day)
+        .max_by_key(|brief| brief.turn);
+    if let Some(brief) = brief {
+        return Ok(wire::BriefingPayload {
+            date: day.to_string(),
+            day: wire::BriefingDay::Brief {
+                conversation: brief.conversation.as_str().to_owned(),
+                turn: u32::try_from(brief.turn).unwrap_or(u32::MAX),
+                blocks: crate::secretary::readings::blocks_of(answers, &brief.text),
+                text: brief.text,
+            },
+        });
+    }
+    let source = briefings
+        .read(day)
+        .map_err(|_| Refusal::not_found(format!("no briefing for {day}")))?;
+    let markup = crate::escape::Escaped::from_chain(source.clone());
+    Ok(wire::BriefingPayload {
+        date: day.to_string(),
+        day: wire::BriefingDay::Saved {
+            rich: render
+                .html(&markup)
+                .ok()
+                .map(|html| html.as_str().to_owned()),
+            source,
+        },
+    })
+}
+
+/// The account filter resolved against the roster; an unknown address is a refusal, never an
+/// empty inbox.
+fn account<'a>(mail: &dyn Mailbox, named: Option<&'a str>) -> Answered<Option<&'a str>> {
+    let Some(name) = named.filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let roster = mail.accounts();
+    if roster.iter().any(|held| held == name) {
+        Ok(Some(name))
+    } else {
+        Err(Refusal::bad_request(format!(
+            "no such account {} (have: {})",
+            shown(name),
+            roster.join(", ")
+        )))
+    }
+}
+
+/// The most recent inbox mail by date, not the agent's queue, with its disposition as a badge.
+pub fn inbox(
+    mail: &dyn Mailbox,
+    named: Option<&str>,
+    limit: usize,
+    before: Option<Datetime>,
+) -> Answered<wire::InboxPayload> {
+    let account = account(mail, named)?;
+    let rows = mail
+        .inbox(account, limit, before)
+        .map_err(|e| Refusal::internal(e.to_string()))?;
+    Ok(wire::InboxPayload {
+        accounts: mail.accounts(),
+        messages: rows,
+    })
+}
+
+/// Any notmuch query, newest first, paged by `before` like the inbox.
+pub fn search(
+    mail: &dyn Mailbox,
+    raw: &str,
+    named: Option<&str>,
+    limit: usize,
+    before: Option<Datetime>,
+) -> Answered<wire::MailSearchPayload> {
+    let account = account(mail, named)?;
+    let query = Query::new(raw).map_err(|e| Refusal::bad_request(e.to_string()))?;
+    let rows = mail
+        .search(&query, account, limit, before)
+        .map_err(|e| Refusal::internal(e.to_string()))?;
+    Ok(wire::MailSearchPayload {
+        q: raw.to_owned(),
+        accounts: mail.accounts(),
+        messages: rows,
+    })
+}
+
+/// A message id: a notmuch locator or a canonical hash prefix, excluding notmuch query syntax
+/// because it is interpolated into a query.
+fn check_mail_id(value: &str) -> Answered<&str> {
+    let shaped = (4..=320).contains(&value.chars().count())
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._%+@!$&'/=?^{}|~<>#-".contains(c));
+    if shaped {
+        Ok(value)
+    } else {
+        Err(Refusal::bad_request(
+            "a message is named by its notmuch id or its canonical hash",
+        ))
+    }
+}
+
+/// notmuch's conversation id: 16 hex digits today, bounded rather than pinned.
+fn check_thread_id(value: &str) -> Answered<&str> {
+    if (4..=32).contains(&value.len())
+        && value
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    {
+        Ok(value)
+    } else {
+        Err(Refusal::bad_request(format!(
+            "a conversation id is hexadecimal, got {}",
+            shown(value)
+        )))
+    }
+}
+
+/// One message: headers, body text, links, conversation, and the todos it produced.
+pub fn message(
+    mail: &dyn Mailbox,
+    render: &dyn Render,
+    chain: &ChainPolicy,
+    set: &ChainSet<'_>,
+    id: &str,
+) -> Answered<wire::MailPage> {
+    let id = check_mail_id(id)?;
+    let found = match mail.message(id) {
+        Ok(found) => found,
+        Err(crate::capability::MailError::Absent { .. }) => {
+            return Err(Refusal::not_found(gone(chain, set, id)?));
+        }
+        Err(other) => return Err(Refusal::internal(other.to_string())),
+    };
+    let todos = todos_from(render, chain, set, &found.row.hash)?;
+    Ok(wire::MailPage {
+        message: found,
+        todos,
+    })
+}
+
+/// What a message no longer kept reads as: the words, with the subject and sender a todo
+/// citing it recorded.
+fn gone(chain: &ChainPolicy, set: &ChainSet<'_>, id: &str) -> Result<String, Refusal> {
+    let (by_hash, _, rows) = rows(set, &chain.name)?;
+    let source = rows.iter().find_map(|row| {
+        view::content_of(row, &by_hash)
+            .and_then(|record| record.payload.source.as_ref())
+            .filter(|source| {
+                let cited = source.hash.as_str();
+                mail::sourced_from(cited, id) || mail::sourced_from(id, cited)
+            })
+    });
+    Ok(crate::mail::gone::Gone {
+        subject: source.map(|source| source.subject.as_str()),
+        sender: source.map(|source| source.sender.as_str()),
+    }
+    .said())
+}
+
+/// One conversation, oldest first; 404 when the corpus knows no such thread.
+pub fn thread(
+    mail: &dyn Mailbox,
+    render: &dyn Render,
+    chain: &ChainPolicy,
+    set: &ChainSet<'_>,
+    id: &str,
+    limit: usize,
+) -> Answered<wire::ThreadPayload> {
+    let id = check_thread_id(id)?;
+    let found = mail.thread(id, limit).map_err(|e| match e {
+        crate::capability::MailError::Absent { .. } => Refusal::not_found(format!(
+            "{}: conversation {}",
+            crate::mail::gone::SAID,
+            shown(id)
+        )),
+        other => Refusal::internal(other.to_string()),
+    })?;
+    if found.is_empty() {
+        return Err(Refusal::not_found(format!(
+            "{}: conversation {}",
+            crate::mail::gone::SAID,
+            shown(id)
+        )));
+    }
+    let mut messages = Vec::with_capacity(found.len());
+    for message in found {
+        let todos = todos_from(render, chain, set, &message.row.hash)?;
+        messages.push(wire::MailPage { message, todos });
+    }
+    Ok(wire::ThreadPayload {
+        thread: id.to_owned(),
+        messages,
+    })
+}
+
+/// Every todo whose latest `Authored` names this message, one-directional since the chain
+/// stores a hash prefix.
+fn todos_from(
+    render: &dyn Render,
+    chain: &ChainPolicy,
+    set: &ChainSet<'_>,
+    message_hash: &str,
+) -> Answered<Vec<wire::Entry>> {
+    let (at, untrusted) = (set.at(), &chain.untrusted);
+    let (by_hash, _, rows) = rows(set, &chain.name)?;
+    Ok(rows
+        .iter()
+        .filter(|row| {
+            view::content_of(row, &by_hash)
+                .and_then(|record| record.payload.source.as_ref())
+                .is_some_and(|source| mail::sourced_from(source.hash.as_str(), message_hash))
+        })
+        .map(|row| view::entry(render, row, &by_hash, untrusted, at))
+        .collect())
+}
+
+/// Every confirmed markup fragment on the chain worth compiling at `now`.
+pub fn warmable(
+    store: &dyn Prodrome<TodoEvent>,
+    untrusted: &Untrusted,
+    now: Datetime,
+) -> Answered<Vec<crate::escape::Escaped>> {
+    let records = records(&store.nodes()?, now);
+    Ok(view::renderable(records.values().flatten(), untrusted))
+}
+
+/// The clock's now, as every route's default `t`.
+pub fn now(clock: &dyn Clock) -> Datetime {
+    clock.now()
+}
+
+/// `GET /api/objects?since=<heads>`: the objects outside the ancestry of every head the caller
+/// names that this box holds; a head it does not hold (an act not yet posted) holds back nothing.
+pub fn objects_since(
+    store: &dyn Prodrome<TodoEvent>,
+    chain: &ChainPolicy,
+    since: &[prodrome_core::event::Hash],
+    epochs: &crate::epoch::Epochs,
+    now: Datetime,
+) -> Answered<wire::ObjectsPayload> {
+    answered(
+        store,
+        &format!("chain/{}", chain.name.as_str()),
+        epochs,
+        now,
+        Cut::Whole,
+        |objects| {
+            let held = crate::sync::Objects::of(objects);
+            crate::sync::missing(&held, since).into_iter().collect()
+        },
+    )
+    .map(|(payload, _)| wire::ObjectsPayload {
+        untrusted: chain.untrusted_names(),
+        root: Some(chain.root.as_str().to_owned()),
+        ..payload
+    })
+}
+
+/// How much of what a caller lacks one answer carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cut {
+    /// All of it, as a chain's pull answers.
+    Whole,
+    /// The longest run of it, parents first, whose literals fit this many bytes, and never
+    /// less than one object: a piece of a store's pull, which a tab takes in and keeps before it
+    /// asks for the next from its new heads.
+    Bytes(usize),
+}
+
+impl Cut {
+    /// A piece of a store's pull: a megabyte of literals, about six seconds at 1.5 Mbps, well
+    /// under the thirty a tab waits for a read (`web/src/wire/http.ts`).
+    pub const PIECE: Cut = Cut::Bytes(1 << 20);
+}
+
+/// `GET /api/stores/<store>/objects?since=<heads>`: what a replica of the store `named` lacks,
+/// cut as `cut` says: the objects outside the ancestry of every held head the caller names,
+/// parents first, every head, and how many objects are left after these. No replica writes to
+/// the store and no policy reads it, so its untrusted set is empty, and it locks no words, so it
+/// carries no keys.
+///
+/// Every object comes after its parents, so a piece joined to what the caller holds holds the
+/// ancestors of everything in it, and the pieces asked for one after another, each from the heads
+/// the last left, are together what one answer of the whole would send.
+///
+/// # Errors
+/// The store's own.
+pub fn store_objects_since<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+    named: &str,
+    since: &[prodrome_core::event::Hash],
+    epochs: &crate::epoch::Epochs,
+    now: Datetime,
+    cut: Cut,
+) -> Answered<wire::StorePayload> {
+    let (objects, rest) = answered(
+        store,
+        &format!("store/{named}"),
+        epochs,
+        now,
+        cut,
+        |objects| {
+            let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
+            let held = dag.closure(since.iter().filter(|name| dag.get(name).is_some()).cloned());
+            objects
+                .iter()
+                .map(|(name, _)| name.clone())
+                .filter(|name| !held.contains(name))
+                .collect()
+        },
+    )?;
+    Ok(wire::StorePayload {
+        objects,
+        keys: BTreeMap::new(),
+        rest,
+        erased: Vec::new(),
+    })
+}
+
+/// An objects answer of `store`, read under its epoch's lock so the epoch and the objects are one
+/// snapshot: every head, the prodromes it serves, and the objects `wanted` names, cut as `cut`
+/// says, in linearisation order so a receiver can apply them as they arrive, with how many of
+/// those it names are left out. No policy: the caller's.
+fn answered<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+    key: &str,
+    epochs: &crate::epoch::Epochs,
+    now: Datetime,
+    cut: Cut,
+    wanted: impl Fn(
+        &[(
+            prodrome_core::event::Hash,
+            prodrome_core::event::Envelope<E>,
+        )],
+    ) -> std::collections::BTreeSet<prodrome_core::event::Hash>,
+) -> Answered<(wire::ObjectsPayload, usize)> {
+    let (epoch, (heads, geneses, objects, rest)) = epochs.served(key, now, || {
+        let objects = store.objects()?;
+        let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
+        let heads = head_set(store)?;
+        let geneses = names(&dag.geneses());
+        let seen = crate::epoch::Seen {
+            geneses: geneses.iter().cloned().collect(),
+            heads: heads.iter().cloned().collect(),
+            held: objects
+                .iter()
+                .map(|(name, _)| name.as_str().to_owned())
+                .collect(),
+        };
+        let wanted = wanted(&objects);
+        let mut sent: Vec<wire::StoredObject> = Vec::new();
+        let mut bytes = 0usize;
+        for (name, envelope) in objects.iter().filter(|(name, _)| wanted.contains(name)) {
+            let literal = prodrome_core::event::canonical_envelope(envelope);
+            bytes += literal.len();
+            match cut {
+                Cut::Bytes(most) if bytes > most && !sent.is_empty() => break,
+                Cut::Whole | Cut::Bytes(_) => sent.push(wire::StoredObject {
+                    hash: name.as_str().to_owned(),
+                    literal,
+                }),
+            }
+        }
+        let rest = wanted.len() - sent.len();
+        Ok((seen, (heads, geneses, sent, rest)))
+    })?;
+    Ok((
+        wire::ObjectsPayload {
+            heads,
+            untrusted: Vec::new(),
+            root: None,
+            geneses,
+            epoch,
+            objects,
+        },
+        rest,
+    ))
+}
+
+/// `GET /api/stores/lines/objects?since=<heads>`: [`store_objects_since`] for the conversations'
+/// lines, carrying the key of every slot the objects sent name, except a key an erasure of its
+/// own conversation names, which is never sent: so a replica joining the answer can open what it
+/// was sent and nothing erased. The erasures are read over the whole store, so a piece that
+/// holds a line and not the later line erasing its words carries no key for them either.
+///
+/// # Errors
+/// The stores' own.
+pub fn lines_since(
+    conversations: crate::secretary::conversations::Conversations<'_>,
+    since: &[prodrome_core::event::Hash],
+    epochs: &crate::epoch::Epochs,
+    now: Datetime,
+    cut: Cut,
+) -> Answered<wire::StorePayload> {
+    let payload = store_objects_since(conversations.lines, "lines", since, epochs, now, cut)?;
+    let objects = conversations.lines.objects()?;
+    let erased = crate::secretary::transcript::erased(&objects);
+    let sent: std::collections::BTreeSet<&str> = payload
+        .objects
+        .objects
+        .iter()
+        .map(|object| object.hash.as_str())
+        .collect();
+    let keys = objects
+        .iter()
+        .filter(|(name, _)| sent.contains(name.as_str()))
+        .filter_map(|(_, object)| object.event())
+        .flat_map(crate::secretary::line_event::LineEvent::keys)
+        .filter(|name| !erased.contains_key(name))
+        .filter_map(|name| {
+            let key = conversations.keys.get(name).ok()??;
+            Some((
+                name.as_str().to_owned(),
+                crate::secretary::key_ring::spelled(&key),
+            ))
+        })
+        .collect();
+    Ok(wire::StorePayload {
+        keys,
+        erased: erased.keys().map(|name| name.as_str().to_owned()).collect(),
+        ..payload
+    })
+}
+
+/// `GET /api/waiting`: how many cards the Inbox draws, as the page resolves its rows
+/// (`web/src/inbox/inbox.ts`, `rowOf` and `oneCardPerBatch`), the one count the badge shows on
+/// every page, the Inbox's included: one per open proposal, one per open decision on each of
+/// `chains`, a decision about a batch standing in `batches` counted once per batch however many
+/// decisions name it, and one per proposal line no inbox record places. A tab reads this number
+/// without holding the conversations: their lines are read by shape, never opened.
+///
+/// # Errors
+/// A store that does not read, a chain the set does not hold, and lines the fold refuses: no
+/// count is better than a wrong one.
+pub fn waiting(
+    inbox: &crate::secretary::inbox::Fold,
+    lines: &dyn Prodrome<crate::secretary::line_event::LineEvent>,
+    set: &ChainSet<'_>,
+    chains: &[ChainName],
+    batches: &dyn Fn(&ChainName) -> Answered<Vec<crate::proposals::Batch>>,
+) -> Answered<wire::WaitingPayload> {
+    use crate::reference::Reference;
+    let proposals = crate::secretary::readings::waiting(inbox, set).len();
+    let mut cards = BTreeMap::<ChainName, Vec<crate::proposals::Batch>>::new();
+    let mut held = std::collections::BTreeSet::<(ChainName, prodrome_core::event::Hash)>::new();
+    let mut decisions = 0usize;
+    for chain in chains {
+        let (by_hash, _, rows) = rows(set, chain)?;
+        for row in &rows {
+            let Some(record) = view::content_of(row, &by_hash) else {
+                continue;
+            };
+            let open = wire::EntryState::from(crate::believed::one_outcome(row.outcome()))
+                == wire::EntryState::Open;
+            if !record.payload.is_decision() || !open {
+                continue;
+            }
+            let detail = record.payload.detail.as_str();
+            let first = detail.split_once('\n').map_or(detail, |(first, _)| first);
+            let Ok(Reference::Batch { chain, head }) = first.parse::<Reference>() else {
+                decisions += 1;
+                continue;
+            };
+            if !cards.contains_key(&chain) {
+                cards.insert(chain.clone(), batches(&chain)?);
+            }
+            let standing = cards.get(&chain).and_then(|standing| {
+                standing.iter().find(|batch| {
+                    batch
+                        .objects
+                        .iter()
+                        .any(|(name, _)| name.as_str() == head.as_str())
+                })
+            });
+            match standing {
+                Some(batch) => {
+                    held.insert((chain, batch.head.clone()));
+                }
+                None => decisions += 1,
+            }
+        }
+    }
+    let missing = |_: &crate::secretary::locked_text::KeyName| -> crate::secretary::words::Words<
+        crate::secretary::locked_text::TextKey,
+    > { crate::secretary::words::Gone::Missing.into() };
+    let unplaced: usize = crate::secretary::transcript::transcripts(&lines.nodes()?, &missing)
+        .map_err(|refused| Refusal::internal(refused.to_string()))?
+        .into_values()
+        .map(|read| read.into_stored().lines(inbox).unplaced().count())
+        .sum();
+    Ok(wire::WaitingPayload {
+        count: proposals + decisions + held.len() + unplaced,
+    })
+}
+
+/// The most objects one post may carry; more is a refusal, never a silent truncation.
+pub const MAX_POSTED: usize = 512;
+
+/// `POST /api/objects`: the one write path, deciding under the write lock and then taking in
+/// what the outcome names.
+pub fn receive_objects(
+    store: &dyn Prodrome<TodoEvent>,
+    render: &dyn Render,
+    chain: &ChainPolicy,
+    posted: &[String],
+    actor: &prodrome_core::event::Actor,
+) -> Answered<(wire::ReceiptPayload, Vec<crate::secretary::acts::ActLine>)> {
+    if posted.len() > MAX_POSTED {
+        return Err(Refusal::bad_request(format!(
+            "at most {MAX_POSTED} objects per post, got {}",
+            posted.len()
+        )));
+    }
+    let _held = store.locked()?;
+    let objects = store.objects()?;
+    let outcome = crate::sync::receive(
+        &crate::sync::Objects::of(&objects),
+        posted,
+        actor,
+        &chain.root,
+    );
+    store.accept(&outcome.taken)?;
+    // Render what landed before answering; `renders` keeps untrusted records uncompiled.
+    let fresh: Vec<crate::escape::Escaped> = outcome
+        .taken
+        .iter()
+        .filter_map(|(_, literal)| {
+            prodrome_core::event::parse_envelope(&crate::record::TodoVocabulary::default(), literal)
+                .ok()
+        })
+        .filter_map(|envelope| match envelope.event() {
+            Some(TodoEvent::Authored(record)) => Some(record.clone()),
+            _ => None,
+        })
+        .filter(|record| view::renders(record, &chain.untrusted))
+        .flat_map(|record| {
+            view::rich_sources(&record)
+                .into_iter()
+                .map(|(_, source)| source)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if !fresh.is_empty() {
+        render.warm(&fresh);
+    }
+    // Adoption is the only moment a sealed lifecycle act's note is knowable server-side.
+    let heard = crate::secretary::acts::heard_from_objects(
+        &outcome
+            .taken
+            .iter()
+            .filter_map(|(_, literal)| {
+                prodrome_core::event::parse_envelope(
+                    &crate::record::TodoVocabulary::default(),
+                    literal,
+                )
+                .ok()
+            })
+            .filter_map(|envelope| envelope.event().cloned())
+            .collect::<Vec<TodoEvent>>(),
+        actor,
+        &chain.name,
+    );
+    Ok((
+        wire::ReceiptPayload {
+            heads: head_set(store)?,
+            adopted: outcome
+                .taken
+                .iter()
+                .map(|(name, _)| name.as_str().to_owned())
+                .collect(),
+            already: outcome
+                .already
+                .iter()
+                .map(|name| name.as_str().to_owned())
+                .collect(),
+            refused: outcome
+                .refused
+                .iter()
+                .map(|refused| wire::RefusedObject {
+                    hash: refused
+                        .name
+                        .as_ref()
+                        .map_or_else(String::new, |name| name.as_str().to_owned()),
+                    reason: refused.reason.said(),
+                    kind: refused.reason.kind(),
+                })
+                .collect(),
+        },
+        heard,
+    ))
+}
+
+/// `GET /api/about`: the release this binary was built as and its build, so the page shows what
+/// runs, and the todos that release completed, each as `plan`'s chain reads it in `set`; `dev`
+/// for a build no release was stamped on.
+///
+/// # Errors
+/// The plan's chain held and not read.
+pub fn about(
+    released: Option<&crate::release::Released>,
+    build: &str,
+    plan: &crate::release::Plan,
+    set: &ChainSet<'_>,
+) -> Answered<wire::AboutPayload> {
+    let completes = released.map_or(&[][..], |r| r.completes.as_slice());
+    let mut held = held_todos(plan, set, completes)?.unwrap_or_default();
+    Ok(wire::AboutPayload {
+        version: released.map_or_else(|| "dev".to_owned(), |r| r.version.to_string()),
+        build: build.to_owned(),
+        completes: completes
+            .iter()
+            .map(|todo| wire::Shipped {
+                todo: todo.as_str().to_owned(),
+                held: held.remove(todo.as_str()),
+            })
+            .collect(),
+    })
+}
+
+/// Each of `todos` that `plan`'s chain in `set` holds, by id, as its row and title now: how a
+/// release's todos are shown, looked up on the chain rather than stored with the release.
+/// `None` where the set does not hold that chain.
+fn held_todos(
+    plan: &crate::release::Plan,
+    set: &ChainSet<'_>,
+    todos: &[prodrome_core::event::TodoId],
+) -> Answered<Option<std::collections::BTreeMap<String, wire::HeldTodo>>> {
+    let name = crate::chains::ChainName::new(plan.chain())
+        .map_err(|e| Refusal::internal(e.to_string()))?;
+    match set.held(&name) {
+        Ok(_) => {}
+        Err(crate::chain_set::NotAMember::Absent(_)) => return Ok(None),
+        Err(failure) => return Err(not_a_member(failure)),
+    }
+    let (by_hash, _, rows) = rows(set, &name)?;
+    let wanted: std::collections::BTreeSet<&str> = todos
+        .iter()
+        .map(prodrome_core::event::TodoId::as_str)
+        .collect();
+    Ok(Some(
+        rows.iter()
+            .filter(|entry| wanted.contains(entry.key.as_str()))
+            .map(|entry| {
+                let title = view::content_of(entry, &by_hash).map_or_else(
+                    || entry.key.as_str().to_owned(),
+                    |record| crate::escape::markup_text(record.payload.body.as_str()),
+                );
+                (
+                    entry.key.as_str().to_owned(),
+                    wire::HeldTodo {
+                        row: view::neighbour(entry),
+                        title,
+                    },
+                )
+            })
+            .collect(),
+    ))
+}
+
+/// `GET /api/releases`: `plan`'s releases as `set` reads them, each with its row, where it
+/// stands in the count and its items; no release where the set does not hold the plan's chain.
+///
+/// # Errors
+/// The chain held and not read.
+pub fn releases(
+    plan: &crate::release::Plan,
+    set: &ChainSet<'_>,
+) -> Answered<wire::ReleasesPayload> {
+    let name = crate::chains::ChainName::new(plan.chain())
+        .map_err(|e| Refusal::internal(e.to_string()))?;
+    let held = match set.held(&name) {
+        Ok(held) => held,
+        Err(crate::chain_set::NotAMember::Absent(_)) => {
+            return Ok(wire::ReleasesPayload {
+                chain: plan.chain().to_owned(),
+                reads: crate::release::Counted {
+                    major: plan.base(),
+                    minor: 0,
+                }
+                .to_string(),
+                releases: Vec::new(),
+            });
+        }
+        Err(failure) => return Err(not_a_member(failure)),
+    };
+    let current = Believed::of(held.nodes, set.at(), held.untrusted)
+        .map_err(|e| Refusal::internal(e.to_string()))?
+        .specs;
+    let reading = crate::release::Reading::of(
+        plan,
+        crate::release::binding(held.nodes, held.untrusted),
+        set.at(),
+        &current,
+    );
+    let todos: Vec<prodrome_core::event::TodoId> = reading
+        .releases
+        .iter()
+        .flat_map(|release| {
+            std::iter::once(release.todo.clone())
+                .chain(release.items.iter().map(|item| item.todo.clone()))
+        })
+        .collect();
+    let by_id = held_todos(plan, set, &todos)?.unwrap_or_default();
+    let held_todo = |todo: &prodrome_core::event::TodoId| by_id.get(todo.as_str()).cloned();
+    Ok(wire::ReleasesPayload {
+        chain: plan.chain().to_owned(),
+        reads: reading.counted.to_string(),
+        releases: reading
+            .releases
+            .iter()
+            .map(|release| wire::ReleaseRow {
+                todo: release.todo.as_str().to_owned(),
+                held: held_todo(&release.todo),
+                major: release.major,
+                lot: release.lot,
+                place: release.place,
+                items: release
+                    .items
+                    .iter()
+                    .map(|item| wire::ReleaseItem {
+                        todo: item.todo.as_str().to_owned(),
+                        held: held_todo(&item.todo),
+                        standing: item.standing(release.place),
+                        named: item.named,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    })
+}
+
+/// `GET /api/<chain>/me`: the login the daemon named and the actor it writes as on this
+/// chain, `null` for a viewer or an actor the chain's roster does not know.
+#[must_use]
+pub fn me(
+    deployment: &Deployment,
+    chain: &ChainPolicy,
+    admitted: &crate::gate::Admitted,
+) -> wire::MePayload {
+    let login = admitted.login();
+    wire::MePayload {
+        login: login.map_or_else(String::new, |login| login.as_str().to_owned()),
+        actor: login
+            .and_then(|login| deployment.actor_of(login))
+            .filter(|actor| chain.roster.contains(*actor))
+            .map(|actor| actor.as_str().to_owned()),
+        chains: deployment
+            .chains
+            .names()
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        categories: deployment.category_order(),
+        zone: deployment.zone.name().to_owned(),
+    }
+}
+
+/// `POST /api/author`: build an event and append nothing, so the replica seals what the core
+/// authored.
+pub fn author(
+    caps: &crate::capability::Server<'_>,
+    deployment: &Deployment,
+    chain: &ChainPolicy,
+    request: &wire::Authoring,
+    actor: &prodrome_core::event::Actor,
+) -> Answered<wire::AuthoredPayload> {
+    let nodes = caps.chain.nodes()?;
+    let at = caps.clock.now();
+    let typeset = caps.render;
+    let (todo, event) = match request {
+        wire::Authoring::Add(new) => {
+            let (todo, event, revision) = add(deployment, chain, &nodes, new, at, actor, typeset)?;
+            return Ok(wire::AuthoredPayload {
+                todo,
+                event: prodrome_core::event::canonical(&event),
+                revision: revision.as_ref().map(prodrome_core::event::canonical),
+            });
+        }
+        wire::Authoring::Update(update) => {
+            let wire::UpdateTodo { todo, patch, note } = &**update;
+            let id = todo_id(todo)?.to_owned();
+            let Some(before) = crate::todos::current(&nodes, at, &id) else {
+                return Err(Refusal::not_found(format!(
+                    "no todo with id {} on the chain",
+                    shown(&id)
+                )));
+            };
+            capped_patch(patch)?;
+            let known: Vec<&str> = deployment.categories.keys().map(String::as_str).collect();
+            let event = crate::authoring::update_todo(
+                &before,
+                patch,
+                crate::zone::Moment {
+                    at,
+                    zone: deployment.zone,
+                },
+                actor.as_str(),
+                &known,
+                note,
+                typeset,
+            )?;
+            (id, event)
+        }
+        wire::Authoring::Confirm(wire::ConfirmTodo { todo, note }) => {
+            let id = todo_id(todo)?.to_owned();
+            let Some(before) = crate::todos::current(&nodes, at, &id) else {
+                return Err(Refusal::not_found(format!(
+                    "the chain holds no content for todo {}",
+                    shown(&id)
+                )));
+            };
+            let event = crate::authoring::confirm_todo(
+                &before,
+                at,
+                actor.as_str(),
+                &chain.untrusted,
+                note,
+            )?;
+            (id, event)
+        }
+        wire::Authoring::Undo(todo) => {
+            let id = todo_id(todo)?.to_owned();
+            let stream = view::stream_of(&nodes, &id);
+            let event = crate::authoring::undo(&stream, &id, at, actor.as_str(), &chain.untrusted)?;
+            (id, event)
+        }
+        wire::Authoring::Redo(todo) => {
+            let id = todo_id(todo)?.to_owned();
+            let stream = view::stream_of(&nodes, &id);
+            let event = crate::authoring::redo(&stream, &id, at, actor.as_str(), &chain.untrusted)?;
+            (id, event)
+        }
+    };
+    Ok(wire::AuthoredPayload {
+        todo,
+        event: prodrome_core::event::canonical(&event),
+        revision: None,
+    })
+}
+
+/// A new todo through the one authoring path, with its parent's revision when it is a subtodo.
+///
+/// The id is derived from the body unless one is given, since the body is the only handle a
+/// person can reproduce from what they see, and never one any event has mentioned, a cancelled
+/// todo's included.
+fn add(
+    deployment: &Deployment,
+    chain: &ChainPolicy,
+    nodes: &[Node],
+    new: &wire::NewTodo,
+    at: Datetime,
+    actor: &prodrome_core::event::Actor,
+    typeset: &dyn crate::capability::Typeset,
+) -> Result<(String, TodoEvent, Option<TodoEvent>), Refusal> {
+    let mut fields = new.fields.clone();
+    capped("body", &fields.body, MAX_BODY_CHARS)?;
+    capped("rationale", &fields.rationale, MAX_RATIONALE_CHARS)?;
+    capped("detail", &fields.detail, MAX_DETAIL_CHARS)?;
+    capped("waiting_on", &fields.waiting_on, MAX_WAITING_ON_CHARS)?;
+    let known: Vec<&str> = deployment.categories.keys().map(String::as_str).collect();
+    // The app always files a todo somewhere; "" is a category only a kind that sets its own has.
+    if !known.contains(&fields.category.as_str()) {
+        let mut sorted = known.clone();
+        sorted.sort_unstable();
+        return Err(Refusal::bad_request(format!(
+            "category must be one of {sorted:?}, got {}",
+            shown(&fields.category)
+        )));
+    }
+    if fields.rationale.trim().is_empty() {
+        APP_RATIONALE.clone_into(&mut fields.rationale);
+    }
+    let taken: std::collections::BTreeSet<String> = nodes
+        .iter()
+        .filter_map(|node| node.event())
+        .map(|e| e.todo().as_str().to_owned())
+        .collect();
+    let todo = match &new.id {
+        None => crate::authoring::fresh_id(&crate::authoring::slug(&fields.body)?, &taken)?,
+        Some(named) => {
+            let named = todo_id(named)?.to_owned();
+            if taken.contains(&named) {
+                return Err(Refusal::conflict(format!(
+                    "todo {} already exists — the chain has mentioned it before",
+                    shown(&named)
+                )));
+            }
+            named
+        }
+    };
+    let new_todo = crate::authoring::NewTodo {
+        todo: todo.clone(),
+        fields,
+        source: None,
+        subtodos: Vec::new(),
+    };
+    let Some(parent) = &new.parent else {
+        let now = crate::zone::Moment {
+            at,
+            zone: deployment.zone,
+        };
+        let event = crate::authoring::build_todo(&new_todo, now, actor.as_str(), &known, typeset)?;
+        return Ok((todo, event, None));
+    };
+    let Some(record) = crate::todos::current(nodes, at, todo_id(parent)?) else {
+        return Err(Refusal::not_found(format!(
+            "no todo with id {} on the chain to be a parent",
+            shown(parent)
+        )));
+    };
+    let believed =
+        Believed::of(nodes, at, &chain.untrusted).map_err(|e| Refusal::internal(e.to_string()))?;
+    let (event, revision) = crate::authoring::build_subtodo(
+        &new_todo,
+        &record,
+        &believed.linkable(),
+        crate::zone::Moment {
+            at,
+            zone: deployment.zone,
+        },
+        actor.as_str(),
+        &known,
+        typeset,
+    )?;
+    Ok((todo, event, Some(revision)))
+}
+
+/// Why this priority when the app's optional line is blank: where the number came from, which
+/// is honest where an invented reason would not be.
+pub const APP_RATIONALE: &str = "Set by hand in the app.";
+/// An action line, not a document.
+pub const MAX_BODY_CHARS: usize = 2000;
+/// A sentence.
+pub const MAX_RATIONALE_CHARS: usize = 500;
+/// A screen and a half, generously.
+pub const MAX_DETAIL_CHARS: usize = 8000;
+/// A sentence.
+pub const MAX_WAITING_ON_CHARS: usize = 500;
+/// A checklist that long is a mistake, not a todo.
+pub const MAX_SUBTODOS: usize = 200;
+
+/// A change's prose within the caps a new todo's has.
+fn capped_patch(patch: &crate::todo::TodoPatch) -> Result<(), Refusal> {
+    for (name, text, cap) in [
+        ("body", &patch.body, MAX_BODY_CHARS),
+        ("detail", &patch.detail, MAX_DETAIL_CHARS),
+        ("detail_append", &patch.detail_append, MAX_DETAIL_CHARS),
+        ("rationale", &patch.rationale, MAX_RATIONALE_CHARS),
+        ("waiting_on", &patch.waiting_on, MAX_WAITING_ON_CHARS),
+    ] {
+        if let Some(text) = text.set() {
+            capped(name, text, cap)?;
+        }
+    }
+    if let Some(subtodos) = patch.subtodos.set() {
+        if subtodos.len() > MAX_SUBTODOS {
+            return Err(Refusal::bad_request(format!(
+                "subtodos is capped at {MAX_SUBTODOS} lines, got {}",
+                subtodos.len()
+            )));
+        }
+        for sub in subtodos {
+            capped("subtodos[].body", &sub.body, MAX_BODY_CHARS)?;
+        }
+    }
+    Ok(())
+}
+
+fn capped(name: &str, text: &str, cap: usize) -> Result<(), Refusal> {
+    let count = text.chars().count();
+    if count > cap {
+        return Err(Refusal::bad_request(format!(
+            "{name} is capped at {cap} characters, got {count}"
+        )));
+    }
+    Ok(())
+}
+
+/// A todo id off the wire, checked before it touches a fold or a path: the compile cache is a
+/// filesystem and `..` is a perfectly good string.
+fn todo_id(value: &str) -> Result<&str, Refusal> {
+    static TODO_ID: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\A[a-z0-9_-]+\z").expect("a literal pattern")
+    });
+    if TODO_ID.is_match(value) {
+        Ok(value)
+    } else {
+        Err(Refusal::bad_request(format!(
+            "a todo id is [a-z0-9_-]+, got {}",
+            shown(value)
+        )))
+    }
+}
+
+/// `GET /api/usage`: what this box has spent of its Claude allowance, over rolling windows on
+/// the wall clock.
+///
+/// # Errors
+/// The transcripts being unreadable.
+pub fn usage(
+    usage: &dyn crate::capability::Usage,
+    at: chrono::DateTime<chrono::Utc>,
+) -> Answered<crate::usage::Report> {
+    let requests = usage
+        .requests()
+        .map_err(|failed| Refusal::internal(failed.to_string()))?;
+    let refusals = usage
+        .refusals()
+        .map_err(|failed| Refusal::internal(failed.to_string()))?;
+    let allowances = usage.allowance();
+    let scope = usage
+        .scope()
+        .map_err(|failed| Refusal::internal(failed.to_string()))?;
+    Ok(crate::usage::report(
+        at,
+        &requests,
+        &refusals,
+        &allowances,
+        usage.horizon(),
+        scope,
+    ))
+}
+
+/// `GET /api/overview`: what is connected, by group, read from `declared` and what the box's
+/// stores say of it now. The secret store is asked once for every declared name.
+#[must_use]
+pub fn overview(
+    declared: &crate::settings::overview::Declared<'_>,
+    secrets: &dyn crate::capability::Secrets,
+    observed: &crate::settings::overview::Registers<'_>,
+    asking: &[crate::settings::overview::Asking],
+) -> wire::Overview {
+    let settables = declared.settables;
+    let snapshot = crate::capability::Snapshot::read(secrets, settables.iter());
+    let states: BTreeMap<String, SecretState> = settables
+        .iter()
+        .map(|settable| (settable.name().to_owned(), snapshot.state(&settable)))
+        .collect();
+    let grants = declared
+        .accounts
+        .iter()
+        .map(|account| (account.email.to_string(), secrets.mail_grants(account)))
+        .collect();
+    let observed = crate::settings::overview::Observed {
+        secrets: &states,
+        grants: &grants,
+        mail: observed.mail,
+        answered: observed.answered,
+        plugins: observed.plugins,
+        drive: observed.drive,
+        pushes: observed.pushes,
+    };
+    crate::settings::overview::overview(declared, &observed).wire(
+        &settables.names(),
+        asking,
+        crate::secretary::noticed::CONVERSATION.as_str().to_owned(),
+    )
+}
+
+/// `GET /api/calendar/<date>`: a week of the owner's calendars from that day, as Typst's HTML
+/// and as plain text.
+pub fn calendar(
+    calendar: &dyn crate::capability::Calendar,
+    render: &dyn Render,
+    from: NaiveDate,
+) -> Answered<wire::CalendarPayload> {
+    const DAYS: u32 = 7;
+    let days = calendar
+        .days(from, DAYS)
+        .map_err(|failed| Refusal::internal(failed.to_string()))?;
+    Ok(wire::CalendarPayload {
+        from: from.to_string(),
+        days: DAYS,
+        text: crate::reading::calendar_text(&days),
+        rich: render
+            .page(&crate::reading::calendar(&days))
+            .ok()
+            .map(|html| html.as_str().to_owned()),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn day(text: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(text, "%Y-%m-%d").expect("a real day")
+    }
+
+    /// A value the fake's store reads as locked: it holds the name and cannot say what it is.
+    const LOCKED: &str = "<the store is locked>";
+
+    /// A fake `Secrets` holding real-shaped values, so a leak would show.
+    struct FakeSecrets {
+        values: BTreeMap<String, String>,
+        grants: BTreeMap<String, crate::capability::MailGrants>,
+    }
+
+    impl crate::capability::Secrets for FakeSecrets {
+        fn secret_state(&self, settable: &crate::settings::Settable) -> SecretState {
+            match self.values.get(settable.name()).map(String::as_str) {
+                Some(LOCKED) => SecretState::Locked,
+                Some(_) => SecretState::Set,
+                None => SecretState::Missing,
+            }
+        }
+
+        fn mail_grants(
+            &self,
+            account: &crate::mail::account::MailAccount,
+        ) -> crate::capability::MailGrants {
+            self.grants
+                .get(account.email.as_str())
+                .copied()
+                .unwrap_or_default()
+        }
+
+        fn google_grant(&self, _: &crate::mail::address::EmailAddress) -> crate::google::Held {
+            crate::google::Held::NotSignedIn
+        }
+    }
+
+    fn a_fallback() -> crate::models::ModelEntry {
+        crate::models::ModelEntry::parse(&[], "claude-cli/claude-opus-5-5")
+            .expect("a built-in entry")
+    }
+
+    #[test]
+    fn a_briefings_title_is_its_first_heading_or_the_date() {
+        assert_eq!(
+            briefing_title("intro\n= Monday's briefing\n\ntext", day("2026-09-07")),
+            "Monday's briefing"
+        );
+        // A file with no heading is titled by its date, not by "".
+        assert_eq!(
+            briefing_title("just prose", day("2026-09-07")),
+            "2026-09-07"
+        );
+        // A bare `=` with nothing after it is not a title either.
+        assert_eq!(
+            briefing_title("=\n= Real one", day("2026-09-07")),
+            "Real one"
+        );
+    }
+
+    #[test]
+    fn a_message_id_excludes_what_notmuchs_query_language_reads_as_syntax() {
+        assert!(check_mail_id("CAB+abc123@mail.example.test").is_ok());
+        assert!(check_mail_id("a1b2c3d4e5f6").is_ok());
+        for bad in [
+            "ab",
+            "has space",
+            "has\"quote",
+            "has(paren",
+            "star*",
+            "colon:here",
+        ] {
+            assert!(check_mail_id(bad).is_err(), "{bad} should be refused");
+        }
+        assert!(check_mail_id(&"x".repeat(321)).is_err());
+    }
+
+    #[test]
+    fn a_conversation_id_is_lowercase_hexadecimal() {
+        assert!(check_thread_id("0000000012ab34cd").is_ok());
+        for bad in ["", "abc", "ABCDEF01", "zzzz", &"a".repeat(33)] {
+            assert!(check_thread_id(bad).is_err(), "{bad} should be refused");
+        }
+        assert_eq!(
+            check_thread_id("nope").unwrap_err().message(),
+            "a conversation id is hexadecimal, got 'nope'"
+        );
+    }
+
+    fn a_databricks_setup() -> crate::settings::ProviderSetup {
+        crate::settings::ProviderSetup::Databricks {
+            workspace: crate::settings::WorkspaceUrl::parse("https://acme.cloud.databricks.com")
+                .expect("a good workspace URL"),
+        }
+    }
+
+    /// Bad hosts are refused before `Edits` is asked.
+    #[test]
+    fn workspace_url_refuses_every_way_a_host_can_be_wrong() {
+        use crate::settings::{WorkspaceUrl, WorkspaceUrlError};
+
+        assert_eq!(
+            WorkspaceUrl::parse("http://acme.cloud.databricks.com"),
+            Err(WorkspaceUrlError::NotHttps(
+                "http://acme.cloud.databricks.com".to_owned()
+            ))
+        );
+        assert_eq!(
+            WorkspaceUrl::parse("https://acme.example.com"),
+            Err(WorkspaceUrlError::UnknownHost(
+                "https://acme.example.com".to_owned()
+            ))
+        );
+        assert_eq!(
+            WorkspaceUrl::parse("https://acme.cloud.databricks.com/serving-endpoints"),
+            Err(WorkspaceUrlError::PathOrQuery(
+                "https://acme.cloud.databricks.com/serving-endpoints".to_owned()
+            ))
+        );
+        assert_eq!(
+            WorkspaceUrl::parse("https://acme.cloud.databricks.com:8080"),
+            Err(WorkspaceUrlError::Port(
+                "https://acme.cloud.databricks.com:8080".to_owned()
+            ))
+        );
+        assert_eq!(
+            WorkspaceUrl::parse("https://user:pass@acme.cloud.databricks.com"),
+            Err(WorkspaceUrlError::Userinfo(
+                "https://user:pass@acme.cloud.databricks.com".to_owned()
+            ))
+        );
+        for good in [
+            "https://acme.cloud.databricks.com",
+            "https://acme.azuredatabricks.net",
+            "https://acme.gcp.databricks.com",
+        ] {
+            assert!(WorkspaceUrl::parse(good).is_ok(), "{good} should parse");
+        }
+    }
+
+    /// `ProviderSetup::declared`'s derivation, pinned apart from the route.
+    #[test]
+    fn provider_setup_declares_the_databricks_shape() {
+        let declared = a_databricks_setup().declared();
+        assert_eq!(
+            declared,
+            crate::settings::DeclaredProvider {
+                name: "databricks".to_owned(),
+                base_url: "https://acme.cloud.databricks.com/serving-endpoints".to_owned(),
+                key: "DATABRICKS_TOKEN".to_owned(),
+                attestation: crate::settings::Attestation::Unclaimed,
+            }
+        );
+    }
+
+    /// A week from a day, as text and through the renderer; a bad date is a 400.
+    #[test]
+    fn the_calendar_route_reads_a_week_and_refuses_a_bad_day() {
+        struct Week;
+        impl crate::capability::Calendar for Week {
+            fn days(
+                &self,
+                first: NaiveDate,
+                count: u32,
+            ) -> Result<Vec<crate::calendar::Day>, crate::store::StoreError> {
+                Ok(first
+                    .iter_days()
+                    .take(count as usize)
+                    .map(|date| crate::calendar::Day {
+                        date,
+                        entries: Vec::new(),
+                    })
+                    .collect())
+            }
+        }
+        let answered =
+            calendar(&Week, &crate::capability::Nothing, day("2026-10-05")).expect("a week");
+        assert_eq!((answered.from.as_str(), answered.days), ("2026-10-05", 7));
+        assert!(
+            answered.text.starts_with("Monday 5 October\n  nothing"),
+            "{}",
+            answered.text
+        );
+    }
+
+    /// A store that counts the lookups it gives no answer to, each a wait for the timeout.
+    struct Counting<'a>(
+        &'a dyn crate::capability::Secrets,
+        std::sync::atomic::AtomicUsize,
+    );
+
+    impl crate::capability::Secrets for Counting<'_> {
+        fn secret_state(&self, settable: &crate::settings::Settable) -> SecretState {
+            let state = self.0.secret_state(settable);
+            if matches!(state, SecretState::Locked | SecretState::Failed) {
+                self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+            state
+        }
+
+        fn mail_grants(
+            &self,
+            account: &crate::mail::account::MailAccount,
+        ) -> crate::capability::MailGrants {
+            self.0.mail_grants(account)
+        }
+
+        fn google_grant(
+            &self,
+            account: &crate::mail::address::EmailAddress,
+        ) -> crate::google::Held {
+            self.0.google_grant(account)
+        }
+    }
+
+    /// A value that looks leaked, so a leak would show.
+    const LEAKED: &str = "sk-do-not-print-this-key";
+
+    /// What the overview's tests declare: a provider, both channels, an account of each kind, a
+    /// calendar of two links and one chain.
+    struct Instance {
+        deployment: Deployment,
+        settables: crate::settings::Settables,
+        providers: Vec<crate::settings::DeclaredProvider>,
+        channels: Vec<crate::connect::Channel>,
+        accounts: crate::mail::account::Roster,
+        models: crate::models::Models,
+        fallback: crate::models::ModelEntry,
+        plugins: Vec<crate::plugin::Manifest>,
+        build: wire::AboutPayload,
+    }
+
+    impl Instance {
+        fn new() -> Self {
+            let providers = vec![crate::settings::DeclaredProvider {
+                name: "phala".to_owned(),
+                base_url: "https://phala.example.test/v1".to_owned(),
+                key: "PHALA_API_KEY".to_owned(),
+                attestation: crate::settings::Attestation::Unclaimed,
+            }];
+            let channels = crate::connect::Channel::ALL.to_vec();
+            let plugins = vec![crate::settings::overview::tests::calendar()];
+            let account = |email: &str, sync| crate::mail::account::MailAccount {
+                email: crate::mail::account_email::AccountEmail::new(email)
+                    .expect("a lower-case address"),
+                subdir: email.replace(['@', '.'], "-"),
+                sync,
+            };
+            let ms = crate::mail::account::Sync::MsImap(crate::mail::account::MsImap {
+                authority: crate::mail::account::Authority::Organizations,
+                inbox_folders: crate::mail::folders::Folders::inbox(),
+                sent_folder: "Sent Items".to_owned(),
+            });
+            let chain = ChainPolicy {
+                name: crate::chains::ChainName::new("life").expect("a slug"),
+                untrusted: Untrusted::of([
+                    prodrome_core::event::Actor::new("triage").expect("an actor")
+                ]),
+                roster: ["ada", "triage"]
+                    .map(|name| prodrome_core::event::Actor::new(name).expect("an actor"))
+                    .into_iter()
+                    .collect(),
+                root: crate::cast::keys::root(),
+            };
+            Self {
+                deployment: Deployment {
+                    viewers: std::collections::BTreeSet::new(),
+                    actors: BTreeMap::new(),
+                    chains: crate::chains::Chains::of(vec![chain]).expect("one chain"),
+                    categories: BTreeMap::new(),
+                    app_url: "https://example.test".to_owned(),
+                    coding: None,
+                    zone: crate::zone::Zone::UTC,
+                },
+                settables: crate::settings::Settables::derive(
+                    providers.iter(),
+                    channels.iter().copied(),
+                    None,
+                    &plugins,
+                ),
+                accounts: crate::mail::account::Roster::new(vec![
+                    account("ada@example.test", crate::mail::account::Sync::Gmail),
+                    account("ada@university.example", ms),
+                ])
+                .expect("a roster"),
+                models: crate::models::Models::default().with_order(
+                    crate::models::Job::Review,
+                    vec![
+                        crate::models::ModelEntry::parse(&providers, "phala/deepseek-v4-flash")
+                            .expect("a declared entry"),
+                    ],
+                ),
+                providers,
+                channels,
+                fallback: a_fallback(),
+                plugins,
+                build: wire::AboutPayload {
+                    version: "dev".to_owned(),
+                    build: "dev".to_owned(),
+                    completes: Vec::new(),
+                },
+            }
+        }
+
+        fn overview(&self, secrets: &dyn crate::capability::Secrets) -> wire::Overview {
+            let declared = crate::settings::overview::Declared {
+                deployment: &self.deployment,
+                settables: &self.settables,
+                providers: &self.providers,
+                channels: &self.channels,
+                accounts: self.accounts.accounts(),
+                models: &self.models,
+                fallback: &self.fallback,
+                plugins: &self.plugins,
+                drive: &[],
+                storage: &crate::settings::overview::Storage {
+                    root: "/srv/data".to_owned(),
+                    pushed: crate::settings::remote::Remote::parse("git@example.test:ada/data.git")
+                        .map_or(
+                            crate::settings::remote::Pushed::Nowhere,
+                            crate::settings::remote::Pushed::To,
+                        ),
+                },
+                build: &self.build,
+                reach: &crate::connect::PLAIN,
+            };
+            let calendar = BTreeMap::from([(
+                crate::plugin::PluginName::parse("ics").expect("a name"),
+                crate::settings::overview::Seen {
+                    ledger: crate::settings::overview::Recorded::default(),
+                    store: crate::settings::overview::Store::Calendar,
+                },
+            )]);
+            let nothing = crate::mail::health::Healths::default();
+            overview(
+                &declared,
+                secrets,
+                &crate::settings::overview::Registers {
+                    mail: &nothing,
+                    answered: &nothing,
+                    plugins: &calendar,
+                    drive: &nothing,
+                    pushes: None,
+                },
+                &[],
+            )
+        }
+    }
+
+    fn holding(names: &[&str]) -> FakeSecrets {
+        FakeSecrets {
+            values: names
+                .iter()
+                .map(|name| ((*name).to_owned(), LEAKED.to_owned()))
+                .collect(),
+            grants: BTreeMap::new(),
+        }
+    }
+
+    fn group(page: &wire::Overview, which: crate::connect::Group) -> &[wire::OverviewLine] {
+        &page
+            .groups
+            .iter()
+            .find(|group| group.group == which)
+            .expect("every group is listed")
+            .lines
+    }
+
+    /// A store that cannot answer is waited on once however many names are declared, and a line
+    /// it reaches reads as unknown, never as missing.
+    #[test]
+    fn a_locked_store_is_asked_once_and_never_reads_as_unset() {
+        let instance = Instance::new();
+        let locked = FakeSecrets {
+            values: instance
+                .settables
+                .names()
+                .into_iter()
+                .map(|name| (name.to_owned(), LOCKED.to_owned()))
+                .collect(),
+            grants: BTreeMap::new(),
+        };
+        let counting = Counting(&locked, std::sync::atomic::AtomicUsize::new(0));
+        let page = instance.overview(&counting);
+        assert_eq!(counting.1.load(std::sync::atomic::Ordering::SeqCst), 1);
+        let providers = group(&page, crate::connect::Group::Models);
+        let phala = providers
+            .iter()
+            .find(|line| line.key == "provider:phala")
+            .expect("the provider's line");
+        assert_eq!(phala.standing, crate::connect::Standing::Locked);
+    }
+
+    /// Every declared table is a line of its group, in the owner's words; a group nothing is
+    /// connected to holds none.
+    #[test]
+    fn the_overview_groups_what_the_instance_declares() {
+        use crate::connect::{Group, Standing};
+        let instance = Instance::new();
+        let page = instance.overview(&holding(&["PHALA_API_KEY", "NTFY_TOPIC", "FCM_SENDER_ID"]));
+        assert_eq!(
+            page.groups
+                .iter()
+                .map(|group| group.group)
+                .collect::<Vec<_>>(),
+            Group::ALL.to_vec()
+        );
+        assert_eq!(page.ask, "setup");
+        let labels = |which| {
+            group(&page, which)
+                .iter()
+                .map(|line| line.label.as_str())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(labels(Group::Storage), ["Data repository"]);
+        assert_eq!(
+            labels(Group::Mail),
+            ["ada@example.test", "ada@university.example"]
+        );
+        assert_eq!(labels(Group::Calendar), ["Home", "Work"]);
+        assert_eq!(
+            labels(Group::Models),
+            ["Chat", "Review", "Titles", "Reserve", "Phala"]
+        );
+        let reserve = &group(&page, Group::Models)[3];
+        assert_eq!(
+            reserve.detail.as_deref(),
+            Some("Automated jobs keep 30% of the subscription for you.")
+        );
+        assert_eq!(labels(Group::Notifications), ["fcm", "ntfy"]);
+        assert!(labels(Group::Drive).is_empty());
+        assert!(labels(Group::Coding).is_empty());
+        assert!(labels(Group::Plugins).is_empty());
+        assert_eq!(labels(Group::Box), ["Suzatary dev"]);
+
+        let fcm = &group(&page, Group::Notifications)[0];
+        assert_eq!(
+            fcm.standing,
+            Standing::Missing {
+                what: vec!["the Firebase service account".to_owned()]
+            },
+            "fcm needs both of its secrets"
+        );
+        let university = &group(&page, Group::Mail)[1];
+        assert_eq!(
+            university.standing,
+            Standing::Missing {
+                what: vec![
+                    "its sign-in to read mail".to_owned(),
+                    "its sign-in to send mail".to_owned()
+                ]
+            }
+        );
+        assert_eq!(
+            group(&page, Group::Storage)[0].detail.as_deref(),
+            Some("Kept on this box and pushed to example.test/ada/data; it holds the chain life.")
+        );
+        assert_eq!(
+            group(&page, Group::Models)[1].detail.as_deref(),
+            Some("Review answers with Phala's deepseek-v4-flash model.")
+        );
+    }
+
+    /// No resolved value, and no secret's stored name, is drawn: names travel only where a card
+    /// is matched.
+    #[test]
+    fn the_overview_never_carries_a_secret_value_and_draws_no_name() {
+        let instance = Instance::new();
+        let names = instance.settables.names();
+        let page = instance.overview(&holding(&names));
+        let json = serde_json::to_string(&page).expect("an overview serialises");
+        assert!(!json.contains(LEAKED), "a value leaked: {json}");
+        for name in &names {
+            assert!(!json.contains(name), "{name} is on the wire: {json}");
+        }
+    }
+}

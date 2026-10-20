@@ -1,0 +1,6386 @@
+/* Suzatary, on a phone first, in the bmabsout hand (docs/DESIGN-DECISIONS-2026-09-25.md).
+
+   A calm printed document on a screen: serif for everything read, the sans
+   only for short uppercase labels, frosted sheets with no border and no
+   shadow, capsule buttons, and a fulfillment always drawn in one of three
+   states. One type scale (×1.2) and one spacing scale; a rule that wants a
+   size between two of them wants one of the two.
+
+   A wide rule sits right after the base rule it changes, in its own
+   `@media (min-width: …)` block. A base rule written later with the same
+   specificity wins the cascade, so web/test/cascade.test.ts fails on any wide
+   property that a later base rule sets again for the same selector. */
+
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(./fonts/source-serif-4-latin-opsz-normal.woff2) format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(./fonts/source-serif-4-latin-opsz-italic.woff2) format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(./fonts/source-sans-3-latin-wght-normal.woff2) format("woff2-variations");
+}
+
+/* The four destinations' titles, and nothing else (DESIGN-DECISIONS §C). */
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(./fonts/CrimsonPro-200-900.woff2) format("woff2-variations");
+}
+
+:root {
+  /* --- type: ×1.2 from the 16px body ---------------------------------------- */
+  --t-tiny: 0.694rem;
+  --t-small: 0.833rem;
+  --t-body: 1rem;
+  --t-head: 1.2rem;
+  --t-head2: 1.44rem;
+  --t-title: 2.074rem;
+  --t-title-wide: 2.488rem;
+
+  --f-serif: "Source Serif 4", Georgia, serif;
+  --f-sans: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --f-display: "Crimson Pro", Georgia, serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* --- space: 4px, doubling ----------------------------------------------- */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+
+  /* --- shape --------------------------------------------------------------- */
+  --r-sm: 5px;
+  --r-card: 8px;
+  --r-callout: 16px;
+  --r-pill: 999px;
+
+  /* Every target a thumb lands on is at least this: 44px at the 16px root. */
+  --tap: 2.75rem;
+  /* The phone's tab bar, above the home indicator: what a thing pinned to the foot rides above. */
+  --tabbar: max(var(--tap), 3.5rem);
+  /* A tree row's fold column, and what each level of depth adds. */
+  --fold: 20px;
+  --indent: 12px;
+
+  /* The colour roles (DESIGN-DECISIONS §E) are the ONE token source:
+     tokens.typ, samples of the owner's design system (typst-design), printed
+     into ./tokens.css by scripts/gen-tokens.mjs, loaded before this file. */
+
+  --blur: blur(0.6rem);
+
+  /* Where a bar pinned under the header sits: a hair under the header's own
+     height, so the pinned row tucks beneath it. */
+  --sticky-top: calc(2.4rem + env(safe-area-inset-top));
+
+  color-scheme: light;
+}
+
+/* THE DARK SET's colour roles live in ./tokens.css, generated from the same
+   tokens.typ for both blocks, so the machine's answer and the reader's (web/src/app/theme.ts) win in
+   both directions without a second hand-kept copy. `color-scheme` stays
+   here: it is not a colour role. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.pie {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+
+/* A node's mark on the list (web/src/todo/row.ts `markOf`): its pie and its number beside it, the sort key. */
+.mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* The todo page's thirty days (web/src/todo/curve.ts `line`): one thick line in its own value's colour,
+   4px whatever the width, inside a frame from 0 to 100%, the past faded. */
+.curve {
+  display: flex;
+  gap: 0.4rem;
+  margin: var(--s-2) 0 var(--s-4);
+}
+
+.curveaxis {
+  position: relative;
+  flex: none;
+  width: 1.6rem;
+  height: 8rem;
+}
+
+.curvetick {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font: var(--t-tiny) / 1 var(--f-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.curvebody {
+  flex: 1;
+  min-width: 0;
+}
+
+.curveplot {
+  position: relative;
+  height: 8rem;
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+}
+
+.curvehalf {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--grid);
+}
+
+.curvesvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.curveline {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.curveline.past {
+  opacity: 0.35;
+}
+
+.curvenow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--ink);
+}
+
+.curvedot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--sheet-solid);
+}
+
+.curvedates {
+  position: relative;
+  margin-top: 6px;
+  height: 1em;
+  container-type: inline-size;
+}
+
+/* A week either side of now only where five short dates fit without touching. */
+@container (max-width: 15rem) {
+  .curvedate.week {
+    display: none;
+  }
+}
+
+.curvedate {
+  position: absolute;
+  transform: translateX(-50%);
+  font: var(--t-tiny) / 1 var(--f-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.curvedate.start {
+  transform: none;
+}
+
+.curvedate.end {
+  transform: translateX(-100%);
+}
+
+.curvedate.now {
+  color: var(--ink);
+}
+
+/* The pie (web/src/todo/fulfillment.ts `pie`): its colour is its value's, set on the svg. */
+.pietrack {
+  fill: currentColor;
+  fill-opacity: 0.16;
+}
+
+.piefill,
+.pieline {
+  fill: none;
+  stroke: currentColor;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  /* The tab bar is fixed over the bottom of the page; nothing may hide beneath
+     it, home indicator included. */
+  padding: 0 1rem calc(4.6rem + env(safe-area-inset-bottom));
+  background: var(--ground);
+  color: var(--ink);
+  font: var(--t-body)/1.55 var(--f-serif);
+  font-optical-sizing: auto;
+  overscroll-behavior-y: contain;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
+header,
+main,
+footer,
+.toast {
+  max-width: 74rem;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: calc(0.6rem + env(safe-area-inset-top)) 0 0.55rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* The header's sheet runs to both screen edges, and is a layer beside the
+   phone's fixed bar rather than an ancestor of it: a filtered ancestor would
+   become the bar's containing block. The header is centred in the window at
+   every width, so the sheet reaches each edge from its middle. */
+header::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(50% - 50vw);
+  z-index: -1;
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+/* The sheet material (DESIGN-DECISIONS §B): frosted, no border, no shadow. */
+.pagehead,
+.group {
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-radius: var(--r-card);
+}
+
+.pagehead {
+  margin: var(--s-4) 0;
+  padding: var(--s-3) var(--s-4);
+}
+
+.pagehead > .pagetitle,
+.pagehead > .convhead,
+.pagehead > .todohead {
+  margin-top: 0;
+}
+
+.pagehead > .rule {
+  margin: var(--s-2) 0 0;
+}
+
+/* A link or a quiet control a finger presses is 44 px tall however small its
+   words (the 2026-10-13 audit, X19): an answer's Copy and Reply. The brand and
+   a hash link stand in a line, the header's or a sentence's, so they reach
+   the height with padding their negative margin gives back, and the line
+   keeps its own height. */
+.copyanswer,
+.turnreply {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+.brand,
+.hashlink {
+  display: inline-block;
+  padding-block: calc((var(--tap) - 1lh) / 2);
+  margin-block: calc((1lh - var(--tap)) / 2);
+}
+
+.brand {
+  font: 600 var(--t-small) / 1 var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* A live connection is worth a glance, not a word. What it means is its title. */
+.live {
+  margin-left: auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-muted);
+}
+
+.live.on {
+  background: var(--primary);
+}
+
+.live.off {
+  background: var(--line);
+}
+
+/* THE BAR: words, fixed to a phone's foot; the page in view is its primary
+   word, led by the diamond (web/src/shell/nav.ts). */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab {
+  position: relative;
+  flex: 1 1 0;
+  min-height: var(--tabbar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  padding: 0.4rem 0 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-muted);
+  text-decoration: none;
+  font: 400 var(--t-body) / 1 var(--f-serif);
+  white-space: nowrap;
+}
+
+.tab.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* The flex gap is 0.3em, so the diamond's own 0.4em on the word's side. */
+.tab > .diamond {
+  margin: 0 0.1em 0 0;
+}
+
+/* What waits on the owner, beside the Inbox's word. Absent at zero; the link's
+   own name carries it in words. */
+.tabbadge {
+  font: 700 var(--t-tiny) / 1 var(--f-sans);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Navigation is underlined only under the pointer (DESIGN-DECISIONS §E). */
+@media (hover: hover) {
+  .tab:hover,
+  .morelink:hover {
+    color: var(--primary);
+  }
+
+  .tab:hover .tablabel,
+  .morelink:hover,
+  .brand:hover,
+  .back:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+}
+
+/* ONE GRID FOR EVERY PAGE AT 62rem AND UP (the 2026-10-13 audit, X4). The
+   header spans the window, so the brand and the words stand in the same place
+   on every page, with room on the right for the secretary's toggle whether or
+   not a page has one. Everything under it starts at the brand's edge and runs
+   to the secretary panel when that is open (`--aside`), or to the window's
+   edge; a page's own columns divide that width, the thing being read taking
+   what the list leaves. The widths are at the end of this file, after every
+   base rule they override. */
+@media (min-width: 62rem) {
+  :root {
+    --aside: 0px;
+  }
+
+  body {
+    padding-bottom: 3rem;
+  }
+
+  header {
+    gap: var(--s-8);
+    padding-top: calc(0.9rem + env(safe-area-inset-top));
+    padding-right: calc(7rem + var(--s-3));
+  }
+
+  /* The same words across the top, the sheet dropping from "More". */
+  .tabbar {
+    position: relative;
+    gap: var(--s-6);
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  .tab {
+    flex: none;
+    min-height: var(--tap);
+    padding: 0;
+  }
+}
+
+.toast {
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-sm);
+  background: var(--sheet);
+  font-size: var(--t-small);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ONE FOCUS RING, EVERYWHERE, and it is the keyboard's cursor as well as an
+   accessibility control (web/src/shell/keys.ts: `j`/`k` move focus and the browser
+   draws the mark). Two pixels of accent plus two of offset reads on both
+   themes; the offset is what keeps it off the thing it is ringing. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* A reading column for the pages made of cards. `main` is 74rem wide because
+   the chain table wants it; a todo body set that wide is a 120-character line. */
+.column {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* --- type ----------------------------------------------------------------- */
+
+h1,
+.pagetitle {
+  font-size: var(--t-head2);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 1.1rem 0 0.35rem;
+  line-height: 1.25;
+}
+
+.pagetitle.destination {
+  font: 600 var(--t-title) / 1.1 var(--f-display);
+  color: var(--ink);
+}
+
+@media (min-width: 900px) {
+  .pagetitle.destination {
+    font-size: var(--t-title-wide);
+  }
+}
+
+/* Section titles are labels: the sans, uppercase and tracked, in primary. */
+h2,
+.label {
+  font: 600 var(--t-small) / 1.4 var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin: 1.8rem 0 0.6rem;
+}
+
+h3 {
+  font-size: var(--t-body);
+  font-weight: 700;
+  color: var(--primary-soft);
+  margin: 1rem 0 0.35rem;
+}
+
+/* An inline link in running text is underlined; navigation never is. */
+a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+/* Navigation is never underlined: rows, crumbs and anything shaped as a button. */
+a.chipbtn,
+.needsyouopen,
+.turnphoto {
+  text-decoration: none;
+}
+
+.legend {
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+  font-style: italic;
+}
+
+/* --- marks (web/src/view/marks.ts) ---------------------------------------------- */
+
+.rule {
+  display: block;
+  width: calc(100% - 2px);
+  height: 4px;
+  overflow: visible;
+  margin: 0.35rem 0 var(--s-4);
+  stroke: var(--rule);
+}
+
+/* The CV's diamond, identical in both themes (DESIGN-DECISIONS §E). */
+.diamond,
+.cardmeta > .chip + .chip::before {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: 0.5em;
+  height: 0.5em;
+  border: 0.1em solid var(--mark-line);
+  border-radius: 0.15em;
+  background: var(--mark-fill);
+  transform: rotate(45deg);
+  margin: 0 0.4em;
+  vertical-align: 0.1em;
+}
+
+.cardmeta > .chip + .chip::before {
+  content: "";
+  margin: 0 0.7em 0 0.1em;
+}
+
+.callout {
+  position: relative;
+  margin: var(--s-6) 0;
+  padding: var(--s-4) var(--s-4) var(--s-3);
+  border-radius: var(--r-callout);
+  background: var(--blue-wash);
+  color: var(--ink);
+}
+
+.callout > .outline {
+  position: absolute;
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  overflow: visible;
+  pointer-events: none;
+  stroke: var(--blue-line);
+}
+
+.callouttitle {
+  margin: 0 0 var(--s-2);
+  text-align: center;
+  font: italic 700 var(--t-body) / 1.35 var(--f-serif);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--blue-35);
+}
+
+.meta {
+  color: var(--ink-muted);
+  font-size: var(--t-tiny);
+  font-family: var(--f-mono);
+  word-break: break-word;
+}
+
+.problem {
+  color: var(--problem);
+  /* The box's own words, which can hold a whole hash or path. */
+  overflow-wrap: anywhere;
+}
+
+.count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin: 0.6rem 0 0.35rem;
+  font-size: var(--t-body);
+  color: var(--ink-muted);
+}
+
+.count strong {
+  color: var(--ink);
+  font-size: var(--t-body);
+}
+
+.countnote {
+  font-size: var(--t-small);
+}
+
+/* --- chips ---------------------------------------------------------------- */
+
+/* A chip is a small label, not a pill: the sans, uppercase, tracked. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip.prov {
+  color: var(--primary);
+}
+
+/* An act this browser has taken and the box has not yet: quiet, on its own row (web/src/todo/row.ts). */
+.row.pending .rowmain {
+  color: var(--ink-muted);
+}
+
+.chip.queuedmark {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+.chip.ok {
+  color: var(--ink-muted);
+}
+
+.chip.cat {
+  color: var(--primary);
+}
+
+/* --- the todo card -------------------------------------------------------- */
+
+/* The whole card is the link (web/src/todo/card.ts). It is `role="link"` and not an
+   `<a>` because it contains buttons, so the affordance has to be drawn rather
+   than inherited: a pointer, a lift on hover, a press state, and a focus ring
+   the keyboard can find. */
+.card {
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  margin: var(--s-2) 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--primary);
+  }
+}
+
+.card:active {
+  background: var(--tint);
+}
+
+/* The card the pane is showing. */
+.card.selected {
+  border-color: var(--primary);
+  background: var(--tint);
+}
+
+/* A RESOLVED CARD DIMS AND STAYS PUT. It is only ever on screen because the
+   reader asked for `done` or `all`, so hiding it would be answering a different
+   question — and moving it to the bottom would break the one ordering this app
+   has. Dimming is the whole treatment. It comes off on hover and focus so a row
+   somebody is actually reading is readable. */
+.card.resolved {
+  opacity: 0.62;
+}
+
+.card.resolved:hover,
+.card.resolved:focus-within {
+  opacity: 1;
+}
+
+.cardmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-3) 0;
+}
+
+/* A todo's page shows its number in ink; its thirty-day line is in the price box below. */
+.todofulfil {
+  float: right;
+  margin: 0.2rem 0 var(--s-2) var(--s-4);
+}
+
+.todopct {
+  font-size: var(--t-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* HOW LONG THIS HAS BEEN OWED, pushed to the row's right end. Quiet — it is
+   context for the number, not a second number. */
+.cardage {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--t-tiny);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.cardbody {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.85rem 0.6rem;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* The body is text now, not a control: expanding the source is its own small
+   button in the footer, so the biggest target on the card belongs to the card. */
+.cardbody {
+  cursor: inherit;
+}
+
+.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.full {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+/* The padding is horizontal only: `overflow: hidden` clips at the PADDING edge,
+   so a bottom padding would let the clamped third line show through it. */
+.waiting {
+  padding: 0 0.85rem;
+  margin-bottom: 0.6rem;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.waitlabel {
+  color: var(--primary);
+}
+
+/* The card's footer: the link into the todo, and the one act worth a thumb.
+   The link keeps the row's width so the whole strip stays a target. */
+.cardfoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: 0 0.85rem 0.7rem;
+}
+
+.cardopen {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 0.85rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+/* The one control on a card that is not an act: it swaps the clamped line for
+   the typst source the chain stores. Quiet, because it is not what the card is
+   for — the card is for opening the todo. */
+.srcbtn {
+  flex: none;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+  font-style: italic;
+}
+
+.srcbtn[aria-expanded="true"] {
+  color: var(--primary);
+  background: var(--tint);
+}
+
+.cardopen svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.cardid {
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  word-break: break-all;
+}
+
+/* --- the acts ------------------------------------------------------------ */
+/* One button shape for the four verbs. 2.75rem is the tap target; the label
+   stays beside the icon because a bare tick is a guess about which verb it
+   means, and this app has four. */
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 1.1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+
+.act svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.act:active {
+  opacity: 0.8;
+}
+
+/* Dashed and in the muted ink, never faded: a faded capsule on a dark sheet reads as nothing at all. */
+.act[disabled] {
+  border-style: dashed;
+  border-color: var(--ink-muted);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+/* The act a card or a page is for is the one filled capsule. */
+.act-done,
+.act-confirm {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.cardact {
+  flex: none;
+  min-height: 2.25rem;
+}
+
+/* PINNED. A todo's detail runs to a screen and a half, and the four verbs are
+   the reason the page is open — scrolling to the bottom of a checklist and then
+   back up to say "done" is the app asking for a favour. It rides just under the
+   header (`--sticky-top`), and inside a detail pane it pins to the pane's own
+   top instead. */
+.actrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  position: sticky;
+  top: var(--sticky-top);
+  z-index: 6;
+  margin: 0.75rem 0 0.6rem;
+  padding: 0.5rem 0;
+  background: var(--ground);
+  border-bottom: 1px solid var(--rule);
+}
+
+.actrow .act {
+  flex: 1 1 auto;
+}
+
+/* THE ONE-LINE FIELD BESIDE EVERY ACT (`noteline.ts`, commit 12): it takes
+   the row's slack like `.dismissreason` already does, so it sits inline
+   where there is room and wraps to its own line under the buttons on a
+   narrow phone — `.actrow`/`.editactions`/`.proposalact-row` all already
+   `flex-wrap: wrap`, so nothing else has to change for it to fall there. */
+.noteline {
+  flex: 1 1 12rem;
+  min-height: var(--tap);
+  padding: 0 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: inherit;
+  font: inherit;
+}
+
+.divider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin: 1.4rem 0 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--rule);
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dividernote {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* --- the filter bar ------------------------------------------------------- */
+
+/* 16px minimum on every input: anything smaller makes iOS zoom the page on
+   focus, and a list that jumps when you search is not a list app. */
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  font-size: max(16px, var(--t-body));
+}
+
+input,
+select {
+  padding: 0.35rem 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+/* A button is a capsule: secondary is outlined, the primary act is filled. */
+button {
+  cursor: pointer;
+  padding: 0.35rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.searchbox {
+  margin: 0.2rem 0 0.6rem;
+}
+
+input.search {
+  width: 100%;
+  min-height: var(--tap);
+  border-radius: var(--r-card);
+  padding: 0 0.8rem;
+}
+
+.segmented {
+  display: flex;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--sheet);
+}
+
+.segment {
+  flex: 1 1 0;
+  min-height: var(--tap);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 400;
+  font-size: var(--t-body);
+}
+
+.segment.on {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+.facets {
+  margin-top: 0.5rem;
+}
+
+.chiprow {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.25rem 0;
+  scrollbar-width: none;
+}
+
+.chiprow::-webkit-scrollbar {
+  display: none;
+}
+
+/* A choice's chips, and while none is lit, what they ask for, in place, before anything is sent. */
+.chipprompt {
+  margin: 0;
+  font: 600 var(--t-small) / 1.3 var(--f-sans);
+  color: var(--primary);
+}
+
+.chipfield.unchosen .chipbtn {
+  border-style: dashed;
+}
+
+/* A form's chips wrap, so the last is never cut off at the edge. */
+.draftform .chiprow {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.chipbtn {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 0.85rem;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.chipbtn.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+/* --- the todo page -------------------------------------------------------- */
+
+.back {
+  font-style: italic;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  min-height: var(--tap);
+  margin: 0.5rem 0 0.2rem;
+  padding: 0 0.7rem 0 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: var(--t-body);
+}
+
+.back svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  transform: scaleX(-1);
+}
+
+.todohead {
+  margin: 0.3rem 0 0.6rem;
+}
+
+/* The body leads and the slug is its subtitle (docs/AUDIT-UX-2026-09-12.md
+ * finding 1): the heading size moved from the id to the text. */
+.todolead .todobody {
+  font-size: var(--t-head);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 0.35rem;
+}
+
+.todoid {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  font-weight: 500;
+  color: var(--ink-muted);
+  word-break: break-all;
+  margin-bottom: 0.45rem;
+}
+
+.todohead .cardmeta {
+  padding: 0;
+}
+
+.claim {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  border-left: 3px solid var(--primary);
+  padding: 0.35rem 0 0.35rem 0.65rem;
+}
+
+.todobody {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--t-body);
+  line-height: 1.55;
+  margin: 0.5rem 0 1rem;
+}
+
+.waitingbody {
+  font-size: var(--t-body);
+  color: var(--ink-muted);
+  border-left: 3px solid var(--primary);
+  padding-left: 0.7rem;
+}
+
+.checklist,
+.rationale {
+  list-style: none;
+  margin: 0.4rem 0 1rem;
+  padding: 0;
+}
+
+.checklist li,
+.rationale li {
+  display: flex;
+  gap: var(--s-2);
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-body);
+}
+
+.rationale li {
+  color: var(--ink-muted);
+  display: list-item;
+  list-style: disc;
+  margin-left: 1.1rem;
+}
+
+.checklist .box {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  text-align: center;
+  line-height: 1.05rem;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.checklist li.done {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+/* editandtick (docs/APP.md §4 items 2-3): the edit disclosure reuses .why's
+   border and summary chevron, and .draftform/.draftfield/.addbtn for the
+   fields themselves — the same form conventions addsheet.ts uses. */
+.editprice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: 0.4rem;
+}
+
+.editrepricelabel {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  font-size: var(--t-body);
+}
+
+.editrepricelabel input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.editactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.editactions .addbtn,
+.editactions .cancelbtn {
+  flex: 1 1 0;
+}
+
+.cancelbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+
+/* A tappable checklist (§4 item 3, "tick its subtodos"): the checkbox is
+   native, so it is keyboard-operable and screen-reader-legible for free. */
+.checklist input[type="checkbox"] {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--primary);
+}
+
+.checklist label {
+  cursor: pointer;
+}
+
+.why {
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  margin: 1rem 0;
+}
+
+.why > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--t-body);
+  list-style: none;
+}
+
+.why > summary::-webkit-details-marker {
+  display: none;
+}
+
+.why > summary svg {
+  width: 1rem;
+  height: 1rem;
+  margin-left: auto;
+  color: var(--ink-muted);
+  transition: transform 0.18s ease;
+}
+
+.why[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.why > *:not(summary) {
+  padding: 0 0.85rem 0.8rem;
+}
+
+.why h2 {
+  margin-top: 0.2rem;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0.6rem 0 0 0.4rem;
+  padding: 0 0 0 1.35rem;
+  border-left: 2px solid var(--line);
+}
+
+.tlitem {
+  position: relative;
+  padding: 0 0 1rem 0;
+}
+
+.tlitem::before {
+  content: "";
+  position: absolute;
+  left: -1.78rem;
+  top: 0.35rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--ground);
+}
+
+.tlhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  font-size: var(--t-body);
+}
+
+.hashes {
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  color: var(--ink-muted);
+  word-break: break-all;
+  margin-top: 0.3rem;
+}
+
+.hashlink,
+code.hash {
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+}
+
+/* A history event's fields, stacked so a phone has the width for them: the
+   name, what it was, what it became. Prose wraps; a stored literal (a spec
+   is one line of a few hundred characters) scrolls in its own box, so the
+   evidence is whole and the page is never wider than the screen. */
+dl.diff {
+  margin: 0.3rem 0;
+  font-size: var(--t-small);
+  min-width: 0;
+}
+
+dl.diff dt {
+  color: var(--ink-muted);
+  margin-top: 0.3rem;
+}
+
+dl.diff dd {
+  display: flex;
+  gap: var(--s-1);
+  align-items: baseline;
+  margin: 0.1rem 0 0 0.6rem;
+  min-width: 0;
+}
+
+dl.diff dd.was {
+  color: var(--ink-muted);
+}
+
+dl.diff .arrow {
+  color: var(--ink-muted);
+  flex: none;
+}
+
+dl.diff .prose {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+dl.diff code.literal {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--sheet);
+}
+
+dl.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s-1) 0.9rem;
+  margin: 0.5rem 0 1rem;
+  font-size: var(--t-body);
+}
+
+dl.facts dt {
+  color: var(--ink-muted);
+}
+
+dl.facts dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+/* A `#link("todo:<id>")` inside rendered prose points back INTO this app, and
+   is marked as such rather than as an outbound link: the accent and a dotted
+   underline, where an outbound one is underlined solid. Nothing about it says
+   "leaves this page", because it does not.
+
+   No ground and no padding. The chip look was tried first and put a visible
+   gap between the link and the punctuation after it — an inline box's padding
+   is space in the sentence, and a sentence is what this is inside. */
+
+.rich a.todolink {
+  color: var(--primary);
+  text-decoration: underline dotted;
+  text-underline-offset: 0.18em;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .rich a.todolink:hover {
+    text-decoration: underline;
+  }
+}
+
+/* --- the links between todos ---------------------------------------------- */
+/* A reference is a ROW, not a card: it is a todo mentioned in passing, and it
+   has to stay scannable when a todo has nine of them. The ramp colours the
+   number and a 3px rail on the left, the same vocabulary the cards use. */
+
+.linksection {
+  margin-top: 1.4rem;
+}
+
+.linkhead {
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 0.9rem 0 0.35rem;
+}
+
+.linklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.linkrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: var(--tap);
+  padding: 0.35rem 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .linkrow:hover {
+    border-color: var(--primary);
+  }
+}
+
+.linkid {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkrow svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--ink-muted);
+  flex: none;
+}
+
+.picker {
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+}
+
+.pickerhandle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-body);
+  text-align: left;
+}
+
+/* The add sheet is the picker, with a form in it. The leading icon has to opt
+   out of `.pickerhandle svg`, which is written for the trailing chevron. */
+.addicon {
+  display: inline-flex;
+  color: var(--primary);
+}
+
+.addicon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0;
+  transform: none;
+  color: var(--primary);
+}
+
+.draftform {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-bottom: 0.85rem;
+}
+
+/* 16px MINIMUM, everywhere a finger lands: iOS zooms the page in on a focused
+   control with a smaller font, and a form that jumps under the thumb is a form
+   that gets abandoned. */
+.draftfield {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.55rem 0.7rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-body);
+  box-sizing: border-box;
+}
+
+.draftbody {
+  min-height: 5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.draftrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+/* The hint wraps to its own line rather than being cut off at the edge — a
+   clipped instruction is worse than a second line. */
+.draftrow .meta {
+  flex: 1 1 8rem;
+}
+
+.draftrange {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 2.5rem;
+  accent-color: var(--primary);
+}
+
+.draftpct {
+  min-width: 3.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.draftdays {
+  width: 5rem;
+  flex: none;
+}
+
+.draftrow .draftfield {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.addbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+
+.addbtn svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.addbtn[disabled] {
+  opacity: 0.6;
+}
+
+.pickerhandle svg {
+  width: 1rem;
+  height: 1rem;
+  margin-left: auto;
+  color: var(--ink-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.22s ease;
+}
+
+.picker.open .pickerhandle svg {
+  transform: rotate(90deg);
+}
+
+.pickerhead {
+  padding: 0 0.75rem;
+}
+
+.sheetspacer {
+  height: 3.5rem;
+}
+
+/* Under the tab bar (20), so the sheet's collapsed overhang is hidden behind it
+   and the tabs stay reachable while the sheet is open. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 17;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+@media (max-width: 61.99rem) {
+  /* The add sheet docks above the tab bar as a handle, and pulls up over the
+     list — so adding a todo never pushes the list off the screen. */
+  .picker {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(3.25rem + env(safe-area-inset-bottom));
+    z-index: 18;
+    max-height: 72vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    border-bottom: 0;
+    /* Docked over the list, so opaque: glass would let the rows read through it. */
+    background: var(--ground);
+    transform: translateY(calc(100% - 3.25rem));
+    transition: transform 0.22s ease;
+  }
+
+  .picker.open {
+    transform: none;
+  }
+
+  .pickerbody {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (min-width: 62rem) {
+  .pickerhandle svg,
+  .scrim,
+  .sheetspacer {
+    display: none;
+  }
+
+  .pickerhandle {
+    cursor: default;
+  }
+
+  /* No sheet on a wide screen: the form is a panel under the list, in the
+     same reading column the cards use. */
+  .addsheet {
+    max-width: 42rem;
+    margin: 1.2rem auto 2rem;
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0.6rem 0;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.controls input.search {
+  flex: 1 1 10rem;
+  width: auto;
+  min-height: var(--tap);
+}
+
+.filterbox {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0.5rem 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.filterbox input {
+  flex: 1 1 auto;
+  min-height: var(--tap);
+}
+
+/* --- the chain table ------------------------------------------------------ */
+
+.verdict {
+  font-size: var(--t-body);
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--r-card);
+  border: 2px solid var(--line);
+  background: var(--sheet);
+}
+
+.verdict.ok {
+  border-color: var(--primary-soft);
+  color: var(--primary-soft);
+}
+
+.verdict.bad {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* WHO CHECKED. The verdict above is only as good as the thing that produced
+   it, so the checker's name sits directly under it rather than in a footnote:
+   the WebAssembly core, or the SubtleCrypto fallback that checks strictly
+   less. */
+.checker {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  margin: 0.4rem 0;
+  line-height: 1.45;
+}
+
+.checker strong {
+  color: var(--ink);
+}
+
+/* Tables scroll inside their own box; the page body never scrolls sideways. */
+.scroller {
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--t-small);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--ground);
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: var(--t-tiny);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+td.num {
+  font-variant-numeric: tabular-nums;
+}
+
+tr.focused > td {
+  background: var(--tint);
+  background: var(--tint);
+}
+
+/* The chain's rows are drawn a window at a time (pages/chain.ts), each one line
+   tall so one row's height measures them all; the spacers hold the rest's. */
+#chain td {
+  white-space: nowrap;
+}
+
+#chain tr.spacer > td {
+  padding: 0;
+  border: 0;
+}
+
+pre {
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.6rem 0.7rem;
+  overflow-x: auto;
+  font-size: var(--t-small);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+ul.tree,
+ul.tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--rule);
+}
+
+ul.tree > li {
+  margin: 0.2rem 0;
+}
+
+.node {
+  font-size: var(--t-small);
+}
+
+footer {
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.6rem;
+}
+
+/* --- master and detail ----------------------------------------------------- */
+/* Under 62rem `.split` is nothing at all: the list is the reading column it has
+   always been and there is no pane, because the router sends a todo to its own
+   pushed screen at that width (web/src/shell/layout.ts). At 62rem and up it is two
+   tracks that scroll independently, so a list scrolled a long way down stays
+   where it is while the todo beside it is read from the top. */
+
+.listpane {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+.detailpane {
+  display: none;
+}
+
+.panehint {
+  padding: 3.5rem 1rem;
+  text-align: center;
+}
+
+.panehintlead {
+  font-size: var(--t-body);
+  color: var(--ink-muted);
+  margin: 0 0 0.3rem;
+}
+
+@media (min-width: 62rem) {
+  .split {
+    display: grid;
+    /* `minmax(0, …)` on the detail track, not `1fr`: a plain `1fr` has an AUTO
+       minimum, and one unbroken hash in the timeline would widen it. */
+    grid-template-columns: 27rem minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .split > * {
+    min-width: 0;
+  }
+
+  .listpane,
+  .detailpane {
+    /* Each column is its own scroller, pinned under the header. The page itself
+       then barely scrolls, which is what makes the two independent. */
+    position: sticky;
+    top: calc(4.2rem + env(safe-area-inset-top));
+    max-height: calc(100vh - 5.2rem - env(safe-area-inset-top));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* The panes are the scrollers, so the page under them keeps no room at its foot to scroll into. */
+  body:has(#view .split) {
+    padding-bottom: 0;
+  }
+
+  .listpane {
+    max-width: none;
+    margin: 0;
+    /* Room for a focus ring against the scroller. */
+    padding: 0 0.4rem;
+  }
+
+  .detailpane {
+    display: block;
+    border-left: 1px solid var(--rule);
+    padding-left: 1.5rem;
+  }
+
+  /* The pane IS the column; a second max-width inside it would strand the
+     detail against the left edge of a wide window. */
+  .detailpane .column {
+    max-width: none;
+  }
+
+  /* The pane scrolls itself, so what pins inside it pins to the pane. */
+  .detailpane .actrow {
+    top: 0;
+    margin-top: 0;
+  }
+
+  .detailpane .pagetitle {
+    margin-top: 0.2rem;
+  }
+}
+
+/* ---------------------------------------------------------------- rendered
+   TYPST'S OUTPUT, STYLED LIKE THE APP'S OWN TEXT.
+
+   `web/src/rich.ts` puts `.rich` on a block holding typst's HTML and
+   `.assource` on one holding the stored source as text, so those two classes
+   are the whole difference between "read this" and "read what is stored".
+   Everything below is the first case; `.assource` keeps the pre-wrapped,
+   source-shaped look the app had before typst rendered anything. */
+
+.assource {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rich {
+  word-break: break-word;
+}
+
+/* Block layout, in the todo view: paragraphs tight enough that a two-paragraph
+   detail still reads as one field, lists indented modestly rather than at a
+   browser's default 40px. */
+.todobody.rich {
+  white-space: normal;
+}
+
+.rich > :first-child {
+  margin-top: 0;
+}
+
+.rich > :last-child {
+  margin-bottom: 0;
+}
+
+.rich p {
+  margin: 0 0 0.55em;
+}
+
+.rich ul,
+.rich ol {
+  margin: 0.4em 0 0.7em;
+  padding-left: 1.35em;
+}
+
+.rich li {
+  margin: 0.15em 0;
+}
+
+.rich dl {
+  margin: 0.4em 0 0.7em;
+}
+
+.rich dt {
+  font-weight: 650;
+}
+
+.rich dd {
+  margin: 0 0 0.35em 1.1em;
+  color: var(--ink-muted);
+}
+
+.rich h1,
+.rich h2,
+.rich h3,
+.rich h4 {
+  font-size: var(--t-body);
+  font-weight: 650;
+  margin: 0.9em 0 0.35em;
+}
+
+.rich strong {
+  font-weight: 680;
+}
+
+.rich a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.rich code {
+  font-family: var(--f-mono);
+  font-size: 0.88em;
+  background: var(--tint);
+  border: 2px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+}
+
+/* A code BLOCK owns the whole line, so it scrolls rather than forcing the
+   column wider — the same rule the diff tables keep. */
+.rich pre {
+  margin: 0.5em 0 0.8em;
+  padding: 0.55rem 0.7rem;
+  background: var(--tint);
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.rich pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.86em;
+  white-space: pre;
+}
+
+.rich blockquote {
+  margin: 0.5em 0 0.8em;
+  padding: 0.1em 0 0.1em 0.7rem;
+  border-left: 3px solid var(--line);
+  color: var(--ink-muted);
+}
+
+.rich s {
+  color: var(--ink-muted);
+}
+
+/* A CARD IS A PREVIEW, so its rendering collapses to one run of inline text and
+   lets `-webkit-line-clamp` do the deciding — the same three lines
+   `todos.preview` used to hand it, with the emphasis intact. Block margins
+   inside a clamped box would spend those three lines on air. */
+/* NOT `.cardbody .rich { display: inline }`: on a card the rich block IS the
+   `.clamp` element, and an `inline` here would outrank `.clamp`'s
+   `-webkit-box` (0,2,0 beats 0,1,0) and silently unclamp every card. Only the
+   CHILDREN are flattened. */
+.waiting .rich {
+  display: inline;
+}
+
+.cardbody .rich :is(p, li, h1, h2, h3, h4, blockquote, pre, dt, dd),
+.waiting .rich :is(p, li, h1, h2, h3, h4, blockquote, pre, dt, dd) {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+  font-weight: inherit;
+  white-space: normal;
+}
+
+.cardbody .rich :is(ul, ol, dl),
+.waiting .rich :is(ul, ol, dl) {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cardbody .rich :is(p, li)::after,
+.waiting .rich :is(p, li)::after {
+  content: " ";
+}
+
+/* A link inside a card would compete with the card's own tap target, and the
+   whole card IS the link. It stays readable and stops being clickable. */
+.cardbody .rich a,
+.waiting .rich a {
+  color: inherit;
+  text-decoration: none;
+  pointer-events: none;
+}
+
+/* --- mail ---------------------------------------------------------------- */
+/* The corpus, read on a phone. Every string on these pages came out of mail an
+   attacker controls, and every one of them is a DOM node (web/src/view/dom.ts) — the
+   only styling decision here is that a body is PROSE: pre-wrap so the sender's
+   own line breaks survive, and the page's own face, because a message is read,
+   not diffed. */
+
+/* The account filter's chips are LINKS here, not buttons — the filter lives in
+   the hash, so each one is a place you can go and a link someone can send. The
+   button's own chrome (border, background, cursor) has to be said out loud for
+   an anchor wearing the same class. */
+a.chipbtn {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid var(--line);
+  background: var(--sheet);
+  text-decoration: none;
+}
+
+.mailpage .pagetitle svg {
+  vertical-align: -0.15em;
+  margin-right: 0.35rem;
+  color: var(--primary);
+}
+
+.maillist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.mailrow {
+  display: block;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.55rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  /* A row is a tap target before it is a list item. */
+  min-height: 3.25rem;
+}
+
+@media (hover: hover) {
+  .mailrow:hover {
+    border-color: var(--primary);
+  }
+}
+
+.mailrow:active {
+  background: var(--tint);
+}
+
+.mailmeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.mailsender {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mailwhen {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.mailsubject {
+  margin: 0.15rem 0 0.3rem;
+  font-size: var(--t-body);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mailchips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.mailfoot {
+  display: flex;
+  justify-content: center;
+  margin: 0.9rem 0 0.4rem;
+}
+
+.morebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 1.1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-body);
+}
+
+.morebtn svg {
+  transform: rotate(90deg);
+}
+
+.morebtn[disabled] {
+  opacity: 0.5;
+}
+
+/* A message body: prose, wrapped, in the page's own face. `pre-wrap` keeps the
+   sender's paragraphs; a monospace face would turn every mail into a log. */
+.mailbody {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  font-size: var(--t-body);
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.8rem 0.9rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.mailfacts {
+  font-size: var(--t-small);
+}
+
+.mailid {
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.maillinks {
+  list-style: none;
+  padding: 0;
+  margin: 0.3rem 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.maillinks li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.linklabel {
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+/* The URL is always shown: a label is the sender's claim about where a link
+   goes, and in marketing mail the two disagree for a living. Clamped to two
+   lines because a tracking wrapper is 400 characters and ten of them would be
+   the whole page; the full string is the anchor's title and its href. */
+.linkurl {
+  font-size: var(--t-tiny);
+  color: var(--primary);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.threadlink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.threadlink svg,
+.sourcelink svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The source block on a todo page: the message, as a link, above the facts. */
+.sourcelink {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.55rem 0.75rem;
+  margin: 0.4rem 0 0.2rem;
+  min-height: var(--tap);
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .sourcelink:hover {
+    border-color: var(--primary);
+  }
+}
+
+.sourcewho {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.sourcesubject {
+  flex: 1 1 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadmsg > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.threadwho {
+  font-weight: 600;
+}
+
+/* --- the More sheet ------------------------------------------------------- */
+/* Six destinations, five slots. The overflow is a sheet above the bar rather
+   than a sixth 65 px tab, which would be under the 44 px target once its label
+   is set. It is transient page furniture and carries no hash: a URL that meant
+   "a menu was open" would be a page nobody can share. */
+
+.moresheet {
+  position: absolute;
+  right: var(--s-2);
+  left: var(--s-2);
+  bottom: calc(100% + var(--s-1));
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+/* On a wide screen the sheet drops from "More" in the top bar. */
+@media (min-width: 62rem) {
+  .moresheet {
+    left: auto;
+    right: 0;
+    bottom: auto;
+    top: calc(100% + var(--s-2));
+    /* Room for "This app's work" on one line and the theme's three picks beside its label. */
+    width: 20rem;
+  }
+}
+
+/* WHICH LIST, above the destinations (docs/ARCHITECTURE.md §10.2). A chain is
+   not a destination — it is which store every destination is about — so it is a
+   row at the top of this sheet rather than a sixth tab or a control pinned over
+   one page. Absent entirely on a deployment serving one chain. */
+.chainrow {
+  display: flex;
+  border-bottom: 1px solid var(--rule);
+  background: var(--ground);
+}
+
+.chainpick {
+  flex: 1;
+  min-height: var(--tap);
+  padding: 0 0.75rem;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-body);
+  cursor: pointer;
+}
+
+.chainpick + .chainpick {
+  border-left: 1px solid var(--rule);
+}
+
+.chainpick.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.morelink {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--tap);
+  padding: 0 var(--s-4);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: var(--t-body);
+}
+
+.morelink + .morelink {
+  border-top: 1px solid var(--rule);
+}
+
+.morelink.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* THIS APP'S OWN PAGES, apart from the owner's places (the 2026-10-13 audit,
+   X15): a rule and a small heading above them, the theme at their foot. */
+.moreapp {
+  border-top: 2px solid var(--line);
+}
+
+.morehead {
+  margin: 0;
+  padding: var(--s-2) var(--s-4) 0;
+  color: var(--ink-muted);
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.moreapp .morelink + .morelink {
+  border-top: 1px solid var(--rule);
+}
+
+.themelabel {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s-3) 0 var(--s-4);
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+}
+
+/* LIGHT OR DARK, at the foot of the sheet (web/src/app/theme.ts). A setting, so it
+   sits under the destinations with a line above it rather than among them, and
+   it is three buttons because there are three states: the machine's answer is
+   the default and a two-state toggle cannot say "keep following it". */
+.themerow {
+  display: flex;
+  border-top: 1px solid var(--rule);
+  background: var(--ground);
+}
+
+.themepick {
+  flex: 1;
+  min-height: var(--tap);
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+
+.themepick + .themepick {
+  border-left: 1px solid var(--rule);
+}
+
+.themepick.active {
+  color: var(--primary);
+  background: var(--tint);
+  font-weight: 600;
+}
+
+@media (min-width: 62rem) {
+  .mailrow {
+    padding: 0.6rem 0.85rem;
+  }
+
+  /* Seven addresses do not fit on one line at any width worth targeting, and a
+     mouse has no thumb to flick a scroller with — so on a wide screen the
+     account filter wraps and every account is visible at once. */
+  .mailpage .chiprow {
+    flex-wrap: wrap;
+  }
+}
+
+/* --- overlays: the shortcuts sheet, and the palette ----------------------- */
+
+/* Transient page furniture (web/src/view/overlay.ts): one at a time, dismissed by
+   the scrim or by Escape. Docked to the BOTTOM on a phone, where the thumb is
+   and where the app's other sheets already live; centred near the top on a
+   wide screen, which is where a palette is looked for. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(4.6rem + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.overlaybox {
+  width: min(38rem, 100%);
+  max-height: 74vh;
+  overflow-y: auto;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  padding: 0.9rem 0.95rem 1.1rem;
+}
+
+.overlaytitle {
+  margin: 0 0 0.6rem;
+  font-size: var(--t-body);
+}
+
+.shortcutlist {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-2) 0.8rem;
+  margin: 0 0 0.7rem;
+}
+
+.shortcutlist dt {
+  margin: 0;
+}
+
+.shortcutlist dd {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+kbd {
+  font: var(--t-small)/1.4 var(--f-mono);
+  background: var(--tint);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
+/* The keyboard cursor is the focus ring, deliberately: the browser draws it,
+   screen readers announce the card, and there is no second highlight to keep in
+   step with it. This only makes it unmissable on a card. */
+.card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-color: var(--primary);
+}
+
+@media (min-width: 62rem) {
+  .overlay {
+    align-items: flex-start;
+    padding: 6vh 1rem 1rem;
+  }
+
+  .overlaybox {
+    border-radius: var(--r-card);
+  }
+}
+
+/* --- the command palette -------------------------------------------------- */
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.palettefield {
+  width: 100%;
+}
+
+.palettelist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+/* A row is a button: it is pressed, and a div with a click handler is not
+   reachable by the keyboard that this whole feature is for. */
+.palrow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: var(--tap);
+  text-align: left;
+  border: 0;
+  border-radius: var(--r-card);
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+
+.palrow.on {
+  background: var(--tint);
+}
+
+.pallabel {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palhint {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+  font: var(--t-small)/1.4 var(--f-mono);
+}
+
+/* The async groups' label ("Mail", "Conversations") — a smaller, dimmer line
+   ahead of their rows, never itself a row (project chain `searcheverything`).
+   `.legend` already sets the size and the dim colour; this only tightens the
+   spacing around it inside the list. */
+.palgroup {
+  margin: var(--s-2) 0 0;
+}
+
+/* --- focus and the skip link --------------------------------------------- */
+
+/* Off-screen until it has the keyboard, which is the whole of what it is for:
+   nine navigation links before the content is a page nobody Tabs into. */
+.skip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  transform: translateY(-140%);
+  background: var(--primary);
+  color: var(--on-primary);
+  padding: 0.5rem 0.9rem;
+  border-radius: 0 0 0.5rem 0;
+  text-decoration: none;
+}
+
+.skip:focus {
+  transform: none;
+}
+
+/* The router puts the keyboard on the new page's heading so a screen reader
+   announces it (web/src/view/focus.ts). That focus is programmatic, and a ring
+   around a whole heading nobody asked to focus reads as a bug — :focus-visible
+   is not matched for it, and this makes sure of it. */
+main:focus,
+h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* --- what changed since you looked ---------------------------------------- */
+
+/* The answer to a queued act's `base`: what the chain did to this todo while
+   the reader was away. Dismissible, unlike the stale banner, because it is news
+   about a moment rather than a label on what is underneath it. */
+.sincebox {
+  border: 1px solid var(--primary);
+  border-radius: var(--r-card);
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0;
+  font-size: var(--t-small);
+}
+
+.sincewhat {
+  margin: 0 0 0.3rem;
+  color: var(--primary);
+}
+
+.sincelist {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+}
+
+.sincedismiss {
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--t-small);
+  padding: 0.2rem 0.6rem;
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+/* --- concurrent writes (web/src/todo/conflicts.ts) ------------------------------ */
+
+/* A register with more than one live write, over a DAG's concurrent writes
+   that no later write has settled — never dismissible, unlike `.sincebox`
+   above, because it names a state of the chain rather than news about a
+   moment, and stays until a write settles it. Same bordered-warning shape. */
+.conflictbox {
+  border: 1px solid var(--primary);
+  border-radius: var(--r-card);
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0;
+  font-size: var(--t-small);
+}
+
+.conflictbox h2 {
+  margin: 0 0 0.35rem;
+  font-size: var(--t-body);
+}
+
+.conflictlist {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+}
+
+.conflictwhat {
+  margin: 0;
+  color: var(--primary);
+}
+
+/* Each version of a content conflict, one above the other: none is the page's pick. */
+.candidates {
+  margin: 0 0 0.4rem;
+  padding-left: 1.2rem;
+}
+
+.candidates li + li {
+  margin-top: 0.4rem;
+}
+
+.candidates .legend {
+  margin: 0;
+}
+
+.conflictstate {
+  margin: 0 0 0.4rem;
+}
+
+/* --- briefings -------------------------------------------------------------- */
+
+/* The one-line links on the todo list: to Settings while setup is unfinished, and to today's briefing when one
+   exists. */
+.todaybriefing,
+.setupunfinished {
+  margin: 0 0 0.6rem;
+}
+
+.setupunfinished a,
+.todaybriefing a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--primary);
+  font-size: var(--t-body);
+  text-decoration: none;
+}
+
+.setupunfinished svg,
+.todaybriefing svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The list row shares .mailrow's shape (a title, a date, a byline) — a
+   briefing and a mail row are both "one thing, in a list" — but its own class
+   names, because what is in each field is not the same field. */
+.briefinglist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.briefingrow {
+  display: block;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.55rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  min-height: 3.25rem;
+}
+
+@media (hover: hover) {
+  .briefingrow:hover {
+    border-color: var(--primary);
+  }
+}
+
+.briefingrow:active {
+  background: var(--tint);
+}
+
+.briefingmeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.briefingdate {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.briefingtitle {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-body);
+  line-height: 1.35;
+}
+
+/* The raw typst source, behind the "Source" disclosure on the detail page —
+   the same monospace treatment a card's expanded source gets (`.full`). */
+.briefingsource {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* --- the calendar --------------------------------------------------------- */
+
+/* Typst's HTML for a week (`suzatary_core::reading::calendar`): a day a section, an
+   occurrence a row of its time, title, place and calendar, a cancelled one struck. */
+.calendarsteps {
+  font: var(--t-small) / 1.4 var(--f-sans);
+  color: var(--ink-muted);
+}
+
+.calendarweek .calendarday h2 {
+  font-size: var(--t-body);
+  margin: var(--s-4) 0 var(--s-2);
+}
+
+.calendarweek .calendarlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calendarweek .calendarentry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s-2);
+  padding: var(--s-1) 0;
+  border-top: 1px dashed var(--grid);
+}
+
+.calendarweek .calendartime {
+  font-variant-numeric: tabular-nums;
+  min-width: 7.5em;
+  color: var(--ink-muted);
+}
+
+.calendarweek .calendartitle {
+  color: var(--ink);
+}
+
+.calendarweek .calendarplace,
+.calendarweek .calendarname,
+.calendarweek .calendarstatus {
+  font: var(--t-small) / 1.5 var(--f-sans);
+  color: var(--ink-muted);
+}
+
+.calendarweek .calendarentry.cancelled .calendartitle {
+  text-decoration: line-through;
+}
+
+/* --- the stale banner ----------------------------------------------------- */
+
+/* Pinned under the header, in the warning colour, and never dismissible: it is
+   not a notification, it is a label on what is underneath it. */
+/* ⚠️ THE SENTENCES ARE `web/src/shell/stale.ts`'S AND ARE TESTED; this is the only
+   thing about the banner that may change. It was a solid block of warning
+   colour across the top of every page, which on a phone is a wall — and a wall
+   that is up whenever the network is, which is often, trains a reader to look
+   past exactly the line that must not be looked past. So it is a bordered
+   notice on the warning colour's tint instead: the same weight the conflict box
+   and the refusal notice carry, the same words, still sticky under the header,
+   still never dismissible. The rule the redesign must not break is that a
+   number on screen always says where it came from. */
+.stalebar {
+  position: sticky;
+  top: var(--sticky-top);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-1) auto;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--primary);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--r-card);
+  background: var(--tint);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+
+.stalewhat {
+  flex: 1 1 auto;
+}
+
+.staleretry {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  border: 2px solid var(--primary);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  padding: 0 var(--s-3);
+  cursor: pointer;
+}
+
+.staleretry[disabled] {
+  opacity: 0.6;
+}
+
+/* What this device's readings left out (web/src/shell/leftout.ts): the stale
+   bar's weight, not sticky, since the page under it drew what could be read. */
+.excludedbar {
+  margin: var(--s-1) auto;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--primary);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--r-card);
+  background: var(--tint);
+  color: var(--ink);
+  font-size: var(--t-small);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.excludedbar summary {
+  cursor: pointer;
+}
+
+/* The build this device moved to, or a newer one to load (web/src/app/newbuild.ts):
+   the excluded bar's weight, its presses the stale bar's Retry. */
+.updatedbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+}
+
+.updatedbar[hidden] {
+  display: none;
+}
+
+.updatedwhat {
+  flex: 1 1 12rem;
+}
+
+.updatedreload,
+.updateddismiss {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  border: 2px solid var(--primary);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  padding: 0 var(--s-3);
+  cursor: pointer;
+}
+
+.updateddismiss {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* THE SECRETARY (docs/ARCHITECTURE.md §10.3): a list of conversations, one
+   conversation, and the proposal cards.
+
+   The list borrows the briefings' row shape for the same reason that one
+   borrowed the mail rows' — "one thing, in a list" is one visual idea — and
+   keeps its own class names, because what is in each field is not the same
+   field. */
+.conversationlist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.conversationrow {
+  display: block;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.55rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  min-height: 3.25rem;
+}
+
+@media (hover: hover) {
+  .conversationrow:hover {
+    border-color: var(--primary);
+  }
+}
+
+.conversationrow:active {
+  background: var(--tint);
+}
+
+.conversationmeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.conversationdate {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.conversationtitle {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-body);
+  line-height: 1.35;
+}
+
+/* The one number on the list that means DO SOMETHING: a proposal nobody has
+   tapped is a thing waiting on the owner. It takes the WARNING colour and not the
+   accent, so it matches the Inbox tab's badge — the same fact in two places
+   should not be two colours, and the accent already means "you are here". */
+.standing {
+  display: inline-block;
+  margin-top: var(--s-1);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-pill);
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.startconversation {
+  align-self: flex-start;
+  margin-bottom: 0.5rem;
+  min-height: var(--tap);
+  padding: 0 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- one conversation --- */
+
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+/* BUBBLES, and the shape carries the speaker (2026-09-10). They were three
+   identical bordered blocks in a column, so who said what was a small uppercase
+   word at the top of each — legible, and not scannable, which for a transcript
+   is the whole job. A person's turn is now on the right with the corner nearest
+   them squared off, the secretary's on the left, and a verb's answer is full
+   width because it is REFERENCE and not conversation. Nothing is hidden and no
+   colour carries a meaning on its own: the label is still there. */
+.turn {
+  max-width: 88%;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--s-2) var(--s-3);
+  background: var(--sheet);
+}
+
+.turn-person {
+  align-self: flex-end;
+  border-bottom-right-radius: var(--s-1);
+  border-color: var(--primary);
+  background: var(--tint);
+}
+
+.turn-model {
+  align-self: flex-start;
+  border-bottom-left-radius: var(--s-1);
+}
+
+/* The box's own answer to a verb. Full width, sunk, and set in the monospace
+   the `.turn-verb .turntext` rule below already gives it. */
+.turn-verb {
+  align-self: stretch;
+  max-width: none;
+  background: var(--tint);
+  border-style: dashed;
+}
+
+/* A verb's answer is REFERENCE, not conversation: it is what the box told the
+   secretary, and it is set smaller and dimmer so a reader's eye goes to the
+   sentences a person and the model exchanged. It is still shown, because a
+   transcript that hid what the model was told would be a transcript nobody
+   could check. */
+.turn-verb .turntext {
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.turn.refused {
+  border-color: var(--primary);
+}
+
+.queuedmark {
+  margin-left: 0.4em;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--ink-muted);
+}
+
+/* THE PARTIAL (§3, §6 commit 6): the model's reply, still streaming in. A
+   thin left border rather than the ordinary card border says "not settled
+   yet" without a second colour. */
+.turn.partial {
+  border-style: dashed;
+  border-color: var(--ink-muted);
+}
+
+.turnwho {
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 0.2rem;
+}
+
+.turntext {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+/* AN ANSWER IN BLOCKS (`docs/CHAT-PLAN-2026-09-25.md` §4.5, §4.10): typst's
+   HTML of each, in the document's faces at 16px and 1.5 leading, never wider
+   than 68ch. A block the box did not render is its source, as text. */
+.turnanswer {
+  max-width: 68ch;
+  font-family: var(--f-serif);
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+.answerblock + .answerblock {
+  margin-top: var(--s-3);
+}
+
+.answerblock.assource {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+}
+
+.answerblock > :first-child {
+  margin-top: 0;
+}
+
+.answerblock > :last-child {
+  margin-bottom: 0;
+}
+
+.answerblock h2,
+.answerblock h3,
+.answerblock h4 {
+  font-family: var(--f-sans);
+  font-size: var(--t-head);
+  line-height: 1.25;
+  color: var(--primary);
+}
+
+.answerblock pre {
+  overflow-x: auto;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  background: var(--tint);
+  font-size: var(--t-small);
+}
+
+.answerblock math[display="block"] {
+  display: block;
+  overflow-x: auto;
+}
+
+.answerblock aside,
+.answerblock blockquote {
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-card);
+  background: var(--tint);
+}
+
+.answerblock .dated {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+/* THE ANSWER'S PLACE (§4.8): the last row of the column, where the answer
+   will land — Queued, Thinking · 12 s, Searching mail · 3 checked, then the
+   answer itself, block by block. While a question is held at the top of the
+   box, `.answerroom` under it is the room its answer grows into (§4.9), its
+   height set by the transcript. */
+.answerplace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.answerplace[hidden] {
+  display: none;
+}
+
+.answerstate {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* COPY (§4.7): per answer, words or Typst; per block, on hover or focus. */
+.answerblockwrap {
+  position: relative;
+}
+
+.copyblock {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0;
+  padding: 0 var(--s-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--sheet);
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-tiny);
+  cursor: pointer;
+}
+
+.answerblockwrap:hover .copyblock,
+.copyblock:focus-visible {
+  opacity: 1;
+}
+
+.copyanswer {
+  padding: 0 var(--s-2);
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-tiny);
+  cursor: pointer;
+}
+
+.copyanswer:hover,
+.copyanswer:focus-visible {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* THE OPEN TAIL OF A STREAMING ANSWER (§4.6): the model's text as it
+   arrives, until a blank line closes it into a block the box renders. */
+.answertail {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.answertail:not(:first-child) {
+  margin-top: var(--s-3);
+}
+
+.turnsource summary {
+  margin-top: var(--s-2);
+  font-size: var(--t-tiny);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.turnsource .turntext {
+  margin-top: var(--s-1);
+}
+
+/* ONE ROUND (`docs/CHATSHAPE-PLAN-2026-09-15.md` §4.1, §6 commit 2): the
+   opening, its folded trace and its answer, stacked in the same flow the flat
+   turn list used before it — a round carries no border of its own, so the
+   page still reads as one column of bubbles and one small fold line between
+   a question and its answer. */
+.round {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+/* THE FOLD LINE — small, dim, on the sunk background `.turn-verb` already
+   uses for the same reason: it is reference material a reader opens on
+   purpose, not the conversation itself. Closed by default, exactly like
+   `.turnsource`. */
+.roundfold {
+  align-self: flex-start;
+  max-width: 88%;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+  background: var(--tint);
+  padding: var(--s-1) var(--s-2);
+}
+
+.roundfoldsummary {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+/* A REFUSAL IS VISIBLE IN THE FOLD ITSELF, never only inside the opened
+   body — a reader should not have to expand a trace to learn that a verb
+   was declined. */
+.roundfoldrefused {
+  margin-left: 0.5em;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.roundfoldbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+/* THE TRANSCRIPT AS A PLACE (§4.4, §6 commit 6). `.roundwrap` is a KEYING
+   node only — `display: contents` so it takes no part in `.turns`'s own flex
+   layout, and a day separator and its round still sit as direct children for
+   the same gap the rest of the column already has; `.rounds`, the keyed list
+   of them, is one too. */
+.rounds,
+.roundwrap {
+  display: contents;
+}
+
+.dayseparator {
+  align-self: center;
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: var(--s-2) 0 0;
+}
+
+.earlierbtn {
+  align-self: center;
+  margin-bottom: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--sheet);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* WHERE THE ANSWER LANDS (`docs/CHAT-PLAN-2026-09-25.md` §4.3, §4.4): Stop
+   while a round runs, Regenerate and Edit once the box offers them, the last
+   thing in the column. Plain capsules (the global `button`) on the sheet. */
+/* Stop while a round runs, Regenerate and Edit once the box offers them,
+   in a row under the answer's state. */
+.answercontrols {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: var(--s-2);
+}
+
+.stopanswer,
+.againbutton {
+  min-height: var(--tap);
+  padding: 0 1rem;
+  background: var(--sheet);
+}
+
+/* Quieter than Stop: nothing is running. */
+.againbutton {
+  font-weight: 400;
+}
+
+/* AN EARLIER ATTEMPT is a fold like the trace, on the answer's side. */
+.earlierattempt {
+  align-self: flex-start;
+}
+
+/* EDITING THE LAST QUESTION: one line above the field, and its way out. */
+.composeediting {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.composeediting[hidden] {
+  display: none;
+}
+
+.composecancel {
+  min-height: var(--tap);
+  padding: 0 0.9rem;
+  font-size: var(--t-small);
+}
+
+/* A DRAFT TYPED ON TWO DEVICES: the other words offered above the field, each taken with a tap. */
+.composeelsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.composeelsewhere[hidden] {
+  display: none;
+}
+
+.composeuse,
+.composekeep {
+  min-height: var(--tap);
+  max-width: 100%;
+  padding: 0 0.9rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-align: start;
+  font-size: var(--t-small);
+}
+
+/* THE "↓ new answer" PILL — a round landed while the reader had scrolled up
+   more than a screen, so the page held still instead of yanking them down;
+   this is the one thing that moves it, on request. Fixed to the viewport's
+   own bottom edge, above the composer, so it never depends on where in the
+   transcript the reader currently is. */
+.newanswerpill {
+  position: sticky;
+  bottom: var(--s-3);
+  align-self: center;
+  min-height: var(--tap);
+  padding: 0 1rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- the proposal cards ---
+
+   EVERY FIELD IS SHOWN, and none of them is clamped: this card is the
+   confirmation CLAUDE.md requires before an outbound email, so a truncated
+   recipient list or an elided body would make it a confirmation of something
+   else. It scrolls instead. */
+.proposals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: 0.8rem;
+}
+
+.proposal {
+  border: 1px solid var(--primary);
+  border-radius: var(--r-card);
+  padding: 0.65rem 0.8rem;
+  background: var(--sheet);
+}
+
+.proposal-sent,
+.proposal-applied,
+.proposal-failed,
+.proposal-dismissed,
+.proposal-superseded {
+  border-color: var(--line);
+  opacity: 0.75;
+}
+
+/* WHY, ABOVE THE BODY (2026-09-10). The owner, on the first two drafts: "maybe
+   with the email there should be some sort of explanation and sources around
+   it." It reads first because the message means nothing until you know what it
+   is answering, so it is set at body size and not dimmed — the recipients and
+   the subject are the reference material here, and the reason is the argument. */
+.proposalwhy {
+  margin: 0.4rem 0 0.5rem;
+  line-height: 1.5;
+}
+
+.proposalsources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-bottom: 0.5rem;
+  font-size: var(--t-small);
+}
+
+.proposalact {
+  font-size: var(--t-tiny);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* A label sits above its value, so no label wraps in a narrow column. */
+.proposalfield {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--s-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+.proposallabel {
+  flex: 0 0 100%;
+  color: var(--ink-muted);
+}
+
+/* A card names its sources in words, so they are set in the reading face, not a reference's monospace. */
+.proposalsources .proposalsource {
+  font-family: var(--f-serif);
+}
+
+/* A card's fields, sources, body and diff, closed until asked for. */
+.proposaldetails {
+  margin: var(--s-2) 0;
+}
+
+.proposaldetails > summary,
+.setupgroup > summary {
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  list-style: none;
+}
+
+/* The marker a flex summary drops, turned when the fold is open. */
+.proposaldetails > summary::before,
+.setupgroup > summary::before {
+  content: "›";
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.proposaldetails[open] > summary::before,
+.setupgroup[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.proposalsecretfield {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-2);
+}
+
+.secretlabel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 12rem;
+  gap: var(--s-1);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.proposalvalue {
+  word-break: break-word;
+}
+
+.proposalbody {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--tint);
+  border-radius: var(--r-card);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+.proposalfiles {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-1);
+}
+
+.proposalfile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  font-size: var(--t-small);
+  min-width: 0;
+}
+
+.proposalfilename {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.proposalfilemeta,
+.proposalfilepath {
+  color: var(--ink-muted);
+  word-break: break-word;
+}
+
+.proposalact-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: 0.6rem;
+}
+
+.proposalconfirm {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.proposaloutcome {
+  margin-top: 0.5rem;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A CODING SESSION, under the proposal that started it
+   (docs/CODINGSESSION-PLAN-2026-09-27.md): its state, the branch's diff stat
+   and report as the session wrote them, and its two answers. */
+.codingsession {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-small);
+}
+
+.codinghead {
+  margin: 0 0 0.3rem;
+  font-weight: 600;
+}
+
+.codingurl,
+.codingfiles code,
+.codingpath code {
+  font-family: var(--f-mono);
+  word-break: break-all;
+}
+
+.codingfiles {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.codinglines,
+.codingtotal {
+  color: var(--ink-muted);
+}
+
+/* A DISMISSAL ASKS FOR THE REASON, not for a confirmation: the reason is what
+   the next answer can use, and "are you sure" would teach the secretary
+   nothing. The field takes the row's slack so a phone gets a real input. */
+.dismissreason {
+  flex: 1 1 10rem;
+  min-height: var(--tap);
+  padding: 0 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: inherit;
+  font: inherit;
+}
+
+/* --- references, in the page (2026-09-10) ---
+
+   A reference is drawn as its TEXT FORM, deliberately: it is what the model
+   writes and what the box stores, so a reader learns the spelling by seeing it.
+   Monospace because it IS a spelling, and tinted like every other link into the
+   app rather than like an outbound one. */
+.reflink {
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  color: var(--primary);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.reflink:hover,
+.reflink:focus-visible {
+  text-decoration: underline;
+}
+
+.turnrefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: 0.4rem;
+}
+
+/* Reply on a turn is a QUOTE into the compose box, so it is a quiet control
+   rather than an act: it changes nothing and reaches nothing. */
+.turnreply {
+  margin-top: 0.4rem;
+  padding: 0 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-tiny);
+  cursor: pointer;
+}
+
+.turnreply:hover,
+.turnreply:focus-visible {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* A turn whose words are gone draws the box's sentence for why, muted, so it
+   never reads as anybody's words. */
+.turngone {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* A TURN AT REST: its words, Reply and one "…" holding what is used rarely
+   (Copy, Copy Typst, Show as text, Erase, and a finished round's calls). */
+.turncontrols {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--s-1);
+  margin-top: 0.4rem;
+}
+
+.turncontrols > .turnreply {
+  margin-top: 0;
+}
+
+.turnmore {
+  flex: 1 1 auto;
+}
+
+.turnmorebutton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 0.6rem;
+  border-radius: var(--r-sm);
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+  letter-spacing: 0.1em;
+  list-style: none;
+  cursor: pointer;
+}
+
+.turnmorebutton::-webkit-details-marker {
+  display: none;
+}
+
+.turnmorebutton:hover,
+.turnmore[open] > .turnmorebutton {
+  color: var(--primary);
+  background: var(--tint);
+}
+
+.turnmenu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+}
+
+.turnmenu > .roundfold {
+  max-width: 100%;
+}
+
+/* Erase is an act behind a second press, quiet until it is asked. */
+.turnerase {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: 0.4rem;
+}
+
+.turnerase > .act-erase:not(.confirming) {
+  padding: 0 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--t-tiny);
+  cursor: pointer;
+}
+
+/* "Ask the secretary", on a todo, a message, a thread and a briefing. A LINK
+   and not a button: it navigates, so it middle-clicks and Back returns. */
+.askrow {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.asksecretary {
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.7rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--primary);
+  text-decoration: none;
+  font-size: var(--t-small);
+}
+
+/* --- the compose box --- */
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: 0.8rem;
+}
+
+/* Where the box would be for a login that may not write: what this device may do and where to write from. */
+.readonly {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+}
+
+/* "Open Settings" is one press, so it never breaks across two lines, whatever width the grid gives the line. */
+.readonly a {
+  white-space: nowrap;
+}
+
+/* ON THE CONVERSATION PAGE THE DOCUMENT IS THE SCROLL BOX, and a sent question is held at its top with a window's
+   room under it for the answer, so a composer in the flow would drop off the screen. It sticks to the foot instead:
+   above the phone's tab bar, and at the window's edge on a wide screen. */
+.conversation > .pagebody > .compose {
+  position: sticky;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom));
+  z-index: 2;
+  padding: var(--s-2) 0;
+  background: var(--ground);
+}
+
+/* The new-answer pill rides above that composer, never under it. */
+.conversation .newanswerpill {
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 5rem);
+}
+
+@media (min-width: 62rem) {
+  .conversation > .pagebody > .compose {
+    bottom: 0;
+  }
+
+  .conversation .newanswerpill {
+    bottom: 5rem;
+  }
+}
+
+/* The chips take the whole first row of the composer, because a chip list that
+   shared a line with the textarea would squeeze whichever of the two the reader
+   was actually using. */
+.composechips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.composechips:empty {
+  display: none;
+}
+
+.composechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.2rem 0.15rem 0.5rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  font-family: var(--f-mono);
+  font-size: var(--t-tiny);
+  word-break: break-all;
+}
+
+/* REMOVABLE, because a chip attached by a link is a decision the reader did not
+   type. */
+.chipdrop {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  padding: 0.2rem 0.3rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.chipdrop:hover,
+.chipdrop:focus-visible {
+  opacity: 1;
+}
+
+/* One capsule: the photo button, the box, Send. The box grows with its text
+   (composer.ts's `fit`) and scrolls past six lines; the field's border is its
+   focus ring. */
+.composefield {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 2px solid var(--line);
+  border-radius: calc(var(--tap) / 2 + 0.3rem);
+  background: var(--sheet);
+}
+
+.composefield:focus-within {
+  border-color: var(--primary);
+}
+
+.composebox {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--tap);
+  max-height: 10.5rem;
+  padding: 0.62rem 0.2rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+}
+
+.composesend,
+.composeattach {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.composesend {
+  background: var(--primary);
+  color: var(--on-primary);
+  transition: opacity 120ms ease;
+}
+
+/* Never disabled (the transcript is the queue): only quiet while empty. */
+.composefield.unsaid .composesend {
+  opacity: 0.35;
+}
+
+.composeattach {
+  background: none;
+  color: var(--primary);
+}
+
+.composeattach:hover {
+  background: var(--tint);
+}
+
+.composesend:focus-visible,
+.composeattach:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Photos (docs/PHOTOS-PLAN-2026-09-22.md): attached photos show as thumbnails
+   above the field, and a turn's photos as a row under its words, each opening
+   full size. */
+.composethumbs,
+.turnphotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.composethumbs:empty {
+  display: none;
+}
+
+.composethumb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.composethumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.composethumb .chipdrop {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--sheet);
+}
+
+.turnphotos {
+  margin-top: 0.4rem;
+}
+
+.turnphoto {
+  display: block;
+  max-width: min(16rem, 100%);
+  max-height: 16rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  object-fit: contain;
+}
+
+/* A PDF is named, not previewed: a pill in the transcript, the icon over its
+   name inside a composer thumbnail. */
+.filechip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  max-width: min(16rem, 100%);
+  padding: var(--s-1) var(--s-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  font-size: var(--t-small);
+}
+
+.filechip svg {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composethumb .filechip {
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--s-1);
+  border: 0;
+  font-size: 0.7rem;
+}
+
+.composethumb .filename {
+  max-width: 100%;
+}
+
+/* A file the box held back: why, and the owner's two answers. */
+.composeheld {
+  flex: 1 1 100%;
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  font-size: var(--t-small);
+}
+
+.composeheld p {
+  margin: 0;
+}
+
+.composeheldacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.composeheldkeep,
+.composeheldrop {
+  min-height: var(--tap);
+  padding: 0 var(--s-3);
+  border-radius: var(--r-card);
+  cursor: pointer;
+}
+
+.composeheldkeep {
+  border: 0;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.composeheldrop {
+  border: 2px solid var(--line);
+  background: none;
+  color: inherit;
+}
+
+/* --- the app design pass, 2026-09-10 -------------------------------------- */
+/* The owner: "the app needs some sprucing up, we can take advantage of quite a bit
+   with our new structure." What follows is what the new structure earned: a
+   provenance line on the todo view, the price above the fold, the Inbox, and
+   the filter row the list grew. Everything above has been brought onto the type
+   and space scales in the same pass. */
+
+/* WHO SAYS SO, one line under the id (web/src/todo/todoview.ts::provenance). It is
+   deliberately not a warning box: on a confirmed todo — most of them — it is a
+   quiet reassurance, and a page that shouted about provenance every time would
+   teach the reader to skip the line that matters on the ones that are not. The
+   unconfirmed variant gets the rail and the tint the rest of the app uses for
+   provisional content. */
+.provline {
+  margin: var(--s-2) 0 var(--s-3);
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+
+.provline > summary,
+.history > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  cursor: pointer;
+  list-style: none;
+}
+
+.provline > summary::-webkit-details-marker,
+.history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.provline > summary svg,
+.history > summary svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--primary-soft);
+  transition: transform 0.18s ease;
+}
+
+.provline[open] > summary svg,
+.history[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.provline > p {
+  margin: 0 0 var(--s-2);
+}
+
+.provline.unconfirmed {
+  padding: 0 var(--s-3);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--tint);
+}
+
+.history > summary h2 {
+  margin: 0;
+}
+
+/* THE THIRTY DAYS, in one block under the reading part. The heading is
+   quieter than a page `h2` because this block IS the section; a rule across the
+   page over a boxed thing is two frames around one idea. */
+.pricebox {
+  margin: var(--s-3) 0 var(--s-6);
+  padding: var(--s-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+}
+
+.priceheading {
+  margin: 0 0 var(--s-2);
+  padding: 0;
+  border: 0;
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Inside the box the disclosure has no box of its own. */
+.pricebox .why {
+  margin: var(--s-3) 0 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.pricebox .why > summary {
+  min-height: var(--tap);
+  padding: 0;
+}
+
+.pricebox .why > *:not(summary) {
+  padding: 0 0 var(--s-2);
+}
+
+/* "Why this number": typst's section of the reading part
+   (`suzatary_core::reading`), in the callout's material, its heading the
+   callout's title. The HTML carries the classes; every colour is a token. */
+.whytree {
+  margin: var(--s-6) 0;
+  padding: var(--s-4) var(--s-4) var(--s-3);
+  border: 1px solid var(--blue-line);
+  border-radius: var(--r-callout);
+  background: var(--blue-wash);
+  color: var(--ink);
+}
+
+.whytree > h2 {
+  margin: 0 0 var(--s-2);
+  padding: 0;
+  border: 0;
+  text-align: center;
+  font: italic 700 var(--t-body) / 1.35 var(--f-serif);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--blue-35);
+}
+
+.whytree > .pass {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-small);
+}
+
+/* The price in one sentence, the section's lead. */
+.whytree > .says {
+  margin: 0 0 var(--s-2);
+}
+
+.whytree {
+  overflow-wrap: anywhere;
+}
+
+.offlinenote {
+  margin: var(--s-2) 0;
+}
+
+/* --- the Inbox ------------------------------------------------------------ */
+/* A queue of things waiting on a person, and nothing else (web/src/pages/inbox.ts).
+   Its cards are `proposal.ts`'s, unchanged — that shape is what CLAUDE.md's
+   confirm rule looks like — so all this adds is the line back to where each one
+   came from. */
+.inboxpage .proposals {
+  margin-top: var(--s-4);
+}
+
+.proposalhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-bottom: var(--s-2);
+}
+
+.proposalfrom {
+  margin-left: auto;
+  font-size: var(--t-tiny);
+  color: var(--ink-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+
+@media (hover: hover) {
+  .proposalfrom:hover {
+    color: var(--primary);
+  }
+}
+
+/* --- the filter row ------------------------------------------------------- */
+/* One bordered strip instead of four blocks stacked down the page, in the order
+   the questions get asked: what am I looking for, is it open or done, does it
+   need a human, which part of my life. On a 390 px screen that is about 60 px
+   of vertical saved, which is the difference between two cards above the fold
+   and three. */
+.filterbar {
+  margin: var(--s-2) 0 var(--s-3);
+  padding: var(--s-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+}
+
+.filterbar .searchbox {
+  margin: 0 0 var(--s-2);
+}
+
+.filterline {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.filterline .segmented {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* "Needs a look" — the one facet that is not about what a todo is ABOUT but
+   about whether the record is settled. It borrows the chip shape and takes the
+   warning colour when it is on, because what it selects for is exactly what the
+   `unconfirmed` and `conflict` chips are marked in. */
+.attentionbtn {
+  flex: none;
+  min-height: var(--tap);
+}
+
+.attentionbtn.on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.filterbar .facets {
+  margin-top: var(--s-1);
+}
+
+.filterbar .chiprow:empty {
+  display: none;
+}
+
+/* THE COUNT, and the sentence that keeps LOW = URGENT on screen. It is not
+   decoration: this is the one number whose direction people get wrong, and it
+   costs one line to say it where the ordering is. */
+.count {
+  margin: 0 0 var(--s-2);
+}
+
+/* An empty list is a SENTENCE, not a blank. Which sentence is the page's to
+   choose (web/src/pages/todos.ts: nothing here yet / nothing open / nothing
+   matches), because those are three different pieces of news. */
+.empty {
+  margin: var(--s-4) 0;
+  padding: var(--s-8) var(--s-4);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+/* WHAT A PAGE SHOWS WHILE IT WAITS (`web/src/view/placeholder.ts`): the
+   loading mark over grey bars in the shape of the page's content, no words.
+   It stays invisible for 300 ms, so a quicker answer shows nothing at all;
+   with reduced motion it appears at the same moment, without the fade. */
+.placeholder {
+  animation: placeholder-in 160ms ease-out 300ms both;
+}
+
+@keyframes placeholder-in {
+  from {
+    visibility: hidden;
+    opacity: 0;
+  }
+  to {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.placeholder:not(.phinline) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: var(--s-4) 0;
+}
+
+.placeholder > .loadmark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+/* Beside a control that was pressed the mark shows at once: the person asked, so the answer starts now. */
+.phinline {
+  display: inline-flex;
+  vertical-align: middle;
+  animation: none;
+}
+
+.phinline > .loadmark {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.phbar {
+  display: block;
+  height: 0.75rem;
+  border-radius: 0.375rem;
+  background: var(--grid);
+}
+
+.ph-lines > .phbar:nth-of-type(1) { width: 92%; }
+.ph-lines > .phbar:nth-of-type(3) { width: 84%; }
+.ph-lines > .phbar:nth-of-type(4) { width: 96%; }
+.ph-lines > .phbar:nth-of-type(5) { width: 58%; }
+
+.phrow,
+.phcard,
+.phturn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.phrow {
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.phrow > .phbar:first-child { width: 64%; }
+.phrow:nth-of-type(2n) > .phbar:first-child { width: 48%; }
+.phrow > .phbar:last-child { width: 30%; height: 0.5rem; }
+
+.phcard {
+  padding: var(--s-4);
+  border: 1px solid var(--grid);
+  border-radius: var(--r-card);
+}
+
+.phcard > .phbar:first-child { width: 40%; }
+.phcard > .phbar:nth-child(3) { width: 88%; }
+.phcard > .phbar:last-child { width: 64%; }
+
+/* A conversation on its way: bubbles in turn, the newest just above the composer. */
+.ph-turns {
+  justify-content: flex-end;
+  min-height: 55dvh;
+}
+
+.phturn {
+  width: 72%;
+  padding: var(--s-3);
+  border: 1px solid var(--grid);
+  border-radius: var(--r-card);
+}
+
+.phturn:nth-of-type(2n + 1) {
+  align-self: flex-end;
+  width: 52%;
+}
+
+.phturn > .phbar:first-child { width: 30%; height: 0.5rem; }
+
+/* A page waiting for its title (a todo before its body is read, a conversation before its window) shows a bar where the
+   title will be; one that failed to load does not. */
+.pagewaiting .pagetitle:empty::before,
+.pagetitle.pagewaiting:empty::before {
+  content: "";
+  display: block;
+  width: 60%;
+  height: 1.5rem;
+  margin: 0.3rem 0;
+  border-radius: 0.75rem;
+  background: var(--grid);
+  animation: placeholder-in 160ms ease-out 300ms both;
+}
+
+/* THE LOADING MARK (`web/src/view/loadmark.ts`), design A: the row's pie,
+   filling from the fulfillment scale's bad end to its good end, then fading
+   to start again. Another design replaces this block and that file. */
+.loadmark {
+  display: block;
+  overflow: visible;
+}
+
+.loadring {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.loadfill {
+  fill: none;
+  stroke-width: 9.5;
+  stroke: var(--fulfillment-to);
+  stroke-dasharray: 15 60;
+  transform: rotate(-90deg);
+  transform-origin: 12px 12px;
+  animation: loadmark-fill 2.4s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+}
+
+@keyframes loadmark-fill {
+  0% {
+    stroke-dasharray: 0 60;
+    stroke: var(--fulfillment-from);
+    opacity: 1;
+  }
+  60% {
+    stroke-dasharray: 29.9 60;
+    stroke: var(--fulfillment-to);
+  }
+  80% {
+    stroke-dasharray: 29.9 60;
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 29.9 60;
+    stroke: var(--fulfillment-to);
+    opacity: 0;
+  }
+}
+
+/* Still, half full, with reduced motion: the mark without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .loadfill {
+    animation: none;
+  }
+}
+
+/* THE SEND BUTTON AND ITS SECOND PRESS. Nothing about the flow changed in the
+   2026-09-10 pass and nothing about it may: CLAUDE.md's rule is that every
+   outbound email shows final recipients, subject and body and gets an explicit
+   confirm of THAT text. What is styled here is only which of the two presses
+   looks like the irreversible one — the first is an offer and the second is the
+   act, so the second is the one that is filled in. */
+.act-send {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.act-send.confirming {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.act-cancelsend,
+.act-canceldismiss {
+  color: var(--ink-muted);
+}
+
+/* SAYING NO IS NOT A DESTRUCTIVE ACT. It reaches nothing, it is answered by
+   asking again, and the proposal stays in the transcript with the reason on it
+   — so it is a quiet control beside Send rather than a red one competing with
+   it. `confirming` is where the weight goes, and only after a reason is typed. */
+.act-dismiss,
+.act-replyto {
+  color: var(--ink-muted);
+}
+
+.act-dismiss.confirming {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* --- A BATCH IN THE INBOX (docs/ARCHITECTURE.md §10.6) ---------------------
+   The proposal cards above are the secretary's, drawn by `proposal.ts`; a BATCH
+   is the triage agent's, and it is a different shape — a list of diffs with
+   ticks, over one heading. It keeps its own class names rather than borrowing
+   the proposal card's, for the reason the conversation list already does: what
+   is in each row is not what is in the other, and sharing a class would make a
+   change to one silently move the other. It sits on the same scale as
+   everything above (`--r-card`, `--t-micro`, the accent and the line). */
+
+
+.batch {
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  padding: 0.6rem 0.75rem 0.7rem;
+}
+
+.batchhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* WHY THIS BATCH REACHED HIM AT ALL (§10.6, 2026-09-11). The secretary settles
+   the ordinary ones; a batch standing here was HELD on purpose, and the reason
+   goes above the diff for the same reason a proposal's `why` goes above its
+   body — the thing means nothing until you know what it is answering. */
+.batchheld {
+  margin: 0 0 0.5rem;
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+
+.batchheldlabel {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* --- WHAT THE SECRETARY SETTLED TODAY --------------------------------------
+   Collapsed, and below the queue: he asked to SEE the edits, not to answer
+   them. Those batches are gone from both stores by now, so each row is the
+   review line and nothing else. */
+.settledtoday {
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  padding: 0.5rem 0.75rem;
+  color: var(--ink-muted);
+}
+
+.settledtoday > summary {
+  cursor: pointer;
+  font-size: var(--t-small);
+}
+
+.settledbatch {
+  padding: 0.5rem 0 0.15rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.settledbatch:last-of-type {
+  border-bottom: 0;
+}
+
+.settledhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0;
+  font-size: var(--t-small);
+}
+
+.settledwhat {
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.settledhash {
+  margin-left: auto;
+  font-size: var(--t-small);
+}
+
+.settledwhy {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-small);
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.settledlink {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: var(--t-small);
+}
+
+.batchwhen {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.batchhash {
+  margin-left: auto;
+  font-size: var(--t-small);
+}
+
+.proposedobject {
+  padding: 0.55rem 0 0.15rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.proposedobject:last-of-type {
+  border-bottom: 0;
+}
+
+.proposedhead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.proposedpick {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+}
+
+.proposedact {
+  font-weight: 600;
+}
+
+.proposedhash {
+  margin-left: auto;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.proposedbody,
+.proposednote,
+.proposedpending {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+
+.proposednote {
+  color: var(--ink-muted);
+}
+
+/* A row whose todo is itself only proposed depends on ANOTHER batch, and
+   accepting it alone records an outcome for a todo with no content. Said
+   plainly rather than drawn as an ordinary row. */
+.proposedpending {
+  color: var(--primary);
+}
+
+.proposedchanges {
+  margin: 0.35rem 0 0;
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 1fr;
+  gap: 0.15rem 0.6rem;
+  font-size: var(--t-small);
+}
+
+.proposedchanges dt {
+  color: var(--ink-muted);
+}
+
+.proposedchanges dd {
+  margin: 0;
+}
+
+.proposedchanges .was {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+.proposedchanges .arrow {
+  margin: 0 0.35rem;
+  color: var(--ink-muted);
+}
+
+.proposedlink {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: var(--t-small);
+}
+
+/* A diff's overview stays in view; its rows open on demand (web/src/view/disclosure.ts). */
+.diffsummary {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+}
+
+.diffoverview {
+  flex: 1;
+  min-width: 0;
+}
+
+.diffline {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.diffflag,
+.diffpicked,
+.diffoverview .proposalproblem {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+
+/* What a hold rests on, said in the overview, so it is never only behind the toggle. */
+.diffflag {
+  color: var(--primary);
+}
+
+.diffpicked {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.diffbtn {
+  flex: none;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+}
+
+.diffbtn[aria-expanded="true"] {
+  color: var(--primary);
+  background: var(--tint);
+}
+
+.batchacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+}
+
+
+/* --- usage (docs/APP.md §4 item 9) ------------------------------------------ */
+.usagebody { display: flex; flex-direction: column; gap: 1rem; }
+.usagewindow { border: 2px solid var(--line); border-radius: 12px; padding: 1rem; background: var(--sheet); }
+.usagetitle { margin: 0 0 .5rem; font-size: var(--t-body); text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
+.usagebig { font-size: var(--t-head2); font-weight: 600; margin-bottom: .35rem; }
+.usagebar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: .25rem 0 .5rem; }
+.usagefill { height: 100%; background: var(--primary); }
+.usagebar-measured .usagefill { background: var(--primary); opacity: .45; }
+.usagenote { margin: .35rem 0; opacity: .8; font-size: var(--t-body); }
+.usagefoot { padding: 0 .25rem; }
+.usagetokens { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: .15rem .6rem; margin: .5rem 0; font-size: var(--t-body); }
+.usagetokens dt { opacity: .7; }
+.usagetokens dd { margin: 0; font-variant-numeric: tabular-nums; }
+.usageshares { width: 100%; border-collapse: collapse; margin: .5rem 0; font-size: var(--t-body); }
+.usageshares td { padding: .2rem .25rem; border-top: 1px solid var(--rule); }
+.usagelabel { font-family: var(--f-mono); }
+.usagenum { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.usagerefusal { margin: .5rem 0 .25rem; font-size: var(--t-body); }
+.usagecredits { border-radius: 10px; padding: .6rem .8rem; margin-top: .5rem; border: 1px dashed var(--line); font-size: var(--t-body); }
+.usagecredits p { margin: .25rem 0; }
+.usagecreditshead { font-weight: 600; }
+.usagecredits-on { border-style: solid; border-color: var(--primary); }
+
+/* The slug in the meta row: quiet, mono, never the loudest thing on the card. */
+.cardmeta .cardid { color: var(--ink-muted); }
+
+/* --- about (docs/AUDIT-UX-2026-09-12.md findings 3 and 6) ------------------- */
+.aboutpage h2 { margin: 1.4rem 0 .4rem; font-size: var(--t-body); }
+.aboutprose { font-size: var(--t-body); line-height: 1.55; margin: .4rem 0; }
+.archivelink { margin-top: .4rem; }
+
+/* --- the Todos list: one tree of terms (docs/REDESIGN-PLAN-2026-09-25.md) --- */
+/* A group is a glass card, a todo one line: pie and number, title, the count below a
+   parent. Opening a line shows its text and the acts in place. */
+
+.todospane .pagetitle {
+  margin-bottom: var(--s-1);
+}
+
+/* The title and its one control, the magnifier, on one line; what narrows the list rides beside the magnifier. */
+.titlerow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.titlerow > .pagetitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.findbtn {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--s-1);
+  min-width: var(--tap);
+  min-height: var(--tap);
+  max-width: 60%;
+  padding: 0 var(--s-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: 600 var(--t-small) / 1.2 var(--f-sans);
+  cursor: pointer;
+}
+
+.findbtn[aria-expanded="true"] {
+  background: var(--tint);
+}
+
+.findbtn > svg {
+  flex: none;
+}
+
+.findsaid {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.findsaid:empty {
+  display: none;
+}
+
+.finder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+/* Under the title the controls wrap rather than run off the card: the state segments take a line, the chips the rest. */
+.finder .filterline,
+.finder .chiprow {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.finder .filterline .segmented {
+  flex: 1 1 100%;
+}
+
+.needs {
+  margin: 0;
+  font-size: var(--t-body);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.groupby {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.groupbylabel {
+  margin-right: 0;
+  font: 600 var(--t-small) / 1 var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.pill {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: 700 var(--t-small) / 1 var(--f-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pill[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Inside the finder the filter is no box of its own. */
+.todospane .filterbar {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.todospane .filterbar input.search {
+  min-height: 2.25rem;
+  border-width: 1px;
+  font-size: var(--t-body);
+}
+
+/* A group is a sheet (the material is above, with the page head's): its
+   header row, the capsule rule, then its rows or, folded, only the padding. */
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.group {
+  padding: 0 var(--s-3) var(--s-3);
+}
+
+.group > .rule {
+  margin: 0;
+}
+
+.grouphead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.grouplabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 var(--t-small) / 1 var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--primary);
+}
+
+.groupcount {
+  flex: none;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.grouphead > svg:first-child,
+.rowfold svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--primary-soft);
+  transition: transform 0.18s ease;
+}
+
+.grouphead[aria-expanded="true"] > svg:first-child,
+.rowfold[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.grouprows {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-1) 0 0;
+}
+
+.grouprows:empty {
+  display: none;
+}
+
+/* A folded group's one line under its rule: its most urgent todo, so nothing hides. */
+.peek {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  padding-top: var(--s-1);
+  font-size: var(--t-small);
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.peek .rowtitle {
+  font-size: inherit;
+  -webkit-line-clamp: 1;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding-left: calc(var(--depth) * var(--indent));
+  border-radius: 6px;
+}
+
+.row.selected,
+.row.inplace,
+.rowopen {
+  background: var(--tint);
+}
+
+.row.inplace {
+  border-radius: 6px 6px 0 0;
+}
+
+.rowfold,
+.rowgap {
+  flex: none;
+  width: var(--fold);
+  height: var(--tap);
+}
+
+.rowfold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rowmain {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 8px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Two lines before the cut, and the whole of it on a line opened in place. */
+.rowtitle {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 0;
+  overflow: hidden;
+  font-size: var(--t-body);
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.row.inplace .rowtitle {
+  -webkit-line-clamp: unset;
+}
+
+/* typst's HTML is blocks; a line holds it inline so the ellipsis can cut it. */
+.rowtitle * {
+  display: inline;
+  margin: 0;
+}
+
+/* The held reason runs on from its label: typst's paragraph, held inline. */
+.batchheldwhy > p {
+  display: inline;
+  margin: 0;
+}
+
+.row.parent .rowtitle {
+  font-weight: 600;
+}
+
+.rowmain .chip {
+  flex: none;
+}
+
+.rowcount {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  color: var(--primary-soft);
+  font: 600 var(--t-small) / 1.4 var(--f-sans);
+}
+
+.row.inplace .rowcount,
+.row.selected .rowcount {
+  background: var(--sheet);
+}
+
+/* A node the tab cannot price: a group it cannot compose. A dashed circle the pie's size. */
+.mark.unlinked {
+  border: 1.5px dashed var(--fulfillment-from);
+  border-radius: 50%;
+}
+
+.rowopen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding: 2px 12px 14px calc(var(--depth) * var(--indent) + var(--fold));
+  border-radius: 0 0 6px 6px;
+}
+
+.rowopen .waiting {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.rowacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.capsule,
+.rowacts .act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--primary);
+  font: 700 var(--t-small) / 1 var(--f-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.capsule.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.rowacts .act svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* The add sheet, when it adds under a parent. */
+.subof {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+.subof strong {
+  overflow: hidden;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.subofclear {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+@media (min-width: 62rem) {
+  /* The todo beside the list is what is read, so it takes what the list leaves, its prose held to a measure. */
+  .split.todosplit {
+    grid-template-columns: minmax(16rem, min(27rem, 40%)) minmax(0, 1fr);
+  }
+
+  .detailpane :is(p, li) {
+    max-width: 70ch;
+  }
+}
+
+/* --- the secretary layer: ONE DOOR ON EACH WIDTH (the 2026-10-13 audit, X3).
+   On a phone the Secretary tab, and a page's own "Ask the secretary" for what
+   it shows; where the panel stands (the app puts it in the page at its wide
+   width, `chat/aside.ts`), its toggle carries what the page shows, so the
+   page's own link is not drawn: the rule reads the panel, not a width. ---- */
+body:has(> .secretarypanel) .askrow {
+  display: none;
+}
+
+/* The frame header — "About <reference> · " (or, on the empty-slice
+   fallback, "Nothing about <reference> yet · ") beside a link to the whole
+   conversation — only in the panel; the page never draws it,
+   because the page already IS the whole conversation. */
+.frameheader {
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+  margin-bottom: var(--s-2);
+}
+
+.frameheader a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* The panel does not exist below 62rem at all: the tab and the page's own
+   link are the doors there. */
+.secretarypanel {
+  display: none;
+}
+
+@media (min-width: 62rem) {
+  /* Under the header, never beside it, so opening the panel moves nothing in the header. */
+  .secretarypanel {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    right: 0;
+    top: calc(4.2rem + env(safe-area-inset-top));
+    bottom: 0;
+    width: 22rem;
+    z-index: 24;
+    border-left: 1px solid var(--rule);
+    background: var(--ground);
+    padding: var(--s-3);
+    /* The PANEL ITSELF no longer scrolls (2026-09-16 — this is what let the
+       composer land under the fold, off screen, in the first sheet/panel
+       shape): `.panelscroll` is the one box that does. */
+    overflow: hidden;
+  }
+
+  /* Closed, the panel takes no width; its toggle stays where it was. */
+  .secretarypanel.panelclosed {
+    width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .secretarypanel.panelclosed .panelbody {
+    display: none;
+  }
+
+  /* ONE PLACE, OPEN OR CLOSED: fixed at the header's line on the right, one width for both labels. A fixed box is
+     not clipped by the closed panel's zero width. */
+  .panelcollapse {
+    position: fixed;
+    top: calc(0.9rem + env(safe-area-inset-top));
+    right: var(--s-3);
+    width: 7rem;
+    min-height: var(--tap);
+    padding: 0 var(--s-3);
+    border: 2px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--ground);
+    color: var(--primary);
+    font-size: var(--t-small);
+  }
+
+  .panelbody {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panelheader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    margin-bottom: var(--s-2);
+  }
+
+  .panelheader .frameheader {
+    flex: 1 1 auto;
+    margin-bottom: 0;
+  }
+
+  .panelheader .legend {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .panelscroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .panelcompose {
+    flex: 0 0 auto;
+  }
+
+  .panelcompose .compose {
+    margin-top: var(--s-2);
+  }
+
+  /* The page under the header leaves the open panel its width; a closed panel is only its toggle, in the header's room. */
+  body:has(> .secretarypanel:not(.panelclosed)) {
+    --aside: calc(22rem - 1rem + var(--s-4));
+  }
+}
+
+/* THE ONE "NEEDS YOU" POPUP (`needsyou.ts`): anything newly waiting on him,
+   whatever kind of request it is. IN THE FLOW under the header, never an
+   overlay: it pushes the page down rather than covering the button a page
+   is about, and it stays until he opens it or says later. */
+.needsyouhost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 74rem;
+  margin: 0 auto;
+}
+
+.needsyouhost:empty {
+  display: none;
+}
+
+.needsyou {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+}
+
+.needsyouhead {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.needsyoutext {
+  margin: 0.25rem 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.needsyourow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.needsyouopen {
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1.1rem;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+.needsyouclose {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+/* The Inbox row a push or a popup opened. */
+.opened {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* --- the secretary's memory (docs/CHAT-PLAN-2026-09-25.md §3.6) -------------
+   A glass card per kind, its name a label; a fact is serif, the round that
+   said it an inline link under it, Forget a secondary capsule. */
+.memorygroup {
+  margin: 0 0 var(--s-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.memoryhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) 0.875rem var(--s-2);
+}
+
+.memoryfacts {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.875rem var(--s-1);
+}
+
+.memoryfact {
+  padding: var(--s-2) 0 var(--s-3);
+}
+
+.memoryfact + .memoryfact {
+  border-top: 1px solid var(--rule);
+}
+
+.memoryfacttext {
+  margin: 0 0 var(--s-1);
+  font-size: var(--t-body);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.memoryfactfoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+}
+
+.memorysaid {
+  font-size: var(--t-small);
+  font-style: italic;
+}
+
+.act.forget {
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  font-size: var(--t-small);
+}
+
+/* The receipt a round draws for what it remembered: in plain sight, never in the fold. */
+.receipt {
+  margin: var(--s-2) 0;
+  line-height: 1.9;
+  padding: var(--s-2) var(--s-3);
+  border-left: 3px solid var(--line);
+  background: var(--tint);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-size: var(--t-small);
+}
+
+.receipttext {
+  font-style: italic;
+  color: var(--ink);
+}
+
+.receiptfact {
+  color: var(--ink-muted);
+}
+
+.receipt > .diamond {
+  margin: 0 var(--s-1);
+}
+
+.receiptstate {
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.receipt .act.forget {
+  min-height: 1.9rem;
+  vertical-align: middle;
+}
+
+/* --- the secretary's conversations (docs/CHAT-PLAN-2026-09-25.md §4.2) -----
+   `#/secretary` is the list; at 62rem and up the same list stands as a column
+   beside a conversation. Below that the column is not drawn at all: a phone
+   reads one thing at a time, and Back returns to the list. */
+.chatsmemory {
+  margin: 0 0 var(--s-3);
+}
+
+/* One line: the search, and New topic beside it; a login that may not write has a sentence instead, on a line of its own. */
+.chathead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+
+.chathead > .chatsearch {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.chatwrites:has(.readonly) {
+  flex: 1 1 100%;
+}
+
+.renamefield {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+}
+
+.act.act-newtopic {
+  flex: none;
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.chatsections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.chatcard {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.chatfilters .segment {
+  min-height: 2.5rem;
+  font-family: var(--f-sans);
+  font-size: var(--t-small);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* A row is navigation: never underlined. */
+.chatrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: var(--s-2);
+  row-gap: 2px;
+  align-items: baseline;
+  min-height: var(--tap);
+  padding: var(--s-3) 0.875rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.chatrow + .chatrow {
+  border-top: 1px solid var(--rule);
+}
+
+.chatrow:active,
+.chatrow.current {
+  background: var(--tint);
+}
+
+@media (hover: hover) {
+  .chatrow:hover {
+    background: var(--tint);
+  }
+}
+
+.chattitle {
+  overflow: hidden;
+  font-size: var(--t-body);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chatbadge {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  color: var(--primary);
+  font: 600 var(--t-small) / 1.4 var(--f-sans);
+}
+
+/* Every badge a row carries shares one cell, so the time keeps its column. */
+.chatbadges {
+  display: inline-flex;
+  gap: var(--s-2);
+}
+
+/* A line with no card is a problem, never one more thing that waits. */
+.chatbadge.problem {
+  background: var(--problem-wash);
+  color: var(--problem);
+}
+
+.chatwhen {
+  grid-column: 3;
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.chatlast {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  font-size: var(--t-small);
+  font-style: italic;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chathit .chatlast {
+  white-space: normal;
+}
+
+.chatsaid {
+  margin: var(--s-2) 0;
+}
+
+.convhead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 1.1rem 0 0.35rem;
+}
+
+.convhead .pagetitle,
+.convhead .renamefield {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.act.act-rename {
+  min-height: 2.25rem;
+  font-size: var(--t-small);
+}
+
+.chatsaside {
+  display: none;
+}
+
+@media (min-width: 62rem) {
+  .chatswide {
+    display: grid;
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: var(--s-6);
+  }
+
+  /* Beside the column, the conversation starts at its edge rather than centring in what is left. */
+  .chatswide > .conversation {
+    margin: 0;
+  }
+
+  .chatsaside {
+    display: block;
+    position: sticky;
+    top: var(--sticky-top);
+    align-self: start;
+    max-height: calc(100vh - var(--sticky-top));
+    overflow-y: auto;
+    padding: var(--s-4) var(--s-4) var(--s-4) 0;
+    border-right: 2px solid var(--line);
+  }
+}
+
+/* --- Settings: what is connected, by group. A line is its label, one sentence of what it is and one of
+   where it stands; a failing one is drawn in the problem role, legible in both themes, never by a badge. --- */
+.settingsgroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-6);
+}
+
+.settingsline {
+  padding: var(--s-3) var(--s-4);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  overflow-wrap: anywhere;
+}
+
+.settingsline h3,
+.settingsline p {
+  margin: 0 0 var(--s-1);
+}
+
+.settingsline-failing {
+  border-color: var(--problem);
+}
+
+/* The release tree under This box: each release its pie and how many items are done, then the items, what is owed
+   first; a done item is struck through and a cancelled or moved-out one faded, so the count reads without the words. */
+.releases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.release {
+  padding: var(--s-3) var(--s-4);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  overflow-wrap: anywhere;
+}
+
+.release-next {
+  border-color: var(--primary);
+}
+
+.releasetitle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-1);
+}
+
+.releaseitems {
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.releaseitem {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) 0;
+}
+
+.releaseitem-done .releaseitemtitle {
+  text-decoration: line-through;
+}
+
+.releaseitem-cancelled,
+.releaseitem-dropped {
+  opacity: 0.6;
+}
+
+.settingspage .settingshealth-failing {
+  color: var(--problem);
+}
+
+/* A terminal's command, folded: a settings page is scanned, and the command is for the box. */
+.settingsatbox > summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+}
+
+.settingsatbox > code {
+  display: block;
+  margin: var(--s-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.settingspage .act-ask {
+  text-decoration: none;
+}
+
+.settingsask {
+  margin: 0 0 var(--s-4);
+}
+
+/* A price's controls sit in the form's own column, as they did before one control drew them. */
+.pricefields {
+  display: contents;
+}
+
+/* A refusal stays beside the button that met it until the next submit. */
+.formrefusal {
+  margin: 0;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+
+/* --- a Typst view (web/typst/, compiled in the tab) ------------------------------------------- */
+/* The kit's markup is classes, the design system's pie as an inline SVG, and one custom property
+   per row, `--c`, the value's colour on the owner's scale. Layout is by the frame's own width, never the
+   viewport's, so a view drawn in a narrower pane lays out as it would on a phone. Nothing here
+   moves a control when another is pressed: the rows keep their height whatever is open. */
+
+.typstframe {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.tview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-4);
+}
+
+/* On a phone the open todo opens in place inside its row, under the row's controls, so nothing
+   above the tapped row moves; the pane beside the list is the same content, shown only where there
+   is room for it, and the list makes room for the pane only while there is one. */
+.tview .tpane {
+  display: none;
+}
+
+.tinplace {
+  flex: 1 0 100%;
+  padding: 0 var(--s-3) var(--s-3) 0;
+}
+
+@container (min-width: 56rem) {
+  .tview:has(> .tpane) {
+    grid-template-columns: minmax(0, 27rem) minmax(0, 1fr);
+    gap: var(--s-6);
+    align-items: start;
+  }
+
+  .tinplace {
+    display: none;
+  }
+
+  .tview .tpane {
+    display: block;
+    position: sticky;
+    top: 3.2rem;
+    border-left: 1px solid var(--rule);
+    padding-left: var(--s-6);
+  }
+}
+
+.tcount {
+  margin: 0 0 var(--s-2);
+  font: italic var(--t-body) / 1.4 var(--f-serif);
+  color: var(--ink-muted);
+}
+
+.trows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The mark: a thick line in the row's own value colour. */
+.trow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  border-left: 4px solid var(--c);
+  border-bottom: 1px solid var(--grid);
+  padding-left: var(--s-2);
+}
+
+.trow:has(> .tinplace) {
+  background: var(--tint);
+}
+
+/* The mark sits in a gutter just wide enough for "100%", the pie over its number, so a long
+   title gets the row's width; the chip, when there is one, goes under the title. */
+.topen {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  column-gap: var(--s-2);
+  row-gap: 2px;
+  align-items: start;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: var(--s-2) 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tmark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+/* The pie stands as a box, so no line box under it grows the row. */
+.tmark svg {
+  display: block;
+}
+
+/* At most three lines in the list; the open todo shows the whole title, and the button's
+   accessible name is all of it, since a clamp hides nothing from the accessibility tree. The
+   opened row stays clamped, so tapping a row never changes its height. */
+.ttitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tpct {
+  flex: none;
+  font: 600 var(--t-tiny) / 1 var(--f-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--c);
+}
+
+.tpanehead .tpct {
+  font-size: var(--t-small);
+}
+
+.tchip {
+  grid-column: 2;
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  color: var(--primary-soft);
+  font: 600 var(--t-tiny) / 1.4 var(--f-sans);
+}
+
+.tdone {
+  flex: none;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--sheet-solid);
+  color: var(--primary);
+  font: 600 var(--t-small) / 1 var(--f-sans);
+  cursor: pointer;
+}
+
+.tunseen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tpane {
+  min-width: 0;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.tpanehead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+}
+
+.tcat {
+  color: var(--ink-muted);
+  font: var(--t-small) / 1.4 var(--f-sans);
+}
+
+.tpanetitle {
+  margin: var(--s-2) 0;
+  font: 600 var(--t-head) / 1.3 var(--f-serif);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.tdetail,
+.twhy,
+.tcreated {
+  margin: var(--s-2) 0;
+  overflow-wrap: anywhere;
+}
+
+.twhy,
+.tcreated {
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+}
+
+.typstproblem {
+  white-space: pre-wrap;
+}
+
+/* THE TYPST EDITOR (web/src/typst/editor.ts): a native textarea, its text
+   transparent, over a shaded twin drawn with the same box and font, so
+   selection, IME and undo stay the browser's and the colours are typst's own
+   highlight classes. The textarea grows with its text instead of scrolling,
+   so the twin never needs a scroll position to agree with, and the preview
+   sits right under the field and keeps its last page while the next one
+   compiles: nothing moves under the cursor. */
+.typed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.typedfield {
+  position: relative;
+}
+
+.typedfield .typedinput,
+.typedfield .typedshade {
+  margin: 0;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.55rem 0.7rem;
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--t-body);
+  line-height: 1.45;
+  letter-spacing: normal;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  tab-size: 2;
+}
+
+.typedfield .typedshade {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--sheet);
+  color: var(--ink);
+}
+
+.typedfield .typedinput {
+  position: relative;
+  display: block;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+}
+
+.typedfield .typedinput::placeholder {
+  color: var(--ink-muted);
+}
+
+.typedfield .typedinput::selection {
+  background: color-mix(in oklch, var(--primary) 25%, transparent);
+  color: transparent;
+}
+
+.typedshade .typ-comment { color: var(--ink-muted); font-style: italic; }
+.typedshade .typ-key,
+.typedshade .typ-marker { color: var(--primary); }
+.typedshade .typ-str { color: oklch(52% 0.12 150); }
+.typedshade .typ-num { color: oklch(58% 0.14 60); }
+.typedshade .typ-func,
+.typedshade .typ-label,
+.typedshade .typ-ref,
+.typedshade .typ-link { color: var(--blue-35); }
+.typedshade .typ-heading,
+.typedshade .typ-strong { font-weight: 700; }
+.typedshade .typ-emph { font-style: italic; }
+.typedshade .typ-raw,
+.typedshade .typ-escape { color: oklch(50% 0.12 300); }
+.typedshade .typ-punct,
+.typedshade .typ-op,
+.typedshade .typ-math-delim,
+.typedshade .typ-math-op { color: var(--ink-muted); }
+.typedshade .typedmark {
+  text-decoration: wavy underline var(--fulfillment-from);
+  text-decoration-skip-ink: none;
+}
+
+.typedoffer {
+  margin: 0;
+  padding: var(--s-1);
+  list-style: none;
+  max-height: 12rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sheet-solid);
+}
+
+.typedoffer li {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-2);
+  cursor: pointer;
+}
+
+.typedoffer li[aria-selected="true"] {
+  background: var(--tint);
+}
+
+.typedhover:empty,
+.typedproblems:empty {
+  display: none;
+}
+
+.typedhover {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+  white-space: pre-wrap;
+}
+
+.typedproblems {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--fulfillment-from);
+  font-size: var(--t-small);
+}
+
+.typedpreview {
+  min-height: 1.45em;
+  padding: var(--s-1) var(--s-2);
+  border-left: 3px solid var(--line);
+}
+
+.typedpreview.stale {
+  opacity: 0.55;
+}
+
+/* WHO ASKED, a tag on the head line: the box's own cards say Setup and a plugin's its name; the
+   secretary's cards carry none. */
+.proposaltag {
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: var(--t-tiny);
+  color: var(--ink-muted);
+}
+
+/* The box's own setup cards, one row after the work, opened in place. */
+.setupgroup {
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sheet);
+  padding: 0 0.75rem;
+}
+
+.setuplabel {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.setupsettings {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+/* Where a held batch is and who wrote it, inside its diff. */
+.batchmeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+/* THE ONE GRID'S WIDTHS (above, "ONE GRID FOR EVERY PAGE"), last in the file so
+   no base rule set after them wins: everything under the header starts at the
+   brand's edge and ends at the open panel or the window. */
+@media (min-width: 62rem) {
+  header,
+  main,
+  footer,
+  .toast,
+  .stalebar,
+  .excludedbar,
+  .needsyouhost {
+    max-width: none;
+    margin-left: 0;
+    margin-right: var(--aside);
+  }
+
+  header {
+    margin-right: 0;
+  }
+
+  .column {
+    margin-left: 0;
+  }
+}

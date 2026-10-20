@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "noise_senders": [
+    "diego@example.test"
+  ],
+  "messages": {
+    "abc123": {}
+  }
+}

@@ -1,0 +1,103 @@
+[
+  {
+    "answer": "",
+    "blocks": []
+  },
+  {
+    "answer": "Just one line.",
+    "blocks": [
+      {
+        "source": "Just one line.",
+        "plain": "Just one line.",
+        "kind": "prose",
+        "sha": "9070a1e931ca62af2ff791b302a65c1d67744f079b1edd142f14010c39dfdb5a"
+      }
+    ]
+  },
+  {
+    "answer": "= The deed\n\nIt is due *Friday*; I drafted the cover letter.\n\n- scan the old deed\n- sign page 3\n",
+    "blocks": [
+      {
+        "source": "= The deed\n\n",
+        "plain": "The deed",
+        "kind": "heading",
+        "sha": "6c81081f86df00003b3beab36d7bd800dec2d636e9a439d91a6403232e5bbb6e"
+      },
+      {
+        "source": "It is due *Friday*; I drafted the cover letter.\n\n",
+        "plain": "It is due Friday; I drafted the cover letter.",
+        "kind": "prose",
+        "sha": "7942e39565e78ef8962cb6949933efaf67cf791f07abfbfc4ad3d3e6cde8dbd6"
+      },
+      {
+        "source": "- scan the old deed\n- sign page 3\n",
+        "plain": "• scan the old deed \n• sign page 3",
+        "kind": "list",
+        "sha": "b8d518e7559e12ec9ad9c5c6c747df7a90e9e0bf11a20fbbc80ca4f63e8875cd"
+      }
+    ]
+  },
+  {
+    "answer": "Before:\n\n```rust\nfn a() {}\n\nfn b() {}\n```\n\nAfter.",
+    "blocks": [
+      {
+        "source": "Before:\n\n",
+        "plain": "Before:",
+        "kind": "prose",
+        "sha": "4e47b1518622a9ff95545476c6cf8ddfe2b8db69ad102090c465fb39e9ab0d0a"
+      },
+      {
+        "source": "```rust\nfn a() {}\n\nfn b() {}\n```\n\n",
+        "plain": "fn a() {}\n\nfn b() {}",
+        "kind": "code",
+        "sha": "aa97eada662a25fa181109331027d2e60a5a4b4d9de00c7948f0a953e1ace3a9"
+      },
+      {
+        "source": "After.",
+        "plain": "After.",
+        "kind": "prose",
+        "sha": "0306b48ad9dd5473e42bb337d264bfadd2e1407a343f7d9a855ad5bb78ebb941"
+      }
+    ]
+  },
+  {
+    "answer": "$ sum_(i=1)^n i = (n(n+1))/2 $\n\n#panel[Two\n\nparagraphs]\n\n\n\nTrailing.\n\n",
+    "blocks": [
+      {
+        "source": "$ sum_(i=1)^n i = (n(n+1))/2 $\n\n",
+        "plain": "sum_(i=1)^n i = (n(n+1))/2",
+        "kind": "equation",
+        "sha": "2442a43ca611f53344f5ea162145fb3972d29ec78744d3ca3dd3463349e475af"
+      },
+      {
+        "source": "#panel[Two\n\nparagraphs]\n\n\n\n",
+        "plain": "Two\n\nparagraphs",
+        "kind": "prose",
+        "sha": "da4e343bf4b43ea77ac21dff8d1677fefceefd205f6928b850872ff41eb7943b"
+      },
+      {
+        "source": "Trailing.\n\n",
+        "plain": "Trailing.",
+        "kind": "prose",
+        "sha": "963ff4cd10ea5d8cfacd37494355b1badf75892918a2b16e3014b0ea029cf373"
+      }
+    ]
+  },
+  {
+    "answer": "- loose\n\n- list\n\nthen prose",
+    "blocks": [
+      {
+        "source": "- loose\n\n- list\n\n",
+        "plain": "• loose\n\n• list",
+        "kind": "list",
+        "sha": "02eb1b8e3a1d7ac1e76434e22e6760487c98df5d8e8bac903b879ea150f2de80"
+      },
+      {
+        "source": "then prose",
+        "plain": "then prose",
+        "kind": "prose",
+        "sha": "59ca8b3e36b34ae08234a0e13605bbed619a5d58f92fcb9dd5cd4d9af314b097"
+      }
+    ]
+  }
+]

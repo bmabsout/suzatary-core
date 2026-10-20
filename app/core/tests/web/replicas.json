@@ -1,0 +1,322 @@
+{
+  "at": "2026-09-02T12:06:40",
+  "chains": [
+    {
+      "name": "life",
+      "untrusted": [
+        "triage"
+      ],
+      "objects": [
+        {
+          "hash": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+          "text": "Genesis(label='todos', nonce='00000000000000000000000000000000')"
+        },
+        {
+          "hash": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='file-permit', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='permit renewal', note=''))"
+        },
+        {
+          "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+        },
+        {
+          "hash": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='renew-card', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+        },
+        {
+          "hash": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e',), event=Authored(todo='renew-card', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+        },
+        {
+          "hash": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='book-flight', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+        },
+        {
+          "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))"
+        },
+        {
+          "hash": "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91',), event=Authored(todo='book-flight', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+        },
+        {
+          "hash": "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='pack-bags', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+        },
+        {
+          "hash": "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c',), event=Authored(todo='pack-bags', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Pack for the trip', spec=Flat(value=0.72), rationale=(), category='home', waiting_on='', detail='After #link(\"todo:book-flight\")[the flight] is booked.', source=None, subtodos=(SubTodo(body='[tickets]', done=True), SubTodo(body='[chargers]', done=False)), notes=(), note=''))"
+        },
+        {
+          "hash": "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40',), event=Completed(todo='renew-card', at=datetime(2026, 8, 14, 12, 0, 0), actor='ada', note=''))"
+        },
+        {
+          "hash": "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='water-plants', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+        },
+        {
+          "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00',), event=Authored(todo='water-plants', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+        },
+        {
+          "hash": "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c",
+          "text": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e',), event=Authored(todo='file-permit', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='File the *permit* renewal', spec=Decay(start=0.6, end=0.05, end_date=datetime(2026, 9, 4, 12, 0, 0), lead_up=timedelta(days=14), start_date=datetime(2026, 8, 21, 12, 0, 0)), rationale=('Missing it is not recoverable.',), category='work', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+        }
+      ]
+    }
+  ],
+  "inbox": [
+    {
+      "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+      "text": "Genesis(label='memory', nonce='00000000000000000000000000000000')"
+    },
+    {
+      "hash": "171298552ce6c8b4ca39b3cf9e5c82439a7390153e0dbb6d07fae07035ae3a8e",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Asked(proposal='p7631d4dbe886e2eda86186f981faa87a', at=datetime(2026, 9, 2, 12, 3, 26), actor='assistant', act=Remember(text='5589698e925db689267ae519bc2bf970b090df7154fe91cf3c2972de82805ec5', kind='person'), why='her signature says so', sources=('mail:a1b2c3d4e5f6',), asked='proposal:trains/2', serves=None, spec=None))"
+    },
+    {
+      "hash": "4f2b4d89e3752839840106cf13661de01e634c2663662a135fa20ee556eb17a0",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Dismissed(proposal='pc6158144c4cbba7b515a767f00637101', at=datetime(2026, 9, 2, 12, 0, 1), actor='ada', reason='not this one'))"
+    },
+    {
+      "hash": "5b371443b258012c5025c036e8a0290e196060f4b4cd68a4ce079076bc2ce00e",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Asked(proposal='p7bf745230679b9064803a823f584469b', at=datetime(2026, 9, 2, 12, 3, 24), actor='assistant', act=Email(account='her@example.invalid', to=('counsel@example.test',), cc=(), subject='Trains', body='I take the early train now.', attachments=()), why='the meeting moved', sources=('mail:a1b2c3d4e5f6',), asked='proposal:trains/0', serves=None, spec=None))"
+    },
+    {
+      "hash": "58207be6a674bfed50266aa1ee0dd07fc72d5cb0268e4232079e376178d692d3",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('5b371443b258012c5025c036e8a0290e196060f4b4cd68a4ce079076bc2ce00e',), event=Dismissed(proposal='p7bf745230679b9064803a823f584469b', at=datetime(2026, 9, 2, 12, 6, 40), actor='ada', reason='not yet'))"
+    },
+    {
+      "hash": "93d4a0f29a24d10077a1afce17f0f851516891ddd166de80ba22aa1fc3520070",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Asked(proposal='p86f99cf7e3106689524da6e1f3bff7c5', at=datetime(2026, 9, 2, 12, 0, 21), actor='assistant', act=Email(account='her@example.invalid', to=('counsel@example.test',), cc=(), subject='Your deed', body='Following up on the deed — draft attached.', attachments=()), why='the deed is due and nothing has gone out yet', sources=('mail:e2e0000000000000000000000000000000000000000000000000000000000000',), asked='proposal:about-the-deed/0', serves='todo:life/email-harrow', spec=None))"
+    },
+    {
+      "hash": "da910cfd3a169bf32389c24e10202abcd47fcd059b2c4eeeb87abe929bed319b",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Asked(proposal='pe0202384e0620cf052da2283f47c43c8', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', act=Email(account='her@example.invalid', to=('counsel@example.test',), cc=(), subject='Your lease', body='Following up on the deed.', attachments=()), why='the deed is due', sources=('briefing:2026-09-27',), asked='proposal:lagging/2', serves=None, spec=None))"
+    },
+    {
+      "hash": "dc9343684fcd0a1bf7b88d7811f27f585774de78da897b20979b417e3fa5a4de",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Asked(proposal='pda3d123aec30ef75a018ccd6ad1dc1fa', at=datetime(2026, 9, 2, 12, 3, 25), actor='assistant', act=Remember(text='c0f5cb80479a2d481657a50a518e41764465d4d272be5f6255d72b10121a05f9', kind='person'), why='her signature says so', sources=('mail:a1b2c3d4e5f6',), asked='proposal:trains/1', serves=None, spec=None))"
+    },
+    {
+      "hash": "e34fe0a50427b9ab18388c9ad51c4a188e53f1d6dac5743e42ff3c681bbab8b2",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('171298552ce6c8b4ca39b3cf9e5c82439a7390153e0dbb6d07fae07035ae3a8e',), event=Dismissed(proposal='p7631d4dbe886e2eda86186f981faa87a', at=datetime(2026, 9, 2, 12, 6, 40), actor='ada', reason='not from a newsletter'))"
+    }
+  ],
+  "conversations": [
+    {
+      "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+      "text": "Genesis(label='memory', nonce='00000000000000000000000000000000')"
+    },
+    {
+      "hash": "8e99d63c408b260a06036d93b6857122f83b11dcfc38d61e5438a98708ef9f48",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd', box='Y5oxXcKShOsxFTUVwyZsC9rFmoGNyHlmzrmefV9BVSgabSgJtItYf+ABWCRkDgA8m6D2Xt5dWc4NKkp/MZVazULyLdynSpLVbKeK7ymOcjtgI382R+q+t/PgnDDOgOPihKgCG4pcCySUzTyNWxNQfsfnoHhN9KPi6oFi0mHFnSPnqxHA9zw7frCYOVCz4sSgj4Q9qV+3/LPxNFaBa1G3gk3y+b1WE9S07ZUv2FjNG5hKy/j/H9GnyAbYHKjkrjss/9uhGCdYjEOPVDTqyVa+j5WgQ60Ezf0Kl9f6SdQNCZ7iLVMurXcAQPrjVFZbSgPyHfqUGj1PdvT5niCR5aBVZYI9bpdjzBWvBvJEzC9y0qk='),)))"
+    },
+    {
+      "hash": "b401a367f3637b095defc64c68706a7e961c3c70042d102eef7ec47ffa8b0f19",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 20), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0', box='aZPAwyD67kOlAPpsZtGvyFcIHZxbRwz0ySL6pZjcWqf++RZFTpCza9ThboonmbQYDzM0ovOujqWfaBXzztEKki5qm2POopkpoWRweGBTehLjotI/OC6tRxtDo7fmlXIgjcywgv4zOpvapTqSmuSAokaeVMhEMNWrSYAsoOCvB1SWH1jjUAowg+Ib9cNmyG2p4vnCmTAdgFxsqFvEC3IN3ByiJycBz/pKPVD4YgcjwbIKd/1x/ytc4nLjyoePz7DSzwcaxV0zG8/r1aCNU5fHx9igAEc0q83lKMmByqgdTHo9fU5kuHbnUlSgyFITkARmKSKlIrDWgDDfAevHQnkJqbeUXcDBCfSSbzt9o1+Xc80='),)))"
+    },
+    {
+      "hash": "8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('b401a367f3637b095defc64c68706a7e961c3c70042d102eef7ec47ffa8b0f19',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 21), actor='assistant', held=1, carried=None, turn='{\"who\":\"person\",\"references\":[],\"attachments\":[]}', by=None, words=(Locked(key='c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60', box='Lylb+Ww31yoOlfms192bdEgYQ2F1G9Tp49ztZ2wcKfzceO+ygmrnoWsm6PWHKFPnYtsG7De8i5J9EFUA0t8EvpBAfVFpRdh82SewFo+vPC2cFqnipLXEGrZ+MwaKEEthAZJsPuE7Wrdg1uJlY0y3hQ5b32sccWAkX1W5QflFRJyXuGu69UQS5fnV6Q4Mx2+9hsIaZKUmCt+Q2QbkM4bOKoY2d4SrEMB3flNQU3E/an60F40QcBE3ABFMJBMPiMjPb0h8clRB2CdmTX888lgL5kFc4hxWBKUYJbZhG8nwV2RMKfnaNvrYLGLRHNoeNVmHNlOUJmz/Ak1iIqxM/97t7mXNBPQZQCkZxvtLP3HiJXo='),)))"
+    },
+    {
+      "hash": "9bcb274457d8eb3078881f1313bfbb9f1065fbdef9071e5917a41d7caa64953b",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 22), actor='assistant', held=2, carried=None, turn='{\"who\":\"tool\",\"verb\":\"remember\",\"refused\":false,\"files\":[]}', by=None, words=(Locked(key='ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1', box='/TA+iR7pfpmygK9i7HMeBcOC3f2KrbZfVLk7UerdOn8hvk/K5rqq2ZTbklgL+AiNwnxlrqnLEBqRTMhg9N4FTCWOJnR9UjyOuFNbMC3u9XMd4/3GwBSrwBBUK3+8QdQQ4VPHTNrSuPu8F121qizJe3zM9HW9A7J9itHPQETLk/K5Qvxvb+OpaMTJUyM7+95aI19y9NCQXi41i5kpexQpnqVHA6dAhykoii+QrMgIvAEZ9ruJYsrkweYvy7NVtTm84NFs9BJiPJOZnAiE55A8ucegf9Ril2/fFCXhVlP+Q30wa5MDL5j4A2L4502BmcIICwu7CL8+v31XH1O+xtqx//dbMF9kClas9VOionZQ4eo='),)))"
+    },
+    {
+      "hash": "ba6b3ee910fc07f6073a77ab49a14b6f2025c141d738607c868e71a9da227812",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('9bcb274457d8eb3078881f1313bfbb9f1065fbdef9071e5917a41d7caa64953b',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 23), actor='assistant', held=3, carried=None, turn='{\"who\":\"model\",\"calls\":[]}', by=None, words=(Locked(key='9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c', box='awlJiPaRJw+Pvch6iSX1CkWvgRVkRiZGBuSUkhdwmmYfEwVevM0WtpDLaB1ua/146wwQZK/wR4KdZ2tz61paPB0f3NE59gXT7aEGLsqfgxyrT15Pi2tlMCpMN3qgtxPuyhW7XVbQxPdCmSCRdvA0aLdqcJz7MMM4LjyJyUHix7U+lr7qG2rTWEIOjCJbDSa2sBNqOfw9QGJNDZ05yeYl/bMhWSC0q1SSunwfnhmRUPDNtI1EnwSB5Z5tRLvWTtTMDY3zud7st2lpMbdmbaUCzsYl5B2YYK4NT5lopELFNS4UqjYtZpIt5IAePZ1OFwgcboSBsoGMplnQAmM/bu2ZsD5kt7qmYXo480ianWN9g7o='),)))"
+    },
+    {
+      "hash": "baaef16eaf654b8077ed5ca6b09004d384c7aec869eac217cfc6f7db8c7e6267",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a', box='wTpUBRjqfdZpwotSqrJ2GHurHOJb/tq5yoQyFNJPehwUGYnpuQHIjo3FYkHLHPoxcT8Q68+gaDAII4nJVdAdTtg+onnKMi86wKMTkvQ74+GSXUCg1VvmDpTxbbhioijMKyIxj+x8nAB3KarKZpEdJAzEFn1pbCOm/+1kTtXF8374aBffjHq5ltXe5yiy7PKo+TvMsmSC9X85jsVR/ztsVkeXlIXt9FXOUnXflE9iM3rJCz9UcMLPq05VOXC96cHxD3aJHMXsjt4CjgXKVB8MFfgmj2ruQLLgi6SVNBBAmCdR3DwTOA4/qWBXkK7P4L1kruhOFfFb7bFCtcNgHDaxyuhHnFXafzedFR65DTXw7s4='),)))"
+    },
+    {
+      "hash": "1bd1f224c39e413b172e9fe5c3c5671573484d9cca16876c3431aa6aff566b59",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('baaef16eaf654b8077ed5ca6b09004d384c7aec869eac217cfc6f7db8c7e6267',), event=Proposed(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=1, carried=None, object='p2982717bc1845516d246db547fc866e1', revises=None))"
+    },
+    {
+      "hash": "781da3042d6831a3fdb17407c322ca292e03fead27d52f31831ed8230e141245",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('1bd1f224c39e413b172e9fe5c3c5671573484d9cca16876c3431aa6aff566b59',), event=Proposed(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=2, carried=None, object='pc6158144c4cbba7b515a767f00637101', revises=None))"
+    },
+    {
+      "hash": "53e5e81cebc75f1688ab96aa6af56186894b34d86e2ca98ac4aa2e46973004bb",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('781da3042d6831a3fdb17407c322ca292e03fead27d52f31831ed8230e141245',), event=Proposed(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=3, carried=None, object='pe0202384e0620cf052da2283f47c43c8', revises=None))"
+    },
+    {
+      "hash": "d444719cc93d4da8c17952a0031ddca8566054a138410d570c90746472731a93",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('ba6b3ee910fc07f6073a77ab49a14b6f2025c141d738607c868e71a9da227812',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 24), actor='assistant', held=4, carried=None, object='p7bf745230679b9064803a823f584469b', revises=None))"
+    },
+    {
+      "hash": "d8f99fcbd523d0a95a5247b2c0942ef096ff252c081b9114156e95203ffbbc75",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8e99d63c408b260a06036d93b6857122f83b11dcfc38d61e5438a98708ef9f48',), event=Said(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 0, 1), actor='assistant', held=1, carried=None, turn='{\"who\":\"person\",\"references\":[\"todo:life/email-harrow\"],\"attachments\":[]}', by=None, words=(Locked(key='86f5d9bdc5ce5e4ff81af4dc4a8c2e724e448cb5ec16685b5591b4e56d5a1b3e', box='ZTlcxrynT2k0S6jipT7MuhC6WjJobBVdc4onPO8lQ3Cxw+04MbkxngGRjKyaAWtlAsjlaOi4pcTMgiHAZSIRmP6PqJ08geBq4vtBs5LobYwaY8MwV087EsbQsBCtK8+PcDClybrnkgWVdz1W9MewJofdNJk0PpEnGZFMTNpB2knZUOQ6mH+IrRR3lDt1LgqW1qyX7ws4LZHf+MdcFRZVQOkixOVr+Fd6feS1EDMURnmMpV6eGcGSMpI9xk1g+ELiGQM9+NqCSq7GIycFNJIgxiNb+LgaOoG8JMIO0UamHdCYWRc0arfKll2GiEMODbJSPfG0Oml41d3XkevFo5R8/9w0Pi1QRD43FtuwySO1B5k='),)))"
+    },
+    {
+      "hash": "63b8a9603088d99511e5de1ef3f41dcc9a0aa3da2f5eb25ed1aa7c798bbc71e6",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('d8f99fcbd523d0a95a5247b2c0942ef096ff252c081b9114156e95203ffbbc75',), event=Said(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 0, 20), actor='assistant', held=2, carried=None, turn='{\"who\":\"model\",\"calls\":[]}', by=None, words=(Locked(key='6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890', box='P4y04x6VZ3a7qybDXD1GrBezyIBohrCbaZlM3Zwm/n/fCrt2k7cKanF41EgiJWdKC/RxUwq9NQ35MB8ytPyKyx343FAeWZxsn8a2ybxOMVPmubfYq+8m8YnGaUpGKvGXGIt/tUhDqdpZ9pjCpFrD9JfsQQvaW/sUatvs2Im+j1lunxasnA1dZ4+nkcAlrnsnabWhuw3rY71kjtT7kA/k3jPEf87nZN3Bn1hCq5ExmomDaGcqYa8UWwtMGqpzMyiz0MoRxq8oljXXMLGbWZtYj5euS9JSbjqu41M7TL6XAglIl8RB470XX1gHlHrL+UwgAa01xeKr/9wXEGTCFCEw3kDOXrG4ec4kvPKqXuH+aLc='),)))"
+    },
+    {
+      "hash": "1cf7ec1e28d2b5ffec12b496dd184f8203ce8ab5ac8d7f82caafa5c80ca60133",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('63b8a9603088d99511e5de1ef3f41dcc9a0aa3da2f5eb25ed1aa7c798bbc71e6',), event=Proposed(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 0, 21), actor='assistant', held=3, carried=None, object='p86f99cf7e3106689524da6e1f3bff7c5', revises=None))"
+    },
+    {
+      "hash": "4f71d6d8900f0b050d25b78ced6064e1b02016d70a286d47eda6c1f4d337719f",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('1cf7ec1e28d2b5ffec12b496dd184f8203ce8ab5ac8d7f82caafa5c80ca60133',), event=Said(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 1, 30), actor='assistant', held=4, carried=None, turn='{\"who\":\"person\",\"references\":[],\"attachments\":[]}', by=None, words=(Locked(key='34cdfa29c001301f4ab4ae37b4e766f867cd4eb3a89d7f02e2fc3ca2f8493bf9', box='cZxjNmjKMUyKjJ46k0IhNUXYFvimosm9yAEhTJtVsohjMyopwEtM4C2c9wd05SrH/M3TWDfI6JP8iYgD6eeeX5BH2v2ncEgFqZ5YOr1LpLaaCTKx5Cpwo3O085xWarKHKTJ8ZY6E6KLB5ApWEjn3tYNMO/sGkeG+HZVJndj4aIkeu1FoeiyhAlhNNFqO9NFGr9ITbUw99dBJRXHFZOAdDjPUTuBsFPouX0Ngf3th91LXxilHUYmI6LEH3ZIGUO7ntsMBcXb6foQQd7Oc+rFdKkW08Pa33umIONwif88DmckTSx0rYqcnGO5KJ8Au2nKrRPa182DXzE95zi3LROYRVTIbfX/YO4SIMfTrA9kiR3M='),)))"
+    },
+    {
+      "hash": "724acf9747475582d7802aff7fbf0dadf1c0cf98b1cfd4fbaf9bbba81c72471d",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('4f71d6d8900f0b050d25b78ced6064e1b02016d70a286d47eda6c1f4d337719f',), event=Said(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 1, 35), actor='assistant', held=5, carried=None, turn='{\"who\":\"model\",\"calls\":[]}', by=None, words=(Locked(key='f8517142a72094a6bbf487f5347b1a5c041aef1d861d319beab28719a157aaa9', box='PWJTRTWFy8HCOp8yx0YpmGZG73FGsI/IxozIm4FaR6pZERHzRAnffRqQTNQpE7LabV0E09CadEvf+7iclfE5U8tPCkAhd61oL/UJN7fnUUCbO9Ll90ChfnKNy0XrA+nhWVvT4AGhcJMuh2DbTtXM5L/BXynZih1lYcQAKxntnSxrBkPMna51jP6KJZpJhnIAErJa1BOaHM2ybZinYIlrr2PZ92DksbOngTzPgkPszd6iNrYL2MVCvh2fBrtJY69AdlqsM9JUWHox5U9OaWD5mdJ4YNzn+Y2BD44XXD6zBKBXROa7XiTqVL7GAq4N+IAvDcB/9gQUK9fxlZ30BtjnLpQzdy2q/RffRQAjQl0bb+0='),)))"
+    },
+    {
+      "hash": "51804f5be0f062c1d0b716766ce81d5ddd65aafb98c03f6a01c108c40fd1450c",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('724acf9747475582d7802aff7fbf0dadf1c0cf98b1cfd4fbaf9bbba81c72471d',), event=Erased(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 5, 0), actor='assistant', held=6, carried=None, keys=('6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890',), erasure='{\"erasure\":\"asked\",\"by\":\"ada\"}'))"
+    },
+    {
+      "hash": "f4efc99f13dfe839445bf9ef26b5af06dd8a92c65525283db7b7f6c3a12ea98f",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('d444719cc93d4da8c17952a0031ddca8566054a138410d570c90746472731a93',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 25), actor='assistant', held=5, carried=None, object='pda3d123aec30ef75a018ccd6ad1dc1fa', revises=None))"
+    },
+    {
+      "hash": "f646f0c239cccd609f9e6ad6324849b1e2a1522601268c7ddb25a9882db21a84",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('f4efc99f13dfe839445bf9ef26b5af06dd8a92c65525283db7b7f6c3a12ea98f',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 26), actor='assistant', held=6, carried=None, object='p7631d4dbe886e2eda86186f981faa87a', revises=None))"
+    },
+    {
+      "hash": "8e6a49ea1ee9086cdffc8d77123941c3e2230bb5a3c8e3519e1383fd0ebc183a",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('f646f0c239cccd609f9e6ad6324849b1e2a1522601268c7ddb25a9882db21a84',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=7, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/0\"]}', by='ada', words=(Locked(key='762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973', box='cPtFnZVsihBF4gfAlXcMzd56aXslUWSHs0pD/Mk1yHqdBi08MTZ4Tax08vzKS424e6aT1aiVEnIzxntQRx6XMOq1EohfZThQRzydy+UWgzYf6vN0RGiaL6djAs3fBfldtHv5kuEcYiXdK5LHbHdA//wANXWmVkKQRbPknSWDj/J4Lwvgy0KBmrWSza66O6unOZgxq8H+6yskN3UkvyG0SXW1/MbtciTF3uvinz0PFxAKBThYLAdciQgWsju3bl2h7/pIG2tSRWI8p5MAAXUZ4ZmB6xe05hmI1G44WcKG8v1Uc+2f/rw3BMJQzFo2eqBOwLR7N68fmB9IqGYL24qd1Diz3aunUSLQTWrIny2D5LQ='),)))"
+    },
+    {
+      "hash": "41f98d06497d136ada491bed255157ba27afdd69ba444622fc15b42498a6abe1",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8e6a49ea1ee9086cdffc8d77123941c3e2230bb5a3c8e3519e1383fd0ebc183a',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=8, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/2\"]}', by='ada', words=(Locked(key='6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf', box='9MjP9xNsPw/QewXhUsRGygUeVL/F4pBl7eKdgHmB3rUUeldXMpcujP6IG1PmwlCnzx88xR203e0NkFbcNPUvVTp4Lz5k+eWUP5jY5kQ7Xc6yZgCuks6P2gTkmX5I5Tu2I+TcyKuZIvChOFZx9goQphLrgaPf2QLVZ0VUy7LwSC4JTRECiNHpp+hBUgraMKDs6CpNr522it5uV0QDfMdqgZxZy6rw2uwqbNRREQhXBuPN+wy9bd7XkZLhRBf+POWFyZbs0IlRRULGtnQmbjbCcKIXlJeV4CkUHqPZ6MBJzzD6mLedx60/zcb41/taNjf+1+LS+pLRUlMoPIJ80fC3uWac7lQoV7Ueu5i6JU68t7w='),)))"
+    }
+  ],
+  "keys": {
+    "1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0": "000102030405060208090a0b0c0d0e0a101112131415161218191a1b1c1d1e1a",
+    "2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a": "000102030405060e08090a0b0c0d0e06101112131415161e18191a1b1c1d1e16",
+    "34cdfa29c001301f4ab4ae37b4e766f867cd4eb3a89d7f02e2fc3ca2f8493bf9": "000102030405060408090a0b0c0d0e0c101112131415161418191a1b1c1d1e1c",
+    "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf": "000102030405060c08090a0b0c0d0e04101112131415161c18191a1b1c1d1e14",
+    "762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973": "000102030405060d08090a0b0c0d0e05101112131415161d18191a1b1c1d1e15",
+    "86f5d9bdc5ce5e4ff81af4dc4a8c2e724e448cb5ec16685b5591b4e56d5a1b3e": "000102030405060608090a0b0c0d0e0e101112131415161618191a1b1c1d1e1e",
+    "9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c": "000102030405060f08090a0b0c0d0e07101112131415161f18191a1b1c1d1e17",
+    "c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60": "000102030405060108090a0b0c0d0e09101112131415161118191a1b1c1d1e19",
+    "f8517142a72094a6bbf487f5347b1a5c041aef1d861d319beab28719a157aaa9": "000102030405060308090a0b0c0d0e0b101112131415161318191a1b1c1d1e1b",
+    "ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1": "000102030405060008090a0b0c0d0e08101112131415161018191a1b1c1d1e18"
+  },
+  "stale": {
+    "1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0": "000102030405060208090a0b0c0d0e0a101112131415161218191a1b1c1d1e1a",
+    "2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a": "000102030405060e08090a0b0c0d0e06101112131415161e18191a1b1c1d1e16",
+    "34cdfa29c001301f4ab4ae37b4e766f867cd4eb3a89d7f02e2fc3ca2f8493bf9": "000102030405060408090a0b0c0d0e0c101112131415161418191a1b1c1d1e1c",
+    "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf": "000102030405060c08090a0b0c0d0e04101112131415161c18191a1b1c1d1e14",
+    "6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890": "000102030405060508090a0b0c0d0e0d101112131415161518191a1b1c1d1e1d",
+    "762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973": "000102030405060d08090a0b0c0d0e05101112131415161d18191a1b1c1d1e15",
+    "86f5d9bdc5ce5e4ff81af4dc4a8c2e724e448cb5ec16685b5591b4e56d5a1b3e": "000102030405060608090a0b0c0d0e0e101112131415161618191a1b1c1d1e1e",
+    "9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c": "000102030405060f08090a0b0c0d0e07101112131415161f18191a1b1c1d1e17",
+    "c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60": "000102030405060108090a0b0c0d0e09101112131415161118191a1b1c1d1e19",
+    "f8517142a72094a6bbf487f5347b1a5c041aef1d861d319beab28719a157aaa9": "000102030405060308090a0b0c0d0e0b101112131415161318191a1b1c1d1e1b",
+    "ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1": "000102030405060008090a0b0c0d0e08101112131415161018191a1b1c1d1e18"
+  },
+  "erased": {
+    "6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890": [
+      "222797806e3ec6c48a2679451058a1cd6a7aac75a7bc7f9ebc7e48530eaa2faa 37a77e52653a2e1a438fa4bbb279fae5fca65bc75b8135b6aa87afb2e4ad9158"
+    ]
+  },
+  "memory": {
+    "facts": [
+      {
+        "id": 1,
+        "at": "2026-09-02T12:03:22",
+        "fact": "Takes the early train",
+        "kind": "owner",
+        "said": {
+          "kind": "turn",
+          "conversation": "trains",
+          "turn": 0
+        }
+      }
+    ],
+    "cap": 200,
+    "forgotten": [],
+    "cards": [
+      {
+        "text": "c0f5cb80479a2d481657a50a518e41764465d4d272be5f6255d72b10121a05f9",
+        "fact": "Mira Solberg keeps the books"
+      }
+    ]
+  },
+  "list": "{\"conversations\":[{\"id\":\"trains\",\"title\":\"Trains\",\"kind\":\"topic\",\"opened\":\"2026-09-02T12:03:20\",\"turns\":5,\"standing\":1,\"unplaced\":[],\"last\":\"Noted\",\"last_at\":\"2026-09-02T12:06:40\"},{\"id\":\"lagging\",\"title\":\"Three proposals\",\"kind\":\"topic\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":0,\"standing\":1,\"unplaced\":[{\"index\":0,\"why\":\"notHeld\"},{\"index\":1,\"why\":\"unasked\"}],\"last\":\"\",\"last_at\":\"2026-09-02T12:00:00\"},{\"id\":\"about-the-deed\",\"title\":\"About the deed\",\"kind\":\"topic\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":4,\"standing\":1,\"unplaced\":[],\"last\":\"Nothing else today.\",\"last_at\":\"2026-09-02T12:01:35\"}]}",
+  "proposals": "{\"at\":\"2026-09-02T12:06:40\",\"proposals\":[{\"id\":\"pe0202384e0620cf052da2283f47c43c8\",\"asked\":\"proposal:lagging/2\",\"serves\":null,\"headline\":\"email counsel@example.test — Your lease\",\"by\":{\"kind\":\"secretary\"},\"why\":\"the deed is due\",\"state\":{\"kind\":\"open\"},\"value\":\"absent\",\"at\":\"2026-09-02T12:00:00\"},{\"id\":\"p86f99cf7e3106689524da6e1f3bff7c5\",\"asked\":\"proposal:about-the-deed/0\",\"serves\":\"todo:life/email-harrow\",\"headline\":\"email counsel@example.test — Your deed\",\"by\":{\"kind\":\"secretary\"},\"why\":\"the deed is due and nothing has gone out yet\",\"state\":{\"kind\":\"open\"},\"value\":0.66,\"at\":\"2026-09-02T12:00:21\"},{\"id\":\"p7bf745230679b9064803a823f584469b\",\"asked\":\"proposal:trains/0\",\"serves\":null,\"headline\":\"email counsel@example.test — Trains\",\"by\":{\"kind\":\"secretary\"},\"why\":\"the meeting moved\",\"state\":{\"kind\":\"cancelled\",\"at\":\"2026-09-02T12:06:40\"},\"value\":\"absent\",\"at\":\"2026-09-02T12:03:24\"},{\"id\":\"pda3d123aec30ef75a018ccd6ad1dc1fa\",\"asked\":\"proposal:trains/1\",\"serves\":null,\"headline\":\"remember (person): Mira Solberg keeps the books\",\"by\":{\"kind\":\"secretary\"},\"why\":\"her signature says so\",\"state\":{\"kind\":\"open\"},\"value\":\"absent\",\"at\":\"2026-09-02T12:03:25\"},{\"id\":\"p7631d4dbe886e2eda86186f981faa87a\",\"asked\":\"proposal:trains/2\",\"serves\":null,\"headline\":\"remember (person): its words are deleted\",\"by\":{\"kind\":\"secretary\"},\"why\":\"her signature says so\",\"state\":{\"kind\":\"cancelled\",\"at\":\"2026-09-02T12:06:40\"},\"value\":\"absent\",\"at\":\"2026-09-02T12:03:26\"}],\"failed\":[]}",
+  "windows": [
+    {
+      "id": "about-the-deed",
+      "before": null,
+      "limit": null,
+      "about": null,
+      "memory": false,
+      "answer": "{\"id\":\"about-the-deed\",\"title\":\"About the deed\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":[{\"index\":0,\"who\":\"person\",\"verb\":\"\",\"text\":\"email Harrow about the deed\",\"refused\":false,\"references\":[\"todo:life/email-harrow\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:00:01\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":1,\"who\":\"model\",\"verb\":\"\",\"text\":\"[Ada erased these words]\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:00:20\",\"remembered\":null,\"attempt\":\"current\",\"gone\":{\"why\":\"asked\",\"by\":\"ada\"}},{\"index\":2,\"who\":\"person\",\"verb\":\"\",\"text\":\"thanks — anything else on it?\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:01:30\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":3,\"who\":\"model\",\"verb\":\"\",\"text\":\"Nothing else today.\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[{\"source\":\"Nothing else today.\",\"plain\":\"Nothing else today.\",\"kind\":\"prose\",\"html\":null}],\"at\":\"2026-09-02T12:01:35\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Your deed\",\"body\":\"Following up on the deed — draft attached.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Your deed\"}],\"body\":\"Following up on the deed — draft attached.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[{\"verb\":\"send\",\"label\":\"Send\",\"question\":\"Send to counsel@example.test?\",\"yes\":\"Yes, send it\",\"done\":\"sent to counsel@example.test\",\"always\":false,\"input\":\"\",\"endorse\":false}],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the deed is due and nothing has gone out yet\",\"sources\":[\"mail:e2e0000000000000000000000000000000000000000000000000000000000000\"],\"at\":\"2026-09-02T12:00:21\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":2,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":0,\"total\":4,\"again\":2}"
+    },
+    {
+      "id": "about-the-deed",
+      "before": "3",
+      "limit": "2",
+      "about": null,
+      "memory": false,
+      "answer": "{\"id\":\"about-the-deed\",\"title\":\"About the deed\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":[{\"index\":1,\"who\":\"model\",\"verb\":\"\",\"text\":\"[Ada erased these words]\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:00:20\",\"remembered\":null,\"attempt\":\"current\",\"gone\":{\"why\":\"asked\",\"by\":\"ada\"}},{\"index\":2,\"who\":\"person\",\"verb\":\"\",\"text\":\"thanks — anything else on it?\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:01:30\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Your deed\",\"body\":\"Following up on the deed — draft attached.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Your deed\"}],\"body\":\"Following up on the deed — draft attached.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[{\"verb\":\"send\",\"label\":\"Send\",\"question\":\"Send to counsel@example.test?\",\"yes\":\"Yes, send it\",\"done\":\"sent to counsel@example.test\",\"always\":false,\"input\":\"\",\"endorse\":false}],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the deed is due and nothing has gone out yet\",\"sources\":[\"mail:e2e0000000000000000000000000000000000000000000000000000000000000\"],\"at\":\"2026-09-02T12:00:21\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":2,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":1,\"total\":4,\"again\":2}"
+    },
+    {
+      "id": "about-the-deed",
+      "before": null,
+      "limit": null,
+      "about": "todo:life/email-harrow",
+      "memory": false,
+      "answer": "{\"id\":\"about-the-deed\",\"title\":\"About the deed\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":[{\"index\":0,\"who\":\"person\",\"verb\":\"\",\"text\":\"email Harrow about the deed\",\"refused\":false,\"references\":[\"todo:life/email-harrow\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:00:01\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":1,\"who\":\"model\",\"verb\":\"\",\"text\":\"[Ada erased these words]\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:00:20\",\"remembered\":null,\"attempt\":\"current\",\"gone\":{\"why\":\"asked\",\"by\":\"ada\"}}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Your deed\",\"body\":\"Following up on the deed — draft attached.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Your deed\"}],\"body\":\"Following up on the deed — draft attached.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[{\"verb\":\"send\",\"label\":\"Send\",\"question\":\"Send to counsel@example.test?\",\"yes\":\"Yes, send it\",\"done\":\"sent to counsel@example.test\",\"always\":false,\"input\":\"\",\"endorse\":false}],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the deed is due and nothing has gone out yet\",\"sources\":[\"mail:e2e0000000000000000000000000000000000000000000000000000000000000\"],\"at\":\"2026-09-02T12:00:21\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":2,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":0,\"total\":2,\"again\":2}"
+    },
+    {
+      "id": "trains",
+      "before": null,
+      "limit": null,
+      "about": null,
+      "memory": false,
+      "answer": "{\"id\":\"trains\",\"title\":\"Trains\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:03:20\",\"turns\":[{\"index\":0,\"who\":\"person\",\"verb\":\"\",\"text\":\"remember that I take the early train\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:03:21\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":1,\"who\":\"verb\",\"verb\":\"remember\",\"text\":\"{\\\"remembered\\\": 1, \\\"kind\\\": \\\"owner\\\"}\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:03:22\",\"remembered\":{\"state\":\"unread\",\"fact\":1},\"attempt\":\"current\",\"gone\":null},{\"index\":2,\"who\":\"model\",\"verb\":\"\",\"text\":\"= Noted\\n\\nThe early train, from now on.\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[{\"source\":\"= Noted\\n\\n\",\"plain\":\"Noted\",\"kind\":\"heading\",\"html\":null},{\"source\":\"The early train, from now on.\",\"plain\":\"The early train, from now on.\",\"kind\":\"prose\",\"html\":null}],\"at\":\"2026-09-02T12:03:23\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":3,\"who\":\"act\",\"verb\":\"\",\"text\":\"Ada dismissed it: not yet\",\"refused\":false,\"references\":[\"proposal:trains/0\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:06:40\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":4,\"who\":\"act\",\"verb\":\"\",\"text\":\"Ada dismissed it: not from a newsletter\",\"refused\":false,\"references\":[\"proposal:trains/2\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:06:40\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Trains\",\"body\":\"I take the early train now.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Trains\"}],\"body\":\"I take the early train now.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the meeting moved\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:24\",\"state\":\"dismissed\",\"outcome\":\"not yet\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":1,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"unread\"},\"about\":\"person\",\"sentence\":\"Proposed remembering something; its words are not read here.\"},\"card\":{\"title\":\"Proposed remembering\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Proposed remembering something; its words are not read here.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"not read here\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:25\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":2,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"unread\"},\"about\":\"person\",\"sentence\":\"Proposed remembering something; its words are not read here.\"},\"card\":{\"title\":\"Proposed remembering\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Proposed remembering something; its words are not read here.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"not read here\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:26\",\"state\":\"dismissed\",\"outcome\":\"not from a newsletter\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":0,\"total\":5,\"again\":null}"
+    },
+    {
+      "id": "trains",
+      "before": null,
+      "limit": "1",
+      "about": null,
+      "memory": false,
+      "answer": "{\"id\":\"trains\",\"title\":\"Trains\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:03:20\",\"turns\":[{\"index\":4,\"who\":\"act\",\"verb\":\"\",\"text\":\"Ada dismissed it: not from a newsletter\",\"refused\":false,\"references\":[\"proposal:trains/2\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:06:40\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Trains\",\"body\":\"I take the early train now.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Trains\"}],\"body\":\"I take the early train now.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the meeting moved\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:24\",\"state\":\"dismissed\",\"outcome\":\"not yet\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":1,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"unread\"},\"about\":\"person\",\"sentence\":\"Proposed remembering something; its words are not read here.\"},\"card\":{\"title\":\"Proposed remembering\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Proposed remembering something; its words are not read here.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"not read here\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:25\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":2,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"unread\"},\"about\":\"person\",\"sentence\":\"Proposed remembering something; its words are not read here.\"},\"card\":{\"title\":\"Proposed remembering\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Proposed remembering something; its words are not read here.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"not read here\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:26\",\"state\":\"dismissed\",\"outcome\":\"not from a newsletter\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":4,\"total\":5,\"again\":null}"
+    },
+    {
+      "id": "trains",
+      "before": null,
+      "limit": null,
+      "about": null,
+      "memory": true,
+      "answer": "{\"id\":\"trains\",\"title\":\"Trains\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:03:20\",\"turns\":[{\"index\":0,\"who\":\"person\",\"verb\":\"\",\"text\":\"remember that I take the early train\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:03:21\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":1,\"who\":\"verb\",\"verb\":\"remember\",\"text\":\"{\\\"remembered\\\": 1, \\\"kind\\\": \\\"owner\\\"}\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:03:22\",\"remembered\":{\"state\":\"standing\",\"fact\":1,\"text\":\"Takes the early train\"},\"attempt\":\"current\",\"gone\":null},{\"index\":2,\"who\":\"model\",\"verb\":\"\",\"text\":\"= Noted\\n\\nThe early train, from now on.\",\"refused\":false,\"references\":[],\"attachments\":[],\"queued\":false,\"blocks\":[{\"source\":\"= Noted\\n\\n\",\"plain\":\"Noted\",\"kind\":\"heading\",\"html\":null},{\"source\":\"The early train, from now on.\",\"plain\":\"The early train, from now on.\",\"kind\":\"prose\",\"html\":null}],\"at\":\"2026-09-02T12:03:23\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":3,\"who\":\"act\",\"verb\":\"\",\"text\":\"Ada dismissed it: not yet\",\"refused\":false,\"references\":[\"proposal:trains/0\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:06:40\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null},{\"index\":4,\"who\":\"act\",\"verb\":\"\",\"text\":\"Ada dismissed it: not from a newsletter\",\"refused\":false,\"references\":[\"proposal:trains/2\"],\"attachments\":[],\"queued\":false,\"blocks\":[],\"at\":\"2026-09-02T12:06:40\",\"remembered\":null,\"attempt\":\"current\",\"gone\":null}],\"proposals\":[{\"index\":0,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Trains\",\"body\":\"I take the early train now.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Trains\"}],\"body\":\"I take the early train now.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the meeting moved\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:24\",\"state\":\"dismissed\",\"outcome\":\"not yet\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":1,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"kept\",\"fact\":\"Mira Solberg keeps the books\"},\"about\":\"person\",\"sentence\":\"Remember, in every conversation from now on: Mira Solberg keeps the books\"},\"card\":{\"title\":\"Remember this?\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Remember, in every conversation from now on: Mira Solberg keeps the books.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"Mira Solberg keeps the books\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[{\"verb\":\"remember\",\"label\":\"Remember\",\"question\":\"Remember this? Every conversation from now on reads it as background: Mira Solberg keeps the books\",\"yes\":\"Yes, remember it\",\"done\":\"remembered\",\"always\":false,\"input\":\"\",\"endorse\":false}],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:25\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null},{\"index\":2,\"act\":{\"kind\":\"remember\",\"words\":{\"state\":\"gone\"},\"about\":\"person\",\"sentence\":\"Proposed remembering something since forgotten or dismissed; its words are deleted.\"},\"card\":{\"title\":\"Proposed remembering\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"Proposed remembering something since forgotten or dismissed; its words are deleted.\",\"fields\":[{\"label\":\"Kind\",\"value\":\"person\"},{\"label\":\"Fact\",\"value\":\"deleted\"}],\"body\":\"\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[],\"uncertain\":\"It may have gone through; it is never done again.\",\"readonly\":\"This device can read this but not remember it. Use one of your own devices.\",\"link\":null},\"why\":\"her signature says so\",\"sources\":[\"mail:a1b2c3d4e5f6\"],\"at\":\"2026-09-02T12:03:26\",\"state\":\"dismissed\",\"outcome\":\"not from a newsletter\",\"tries\":0,\"turn\":3,\"coding\":null,\"announced\":null}],\"unplaced\":[],\"state\":\"idle\",\"first\":0,\"total\":5,\"again\":null}"
+    },
+    {
+      "id": "lagging",
+      "before": null,
+      "limit": null,
+      "about": null,
+      "memory": false,
+      "answer": "{\"id\":\"lagging\",\"title\":\"Three proposals\",\"model\":\"vectors-fixture\",\"opened\":\"2026-09-02T12:00:00\",\"turns\":[],\"proposals\":[{\"index\":2,\"act\":{\"kind\":\"email\",\"account\":\"her@example.invalid\",\"to\":[\"counsel@example.test\"],\"cc\":[],\"subject\":\"Your lease\",\"body\":\"Following up on the deed.\",\"attachments\":[]},\"card\":{\"title\":\"Proposed email\",\"by\":{\"kind\":\"secretary\"},\"sentence\":\"\",\"fields\":[{\"label\":\"From\",\"value\":\"her@example.invalid\"},{\"label\":\"To\",\"value\":\"counsel@example.test\"},{\"label\":\"Subject\",\"value\":\"Your lease\"}],\"body\":\"Following up on the deed.\",\"rows\":[],\"files\":[],\"problem\":\"\",\"answers\":[{\"verb\":\"send\",\"label\":\"Send\",\"question\":\"Send to counsel@example.test?\",\"yes\":\"Yes, send it\",\"done\":\"sent to counsel@example.test\",\"always\":false,\"input\":\"\",\"endorse\":false}],\"uncertain\":\"It may have been sent. Check Sent; it is never sent again.\",\"readonly\":\"This device can read this but not send it. Use one of your own devices.\",\"link\":null},\"why\":\"the deed is due\",\"sources\":[\"briefing:2026-09-27\"],\"at\":\"2026-09-02T12:00:00\",\"state\":\"standing\",\"outcome\":\"\",\"tries\":0,\"turn\":0,\"coding\":null,\"announced\":null}],\"unplaced\":[{\"index\":0,\"why\":\"notHeld\"},{\"index\":1,\"why\":\"unasked\"}],\"state\":\"idle\",\"first\":0,\"total\":0,\"again\":null}"
+    }
+  ],
+  "searches": [
+    {
+      "q": "deed",
+      "answer": "{\"query\":\"deed\",\"hits\":[{\"conversation\":\"about-the-deed\",\"title\":\"About the deed\",\"kind\":\"topic\",\"turn\":0,\"at\":\"2026-09-02T12:00:01\",\"side\":\"person\",\"excerpt\":\"email Harrow about the deed\"}]}"
+    },
+    {
+      "q": "EARLY",
+      "answer": "{\"query\":\"EARLY\",\"hits\":[{\"conversation\":\"trains\",\"title\":\"Trains\",\"kind\":\"topic\",\"turn\":2,\"at\":\"2026-09-02T12:03:23\",\"side\":\"answer\",\"excerpt\":\"= Noted The early train, from now on.\"},{\"conversation\":\"trains\",\"title\":\"Trains\",\"kind\":\"topic\",\"turn\":0,\"at\":\"2026-09-02T12:03:21\",\"side\":\"person\",\"excerpt\":\"remember that I take the early train\"}]}"
+    },
+    {
+      "q": "nothing like it",
+      "answer": "{\"query\":\"nothing like it\",\"hits\":[]}"
+    }
+  ]
+}

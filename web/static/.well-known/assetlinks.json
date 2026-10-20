@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.bmabsout.suzatary",
+      "sha256_cert_fingerprints": [
+        "AB:F2:72:E6:D7:5B:F1:4C:6D:0F:15:19:35:93:31:C9:59:F5:F5:BA:05:1C:0B:68:5B:85:BB:BE:27:C1:DC:B8"
+      ]
+    }
+  }
+]

@@ -1,0 +1,49 @@
+//! `suzatary typeset`: one text on stdin compiled in the closed world, its answer on stdout.
+//!
+//! The box runs this as a child of itself (`suzatary_io::typeset::Closed`). The child caps its
+//! own CPU time, so a text that loops is stopped by the kernel after the same amount of work
+//! however busy the box is, and its own address space, so a text that allocates without end fails
+//! here instead of drawing the kernel's OOM killer to the box. Both limits are set before the text
+//! is read, and the CPU limit counts the time the child used before it was set.
+
+use std::io::{Read as _, Write as _};
+
+use anyhow::Context as _;
+use rustix::process::{Resource, Rlimit, setrlimit};
+use suzatary_io::typeset::closed::CPU_SECONDS;
+
+/// Plenty for one text; typst reserves stacks and arenas well under this.
+const ADDRESS_SPACE: u64 = 2 << 30;
+
+/// Read, compile, print.
+///
+/// # Errors
+/// Stdin could not be read or stdout written; a refused text is an answer, not an error.
+pub fn run() -> anyhow::Result<()> {
+    // The soft limit sends SIGXCPU, whose default action ends the child. The hard limit, a
+    // second later, sends SIGKILL, for a child that inherited SIGXCPU ignored across `exec`.
+    let cpu = Rlimit {
+        current: Some(CPU_SECONDS),
+        maximum: Some(CPU_SECONDS + 1),
+    };
+    setrlimit(Resource::Cpu, cpu).context("capping the compile's CPU time")?;
+    let cap = Rlimit {
+        current: Some(ADDRESS_SPACE),
+        maximum: Some(ADDRESS_SPACE),
+    };
+    setrlimit(Resource::As, cap).context("capping the compile's address space")?;
+    // A text that outgrows the cap aborts this child, and that is its refusal, not a crash to keep.
+    let no_core = Rlimit {
+        current: Some(0),
+        maximum: Some(0),
+    };
+    setrlimit(Resource::Core, no_core).context("turning off the compile's core dump")?;
+    let mut source = String::new();
+    std::io::stdin()
+        .read_to_string(&mut source)
+        .context("reading the text")?;
+    let answer = suzatary_io::typeset::compile(&source);
+    std::io::stdout()
+        .write_all(suzatary_io::typeset::closed::print(&answer).as_bytes())
+        .context("writing the answer")
+}

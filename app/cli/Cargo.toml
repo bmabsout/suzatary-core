@@ -1,0 +1,152 @@
+[package]
+name = "suzatary"
+description = "Suzatary: serve | mcp | sync | web | todo (see ../../docs/ARCHITECTURE.md)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+autotests = false
+# `suzatary-dev` (the fixture's binary) sits beside it, so `cargo run -p suzatary` names this one.
+default-run = "suzatary"
+
+# A LIBRARY BESIDE THE BINARY, so the binary's own wiring can be tested: cargo
+# links `tests/*.rs` against a package's library, and a package with only a
+# `[[bin]]` exposes nothing to them. See `src/lib.rs` for why that mattered.
+[lib]
+name = "suzatary_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "suzatary"
+path = "src/main.rs"
+
+# THE DEVELOPMENT BINARY: every verb of `suzatary`, plus `bench`,
+# `fixture-chain` and `fixture-triage`. It needs the `fixture` feature, so a
+# build without it (`nix build .#suzatary`, the units' program) never compiles
+# it, and the deployed binary's argument tree has none of those verbs.
+[[bin]]
+name = "suzatary-dev"
+path = "src/bin/suzatary-dev.rs"
+required-features = ["fixture"]
+
+[dependencies]
+suzatary-core.workspace = true
+suzatary-io.workspace = true
+# The plugin host: `suzatary plugin sync` runs the `[[plugins]]` sources.
+suzatary-plugin.workspace = true
+# Only the development binary benchmarks (`fixture` below).
+suzatary-bench = { workspace = true, optional = true }
+prodrome_core.workspace = true
+clap = { version = "4", features = ["derive"] }
+# THE AGENT'S TOOLS, over stdio (§8.4).
+rmcp.workspace = true
+# THE RUNTIME AND THE ROUTES LIVE HERE AND NOWHERE ELSE (§2).
+axum.workspace = true
+axum-server.workspace = true
+rustls.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+# The instance file, and the wire this serialises.
+toml.workspace = true
+# THE ONE EDIT PATH (`docs/PROVIDERSETUP-PLAN-2026-09-22.md` §2 rule 2):
+# `instance::InstanceEdits` parses the file as a `DocumentMut` and appends a
+# `[[providers]]` table, never rewriting the rest of it — see `toml_edit`'s
+# own comment in the workspace manifest.
+toml_edit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+# An API answer's validator is a digest of its bytes (`commands/serve/validated.rs`).
+sha2.workspace = true
+hex.workspace = true
+
+# `suzatary typeset` caps its own address space, through a safe `setrlimit`.
+rustix = { version = "1", features = ["process"] }
+async-stream = "0.3"
+
+# THE FIXTURE IS NOT IN THE SHIPPED BINARY; `suzatary-dev` is the one binary
+# built with it (`.#suzatary-fixture`, `scripts/app-build.sh --fixture`).
+# `--whois-fixture` makes every peer one login, which is what puts the write
+# surface inside a browser test's reach — a headless Chromium on this box
+# arrives from 127.0.0.1 whatever address it dialled, which no daemon names,
+# so without it every request would be refused and the whole app untested. It is a FEATURE rather than a flag
+# because CLAUDE.md's Containment section is explicit that a flag in the shipped
+# program is a write path reachable by anything that can set an environment
+# variable here. `nix build .#suzatary` does not enable it, so the deployed
+# program does not contain the code: removal is checkable, a blocklist is not.
+[features]
+default = []
+fixture = ["dep:suzatary-bench", "suzatary-core/fixture"]
+
+# THE TWO TEST TARGETS THAT ARE NOT ABOUT THIS CRATE. `tests/guards.rs` live-fires
+# the repository's own containment layers — `scripts/tool-guard.sh`,
+# `scripts/edit-guard.sh`, `scripts/hooks/commit-msg`, `scripts/check-commits.sh`
+# — by running them, with `git`, against throwaway repositories. So it needs
+# three things a build sandbox does not have: those scripts (`appSrc` in
+# flake.nix is `app/` and deliberately not the repository), a
+# `git` binary, and `/usr/bin/env` for their shebangs.
+#
+# `test = false` keeps it out of the target set `cargo test` picks up, so
+# `nix build .#suzatary` and `nix flake check` build the package's own laws and
+# not this. It still runs by NAME — `cargo test -p suzatary --test guards` —
+# which is what the merge gate and CI do. The tests did not become optional;
+# they moved to the callers that can actually run them.
+[[test]]
+name = "guards"
+path = "tests/guards.rs"
+test = false
+
+# AND THE LIVE CHAIN'S PINS, BY THE SAME RULE (docs/ARCHITECTURE.md §8.8).
+# `tests/live.rs` is SPEC §9 against the repository's own `events/`, compared
+# with the reference's vectors in `app/conformance/`. Those tests were the
+# database's until the Prodrome became its own public repository: a crate a
+# stranger can build must not read the owner's chain, so the crate kept the seeded
+# evidence and the deployment kept its own.
+#
+# `test = false` for exactly the reason above it: the sandbox is handed the
+# source trees and not the repository, so there is no `events/` in there and no
+# `app/conformance/` either. The merge gate's live half names it, which is what
+# keeps it on every train.
+[[test]]
+name = "live"
+path = "tests/live.rs"
+test = false
+
+# `suzatary plugin sync` over a loopback feed, against the reference plugins the flake builds
+# (`SUZATARY_PLUGINS`), run by name like the plugin host's fences.
+[[test]]
+name = "plugin"
+path = "tests/plugin.rs"
+test = false
+
+[dev-dependencies]
+# A scratch cache tier for `tests/plugin.rs`.
+tempfile = "3"
+# Inert effects the fakes fill a record with.
+suzatary-core = { workspace = true, features = ["nothing"] }
+# The integration tests drive the axum app with FAKE capabilities, which needs
+# a client and a runtime of their own; a socket bound to a second loopback
+# address is a second tailnet peer (tests/google.rs).
+tokio = { workspace = true, features = ["net", "io-util"] }
+ureq.workspace = true
+# The benchmark harness (tests/perf_fold_chain.rs) hashes bodies (with the
+# library's sha2) and gzips them at each level itself, to break a route's time
+# into its parts.
+flate2 = "1"
+# A PDF upload is base64 in its JSON body (tests/secretary.rs).
+base64.workspace = true
+# The onboarding's law, over generated answers (commands/init.rs), and the instance edits'
+# byte laws (instance/connections.rs).
+proptest.workspace = true
+
+[lints]
+workspace = true
+
+# ONE TEST BINARY (`autotests = false` above): every file under `tests/` is a
+# module of `tests/all.rs`, so the suite links the application once, not per file.
+[[test]]
+name = "all"
+path = "tests/all.rs"

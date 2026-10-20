@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every string the app itself authors. The todos, the mail and the chain are the
+  web app's words; these are only what to say when the web app cannot be
+  reached, and they name the two real causes (the tailnet, and the box) rather
+  than saying "something went wrong".
+-->
+<resources>
+    <string name="app_name">Suzatary</string>
+    <string name="offline_title">Suzatary is not reachable</string>
+    <string name="offline_body">This app is a window onto the box over the tailnet. Check that Tailscale is connected on this phone and that suzatary-web.service is running on the box.</string>
+    <string name="offline_retry">Try again</string>
+
+    <!--
+      PUSH. A notification's own title and text come from the box and are never
+      here; these are the words ABOUT notifications — what the channel is called
+      in Settings, what it is for, and the one line that says why the permission
+      is worth granting. The channel description states the rule the box keeps
+      (suzatary/notify.py): what crosses Google's servers is a title, a count
+      and a link, never a todo's text.
+    -->
+    <string name="push_channel">Suzatary</string>
+    <string name="push_channel_description">When the agent has done something, or your briefing is ready. The box sends a title, a count and a link — never a todo\'s text.</string>
+    <string name="push_rationale">Without this, the box cannot tell you when the agent has done something.</string>
+
+    <!--
+      THE WIDGET (Widget.java). Every todo it shows is the box's words; these
+      five are the app's own — what the widget is called in the picker, what
+      the column of numbers means, and the three things that are true when
+      there are no rows to draw. `widget_stale` names a TIME rather than saying
+      "error", because rows that are an hour old are still worth reading and
+      the only thing the reader needs to know is how old.
+    -->
+    <string name="widget_label">Suzatary todos</string>
+    <string name="widget_description">The lowest fulfillments on the box, as its own fold prints them. Tap one to open it.</string>
+    <string name="widget_heading">lowest fulfillment first — low means urgent</string>
+    <string name="widget_nothing">Nothing is open.</string>
+    <string name="widget_unreachable">Not reached yet — check that Tailscale is connected.</string>
+    <string name="widget_stale">stale since %1$s</string>
+</resources>

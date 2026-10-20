@@ -1,0 +1,1 @@
+Change(genesis='1c6752deb225bb67153f12e87cd0dd82a3055e68549589200bfcaccd12d1ac29', deps=(), event=Dismissed(proposal='p11d71057fcea31034b1b4f369bd558e1', at=datetime(2026, 9, 28, 20, 1, 0), actor='ada', reason='superseded by proposal 13'))

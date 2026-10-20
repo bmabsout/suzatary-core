@@ -1,0 +1,1 @@
+Sealed(prev='5348ebf85538af60623dae7358812bc3ff9ab256fd6f8e27cf0c1ceb8e4f2e93', event=Authored(todo='water-plants', at=datetime(2026, 9, 10, 12, 12, 29), actor='ada', kind='todo', created=datetime(2026, 9, 10, 12, 12, 29), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))

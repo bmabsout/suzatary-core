@@ -1,0 +1,1 @@
+Sealed(prev='1bc355519fde05c6e8f169e68cc8601b92b7a4ec6b270c0fc54131f48e29cfd1', event=Authored(todo='renew-card', at=datetime(2026, 9, 10, 12, 12, 29), actor='ada', kind='todo', created=datetime(2026, 9, 10, 12, 12, 29), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))

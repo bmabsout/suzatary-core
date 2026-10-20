@@ -1,0 +1,6 @@
+# The release this tree is, written with the release that cut it (`suzatary release cut`, from
+# `scripts/train.sh build`), never by hand: its version and the ids of the todos it completed,
+# never their titles, since this file is public. No crate compiles it: the build hands its text
+# to the binary as `SUZATARY_RELEASE`, for `GET /api/about` and `--version`.
+
+version = "2.0.2"

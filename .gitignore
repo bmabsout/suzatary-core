@@ -1,0 +1,99 @@
+*.pdf
+
+# The web frontend's output (`suzatary web site`). Generated from the chain,
+# and regenerable in a second — committing it would be a second
+# copy of the history to keep in step with the first.
+/site/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Agent worktrees. These are meant to be transient: a subagent gets one, does its job,
+# its work is merged, and the worktree goes away. Ignoring them is a guard, not the
+# policy — a worktree that is live *during* a subagent run would otherwise trip
+# safe-push.sh's allowlist and silently block the unattended triage agent from pushing
+# anything at all, and that race shouldn't depend on nobody having a subagent open.
+# Sweeping them when the subagent finishes is still the expectation:
+#   git worktree remove <path> && git worktree prune && git branch -D worktree-<id>
+# Check `git log master..worktree-<id>` AND the worktree's untracked files first. The
+# two swept on 2026-08-06 sat on commits already in master but each still held an
+# untracked candidates-*.md that existed nowhere else until it was copied out by hand —
+# "its commits are merged" is not the same as "it holds nothing."
+.claude/worktrees/
+
+# The web app's bundle, and the fixtures it can be developed against. Both are
+# builds: `scripts/build-web.sh` writes web/dist/ from web/src + web/static +
+# the flake's prodrome-wasm, and `scripts/web-fixtures.py` writes web/dev/ from
+# the chain. The repository releases the program, not its output.
+web/dist/
+web/dev/
+
+# The application's build directory (docs/ARCHITECTURE.md §2, the `app/`
+# workspace — the only one here since the database became its own repository,
+# §8.8, which is why `prodrome/target/` is no longer a line above this one).
+# Same rule as web/dist/: cargo writes it from app/*/src, and it is
+# output, not source. `app/Cargo.lock` IS committed — the workspace's
+# deliverable is a binary, and one of its dependencies is a git revision, so the
+# dependency set is pinned twice over.
+app/target/
+# Any side target (a session building master beside its branch committed
+# 724 MB of one, app/target-master/, on 2026-09-29).
+app/target-*/
+
+# The wire's TypeScript, generated from app/core/src/wire.rs by
+# `nix build .#suzatary-wire-ts` and copied in by scripts/build-web.sh. Output,
+# not source — committing it would be the second declaration ARCHITECTURE §2
+# exists to prevent, kept in step by hand.
+web/src/wire/generated/
+
+# proptest's shrunk counterexamples. A cache of seeds, not source: this repo
+# has never tracked one, and a checked-in case from an agent's own development
+# would pin the generator it happened to have that afternoon.
+proptest-regressions/
+
+# The secretary's conversations (docs/ARCHITECTURE.md §10.3). BOX-LOCAL, like
+# the maildir and unlike `events/`: a transcript quotes mail, and mail is never
+# committed. It is not rebuildable either, which makes it the one piece of state
+# here that only this box has — said out loud rather than discovered.
+#
+# ANCHORED WITH A LEADING SLASH, and that is not decoration: a bare `secretary/`
+# matches a directory of that name ANYWHERE, and `app/core/src/secretary/` is a
+# module. The unanchored pattern silently untracked a source file the moment it
+# was written — caught the same afternoon, by `git status` not listing it.
+/secretary/
+/decisions/
+
+# A turn's rendered SVGs (`docs/APP.md`, "typstanswers") — a SIBLING of
+# `/secretary/` above and gitignored the same way, for the same reasons: it is
+# box-local and it is not rebuildable state's opposite — a DERIVED cache keyed
+# by the sha256 of a turn's own text, so it is never source. Kept OUT of
+# `/secretary/` rather than nested under it so a rendering can never be
+# mistaken for a line of the append-only transcript.
+/secretary-render/
+
+# The inbox prodrome (`docs/PROPOSALS-PLAN-2026-09-28.md`): every proposal and
+# what became of it, box-local like `/secretary/`, whose drafts it quotes.
+/inbox/
+
+# THE DATA LIVES IN ITS OWN REPOSITORY (datasplit, 2026-09-26): the private
+# data repository, checked out beside this one. `instance.toml` here is
+# a link to that tree's file, so a command run from this checkout reads the
+# same deployment the units do. Nothing below is ever committed here again.
+/instance.toml
+/mbsyncrc
+/state.json
+/events/
+/events-triage/
+/events-suzatary/
+/events-triage-suzatary/
+/briefings/
+/notes/
+/secretary/
+/decisions/
+
+# THE CACHE TIER (docs/PLUGINS-PLAN-2026-10-02.md §4): the plugins' stores, cursors and
+# ledgers under the data root's `cache/`, a replica of outside truths rebuilt by syncing
+# again. Box-local, never pushed; the data repository ignores it the same way.
+/cache/

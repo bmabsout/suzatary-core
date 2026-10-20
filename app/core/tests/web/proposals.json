@@ -1,0 +1,510 @@
+[
+  {
+    "index": 0,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (0)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (0)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [
+        {
+          "verb": "send",
+          "label": "Send",
+          "question": "Send to counsel@example.test?",
+          "yes": "Yes, send it",
+          "done": "sent to counsel@example.test",
+          "always": false,
+          "input": "",
+          "endorse": false
+        }
+      ],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:00",
+    "state": "standing",
+    "outcome": "",
+    "tries": 0,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 1,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (1)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (1)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:01",
+    "state": "sent",
+    "outcome": "counsel@example.test",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 2,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (2)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (2)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:02",
+    "state": "applied",
+    "outcome": "1 change",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 3,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (3)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (3)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [
+        {
+          "verb": "send",
+          "label": "Try again",
+          "question": "Send to counsel@example.test?",
+          "yes": "Yes, send it",
+          "done": "sent to counsel@example.test",
+          "always": false,
+          "input": "",
+          "endorse": false
+        }
+      ],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:03",
+    "state": "failed",
+    "outcome": "auth: 535 5.7.8 Authentication failed",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 4,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (4)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (4)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:04",
+    "state": "unknown",
+    "outcome": "the message was handed over and no answer came: reset",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 5,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (5)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (5)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:05",
+    "state": "started",
+    "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 6,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (6)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (6)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:06",
+    "state": "acted",
+    "outcome": "the grant is stored",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 7,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (7)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (7)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:07",
+    "state": "dismissed",
+    "outcome": "wrong person",
+    "tries": 0,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  },
+  {
+    "index": 8,
+    "act": {
+      "kind": "email",
+      "account": "her@example.invalid",
+      "to": [
+        "counsel@example.test"
+      ],
+      "cc": [],
+      "subject": "Your deed (8)",
+      "body": "Following up on the deed.",
+      "attachments": []
+    },
+    "card": {
+      "title": "Proposed email",
+      "by": {
+        "kind": "secretary"
+      },
+      "sentence": "",
+      "fields": [
+        {
+          "label": "From",
+          "value": "her@example.invalid"
+        },
+        {
+          "label": "To",
+          "value": "counsel@example.test"
+        },
+        {
+          "label": "Subject",
+          "value": "Your deed (8)"
+        }
+      ],
+      "body": "Following up on the deed.",
+      "rows": [],
+      "files": [],
+      "problem": "",
+      "answers": [],
+      "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+      "readonly": "This device can read this but not send it. Use one of your own devices.",
+      "link": null
+    },
+    "why": "the deed is due",
+    "sources": [
+      "briefing:2026-09-27"
+    ],
+    "at": "2026-09-02T12:00:08",
+    "state": "checked",
+    "outcome": "the message was handed over and no answer came: reset",
+    "tries": 1,
+    "turn": 0,
+    "coding": null,
+    "announced": null
+  }
+]

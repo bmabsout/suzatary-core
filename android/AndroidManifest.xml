@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The whole app, declared. `package` is written here rather than in a Gradle
+  namespace because aapt2 is the only tool that reads this file: there is no
+  Gradle in this build (nix/apk.nix), so the manifest is the source of truth it
+  always was before AGP started synthesising one.
+
+  versionCode and versionName are deliberately ABSENT. They are derived from
+  the repository — the commit count and suzatary.__version__ plus the short sha
+  — and injected by aapt2 link's version-code / version-name flags, so a released
+  APK's version is a fact about the tree it was built from and cannot drift
+  from it by someone forgetting to bump a literal.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.bmabsout.suzatary">
+
+    <!-- The app talks to one host over the tailnet and does nothing else; it
+         holds no credential, no storage, no location. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- PUSH (Push.java). This is the permission that lets Play Services
+         deliver to us, and it is the whole of what the FCM SDK would have
+         merged in from its own manifest. `<package>.permission.C2D_MESSAGE`,
+         the signature permission every GCM app declared before 2016, is
+         deliberately ABSENT: GCM 3.0 stopped requiring it and Play Services no
+         longer looks for it, so declaring one would be a permission on the
+         phone's list that nothing checks. The RECEIVER below is gated the
+         other way instead — on a permission only GMS holds. -->
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
+    <!-- Since API 33 a notification is a runtime permission like the camera.
+         Declared here and ASKED FOR by MainActivity the first time the app
+         opens; refused, the app works exactly as it did before push existed,
+         and nothing in it treats that as an error. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 26 is the floor for a WebView that ships its own updatable Chromium and
+         for network_security_config (below, which refuses cleartext). 34 is the
+         target the toolchain compiles against. -->
+    <uses-sdk
+        android:minSdkVersion="26"
+        android:targetSdkVersion="34" />
+
+    <!-- No backup and no device transfer (res/xml/data_extraction_rules.xml):
+         allowBackup covers the first, and from API 31 only the rules cover
+         the second. -->
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- exported is stated rather than inherited: a LAUNCHER activity must
+             be exported, and since API 31 an unstated value is a build error.
+             Saying it here means the answer is in the file rather than in a
+             default that changed once already.
+
+             configChanges covers everything that would otherwise destroy and
+             recreate the activity — the WebView would reload the page and lose
+             the scroll position and any half-typed todo. The activity handles
+             these by doing nothing, which is correct: the web app is
+             responsive and re-lays itself out.
+
+             launchMode is singleTask so a tapped link REUSES the running app:
+             the intent arrives at onNewIntent and the existing WebView is told
+             to load that page, rather than a second copy of the activity being
+             stacked on the first with its own history and its own cache read.
+             One app, one task, one WebView — the same "exactly once" rule the
+             rest of the repo applies to evaluators. -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|fontScale|uiMode|locale|layoutDirection"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- THE LINKS IN THE BRIEFING OPEN HERE. Every todo and every
+                 briefing the daily chat hands the owner is a plain
+                 https://<your-box>.<tailnet>.ts.net/#/… URL — a real address that
+                 works in any browser on the tailnet — and autoVerify is what
+                 makes the phone route it to this app instead. Android checks
+                 the claim by fetching
+                 https://<your-box>.<tailnet>.ts.net/.well-known/assetlinks.json
+                 (web/static/.well-known/assetlinks.json) and matching this
+                 package and the installed APK's signing certificate against
+                 it, so the site vouches for the app rather than the app
+                 asserting something about the site. That fetch is https on 443
+                 only, which is why the app's URL carries no port any more.
+
+                 No android:path*: this host serves ONE app, so every path on
+                 it is this app's, and a filter that enumerated #/todo and
+                 #/briefings would have to be edited every time the web app
+                 grows a page. The interesting part of these URLs is the
+                 FRAGMENT anyway, which no intent filter can match on — it
+                 rides along in the intent's data and MainActivity loads the
+                 whole URI. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="@PORTAL_HOST@" />
+            </intent-filter>
+
+            <!-- BELT TO THE BRACES. `suzatary://todo/<id>`,
+                 `suzatary://briefings/<date>` and bare `suzatary://` say the
+                 same things in a form nothing can verify and nothing can
+                 steal: a custom scheme belongs to whoever claims it, so this
+                 filter is for the places an App Link cannot reach — a notes
+                 app that does not linkify a tailnet name, a QR code, an `am
+                 start` from adb. It is deliberately NOT what the briefing
+                 emits: an unverified scheme is a link that dies when the app
+                 is not installed, and the https URL still opens the page in a
+                 browser. MainActivity maps these onto the https URL above. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="suzatary" />
+            </intent-filter>
+
+            <!-- THE SHARE SHEET (MainActivity.shared, 2026-09-10). This is
+                 what puts Suzatary in the row of apps a browser, a reader or a
+                 notes app offers when the owner shares a link — the second piece
+                 of OS integration a browser cannot grant itself, after the
+                 deep links above.
+
+                 text/plain ONLY, and no ACTION_SEND_MULTIPLE. What this app
+                 can do with a share is put its words in the add form; an image
+                 or a file is not a todo's action line, and declaring a type
+                 this app would then drop on the floor would be worse than not
+                 appearing in that sheet at all.
+
+                 BROWSABLE is deliberately ABSENT, unlike the two filters
+                 above: those are for URLs, which a browser hands out, and a
+                 share is never one. DEFAULT is what makes an implicit
+                 ACTION_SEND resolve here, and it is the whole of what a share
+                 target needs.
+
+                 The activity is the target rather than a receiver of its own
+                 because a share OPENS the app on a form — there is nothing to
+                 do in the background, and a second component would need its
+                 own copy of the URL rule this activity already owns. It
+                 arrives at onNewIntent when the app is already up, which is
+                 the usual case and needs no code of its own. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- WHERE GOOGLE'S PUSH SERVICE ANSWERS. REGISTRATION is the reply to
+             the intent Push.ensure sends; RECEIVE is a message the box asked
+             Google to deliver.
+
+             android:permission is the access control and it is the reason
+             exported="true" is safe: only a caller holding
+             com.google.android.c2dm.permission.SEND may reach this component,
+             and Play Services is the only package on the phone that holds it.
+             Without it, exporting a receiver on these actions would let any
+             app on the device hand this one a "notification" of its choosing.
+
+             The <category> is the PACKAGE NAME by protocol: C2DM routes a
+             delivery to the app it is addressed to by matching the category
+             against the receiving package, which is how one broadcast action
+             serves every app on the phone. It is not a category in the usual
+             intent-filter sense and it must equal the manifest's package. -->
+        <receiver
+            android:name=".PushReceiver"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.REGISTRATION" />
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+                <category android:name="com.bmabsout.suzatary" />
+            </intent-filter>
+        </receiver>
+
+        <!-- THE HOME-SCREEN WIDGET (Widget.java, 2026-09-10). The fourth piece
+             of OS integration, after deep links, push and the share target,
+             and the same shape as all three: a native shell over the same HTTP
+             API, holding nothing the web app already holds.
+
+             exported="false", which is what the platform's own sample says for
+             a widget provider and is safe because the AppWidget host is the
+             SYSTEM: it binds this component by name rather than resolving a
+             broadcast, so nothing else on the phone can drive it. That also
+             makes Widget.refresh's explicit-component intent from our own
+             package the only other way in.
+
+             The ACTION_APPWIDGET_UPDATE filter is what a provider is: the
+             system sends it on the schedule res/xml/widget_info.xml names, and
+             PushReceiver sends it when the box wakes the app because the chain
+             moving is exactly when these five rows are wrong.
+
+             The meta-data resource is not optional decoration — it is where
+             the sizes, the layout and the period live, and a receiver without
+             it is not a widget at all. -->
+        <receiver
+            android:name=".Widget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+    </application>
+</manifest>

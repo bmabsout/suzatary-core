@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE STATUS-BAR ICON, and the only picture this app authors.
+
+  It is NOT the launcher icon. Android draws a small icon as an ALPHA MASK —
+  every opaque pixel is painted the system's tint and every colour is thrown
+  away — so @mipmap/ic_launcher, which is the web app's own 512px artwork
+  rendered by nix/apk.nix, would arrive on the status bar as a white square.
+  A dedicated single-colour glyph is the only thing that survives that.
+
+  A VECTOR rather than five PNGs at five densities. It keeps this half of res/
+  readable text like every other file in the tree — a diff shows a shape rather
+  than a hash — and one path scales to whatever the status bar asks for.
+  VectorDrawable is API 21 and the app's floor is 26, so nothing is polyfilled.
+
+  A check mark, because the notification is about todos. Stroked rather than
+  filled: at 24dp a filled outline of a tick loses its corners, while a round
+  cap and join stay legible at every density.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M3.6,12.7 L9.3,18.4 L20.4,6.4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

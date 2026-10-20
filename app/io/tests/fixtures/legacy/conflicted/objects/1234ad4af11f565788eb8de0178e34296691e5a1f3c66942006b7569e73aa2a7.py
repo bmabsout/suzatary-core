@@ -1,0 +1,1 @@
+Sealed(prev='204d444bc156e39326746dd2d021d2e9a70f4693dc4656101affe306915376d1', event=Authored(todo='renew-card', at=datetime(2026, 9, 6, 9, 0, 0), actor='ada', kind='todo', created=datetime(2026, 9, 1, 9, 0, 0), body='Renew the card', spec=Flat(value=0.5), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))

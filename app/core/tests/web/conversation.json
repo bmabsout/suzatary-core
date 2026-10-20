@@ -1,0 +1,156 @@
+{
+  "id": "about-the-deed",
+  "title": "About the deed",
+  "model": "vectors-fixture",
+  "opened": "2026-09-02T12:00:00",
+  "turns": [
+    {
+      "index": 0,
+      "who": "person",
+      "verb": "",
+      "text": "email Harrow about the deed",
+      "refused": false,
+      "references": [
+        "todo:life/email-harrow"
+      ],
+      "attachments": [],
+      "queued": false,
+      "blocks": [],
+      "at": "2026-09-02T12:00:01",
+      "remembered": null,
+      "attempt": "current",
+      "gone": null
+    },
+    {
+      "index": 1,
+      "who": "model",
+      "verb": "",
+      "text": "I will draft that now.",
+      "refused": false,
+      "references": [],
+      "attachments": [],
+      "queued": false,
+      "blocks": [
+        {
+          "source": "I will draft that now.",
+          "plain": "I will draft that now.",
+          "kind": "prose",
+          "html": null
+        }
+      ],
+      "at": "2026-09-02T12:00:20",
+      "remembered": null,
+      "attempt": "current",
+      "gone": null
+    },
+    {
+      "index": 2,
+      "who": "person",
+      "verb": "",
+      "text": "thanks — anything else on it?",
+      "refused": false,
+      "references": [],
+      "attachments": [],
+      "queued": false,
+      "blocks": [],
+      "at": "2026-09-02T12:01:30",
+      "remembered": null,
+      "attempt": "current",
+      "gone": null
+    },
+    {
+      "index": 3,
+      "who": "model",
+      "verb": "",
+      "text": "Nothing else today.",
+      "refused": false,
+      "references": [],
+      "attachments": [],
+      "queued": false,
+      "blocks": [
+        {
+          "source": "Nothing else today.",
+          "plain": "Nothing else today.",
+          "kind": "prose",
+          "html": null
+        }
+      ],
+      "at": "2026-09-02T12:01:35",
+      "remembered": null,
+      "attempt": "current",
+      "gone": null
+    }
+  ],
+  "proposals": [
+    {
+      "index": 0,
+      "act": {
+        "kind": "email",
+        "account": "her@example.invalid",
+        "to": [
+          "counsel@example.test"
+        ],
+        "cc": [],
+        "subject": "Your deed",
+        "body": "Following up on the deed — draft attached.",
+        "attachments": []
+      },
+      "card": {
+        "title": "Proposed email",
+        "by": {
+          "kind": "secretary"
+        },
+        "sentence": "",
+        "fields": [
+          {
+            "label": "From",
+            "value": "her@example.invalid"
+          },
+          {
+            "label": "To",
+            "value": "counsel@example.test"
+          },
+          {
+            "label": "Subject",
+            "value": "Your deed"
+          }
+        ],
+        "body": "Following up on the deed — draft attached.",
+        "rows": [],
+        "files": [],
+        "problem": "",
+        "answers": [
+          {
+            "verb": "send",
+            "label": "Send",
+            "question": "Send to counsel@example.test?",
+            "yes": "Yes, send it",
+            "done": "sent to counsel@example.test",
+            "always": false,
+            "input": "",
+            "endorse": false
+          }
+        ],
+        "uncertain": "It may have been sent. Check Sent; it is never sent again.",
+        "readonly": "This device can read this but not send it. Use one of your own devices.",
+        "link": null
+      },
+      "why": "the deed is due and nothing has gone out yet",
+      "sources": [
+        "mail:e2e0000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "at": "2026-09-02T12:00:21",
+      "state": "standing",
+      "outcome": "",
+      "tries": 0,
+      "turn": 2,
+      "coding": null,
+      "announced": null
+    }
+  ],
+  "unplaced": [],
+  "state": "idle",
+  "first": 0,
+  "total": 4,
+  "again": 2
+}

@@ -1,0 +1,33 @@
+# THE ADMITTED FILES: each file of the public tree a person looked at, by the SHA-256 of its
+# bytes and its path, as `sha256sum` prints it. A file the leak guard's matcher cannot read as
+# words (a binary, or text holding a run of base64 or hex, or a quoted-printable body) fails the
+# guard (scripts/public-tree.sh --check) until its line is here, and what it holds encoded is the
+# admitting person's to see. A test's throwaway key is listed too, its finding admitted by
+# fingerprint in .gitleaksignore.
+44a0196b2b99f889b8e149e95b807a350e7424964399e885a7cbb8ccfab674d3  app/io/src/attestation/intel-sgx-root-ca.der
+5d4fdb12b472fbe993da014c38601fda83cf721aae337a7efc379c4d64059ca6  app/io/tests/fixtures/tdx-2026-10-03/pck-crl.der
+c114be5d5ca7aab2d37817eca55aa8a2353853809904ff3695b31c26bcb7465b  app/io/tests/fixtures/tdx-2026-10-03/root-ca-crl.der
+e33adae69f6b60f90573030ae4d5c1e22b20328ffd9606bd9cf9d6c8cb835a6f  docs/images/inbox-desktop.png
+77c0eb84543603bd44bcd4ca17b26de8069a4434ced7d21ed8591d69f757087f  docs/images/list-desktop.png
+18548a702501922b0cde2ce77f7e1f52a553612824d2802a7b42244aeb17d16c  docs/images/list-phone.png
+50a0014d5f6d6dfacb5ead4da24b4c39b29a85f53ba993aa304bee0b1fa3e04d  docs/images/todo-phone.png
+20ce4189b9e41b3439a2a36dd63deff44b6d91182532202cb96b65521b4a3c23  web/static/fonts/CrimsonPro-200-900.woff2
+7a19a7027e125257d310c6dbd78ae3a30b5ea1e3794d60b12bb28227a003bfda  web/static/fonts/source-sans-3-latin-wght-normal.woff2
+96e6393209728ab93c334ae739af8a040cd2006c82e8614d6465a8084db88f89  web/static/fonts/source-serif-4-latin-opsz-italic.woff2
+f2ea9c12d2fe9bd3a9589b02ad2c0909da88f30938c91adc838c4f4098f9f9e0  web/static/fonts/source-serif-4-latin-opsz-normal.woff2
+ed385636b1e7ed3228cf50e947754427f47444fa1f4b21e996564c99e3de8004  web/static/icon-192.png
+9ee31068aa602ba576aa0f6b9fe5111362b75557341f632b91effaca1884f8e1  web/static/icon-512.png
+42736cb39b2ea5f6b656794fd262b5a4101459362cff2584b411abea85011a2e  app/io/tests/fixtures/bridge-key.pem
+fc923329e44108969c12ac2ffcf6e3138d2b374285d194b37f285e51b53c3288  app/io/tests/fixtures/fcm-key.pem
+2eee4153b232e5a19c541a71b5fa343b4e52f01c4700c9e0cb5c0b5fd374eff1  app/io/tests/fixtures/bridge-cert.pem
+834f1474301e08f79e56e1a32adeea0f16674fe9447c809528266f0c1d7cfd2d  app/io/tests/fixtures/other-cert.pem
+839bce9a0f6aa8554e2371c8dd3e01b3b2ae0cb8995cfc98c997e03bbe1cca03  app/io/tests/fixtures/claude-stream-json.jsonl
+4a45f52bd49f33038fac5ff54637ca402bf0244719e3401704f8c4a67bea5ce9  app/io/tests/fixtures/tdx-2026-10-03/report.json
+7f47b756761a46e6d4a4d96f0d8a4448f8449235009d1f3ad1493f5c773c19e8  app/io/tests/stores/secretary/attachments/7f47b756761a46e6d4a4d96f0d8a4448f8449235009d1f3ad1493f5c773c19e8
+fa1207e7ebce2f2a796ae97094e1000631e40379765bd33e3cc9c1ff8a72dc37  app/io/tests/fixtures/tdx-2026-10-03/qe-identity.issuer-chain
+fa1207e7ebce2f2a796ae97094e1000631e40379765bd33e3cc9c1ff8a72dc37  app/io/tests/fixtures/tdx-2026-10-03/tcb-info.issuer-chain
+aea80d818be96c1f482fa45f12544230e6e7a2821cc91ed11adc9f343bb4396a  web/static/.well-known/assetlinks.json
+7d6a9c9c9cecbba4404e3daa2f0390a33fc8f1617be044b7f31805da2edd4b0d  app/io/tests/fixtures/fcm-key.pub.pem
+66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925  app/io/tests/stores-changes/secretary-lines-keys/66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925
+72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793  app/io/tests/stores-changes/secretary-lines-keys/72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793
+75877bb41d393b5fb8455ce60ecd8dda001d06316496b14dfa7f895656eeca4a  app/io/tests/stores-changes/secretary-lines-keys/75877bb41d393b5fb8455ce60ecd8dda001d06316496b14dfa7f895656eeca4a

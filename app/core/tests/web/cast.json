@@ -1,0 +1,151 @@
+{
+  "owner": {
+    "actor": "ada",
+    "name": "Ada",
+    "email": "her@example.invalid"
+  },
+  "counsel": {
+    "name": "Harrow",
+    "email": "counsel@example.test"
+  },
+  "accountant": {
+    "name": "Mira Solberg",
+    "email": "mira@example.test"
+  },
+  "friend": {
+    "name": "Diego",
+    "email": "diego@example.test"
+  },
+  "city": "Oslo",
+  "todos": {
+    "urgent": {
+      "id": "file-permit",
+      "created": "permit renewal",
+      "body": "File the *permit* renewal",
+      "strong": "permit",
+      "detail": "",
+      "category": "work",
+      "rationale": [
+        "Missing it is not recoverable."
+      ],
+      "subtodos": []
+    },
+    "flat": {
+      "id": "book-flight",
+      "created": "",
+      "body": "Book the flight to Oslo",
+      "strong": "",
+      "detail": "",
+      "category": "home",
+      "rationale": [],
+      "subtodos": []
+    },
+    "checklist": {
+      "id": "pack-bags",
+      "created": "",
+      "body": "Pack for the trip",
+      "strong": "",
+      "detail": "After #link(\"todo:book-flight\")[the flight] is booked.",
+      "category": "home",
+      "rationale": [],
+      "subtodos": [
+        {
+          "text": "[tickets]",
+          "done": true
+        },
+        {
+          "text": "[chargers]",
+          "done": false
+        }
+      ]
+    },
+    "resolved": {
+      "id": "renew-card",
+      "created": "",
+      "body": "Renew the library card",
+      "strong": "",
+      "detail": "",
+      "category": "home",
+      "rationale": [],
+      "subtodos": []
+    },
+    "high": {
+      "id": "water-plants",
+      "created": "",
+      "body": "Water the plants",
+      "strong": "",
+      "detail": "",
+      "category": "home",
+      "rationale": [],
+      "subtodos": []
+    },
+    "agents": {
+      "id": "email-harrow",
+      "created": "",
+      "body": "Email *Harrow* about the deed",
+      "strong": "Harrow",
+      "detail": "",
+      "category": "other",
+      "rationale": [],
+      "subtodos": []
+    }
+  },
+  "mail": [
+    {
+      "from": {
+        "name": "Harrow",
+        "email": "counsel@example.test"
+      },
+      "subject": "Harrow asked for one more signature",
+      "msgid": "fixture-harrow-deed@example.test",
+      "body": "They are asking for one more signature before the deed is recorded."
+    },
+    {
+      "from": {
+        "name": "Diego",
+        "email": "diego@example.test"
+      },
+      "subject": "Quarterly ferret census results",
+      "msgid": "fixture-ferret-census@example.test",
+      "body": "Every burrow got counted twice this quarter, on purpose."
+    }
+  ],
+  "proposed": {
+    "id": "renewlease",
+    "created": "",
+    "body": "Renew the lease before the window closes",
+    "strong": "",
+    "detail": "",
+    "category": "home",
+    "rationale": [
+      "an errand with a recoverable cost"
+    ],
+    "subtodos": []
+  },
+  "unpriced": {
+    "id": "tenancy-rules",
+    "created": "",
+    "body": "Read the tenancy rules",
+    "strong": "",
+    "detail": "",
+    "category": "study",
+    "rationale": [],
+    "subtodos": []
+  },
+  "notice": {
+    "mail": {
+      "from": {
+        "name": "Nordvik Registry Office",
+        "email": "notices@registry.example.test"
+      },
+      "subject": "Your approval notice",
+      "msgid": "fixture-approval-notice@example.test",
+      "body": "The scanned approval notice is attached."
+    },
+    "file": {
+      "name": "approval-notice.pdf",
+      "media": "application/pdf",
+      "content": "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n4 0 obj << /Length 60 >> stream\nBT /F1 12 Tf 24 100 Td (Approval notice WAC0000000001) Tj ET\nendstream endobj\n5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\ntrailer << /Size 6 /Root 1 0 R >>\n%%EOF\n"
+    }
+  }
+}

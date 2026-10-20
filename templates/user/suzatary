@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# The app this repository's flake.lock names, run without ever copying this repository into
+# the Nix store, which every user of the machine can read: this repository holds your data,
+# so it is never a flake reference here. The lock is read against a store that refuses every
+# write (`--store dummy://`), and the app is fetched by the revision it names.
+#
+#   ./suzatary <verb> ...           the app: init, doctor, auth, serve, ...
+#   ./suzatary tool <command> ...   a command among the app's tools (claude, lieer's gmi,
+#                                   protonmail-bridge, secretspec, notmuch)
+#   ./suzatary secret <NAME>        set a secret the app declares, typed at secretspec's prompt
+#   ./suzatary shell                a shell holding the app's tools
+#   ./suzatary which                the app's flake reference, as the lock names it
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+app="$(SUZATARY_LOCK="$here/flake.lock" nix eval --raw --impure --store dummy:// --expr '
+  let
+    nodes = (builtins.fromJSON (builtins.readFile (builtins.getEnv "SUZATARY_LOCK"))).nodes;
+    locked = nodes.${nodes.root.inputs.suzatary}.locked;
+  in "git+${locked.url}?ref=${locked.ref or "master"}&rev=${locked.rev}"
+    + (if locked.shallow or false then "&shallow=1" else "")')"
+
+# How `init` prints the steps it leaves: through this script.
+export SUZATARY_RUN=./suzatary
+export SUZATARY_INSTANCE="${SUZATARY_INSTANCE:-$here/instance.toml}"
+
+case "${1:-}" in
+  which) echo "$app" ;;
+  tool) shift; exec nix develop "$app#triage" --command "$@" ;;
+  shell) exec nix develop "$app#triage" ;;
+  secret)
+    name="${2:?usage: ./suzatary secret <NAME>}"
+    # The file the app writes for this instance under its state directory: the code root's own
+    # names and every name its tables derive (a calendar's link, a provider's key).
+    file="$(nix run "$app" -- secretspec)"
+    exec nix develop "$app#triage" --command secretspec set "$name" --file "$file"
+    ;;
+  *) exec nix run "$app" -- "$@" ;;
+esac

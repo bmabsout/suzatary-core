@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "suzatary": {
+      "command": "nix",
+      "args": [
+        "develop",
+        ".#triage",
+        "--command",
+        "scripts/app-bin.sh",
+        "mcp"
+      ]
+    }
+  }
+}

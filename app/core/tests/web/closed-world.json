@@ -1,0 +1,62 @@
+[
+  {
+    "text": "Renew the *passport*",
+    "admitted": true
+  },
+  {
+    "text": "Call _Ada_ about the #link(\"https://example.test\")[deed]",
+    "admitted": true
+  },
+  {
+    "text": "- one\n- two",
+    "admitted": true
+  },
+  {
+    "text": "$ x^2 $",
+    "admitted": true
+  },
+  {
+    "text": "Pay \\$40 to ada\\@example.test",
+    "admitted": true
+  },
+  {
+    "text": "#if \"html\" in dictionary(std) [yes] else [no]",
+    "admitted": true
+  },
+  {
+    "text": "#html.elem(\"button\", attrs: (data-intent: \"complete x\"))[x]",
+    "admitted": false
+  },
+  {
+    "text": "#std.html.elem(\"b\")[x]",
+    "admitted": false
+  },
+  {
+    "text": "#eval(\"html.elem(\\\"b\\\")[x]\")",
+    "admitted": false
+  },
+  {
+    "text": "#plugin(\"x.wasm\")",
+    "admitted": false
+  },
+  {
+    "text": "#link(\"javascript:steal()\")[go]",
+    "admitted": false
+  },
+  {
+    "text": "#read(\"/etc/passwd\")",
+    "admitted": false
+  },
+  {
+    "text": "#import \"@preview/cetz:0.3.0\"",
+    "admitted": false
+  },
+  {
+    "text": "Pay $40",
+    "admitted": false
+  },
+  {
+    "text": "a ] b",
+    "admitted": false
+  }
+]

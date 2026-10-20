@@ -1,0 +1,86 @@
+[package]
+name = "suzatary-io"
+description = "Suzatary's interpreters: the capabilities of suzatary-core, against the world"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+autotests = false
+
+[lib]
+name = "suzatary_io"
+path = "src/lib.rs"
+
+[dependencies]
+suzatary-core.workspace = true
+prodrome_core.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+# The whois answer, the FCM message and the notmuch output are all JSON this
+# crate parses; serde derives the records it parses them into.
+serde.workspace = true
+# `raw_value`: Intel signs a collateral document's body as served, so it is read raw.
+serde_json = { workspace = true, features = ["raw_value"] }
+# FCM and ntfy, blocking, over rustls (§2: never OpenSSL).
+ureq.workspace = true
+webpki-roots.workspace = true
+jsonwebtoken.workspace = true
+base64.workspace = true
+# The maildir files notmuch names, and the sha256 `mail/dedup.py` reduces their
+# headers to.
+mail-parser.workspace = true
+sha2.workspace = true
+hex.workspace = true
+# An attestation receipt's Ed25519 signature, and a TDX quote's ECDSA ones
+# (`attestation/`).
+ring.workspace = true
+# Intel's DCAP certificate chains and CRLs, through the one webpki rustls already
+# links; and the percent-encoded PEM Intel's PCS sends its issuer chains in.
+webpki = { package = "rustls-webpki", version = "0.103", default-features = false, features = ["ring", "std"] }
+percent-encoding = "2"
+# `markup.suspicious`' three tripwires, and the html-to-text walk over a body.
+regex.workspace = true
+# --- THE MAIL TRANSPORTS (§8.6).
+# The IMAP conversation `ms_imap_sync.py` had from `imaplib`. No TLS feature of
+# its own — see the workspace manifest for why the stream is built here, out of
+# the one rustls this workspace has.
+imap.workspace = true
+# The TLS both mail transports run over, and the roots they trust.
+# `webpki-roots` rather than the platform store, for the reason the push clients
+# already give: a systemd unit's view of /etc/ssl is one more thing to be wrong
+# about. The Proton Bridge path trusts no store: its verifier accepts ONE pinned
+# self-signed certificate and nothing else (`smtp::submission`).
+rustls.workspace = true
+rustls-pki-types = "1"
+# SMTP + XOAUTH2 + STARTTLS, for Microsoft. The Bridge's SMTP is spoken by hand,
+# because lettre cannot take a verifier of our own.
+lettre.workspace = true
+# A pseudo-terminal for `claude setup-token` (`setup_token`), and a child's whole process
+# group killed on a timeout or a halt (`run`), safely: the one rustix already linked.
+rustix = { version = "1", features = ["process", "pty", "termios"] }
+# Authored markup compiled in the closed world (`typeset`): the Prodrome's restricted project.
+prodrome-typst-wasm.workspace = true
+# `durable`'s temporaries and `scratch`'s directories: unpredictable names,
+# created exclusively, private.
+tempfile = "3"
+# `secrets::Declarations` reads the code root's `secretspec.toml` and writes the file that
+# extends it with the names an instance derives.
+toml.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+# THE TRIPWIRE IS FUZZED, and it used to be fuzzed in Python
+# (`tests/test_fuzz.py`) until the markup renderer moved here. A property over
+# arbitrary strings is the same claim that test made and a wider alphabet than
+# it drew from: `suspicious` answers for every input and never panics.
+proptest.workspace = true
+# Inert effects a test fills a record from (a render cache that keeps nothing).
+suzatary-core = { workspace = true, features = ["nothing"] }
+
+# ONE TEST BINARY (`autotests = false` above): every file under `tests/` is a
+# module of `tests/all.rs`, so the suite links the application once, not per file.
+[[test]]
+name = "all"
+path = "tests/all.rs"

@@ -1,0 +1,30 @@
+[package]
+name = "suzatary-plugin-fence"
+description = "A hostile source plugin whose every mode tries to break one of the plugin host's fences; a test fixture, never loaded by the app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# A plain library here, so the workspace's native build and clippy check it like any other
+# crate: a native `cdylib` cannot link the component model's export names. The component is
+# `nix build .#suzatary-plugin-fence`, which asks `cargo rustc` for a `cdylib` for
+# wasm32-unknown-unknown and wraps it with `wasm-tools component new`.
+[lib]
+name = "suzatary_plugin_fence"
+path = "src/lib.rs"
+
+[features]
+# The same plugin targeting a world that also imports a filesystem and a network, which the
+# host must refuse to load.
+escapee = []
+# The fence's actor instead of its source: a component of the actor world whose every mode tries
+# to break a fence on proposals; with `escapee`, one that also imports `fetch`.
+actor = []
+
+[dependencies]
+wit-bindgen.workspace = true
+
+[lints]
+workspace = true

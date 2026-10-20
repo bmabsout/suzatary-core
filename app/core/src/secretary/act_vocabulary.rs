@@ -1,0 +1,58 @@
+//! The vocabulary a proposal's act is stored in: every constructor an act prints, from the
+//! proposal down to its leaves' records, each declared beside the type it prints.
+
+use crate::literal::Signature;
+use crate::secretary::{acts, attached, attachment_source, changes, store};
+use crate::todo::price;
+
+/// Every constructor of a stored act, with its fields in printed order. None is a term's or an
+/// inbox event's, so one walker reads an `Asked` whole.
+pub const SIGNATURES: &[Signature] = &[
+    store::EMAIL,
+    store::REMEMBER,
+    crate::decisions::DECIDE,
+    changes::CHANGES,
+    changes::ADD,
+    changes::UPDATE,
+    changes::COMPLETE,
+    changes::CANCEL,
+    changes::TEND,
+    changes::REPRICE,
+    price::FLAT_PRICE,
+    price::DEADLINE_PRICE,
+    price::RECUR_PRICE,
+    price::PERIODIC_PRICE,
+    crate::record::SUBTODO,
+    acts::AUTH,
+    acts::AUTH_SEND,
+    acts::SECRET,
+    acts::WEB,
+    acts::PATCH,
+    acts::DRIVE_READ,
+    acts::CODING_SESSION,
+    acts::DEVICE,
+    acts::CLAUDE_SIGN_IN,
+    acts::SIGN_IN_CODE,
+    acts::UNLOCK_STORE,
+    acts::CONNECT,
+    acts::DISCONNECT,
+    acts::GRANT,
+    crate::settings::configure::CONFIGURE_ORDER,
+    crate::settings::configure::CONFIGURE_RESERVE,
+    crate::settings::configure::CONFIGURE_PROVIDER,
+    crate::settings::configure::DECLARED_PROVIDER,
+    crate::settings::configure::PROVIDER_SETUP,
+    crate::connect::CONNECTION,
+    acts::ERASE,
+    acts::GOOGLE_CLIENT,
+    acts::GOOGLE_SIGN_IN,
+    acts::CALENDAR_EVENT,
+    crate::web::SEARCH,
+    crate::web::FETCH,
+    attached::ATTACHED,
+    attachment_source::FROM_MAIL,
+    attachment_source::FROM_DRIVE,
+    attachment_source::FROM_UPLOAD,
+    attachment_source::FROM_KEPT,
+    attachment_source::FROM_REPO,
+];

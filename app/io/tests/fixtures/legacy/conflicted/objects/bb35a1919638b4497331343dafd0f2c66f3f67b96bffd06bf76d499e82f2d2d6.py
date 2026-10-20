@@ -1,0 +1,1 @@
+Sealed(prev='b49f8f1aa43422d4788cda6025e12b2ecc8e5e02b8abd6311921c55a5760c0a1', event=Authored(todo='pack-bags', at=datetime(2026, 9, 4, 9, 0, 0), actor='ada', kind='todo', created=datetime(2026, 9, 1, 9, 0, 0), body='Pack for the trip', spec=Flat(value=0.6), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))

@@ -1,0 +1,85 @@
+// The tab's side of the core's worker: each chain's objects sent once, then only the names added and dropped, and a
+// question by message with its answer as a promise. Nothing here reads a chain; what the worker holds is what the last
+// `hold` said, since the messages arrive in the order they were sent.
+
+import type { Named } from "./core"
+import { CoreError } from "./core"
+import questions from "./questions"
+
+export namespace remote {
+  // A chain as the tab holds it: its objects and its policy.
+  export type Chain = { readonly name: string; readonly objects: readonly Named[]; readonly untrusted: readonly string[] }
+
+  export type Remote = {
+    // The chains held, each by what changed since the last holding; what each reading leaves out.
+    readonly hold: (chains: readonly Chain[]) => Promise<questions.Answer<"Hold">>
+    readonly ask: <K extends questions.Kind>(q: questions.Of<K>) => Promise<questions.Answer<K>>
+  }
+
+  // What each chain holds as `hold` last told it, by name.
+  type Sent = Map<string, ReadonlySet<string>>
+
+  // The change from what was sent to `c`: pure, so a holding is a function of the two sets.
+  const delta = (sent: ReadonlySet<string>, c: Chain): questions.Holding => {
+    const now = new Set(c.objects.map(o => o.hash))
+    return {
+      name: c.name,
+      untrusted: c.untrusted,
+      add: c.objects.filter(o => !sent.has(o.hash)),
+      drop: [...sent].filter(h => !now.has(h)),
+    }
+  }
+
+  // `broken` is said once the worker is gone (its script did not load, or it threw outside a question): every question
+  // waiting and every one after fails with why, rather than waiting on an answer that will not come.
+  export const over = (port: questions.Port<questions.Answered, questions.Asked>, broken: (fail: (why: string) => void) => void = () => {}): Remote => {
+    const waiting = new Map<number, { ok: (v: questions.Answer<questions.Kind>) => void; no: (e: Error) => void }>()
+    let gone: string | null = null
+    broken(why => {
+      gone = why
+      for (const w of waiting.values()) w.no(new CoreError(why))
+      waiting.clear()
+    })
+    let n = 0
+    port.addEventListener("message", e => {
+      const { id, answer } = e.data
+      const w = waiting.get(id)
+      waiting.delete(id)
+      if (answer.type === "Val") w?.ok(answer.v)
+      else w?.no(new CoreError(answer.e))
+    })
+    const ask = <K extends questions.Kind>(question: questions.Of<K>): Promise<questions.Answer<K>> =>
+      new Promise((ok, no) => {
+        if (gone !== null) return no(new CoreError(gone))
+        const id = (n += 1)
+        // The worker answers question `id` with what that question's kind answers.
+        waiting.set(id, { ok: v => ok(v as questions.Answer<K>), no })
+        port.postMessage({ id, question })
+      })
+    const sent: Sent = new Map()
+    return {
+      // Sent before it returns, with no wait between reading `sent` and writing it, so two holdings in a row are each the
+      // change from the one before.
+      hold: chains => {
+        const holding = chains.map(c => delta(sent.get(c.name) ?? new Set(), c))
+        sent.clear()
+        for (const c of chains) sent.set(c.name, new Set(c.objects.map(o => o.hash)))
+        return ask({ type: "Hold", chains: holding })
+      },
+      ask,
+    }
+  }
+
+  // The tab's one worker, started by the first question.
+  let started: Remote | null = null
+  const worker = (): Remote => {
+    if (started !== null) return started
+    const w = new Worker(new URL("./prodromework.js", import.meta.url), { type: "module" })
+    started = over(w, fail => w.addEventListener("error", e => fail(`the core's worker stopped: ${e.message}`)))
+    return started
+  }
+
+  export const hold = (chains: readonly Chain[]): Promise<questions.Answer<"Hold">> => worker().hold(chains)
+  export const ask = <K extends questions.Kind>(q: questions.Of<K>): Promise<questions.Answer<K>> => worker().ask(q)
+}
+export default remote

@@ -1,0 +1,73 @@
+{
+  "claudeMdExcludes": ["**/CLAUDE.md", "**/CLAUDE.local.md"],
+  "promptCacheTtl": "1h",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "mcp__suzatary__*"
+    ],
+    "deny": [
+      "Bash",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "TodoWrite",
+      "Monitor",
+      "RemoteTrigger",
+      "DesignSync",
+      "PushNotification",
+      "ScheduleWakeup",
+      "Skill",
+      "Workflow",
+      "AskUserQuestion",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "TaskCreate",
+      "TaskGet",
+      "TaskList",
+      "TaskOutput",
+      "TaskStop",
+      "TaskUpdate",
+      "EnterWorktree",
+      "ExitWorktree",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "ListMcpResourcesTool",
+      "ReadMcpResourceTool",
+      "SendUserFile",
+      "SendMessage",
+      "Agent",
+      "KillShell",
+      "BashOutput"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "@TOOL_GUARD@"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "@EDIT_GUARD@"
+          }
+        ]
+      }
+    ]
+  }
+}

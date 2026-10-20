@@ -1,0 +1,35 @@
+# What stays on the box and out of this repository's history. Everything else
+# the box writes here (the chains, the agent's replicas, the inbox, the
+# conversations, the memory's and the digest's histories, the decisions,
+# state.json) is committed
+# by the triage pass's push, which accepts nothing else.
+
+# Every store's lock; flake.lock is the one lock that is data.
+*.lock
+!/flake.lock
+
+# Mail is a cache of the servers, rebuilt by syncing; the heartbeat is the box's.
+/Mail/
+/.local/
+
+# The secretary's working files and its rendered answers, a cache by content.
+/secretary/
+/secretary-render/
+
+# The memory's words. Forgetting a fact deletes them, and a pushed object
+# cannot be forgotten, so they never leave the box.
+/secretary-memory-texts/
+
+# The digest's summaries' words: box-local and erasable like a fact's, deleted
+# by the sweep once nothing live names them.
+/secretary-digest-texts/
+
+# The keys of the conversations' locked words: the lines are pushed and the
+# keys never are, so destroying a key erases its words everywhere.
+/secretary-lines-keys/
+
+# The cache tier: the plugins' stores, rebuilt by syncing again.
+/cache/
+
+# What `nix build` links here.
+/result*

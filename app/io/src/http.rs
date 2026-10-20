@@ -1,0 +1,491 @@
+//! Every HTTP request this crate makes: a [`Req`] in, a [`Resp`] out, through
+//! one [`Http`] with a `ureq` interpreter and a scripted fake. A non-2xx
+//! status is an answer the caller reads, never an error.
+
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use suzatary_core::web::is_public;
+use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
+use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+
+/// The most of a body read unless a request says otherwise.
+const DEFAULT_LIMIT: u64 = 10 * 1024 * 1024;
+
+/// A request's verb.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    /// No body.
+    Get,
+    /// With a body.
+    Post,
+}
+
+/// One request. Its `Debug` names headers and never prints their values,
+/// which carry bearer tokens.
+#[derive(Clone)]
+pub struct Req {
+    /// The verb.
+    pub method: Method,
+    /// The whole URL.
+    pub url: String,
+    /// Headers, in order.
+    pub headers: Vec<(String, String)>,
+    /// The body; empty for a GET.
+    pub body: Vec<u8>,
+    /// Past this the request fails; `None` waits.
+    pub timeout: Option<Duration>,
+    /// The most of the answer's body read.
+    pub limit: u64,
+}
+
+/// One answer, whatever its status.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resp {
+    /// The status code.
+    pub status: u16,
+    /// Headers, names lowercased.
+    pub headers: Vec<(String, String)>,
+    /// The body.
+    pub body: Vec<u8>,
+}
+
+/// Why no answer came.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum HttpError {
+    /// It never left this box: the name, the connection or its TLS failed.
+    #[error("{0}")]
+    NotSent(String),
+    /// It never left this box: [`Ureq::public_only`] refused a name resolving off the public
+    /// internet.
+    #[error("{host} resolves to {ip}, which is not on the public internet")]
+    Private {
+        /// The name asked for.
+        host: String,
+        /// The address it resolved to that is not public.
+        ip: IpAddr,
+    },
+    /// It left, and no answer came in time.
+    #[error("{0}")]
+    TimedOut(String),
+    /// It left, and the answer was lost or could not be read.
+    #[error("{0}")]
+    Lost(String),
+}
+
+/// The one way a request leaves this box.
+pub trait Http: Send + Sync {
+    /// Send `req` and read the whole answer.
+    ///
+    /// # Errors
+    /// [`HttpError`] when nothing readable came back.
+    fn send(&self, req: Req) -> Result<Resp, HttpError>;
+}
+
+impl<T: Http + ?Sized> Http for Arc<T> {
+    fn send(&self, req: Req) -> Result<Resp, HttpError> {
+        (**self).send(req)
+    }
+}
+
+impl<T: Http + ?Sized> Http for Box<T> {
+    fn send(&self, req: Req) -> Result<Resp, HttpError> {
+        (**self).send(req)
+    }
+}
+
+impl Req {
+    /// A GET of `url`.
+    #[must_use]
+    pub fn get(url: impl Into<String>) -> Self {
+        Self {
+            method: Method::Get,
+            url: url.into(),
+            headers: Vec::new(),
+            body: Vec::new(),
+            timeout: None,
+            limit: DEFAULT_LIMIT,
+        }
+    }
+
+    /// A POST of `body` to `url`.
+    #[must_use]
+    pub fn post(url: impl Into<String>, body: impl Into<Vec<u8>>) -> Self {
+        Self {
+            method: Method::Post,
+            body: body.into(),
+            ..Self::get(url)
+        }
+    }
+
+    /// A POST of `body` as JSON.
+    ///
+    /// # Panics
+    /// Never on a body this crate builds: each is a map with string keys,
+    /// which serialises.
+    #[must_use]
+    pub fn json(url: impl Into<String>, body: &impl serde::Serialize) -> Self {
+        Self::post(
+            url,
+            serde_json::to_vec(body).expect("a map with string keys serialises"),
+        )
+        .header("Content-Type", "application/json")
+    }
+
+    /// A POST of `fields` as a form.
+    #[must_use]
+    pub fn form(url: impl Into<String>, fields: &[(&str, &str)]) -> Self {
+        Self::post(url, suzatary_core::url::encode_form(fields))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+    }
+
+    /// One more header.
+    #[must_use]
+    pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.push((name.into(), value.into()));
+        self
+    }
+
+    /// Fail after `after`.
+    #[must_use]
+    pub fn timeout(mut self, after: Duration) -> Self {
+        self.timeout = Some(after);
+        self
+    }
+
+    /// Read at most `bytes` of the answer's body.
+    #[must_use]
+    pub fn limit(mut self, bytes: u64) -> Self {
+        self.limit = bytes;
+        self
+    }
+
+    /// The value of the first header named `name`, ignoring case.
+    #[must_use]
+    pub fn header_value(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+}
+
+impl std::fmt::Debug for Req {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Req")
+            .field("method", &self.method)
+            .field("url", &self.url)
+            .field(
+                "headers",
+                &self
+                    .headers
+                    .iter()
+                    .map(|(name, _)| name)
+                    .collect::<Vec<_>>(),
+            )
+            .field("body", &self.body.len())
+            .field("timeout", &self.timeout)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Resp {
+    /// An answer with `status` and `body` and no headers.
+    #[must_use]
+    pub fn new(status: u16, body: impl Into<Vec<u8>>) -> Self {
+        Self {
+            status,
+            headers: Vec::new(),
+            body: body.into(),
+        }
+    }
+
+    /// One more header.
+    #[must_use]
+    pub fn with_header(mut self, name: &str, value: impl Into<String>) -> Self {
+        self.headers.push((name.to_ascii_lowercase(), value.into()));
+        self
+    }
+
+    /// The value of the first header named `name`, ignoring case.
+    #[must_use]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
+    }
+
+    /// The body, decoded lossily.
+    #[must_use]
+    pub fn text(&self) -> String {
+        String::from_utf8_lossy(&self.body).into_owned()
+    }
+
+    /// Whether the status is 2xx.
+    #[must_use]
+    pub fn ok(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+}
+
+/// `ureq` over rustls.
+#[derive(Debug, Clone)]
+pub struct Ureq {
+    agent: ureq::Agent,
+}
+
+impl Default for Ureq {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Ureq {
+    /// An agent that follows redirects.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            agent: ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .build()
+                .into(),
+        }
+    }
+
+    /// An agent for addresses a model chose: it follows no redirect, and
+    /// every name must resolve only to public addresses, checked inside the
+    /// resolution so nothing can change between checking and connecting. It
+    /// takes no proxy from the environment, since through one the resolver
+    /// would check the proxy's address and never the one asked for.
+    #[must_use]
+    pub fn public_only() -> Self {
+        let config = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .max_redirects(0)
+            .proxy(None)
+            .build();
+        Self {
+            agent: ureq::Agent::with_parts(config, DefaultConnector::new(), PublicOnly::default()),
+        }
+    }
+}
+
+impl Http for Ureq {
+    fn send(&self, req: Req) -> Result<Resp, HttpError> {
+        fn configured<B>(builder: ureq::RequestBuilder<B>, req: &Req) -> ureq::RequestBuilder<B> {
+            req.headers.iter().fold(
+                builder.config().timeout_global(req.timeout).build(),
+                |builder, (name, value)| builder.header(name, value),
+            )
+        }
+        let answered = match req.method {
+            Method::Get => configured(self.agent.get(&req.url), &req).call(),
+            Method::Post => configured(self.agent.post(&req.url), &req).send(&req.body[..]),
+        };
+        let mut response = answered.map_err(|failed| failure(&failed))?;
+        let headers = response
+            .headers()
+            .iter()
+            .filter_map(|(name, value)| {
+                Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned()))
+            })
+            .collect();
+        let body = response
+            .body_mut()
+            .with_config()
+            .limit(req.limit)
+            .read_to_vec()
+            .map_err(|failed| failure(&failed))?;
+        Ok(Resp {
+            status: response.status().as_u16(),
+            headers,
+            body,
+        })
+    }
+}
+
+/// The resolver's [`HttpError::Private`] comes back as itself, carried through `ureq`'s error as a
+/// value and read by its type, never by its words.
+fn failure(error: &ureq::Error) -> HttpError {
+    if let ureq::Error::Io(io) = error
+        && let Some(private @ HttpError::Private { .. }) = io
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<HttpError>())
+    {
+        return private.clone();
+    }
+    let said = error.to_string();
+    match error {
+        ureq::Error::HostNotFound
+        | ureq::Error::ConnectionFailed
+        | ureq::Error::BadUri(_)
+        | ureq::Error::Tls(_)
+        | ureq::Error::Rustls(_)
+        | ureq::Error::TlsRequired
+        | ureq::Error::RequireHttpsOnly(_)
+        | ureq::Error::InvalidProxyUrl
+        | ureq::Error::ConnectProxyFailed(_)
+        | ureq::Error::Timeout(ureq::Timeout::Resolve | ureq::Timeout::Connect) => {
+            HttpError::NotSent(said)
+        }
+        ureq::Error::Io(io) if io.kind() == std::io::ErrorKind::PermissionDenied => {
+            HttpError::NotSent(said)
+        }
+        ureq::Error::Timeout(_) => HttpError::TimedOut(said),
+        _ => HttpError::Lost(said),
+    }
+}
+
+/// A resolver that answers only public addresses.
+#[derive(Debug, Default)]
+struct PublicOnly(DefaultResolver);
+
+impl Resolver for PublicOnly {
+    fn resolve(
+        &self,
+        uri: &ureq::http::Uri,
+        config: &ureq::config::Config,
+        timeout: NextTimeout,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        let addresses = self.0.resolve(uri, config, timeout)?;
+        if let Some(private) = addresses.iter().find(|address| !is_public(address.ip())) {
+            return Err(ureq::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                HttpError::Private {
+                    host: uri.host().unwrap_or("the host").to_owned(),
+                    ip: private.ip(),
+                },
+            )));
+        }
+        Ok(addresses)
+    }
+}
+
+type Answer = dyn Fn(&Req) -> Result<Resp, HttpError> + Send + Sync;
+
+/// A fake [`Http`]: answers from a function of the request, and keeps every
+/// request it was sent.
+pub struct Scripted {
+    answer: Box<Answer>,
+    sent: Mutex<Vec<Req>>,
+}
+
+impl std::fmt::Debug for Scripted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Scripted").finish_non_exhaustive()
+    }
+}
+
+impl Scripted {
+    /// Answer each request with `answer(request)`.
+    #[must_use]
+    pub fn new(answer: impl Fn(&Req) -> Result<Resp, HttpError> + Send + Sync + 'static) -> Self {
+        Self {
+            answer: Box::new(answer),
+            sent: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Answer the requests in order with `answers`.
+    ///
+    /// # Panics
+    /// When asked more often than it has answers.
+    #[must_use]
+    pub fn answering(answers: Vec<Result<Resp, HttpError>>) -> Self {
+        let queue = Mutex::new(std::collections::VecDeque::from(answers));
+        Self::new(move |req| {
+            queue
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .pop_front()
+                .unwrap_or_else(|| panic!("no scripted answer left for {req:?}"))
+        })
+    }
+
+    /// Answer every request the same.
+    #[must_use]
+    pub fn always(answer: Result<Resp, HttpError>) -> Self {
+        Self::new(move |_| answer.clone())
+    }
+
+    /// Every request sent so far.
+    #[must_use]
+    pub fn sent(&self) -> Vec<Req> {
+        self.sent
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl Http for Scripted {
+    fn send(&self, req: Req) -> Result<Resp, HttpError> {
+        let answer = (self.answer)(&req);
+        self.sent
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(req);
+        answer
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_request_never_prints_a_header_value() {
+        let req = Req::get("https://example.test").header("Authorization", "Bearer hunter2");
+        let shown = format!("{req:?}");
+        assert!(shown.contains("Authorization"), "{shown}");
+        assert!(!shown.contains("hunter2"), "{shown}");
+    }
+
+    #[test]
+    fn a_form_is_percent_encoded_and_typed() {
+        let req = Req::form("https://example.test", &[("a b", "c&d=e")]);
+        assert_eq!(req.body, b"a%20b=c%26d%3De");
+        assert_eq!(
+            req.header_value("content-type"),
+            Some("application/x-www-form-urlencoded")
+        );
+    }
+
+    #[test]
+    fn scripted_answers_in_order_and_keeps_what_it_was_sent() {
+        let http = Scripted::answering(vec![Ok(Resp::new(200, "one")), Ok(Resp::new(404, ""))]);
+        assert_eq!(
+            http.send(Req::get("https://a.test")).expect("one").text(),
+            "one"
+        );
+        assert_eq!(
+            http.send(Req::get("https://b.test")).expect("two").status,
+            404
+        );
+        let urls: Vec<String> = http.sent().into_iter().map(|req| req.url).collect();
+        assert_eq!(urls, ["https://a.test", "https://b.test"]);
+    }
+
+    #[test]
+    fn a_private_address_is_refused_before_anything_is_sent() {
+        let failed = Ureq::public_only()
+            .send(Req::get("http://127.0.0.1:9/").timeout(Duration::from_secs(5)))
+            .expect_err("refused");
+        assert_eq!(
+            failed,
+            HttpError::Private {
+                host: "127.0.0.1".to_owned(),
+                ip: IpAddr::from([127, 0, 0, 1]),
+            }
+        );
+    }
+
+    /// `HTTPS_PROXY` or `ALL_PROXY` in the box's environment would route a model's fetch through
+    /// the proxy, whose address is the only one the resolver would see.
+    #[test]
+    fn a_public_only_agent_takes_no_proxy_from_the_environment() {
+        assert!(Ureq::public_only().agent.config().proxy().is_none());
+    }
+}

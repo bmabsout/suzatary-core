@@ -1,0 +1,565 @@
+[
+  {
+    "description": "Sync all 7 mail accounts and reindex. Returns per-account ok/status.",
+    "inputSchema": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "name": "sync"
+  },
+  {
+    "description": "The triage queue: every inbox message not yet seen (by canonical hash), not noise. Read/unread is irrelevant — mail the owner already read on his phone still gets triaged exactly once.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "new"
+  },
+  {
+    "description": "Any notmuch query, newest first. Use to check for prior related threads before deciding a disposition (e.g. `from:sender@example.com`).",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search"
+  },
+  {
+    "description": "Full message headers + plain-text body. Takes either the `id` field from `new`/`search`, or a canonical `hash` — full, or a unique prefix such as the one stored in a todo's `source.hash`. A body longer than one answer comes back as its first part, with a line naming how many parts there are — pass `part` (2, 3, …) for the rest. Never guess at what a cut part left out; ask for the next one. `links` and every header travel whole on every part.",
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "part": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "show"
+  },
+  {
+    "description": "Record a decision about a message. disposition: 'todo', 'noise', or 'skip'. Pass todo_id when disposition is 'todo', matching the id you gave to `todo_add`; a 'todo' without it, or a 'noise' or 'skip' with it, is refused. Pass native_id as the `id` from the same new/search row this `hash` came from — it costs nothing and lets a later `show` resolve the hash directly instead of rescanning the maildir.",
+    "inputSchema": {
+      "properties": {
+        "disposition": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "native_id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "todo_id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "hash",
+        "disposition"
+      ],
+      "type": "object"
+    },
+    "name": "mark"
+  },
+  {
+    "description": "Add a sender (bare email address) to the wholesale-ignore list.",
+    "inputSchema": {
+      "properties": {
+        "sender": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sender"
+      ],
+      "type": "object"
+    },
+    "name": "noise_add"
+  },
+  {
+    "description": "Every currently-open todo, as {id, kind, category, priority, body, waiting_on, authored_by}. Use this to avoid creating a duplicate — if a message belongs to a topic already tracked here, link it to that todo's id via `mark ... --todo-id <id>` instead of authoring a new one. Complete view: it is the chain's own fold, not a scan of recent files, and the priority is evaluated as of right now rather than whenever a document was last compiled.\n\n⚠️ IT IS ONE CHAIN'S LIST. Dedup against the chain you are about to write to: leaving `chain` out reads the owner's own todos, and `chain=\"suzatary\"` reads this system's own work. Checking one and writing to the other is how a duplicate gets made.",
+    "inputSchema": {
+      "properties": {
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "list_open_todos"
+  },
+  {
+    "description": "A short --stat summary of uncommitted changes, for a final sanity check before ending your session. You do not commit or push yourself — that happens afterward, deterministically, only if every store verifies.",
+    "inputSchema": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "name": "git_diff_summary"
+  },
+  {
+    "description": "Record a lifecycle event for a todo onto the append-only chain. This is your ONLY write to history. kind is 'completed', 'cancelled', 'reopened', or 'tended' (no 'created' — todo authoring lives in the content verbs; no spec authoring). 'tended' is a pass at a RECURRING todo (its price holds a Recur): it was done again and stays open, so its price restarts from now. Never 'completed' for one of those.\n\nThe actor is always 'triage' and the timestamp is always the server's clock — you cannot set either, and you cannot backdate. Your events are PROVISIONAL by construction: they do not bind evaluation until the owner confirms and a trusted actor re-appends them. `todo` must be an id the chain already knows (some prior event mentions it); an unknown id is rejected as a likely typo. A todo you authored this run with `todo_add` is already known.\n\n`chain` is WHICH STORE the todo lives in and must match the one it was authored in — leave it out for the owner's own list, pass `chain=\"suzatary\"` for this system's work.",
+    "inputSchema": {
+      "properties": {
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "type": "string"
+        },
+        "todo": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "todo"
+      ],
+      "type": "object"
+    },
+    "name": "record"
+  },
+  {
+    "description": "The full lifecycle event stream for one todo from the chain, oldest first, as readable text (one line per event: kind, at, actor, note). An unknown id is not an error — it just has no history yet. `chain` picks the store the todo lives in.",
+    "inputSchema": {
+      "properties": {
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "todo": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "todo"
+      ],
+      "type": "object"
+    },
+    "name": "history"
+  },
+  {
+    "description": "Evaluate a priority spec at a moment against recorded history — your read-only window into the temporal logic. spec_json is a spec in the fpl JSON grammar (the same shape a todo's prioritySpec carries); it is parsed through the fpl JSON boundary (bad specs are rejected there). Returns the scalar `value` and a decomposable `explain` tree (every node its own fulfillment, Conj nodes their certified floor). Evaluated against trusted-only history as of `at` (defaults to now); provisional triage events do NOT count, so this shows the CONFIRMED belief. `chain` picks whose history it is evaluated against.",
+    "inputSchema": {
+      "properties": {
+        "at_iso": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spec_json": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "spec_json"
+      ],
+      "type": "object"
+    },
+    "name": "evaluate"
+  },
+  {
+    "description": "Full fsck of the event chain (hash coverage, every parent present). Returns 'healthy' or the list of problems, one per line. `chain` picks which store is checked; the push path checks every one.",
+    "inputSchema": {
+      "properties": {
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "verify_chain"
+  },
+  {
+    "description": "START HERE. Everything you need to act with understanding rather than classify messages in isolation: the triage contract (OPERATOR.md) and the exact vocabularies the authoring verbs accept; CLAUDE.md is already your project memory.",
+    "inputSchema": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    },
+    "name": "context"
+  },
+  {
+    "description": "Author a new todo. This is how you create todos — you do not edit files.\n\n`todo_id`: 3-64 lowercase letters/digits, starting with a letter. It is the handle `mark --todo-id` and `record` use, so choose something you can reproduce (e.g. `permitfiling`).\n`body`: the action line, one sentence, as Typst MARKUP: `*bold*` is bold, and a `$`, `@`, `#`, `*`, `_`, `<` or `[` you mean literally takes a backslash (`Pay \\$40`). It is compiled before it is stored, without `html` or any file, and refused with the line and column when it does not compile. `detail` is the same. Every other field is plain text.\n`rationale`: REQUIRED — WHY this priority, in one sentence. It is recorded as the comment above the number and is the only place the reasoning exists.\n`kind`: 'todo' (needs `category`), 'ekaTodo' or 'suzateryTodo' (which set their own category — do not pass one).\n`priority`: a whole percentage like '65%'. It is a FULFILLMENT: LOW means urgent, HIGH means satisfied or someday. Give exactly one of `priority`, `deadline_end_date`, `recur_every_days` or `periodic_every_days`.\n`deadline_*`: use when the todo decays toward a date rather than sitting at a fixed number. A deadline bounds WHEN, not the stakes: something merely moot afterwards (a form, a small recoverable cost) still floors around 60% on its last day.\n`recur_every_days`: a chore done again and again (vinegar the toothbrush every two months). After every pass (`record` kind 'tended') the fulfillment runs from `cycle_from_priority` to `cycle_to_priority` over that many days, then holds; before the first pass it keeps the price it had. `periodic_every_days` is the same cycle on the calendar, whatever is done (rent). Both need both ends.\n`waiting_on`: only when there is genuinely nothing we can do. One unblocking email we could send means leave it unset.\n`source_*`: all four or none — the message this came from.\n`date`: which day the todo is created on, YYYY-MM-DD, default today.\n`parent`: the id of the todo this is a SUBTODO of. The parent's price gains a reference to this one in the same write, so its value composes this one's; without `category` this takes the parent's.\n`chain`: WHICH LIST it goes in, and this is a decision, not a detail. Leave it out for the owner's own todos — mail, deadlines, people, money, travel. Pass `chain=\"suzatary\"` for this system's own work: a gate that failed, a test that is flaky, a sync that broke, a verb that needs fixing. The test is who the todo is FOR. A todo lives in ONE chain and cannot be moved afterwards, because the Prodrome does not rewrite.",
+    "inputSchema": {
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "category": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cycle_from_priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cycle_to_priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_end_date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_end_priority": {
+          "default": "5%",
+          "type": "string"
+        },
+        "deadline_lead_up_weeks": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "deadline_start_date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_start_priority": {
+          "default": "60%",
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "type": "string"
+        },
+        "kind": {
+          "default": "todo",
+          "type": "string"
+        },
+        "parent": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "periodic_every_days": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "recur_every_days": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "source_date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_hash": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_sender": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_subject": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "todo_id": {
+          "type": "string"
+        },
+        "waiting_on": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "todo_id",
+        "body",
+        "rationale"
+      ],
+      "type": "object"
+    },
+    "name": "todo_add"
+  },
+  {
+    "description": "Change fields on a todo that already exists. Only the fields you pass are touched; everything else keeps its current value.\n\nChanging `priority` (or a deadline, or a cycle — the same price fields `todo_add` takes, one of them) REQUIRES `rationale`. The comment above that number is the only record of why it is what it is, and leaving the old sentence beside a new number misrepresents it as reviewed reasoning. Passing `rationale` alone rewrites just the reason.\n\n`clear_waiting_on` sets it back to `none` — use it the moment there is an email we could send, since `waitingOn` means nothing we can do.\n\n`body`, `detail` and `detail_append` are Typst markup, checked as `todo_add` checks them.\n\n`detail_append`: a sentence to add under the existing detail, keeping its markup — use this, never `detail`, when the detail already exists; give at most one of the two.\n\n`chain` must be the store the todo was authored in; there is no moving one between them.",
+    "inputSchema": {
+      "properties": {
+        "body": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "clear_waiting_on": {
+          "default": false,
+          "type": "boolean"
+        },
+        "cycle_from_priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cycle_to_priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_end_date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_end_priority": {
+          "default": "5%",
+          "type": "string"
+        },
+        "deadline_lead_up_weeks": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "deadline_start_date": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline_start_priority": {
+          "default": "60%",
+          "type": "string"
+        },
+        "detail": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail_append": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "periodic_every_days": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "priority": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rationale": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recur_every_days": {
+          "default": null,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "todo_id": {
+          "type": "string"
+        },
+        "waiting_on": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "todo_id"
+      ],
+      "type": "object"
+    },
+    "name": "todo_update"
+  },
+  {
+    "description": "One todo as the chain holds it: its rendered block, its fields, and who last authored it when. Use it to check what you just wrote, or to see a todo's detail and source before deciding whether a new message belongs to it. `chain` picks the store it lives in.",
+    "inputSchema": {
+      "properties": {
+        "chain": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "todo_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "todo_id"
+      ],
+      "type": "object"
+    },
+    "name": "todo_show"
+  }
+]

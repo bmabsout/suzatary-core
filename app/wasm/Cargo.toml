@@ -1,0 +1,30 @@
+[package]
+name = "suzatary-wasm"
+description = "Suzatary's own browser module: the Prodrome's generic exports at Suzatary's schemas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+# A boundary, not a library: its product is the `.wasm` and the glue
+# `nix build .#suzatary-wasm` emits.
+publish = false
+
+[lib]
+name = "suzatary_wasm"
+path = "src/lib.rs"
+# A module and nothing else, so the release build is one whole-module LTO.
+crate-type = ["cdylib"]
+
+[dependencies]
+prodrome_core.workspace = true
+prodrome-wasm-exports.workspace = true
+suzatary-core = { workspace = true, features = ["wasm"] }
+# The EXACT patch of the flake's `wasm-bindgen-cli_0_2_127`, as
+# prodrome-wasm-exports pins it: the generator and the runtime negotiate over a
+# schema version compiled into both.
+wasm-bindgen = "=0.2.127"
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

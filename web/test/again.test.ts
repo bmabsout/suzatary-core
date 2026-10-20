@@ -1,0 +1,98 @@
+/**
+ * `conversation/again.ts` — the offer to ask the last round again, and the
+ * composer's mode (`docs/CHAT-PLAN-2026-09-25.md` §4.4, §4.11).
+ */
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import type { ConversationPayload, ConversationState, TurnRow } from "../src/wire/generated/wire";
+import again from "../src/chat/again";
+import { step as sourceStep } from "../src/chat/source";
+import type { SourceState } from "../src/chat/source";
+import { forAll } from "./gen";
+
+const turn = (index: number, over: Partial<TurnRow> = {}): TurnRow => ({
+  index,
+  who: "person",
+  verb: "",
+  text: `q${index}`,
+  refused: false,
+  references: [],
+  attachments: [],
+  queued: false,
+  blocks: [],
+  at: "2026-09-25T10:00:00",
+  remembered: null,
+  attempt: "current",
+  gone: null,
+  ...over,
+});
+
+const payload = (over: Partial<ConversationPayload>): ConversationPayload => ({
+  id: "default",
+  title: "Secretary",
+  model: "m",
+  opened: "2026-09-25",
+  turns: [turn(0), turn(1, { who: "model", text: "a" })],
+  proposals: [],
+  unplaced: [],
+  state: "idle",
+  first: 0,
+  total: 2,
+  again: 0,
+  ...over,
+});
+
+const loaded = (over: Partial<ConversationPayload> = {}): SourceState =>
+  sourceStep(
+    { kind: "loading", id: "default", about: undefined },
+    { kind: "window", mode: "newest", payload: payload(over), fallback: false, at: 0 },
+  );
+
+test("law: folding an offer with its constructors rebuilds it", () => {
+  const rebuild = (o: again.Offer): again.Offer =>
+    again.fold<again.Offer>(o, () => again.none, (question) => ({ type: "Last", question }));
+  for (const o of [again.none, { type: "Last", question: turn(3) } as const]) assert.deepEqual(rebuild(o), o);
+});
+
+test("law: the box's question is offered exactly while nothing runs and the window holds it", () => {
+  assert.equal(again.offer({ kind: "loading", id: "default", about: undefined }).type, "None");
+  assert.deepEqual(again.offer(loaded()), { type: "Last", question: turn(0) });
+  assert.equal(again.offer(loaded({ again: null })).type, "None", "the box offers nothing");
+  assert.equal(again.offer(loaded({ again: 7 })).type, "None", "not in this window");
+  for (const state of ["queued", "thinking", "answering"] as ConversationState[]) {
+    assert.equal(again.offer(loaded({ state })).type, "None", state);
+  }
+});
+
+const events = (question: TurnRow): again.Event[] => [
+  { type: "edit", offer: again.none },
+  { type: "edit", offer: { type: "Last", question } },
+  { type: "cancel" },
+  { type: "sent" },
+];
+
+test("law: an edit with nothing offered, and a cancel or send while asking, change nothing — the same object", () => {
+  const editing: again.Mode = { type: "Editing", question: turn(2) };
+  assert.equal(again.step(again.asking, { type: "edit", offer: again.none }), again.asking);
+  assert.equal(again.step(editing, { type: "edit", offer: again.none }), editing);
+  assert.equal(again.step(again.asking, { type: "cancel" }), again.asking);
+  assert.equal(again.step(again.asking, { type: "sent" }), again.asking);
+});
+
+test("law: step reaches only asking, or editing the question last offered", () => {
+  forAll(200, (r) => {
+    const questions = r.array(1 + r.int(4), () => turn(r.int(50)));
+    let mode = again.asking;
+    let offered: TurnRow | null = null;
+    for (let i = r.int(30); i > 0; i -= 1) {
+      const e = r.pick(events(r.pick(questions)));
+      mode = again.step(mode, e);
+      if (e.type === "edit" && e.offer.type === "Last") offered = e.offer.question;
+      if (e.type === "cancel" || e.type === "sent") offered = null;
+      if (mode.type === "Asking") assert.equal(offered, null);
+      else assert.equal(mode.question, offered);
+    }
+  });
+});

@@ -1,0 +1,77 @@
+# lines
+{"line":"opened","at":"2026-09-02T12:00:00.000002","title":"Sweep","model":"a scripted model","kind":"review"}
+{"line":"said","at":"2026-09-02T12:00:00.000003","turn":{"who":"person","text":"Below is every open todo with later mail that might bear on it, and that mail's own content, loaded the way `show` would answer it. For each todo: if the mail plainly says it is done or moot, call `propose_changes` with ONE act — `complete` or `cancel` — naming that todo, a `why` in a sentence, and `sources` naming at least the `mail:<hash>` you rested it on. If it does not plainly say so, or there is nothing here that bears on it, propose nothing for that todo — the quiet majority stays quiet (CLAUDE.md, \"do not match on age\"). You may only propose `complete` or `cancel`, never `add`, `update` or `reprice`, and only for a todo listed below.\n\n### todo:flightcheckin\ncreated: 2026-08-20T00:00:00\n\nCheck in for the airline flight\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same thread):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same sender):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n","references":[]}}
+{"line":"scoped","at":"2026-09-02T12:00:00.000004","scope":"transcript"}
+{"line":"said","at":"2026-09-02T12:00:00.000005","turn":{"who":"model","text":"Proposing.","calls":[{"verb":"propose_changes","args":{"acts":[{"act":"complete","note":"in","todo":"flightcheckin"}],"sources":"mail:dddddddddddd","why":"The airline confirmation says he is checked in."}},{"verb":"todo_add","args":{"body":"no","todo_id":"x"}}]}}
+{"line":"proposed","at":"2026-09-02T12:00:00.000008","object":"pa23516260fe817183ac61e782efdc198"}
+{"line":"said","at":"2026-09-02T12:00:00.000006","turn":{"who":"tool","verb":"propose_changes","answer":"{\n  \"acts\": 1,\n  \"chain\": \"life\",\n  \"next\": \"The owner sees this as a DIFF — every row with its before and after — and confirms it, denies it with a reason, or replies. Nothing is on the chain until they confirm. Do not propose the same changeset twice; if they deny one, read the reason and propose the corrected one or ask.\",\n  \"proposed\": 0,\n  \"why\": \"The airline confirmation says he is checked in.\"\n}","refused":false}}
+{"line":"said","at":"2026-09-02T12:00:00.000009","turn":{"who":"tool","verb":"todo_add","answer":"the sweep may not call 'todo_add' — its verbs are context, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, briefing_delta, briefing, git_diff_summary, propose_changes, weather, calendar, decisions, drive_list, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, proposals_list","refused":true}}
+{"line":"said","at":"2026-09-02T12:00:00.000010","turn":{"who":"model","text":"Done.","calls":[]}}
+# shown
+context recall zoom list_open_todos todo_show history search show attachments briefing_delta briefing git_diff_summary propose_changes weather calendar decisions drive_list junk_digest junk_show repos_list repo_tree repo_read repo_grep proposals_list
+context recall zoom list_open_todos todo_show history search show attachments briefing_delta briefing git_diff_summary propose_changes weather calendar decisions drive_list junk_digest junk_show repos_list repo_tree repo_read repo_grep proposals_list
+# asked
+[
+    Conversation {
+        system: "a brief",
+        turns: [
+            Person {
+                text: "Below is every open todo with later mail that might bear on it, and that mail's own content, loaded the way `show` would answer it. For each todo: if the mail plainly says it is done or moot, call `propose_changes` with ONE act — `complete` or `cancel` — naming that todo, a `why` in a sentence, and `sources` naming at least the `mail:<hash>` you rested it on. If it does not plainly say so, or there is nothing here that bears on it, propose nothing for that todo — the quiet majority stays quiet (CLAUDE.md, \"do not match on age\"). You may only propose `complete` or `cancel`, never `add`, `update` or `reprice`, and only for a todo listed below.\n\n### todo:flightcheckin\ncreated: 2026-08-20T00:00:00\n\nCheck in for the airline flight\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same thread):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same sender):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n",
+                references: [],
+                attachments: [],
+            },
+        ],
+    },
+    Conversation {
+        system: "a brief",
+        turns: [
+            Person {
+                text: "Below is every open todo with later mail that might bear on it, and that mail's own content, loaded the way `show` would answer it. For each todo: if the mail plainly says it is done or moot, call `propose_changes` with ONE act — `complete` or `cancel` — naming that todo, a `why` in a sentence, and `sources` naming at least the `mail:<hash>` you rested it on. If it does not plainly say so, or there is nothing here that bears on it, propose nothing for that todo — the quiet majority stays quiet (CLAUDE.md, \"do not match on age\"). You may only propose `complete` or `cancel`, never `add`, `update` or `reprice`, and only for a todo listed below.\n\n### todo:flightcheckin\ncreated: 2026-08-20T00:00:00\n\nCheck in for the airline flight\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same thread):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n- candidate mail:dddddddddddd at 2026-08-25T09:00:00 (the same sender):\n{\n  \"body\": \"You are checked in for flight UA523.\",\n  \"headers\": {\n    \"Date\": \"2026-08-25 09:00:00\",\n    \"From\": \"noreply@airline.example\",\n    \"Subject\": \"You're checked in\"\n  },\n  \"id\": \"id-dddddddddddd\",\n  \"links\": [],\n  \"tags\": [\n    \"inbox\"\n  ]\n}\n\n",
+                references: [],
+                attachments: [],
+            },
+            Model {
+                text: "Proposing.",
+                calls: [
+                    ToolCall {
+                        verb: "propose_changes",
+                        args: {
+                            "acts": Array [
+                                Object {
+                                    "act": String("complete"),
+                                    "note": String("in"),
+                                    "todo": String("flightcheckin"),
+                                },
+                            ],
+                            "sources": String("mail:dddddddddddd"),
+                            "why": String("The airline confirmation says he is checked in."),
+                        },
+                    },
+                    ToolCall {
+                        verb: "todo_add",
+                        args: {
+                            "body": String("no"),
+                            "todo_id": String("x"),
+                        },
+                    },
+                ],
+            },
+            Tool {
+                verb: "propose_changes",
+                answer: "{\n  \"acts\": 1,\n  \"chain\": \"life\",\n  \"next\": \"The owner sees this as a DIFF — every row with its before and after — and confirms it, denies it with a reason, or replies. Nothing is on the chain until they confirm. Do not propose the same changeset twice; if they deny one, read the reason and propose the corrected one or ask.\",\n  \"proposed\": 0,\n  \"why\": \"The airline confirmation says he is checked in.\"\n}",
+                refused: false,
+                files: [],
+            },
+            Tool {
+                verb: "todo_add",
+                answer: "the sweep may not call 'todo_add' — its verbs are context, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, briefing_delta, briefing, git_diff_summary, propose_changes, weather, calendar, decisions, drive_list, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, proposals_list",
+                refused: true,
+                files: [],
+            },
+        ],
+    },
+]
+# opened
+0
+# resumed with
+[]

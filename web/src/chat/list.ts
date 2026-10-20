@@ -1,0 +1,132 @@
+/** The secretary's conversations: the default pinned, topics by their last turn, reviews behind a filter, a search. */
+
+import type { ConversationRow, SearchHit } from "../wire/generated/wire"
+import empty from "../view/empty"
+import type { Child } from "../view/dom"
+import { el } from "../view/dom"
+import { recent } from "../view/format"
+import app from "../app/app"
+import lo from "../algebra/lo"
+import { hrefOf } from "../shell/route"
+
+export namespace list {
+  export type Filter = { type: "Topics" } | { type: "Reviews" }
+  export type Search =
+    | { type: "Off" }
+    | { type: "On"; q: string; found: lo.T<readonly SearchHit[]> }
+  export type T = {
+    rows: lo.T<readonly ConversationRow[]>
+    filter: Filter
+    search: Search
+    current: string | null
+    // The instant the times are read against, moved at the owner's next day.
+    now: number
+  }
+  export type Event =
+    | { type: "Listed"; rows: lo.T<readonly ConversationRow[]> }
+    | { type: "Filtered"; filter: Filter }
+    | { type: "Typed"; q: string }
+    | { type: "Found"; q: string; found: lo.T<readonly SearchHit[]> }
+    | { type: "Ticked"; now: number }
+  export type Sections = { pinned: readonly ConversationRow[]; rows: readonly ConversationRow[] }
+
+  export const TOPICS: Filter = { type: "Topics" }
+  export const REVIEWS: Filter = { type: "Reviews" }
+  export const init = (current: string | null, now: number): T => ({ rows: lo.loading, filter: TOPICS, search: { type: "Off" }, current, now })
+
+  /** A stale answer — for a query no longer typed — is dropped. */
+  export const step = (t: T, e: Event): T => {
+    switch (e.type) {
+      case "Listed": return { ...t, rows: e.rows }
+      case "Filtered": return e.filter.type === t.filter.type ? t : { ...t, filter: e.filter }
+      case "Typed": {
+        const q = e.q.trim()
+        return q === "" ? (t.search.type === "Off" ? t : { ...t, search: { type: "Off" } })
+          : t.search.type === "On" && t.search.q === q ? t
+          : { ...t, search: { type: "On", q, found: lo.loading } }
+      }
+      case "Found": return t.search.type === "On" && t.search.q === e.q.trim() ? { ...t, search: { ...t.search, found: e.found } } : t
+      case "Ticked": return e.now === t.now ? t : { ...t, now: e.now }
+    }
+  }
+
+  /** Listing opens nothing, so the default is pinned before it exists; following it opens it. */
+  export const UNOPENED: ConversationRow = { id: "default", title: "Secretary", kind: "default", opened: "", turns: 0, standing: 0, unplaced: [], last: "", last_at: "" }
+
+  // A topic opened with no name is named by the box after its first answer; until then it reads as what it is.
+  export const named = (title: string): string => (title === "" ? "New topic" : title)
+
+  const byLast = (a: ConversationRow, b: ConversationRow): number => b.last_at.localeCompare(a.last_at) || a.id.localeCompare(b.id)
+  const pinned = (rows: readonly ConversationRow[]): readonly ConversationRow[] => {
+    const d = rows.filter(r => r.kind === "default")
+    return d.length === 0 ? [UNOPENED] : d
+  }
+  export const sections = (rows: readonly ConversationRow[], filter: Filter): Sections => ({
+    pinned: pinned(rows),
+    rows: rows.filter(r => r.kind === (filter.type === "Topics" ? "topic" : "review")).slice().sort(byLast),
+  })
+  export const reviews = (rows: readonly ConversationRow[]): number => rows.filter(r => r.kind === "review").length
+
+  const link = (id: string, at?: number): string =>
+    hrefOf(at === undefined ? { type: "conversation", id, refs: [] } : { type: "conversation", id, refs: [], at })
+
+  // Whether a search is still on its way: what the page waits on before it has anything to show.
+  export const searching = (t: T): boolean => t.search.type === "On" && t.search.found.type === "Loading"
+
+  const row = (r: ConversationRow, current: string | null, now: number): HTMLElement =>
+    el("a", { class: `chatrow${r.id === current ? " current" : ""}`, href: link(r.id), "aria-current": r.id === current ? "page" : null },
+      el("span", { class: "chattitle" }, named(r.title)),
+      r.standing > 0 || r.unplaced.length > 0
+        ? el("span", { class: "chatbadges" },
+            r.standing > 0 ? el("span", { class: "chatbadge", title: `${r.standing} waiting on you` }, String(r.standing)) : null,
+            r.unplaced.length > 0
+              ? el("span", { class: "chatbadge problem", title: `${r.unplaced.length} proposal${r.unplaced.length === 1 ? "" : "s"} with no card on this device` }, `${r.unplaced.length}?`)
+              : null)
+        : null,
+      el("span", { class: "chatwhen" }, recent(r.last_at, now, app.now().zone)),
+      r.last === "" ? null : el("span", { class: "chatlast" }, r.last))
+
+  const hit = (now: number) => (h: SearchHit): HTMLElement =>
+    el("a", { class: "chatrow chathit", href: link(h.conversation, h.turn) },
+      el("span", { class: "chattitle" }, named(h.title)),
+      el("span", { class: "chatwhen" }, recent(h.at, now, app.now().zone)),
+      el("span", { class: "chatlast" }, `${h.side === "person" ? "You" : "Secretary"}: ${h.excerpt}`))
+
+  const card = (rows: readonly HTMLElement[]): HTMLElement => el("div", { class: "chatcard" }, rows)
+  const failed = (text: string): HTMLElement => el("p", { class: "problem chatsaid" }, text)
+
+  const toggle = (f: Filter, label: string, t: T, set: (e: Event) => void): HTMLElement =>
+    el("button", {
+      type: "button",
+      class: `segment chatfilter${f.type === t.filter.type ? " on" : ""}`,
+      "aria-pressed": f.type === t.filter.type ? "true" : "false",
+      onclick: () => set({ type: "Filtered", filter: f }),
+    }, label)
+
+  const rows = (t: T, set: (e: Event) => void, waiting: Child): Child =>
+    lo.fold<readonly ConversationRow[], Child>(t.rows, {
+      loading: () => waiting,
+      error: e => failed(`The conversations did not load: ${e}`),
+      val: all => {
+        const s = sections(all, t.filter)
+        return el("div", { class: "chatsections" },
+          card(s.pinned.map(r => row(r, t.current, t.now))),
+          el("div", { class: "segmented chatfilters", role: "group", "aria-label": "Which conversations" },
+            toggle(TOPICS, "Topics", t, set), toggle(REVIEWS, `Reviews · ${reviews(all)}`, t, set)),
+          s.rows.length === 0 ? empty.note(t.filter.type === "Topics" ? "No topics yet." : "No reviews yet.") : card(s.rows.map(r => row(r, t.current, t.now))))
+      },
+    })
+
+  const hits = (q: string, found: lo.T<readonly SearchHit[]>, now: number, waiting: Child): Child =>
+    lo.fold<readonly SearchHit[], Child>(found, {
+      loading: () => waiting,
+      error: e => failed(`The search did not run: ${e}`),
+      val: hs => hs.length === 0 ? empty.note(`Nothing said matches “${q}”.`) : card(hs.map(hit(now))),
+    })
+
+  // `waiting` is what stands while the list or a search is on its way: a placeholder kept for the wait's life, or
+  // nothing where the page's frame draws its own.
+  export const view = (t: T, { set, waiting }: { set: (e: Event) => void; waiting: Child }): Child =>
+    t.search.type === "On" ? hits(t.search.q, t.search.found, t.now, waiting) : rows(t, set, waiting)
+}
+export default list

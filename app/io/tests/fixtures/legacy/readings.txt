@@ -1,0 +1,30 @@
+## events
+order 3c5bd0a3ccd9,9efe558aab06,491a5ce99885,bc6a17fc6541,54190697c242,d72c89ec3b6a,1bc355519fde,0d891dbdc4b7,72ab74b54259,5348ebf85538,ed3c8e9e8519,42d68d891999,b22f277dbd58,59408bc46155
+tips 59408bc46155
+entry book-flight state=open at= claim= value=0.550000000 content=bc6a17fc6541 conflicts= confidence=Confirmed
+entry email-harrow state=open at= claim= value=0.660000000 content=b22f277dbd58 conflicts= confidence=Provisional(Content)
+entry file-permit state=open at= claim= value=0.089285658 content=9efe558aab06 conflicts= confidence=Confirmed
+entry pack-bags state=open at= claim= value=0.860000000 content=d72c89ec3b6a conflicts= confidence=Confirmed
+entry renew-card state=completed at=2026-09-11 12:12:29 claim= value=1.000000000 content=0d891dbdc4b7 conflicts= confidence=Confirmed
+entry settlethetriagebatch54ec state=open at= claim= value=0.550000000 content=59408bc46155 conflicts= confidence=Confirmed
+entry water-plants state=open at= claim= value=0.880000000 content=ed3c8e9e8519 conflicts= confidence=Confirmed
+## events-suzatary
+order cc78fb9bf8d3,81227c161543
+tips 81227c161543
+entry seedmarker state=completed at=2026-09-01 12:12:29 claim= value=absent content= conflicts= confidence=Confirmed
+## events-triage
+order 3c5bd0a3ccd9,9efe558aab06,491a5ce99885,bc6a17fc6541,54190697c242,d72c89ec3b6a,1bc355519fde,0d891dbdc4b7,72ab74b54259,5348ebf85538,ed3c8e9e8519,42d68d891999,b22f277dbd58,af021cc36615,00f2b84f370d
+tips 00f2b84f370d
+entry book-flight state=open at= claim= value=0.550000000 content=bc6a17fc6541 conflicts= confidence=Confirmed
+entry email-harrow state=open at= claim= value=0.660000000 content=b22f277dbd58 conflicts= confidence=Provisional(Content)
+entry file-permit state=open at= claim= value=0.094536996 content=9efe558aab06 conflicts= confidence=Confirmed
+entry pack-bags state=open at= claim= value=0.860000000 content=d72c89ec3b6a conflicts= confidence=Confirmed
+entry renew-card state=completed at=2026-09-11 12:12:29 claim= value=1.000000000 content=0d891dbdc4b7 conflicts= confidence=Confirmed
+entry renewlease state=open at= claim= value=0.750000000 content=af021cc36615 conflicts= confidence=Provisional(Content)
+entry water-plants state=open at= claim=completed value=0.880000000 content=ed3c8e9e8519 conflicts= confidence=Provisional(Claimed)
+## conflicted
+order 24bfc5261522,eaf6b9888d6f,3c5507dea4a1,93e11a93501a,31f249706eae,b49f8f1aa434,bb35a1919638,11932960eaf9,f630818c5130,204d444bc156,1234ad4af11f,3848add6ffbd,5ce14953ceb5
+tips 3848add6ffbd,5ce14953ceb5
+entry pack-bags state=open at= claim= value=0.600000000 content=11932960eaf9,f630818c5130 conflicts=spec:11932960eaf9,f630818c5130;content:11932960eaf9,f630818c5130 confidence=Confirmed
+entry renew-card state=open|completed at=2026-09-07 09:00:00 claim= value=0.500000000 content=1234ad4af11f conflicts=state:3848add6ffbd,5ce14953ceb5 confidence=Confirmed
+entry water-plants state=open at= claim= value=0.300000000 content=3c5507dea4a1,93e11a93501a conflicts=spec:3c5507dea4a1,93e11a93501a;content:3c5507dea4a1,93e11a93501a confidence=Confirmed

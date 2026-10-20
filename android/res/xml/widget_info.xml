@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE HOME-SCREEN WIDGET'S DECLARATION (Widget.java, 2026-09-10).
+
+  SIZES. Android's own formula for how many cells a dp figure asks for is
+  70 * n - 30, so 250dp is four columns and 110dp is two rows: a 4x2 default.
+  minResizeHeight drops that floor to ONE row (40dp) — the widget stays useful
+  as a single line saying what is most owed, which is the smallest thing worth
+  putting on a home screen. resizeMode is vertical only: four columns is
+  already the narrowest a fulfillment and an action line fit across, and a
+  widget that could be dragged narrower would only ever be an ellipsis.
+  targetCellWidth/Height say the same thing in cells for API 31+, which sizes
+  by cells rather than by dp; both are given because the app's floor is 26.
+  CONFIDENCE: HIGH — the formula and the two attributes are documented.
+
+  updatePeriodMillis IS THIRTY MINUTES BECAUSE THIRTY IS THE FLOOR. The system
+  refuses anything shorter (it batches these against the device's wake-ups),
+  and a smaller number here does not fail, it is silently rounded up — which is
+  worse than saying the true one. It is also NOT how this widget usually
+  learns something changed: the box's push wake refreshes it
+  (PushReceiver -> Widget.refresh), so the half hour is the floor under a phone
+  that heard nothing, not the rate at which the fold is read.
+
+  NO previewImage/previewLayout. The picker falls back to the app icon plus
+  this description, which says the true thing; a preview would be a second
+  drawing of the widget that goes stale the day the real one changes.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget"
+    android:minHeight="110dp"
+    android:minResizeHeight="40dp"
+    android:minResizeWidth="250dp"
+    android:minWidth="250dp"
+    android:resizeMode="vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

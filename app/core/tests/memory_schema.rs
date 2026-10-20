@@ -1,0 +1,328 @@
+//! The memory schema's laws (`docs/design-register-types.md` §7 in the Prodrome): a fact's life
+//! is a partial order (law 2); the reading is a function of the object set, whatever order the
+//! objects arrive in (law 1); the store's real append refuses a remembering of a forgotten fact,
+//! so a forgotten id never reads again, and the reading of a union is the join of the readings
+//! (law 4); every event prints and parses back.
+
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use prodrome_core::dag::Dag;
+use prodrome_core::event::{Actor, Envelope, Hash, canonical, canonical_envelope, parse_event};
+use prodrome_core::fold::{Discrete, Order};
+use prodrome_core::literal::Datetime;
+use prodrome_core::policy::Everything;
+use prodrome_core::registers::Node;
+use prodrome_core::store::EventStore;
+use proptest::prelude::*;
+
+use suzatary_core::secretary::fact_life::Life;
+use suzatary_core::secretary::memory::{FactId, Kind, Origin};
+use suzatary_core::secretary::memory_event::{MemoryEvent, MemoryVocabulary};
+use suzatary_core::secretary::salted_text::TextName;
+use suzatary_core::secretary::store::ConversationId;
+use suzatary_core::secretary::two_phase::TwoPhase;
+use suzatary_core::store::linearised;
+
+type Disk = EventStore<MemoryEvent, Everything>;
+
+static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+/// A store at the memory schema, removed when dropped.
+struct Scratch(Disk);
+
+impl Scratch {
+    fn new() -> Self {
+        let scratch = Self::empty();
+        scratch.0.init("memory").expect("begins");
+        scratch
+    }
+
+    /// A store with nothing in it, not even a genesis: a replica about to adopt one.
+    fn empty() -> Self {
+        let root: PathBuf = std::env::temp_dir().join(format!(
+            "suzatary-memory-schema-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        Self(Disk::new(root, Everything))
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(self.0.root());
+    }
+}
+
+fn at(minute: u64) -> Datetime {
+    let minute = u32::try_from(minute % 600).expect("a minute");
+    Datetime::new(2026, 10, 2, 8 + minute / 60, minute % 60, 0, 0).expect("an instant")
+}
+
+fn actor(who: &str) -> Actor {
+    Actor::new(who).expect("an actor")
+}
+
+fn name(seed: u64) -> TextName {
+    TextName::new(format!("{seed:064x}")).expect("a name")
+}
+
+const KINDS: [Kind; 4] = Kind::ALL;
+
+fn remembered(fact: u64, seed: u64) -> MemoryEvent {
+    MemoryEvent::remembered(
+        FactId(fact),
+        at(fact),
+        actor("assistant"),
+        name(seed),
+        KINDS[usize::try_from(seed % 4).expect("small")],
+        if seed.is_multiple_of(2) {
+            Origin::Turn {
+                conversation: ConversationId::new("default").expect("a slug"),
+                turn: usize::try_from(seed % 7).expect("small"),
+            }
+        } else {
+            Origin::Tapped {
+                conversation: ConversationId::new("2026-10-02-1").expect("a slug"),
+                proposal: usize::try_from(seed % 5).expect("small"),
+            }
+        },
+    )
+}
+
+fn forgotten(fact: u64, version: u64) -> MemoryEvent {
+    MemoryEvent::forgotten(FactId(fact), at(version), actor("ada"), version).expect("after it")
+}
+
+/// What the box writes: a remembering of a new fact, or a forgetting of a standing one.
+#[derive(Debug, Clone)]
+enum Step {
+    Remember(u64),
+    Forget(usize),
+}
+
+fn steps() -> impl Strategy<Value = Vec<Step>> {
+    proptest::collection::vec(
+        prop_oneof![
+            (0u64..1000).prop_map(Step::Remember),
+            (0usize..40).prop_map(Step::Forget),
+        ],
+        1..40,
+    )
+}
+
+/// The events `script` makes, numbered as `memory::remembering` and `memory::forgetting` number
+/// them: each one more than every id and version before it.
+fn history(script: &[Step]) -> Vec<MemoryEvent> {
+    let mut version = 0;
+    let mut standing: Vec<u64> = Vec::new();
+    let mut events = Vec::new();
+    for step in script {
+        match step {
+            Step::Remember(seed) => {
+                version += 1;
+                standing.push(version);
+                events.push(remembered(version, *seed));
+            }
+            Step::Forget(pick) if !standing.is_empty() => {
+                let fact = standing.remove(pick % standing.len());
+                version += 1;
+                events.push(forgotten(fact, version));
+            }
+            Step::Forget(_) => {}
+        }
+    }
+    events
+}
+
+fn written(events: &[MemoryEvent]) -> Scratch {
+    let scratch = Scratch::new();
+    for event in events {
+        scratch.0.append(event.clone()).expect("climbs");
+    }
+    scratch
+}
+
+fn objects(store: &Disk) -> Vec<(Hash, Envelope<MemoryEvent>)> {
+    linearised(store).expect("linearised")
+}
+
+fn read(objects: Vec<(Hash, Envelope<MemoryEvent>)>) -> TwoPhase {
+    let nodes: Vec<Node<MemoryEvent>> = Dag::from_iter(objects).nodes().expect("a prodrome");
+    TwoPhase::of(&nodes)
+}
+
+/// `objects` in an order a replica could receive them, every parent before its child, drawn
+/// from `seed`.
+fn arrival(
+    objects: &[(Hash, Envelope<MemoryEvent>)],
+    mut seed: u64,
+) -> Vec<(Hash, Envelope<MemoryEvent>)> {
+    let mut waiting: Vec<(Hash, Envelope<MemoryEvent>)> = objects.to_vec();
+    let mut arrived: Vec<(Hash, Envelope<MemoryEvent>)> = Vec::new();
+    while !waiting.is_empty() {
+        let ready: Vec<usize> = (0..waiting.len())
+            .filter(|&at| {
+                prodrome_core::event::parents_of(&waiting[at].1)
+                    .iter()
+                    .all(|parent| arrived.iter().any(|(held, _)| held == parent))
+            })
+            .collect();
+        seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        let pick = ready[usize::try_from(seed >> 33).expect("fits") % ready.len()];
+        arrived.push(waiting.remove(pick));
+    }
+    arrived
+}
+
+fn adopt(to: &Disk, from: &Disk) {
+    let prints: BTreeMap<Hash, String> = objects(from)
+        .iter()
+        .map(|(name, object)| (name.clone(), canonical_envelope(object)))
+        .collect();
+    for tip in from.tips().expect("tips") {
+        to.adopt_objects(&prints, &tip).expect("adopted");
+    }
+}
+
+fn lives(events: &[MemoryEvent]) -> Vec<Life<'_>> {
+    events
+        .iter()
+        .map(|event| match event.said() {
+            suzatary_core::secretary::memory_event::Said::Remembered { .. } => {
+                Life::Remembered(Discrete(event))
+            }
+            suzatary_core::secretary::memory_event::Said::Forgotten { .. } => Life::Forgotten,
+        })
+        .collect()
+}
+
+proptest! {
+    /// A fact's life is a partial order, with forgotten the top.
+    #[test]
+    fn a_life_is_a_partial_order(script in steps()) {
+        let events = history(&script);
+        let values = lives(&events);
+        crate::laws::partial_order(&values)?;
+        for a in &values {
+            prop_assert!(a.le(&Life::Forgotten));
+        }
+    }
+
+    /// Every event prints and parses back to itself.
+    #[test]
+    fn every_event_prints_and_parses_back(script in steps()) {
+        for event in history(&script) {
+            let print = canonical(&event);
+            prop_assert_eq!(parse_event::<MemoryEvent>(&MemoryVocabulary, &print).expect("parses"), event);
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
+    /// The reading is a function of the object set: every order a replica could receive the
+    /// objects in reads the same, and every prefix of that arrival holds at most the whole, a
+    /// forgotten id never standing again once its forgetting has arrived; what the prefixes of
+    /// two arrivals hold is a partial order.
+    #[test]
+    fn the_reading_is_the_object_sets_whatever_order_they_arrive_in(
+        script in steps(),
+        seed in any::<u64>(),
+        other in any::<u64>(),
+    ) {
+        let events = history(&script);
+        let store = written(&events);
+        let all = objects(&store.0);
+        let whole = read(all.clone());
+        let arrived = arrival(&all, seed);
+        prop_assert_eq!(&read(arrived.clone()), &whole);
+        let mut forgotten_so_far = std::collections::BTreeSet::new();
+        let mut held = Vec::new();
+        for end in 1..=arrived.len() {
+            let prefix = read(arrived[..end].to_vec());
+            prop_assert!(prefix.held().le(&whole.held()));
+            held.push(prefix.held());
+            forgotten_so_far.extend(prefix.forgotten().keys().copied());
+            prop_assert!(
+                prefix.live().all(|(fact, _)| !forgotten_so_far.contains(&fact)),
+                "a forgotten fact stands again"
+            );
+        }
+        // A second arrival's prefixes, so pairs no one arrival orders are compared too.
+        let second = arrival(&all, other);
+        held.extend((1..=second.len()).map(|end| read(second[..end].to_vec()).held()));
+        crate::laws::partial_order(&held)?;
+        prop_assert!(store.0.verify().is_empty(), "{:?}", store.0.verify());
+    }
+
+    /// Once forgotten, always forgotten: the store refuses any remembering of a forgotten id,
+    /// whatever words or kind it names, and writes nothing.
+    #[test]
+    fn the_store_refuses_to_remember_a_forgotten_fact(script in steps(), seed in any::<u64>()) {
+        let events = history(&script);
+        let store = written(&events);
+        let before = objects(&store.0).len();
+        let reading = read(objects(&store.0));
+        for &fact in reading.forgotten().keys() {
+            let mut again = remembered(fact.0, seed);
+            prop_assert!(store.0.append(again.clone()).is_err());
+            again = remembered(fact.0, seed.wrapping_add(1));
+            prop_assert!(store.0.append(again).is_err());
+        }
+        // Beside a standing remembering, another is refused, or is the very event held, which
+        // the store writes nothing for.
+        for (fact, _) in reading.live() {
+            let _ = store.0.append(remembered(fact.0, seed));
+        }
+        prop_assert_eq!(objects(&store.0).len(), before);
+        prop_assert_eq!(read(objects(&store.0)), reading);
+    }
+
+    /// Two replicas share a prefix; each remembers facts the other does not see (ids the other
+    /// does not use) and forgets some of the shared ones; adopting each other's objects, both
+    /// hold the join of what each held, and the join is the least upper bound.
+    #[test]
+    fn the_union_reads_the_join(
+        script in steps(),
+        mine in proptest::collection::vec(0u64..1000, 0..5),
+        theirs in proptest::collection::vec(0u64..1000, 0..5),
+        drop_mine in 0usize..40,
+        drop_theirs in 0usize..40,
+    ) {
+        let shared = history(&script);
+        let one = written(&shared);
+        let two = Scratch::empty();
+        adopt(&two.0, &one.0);
+        let reading = read(objects(&one.0));
+        let standing: Vec<FactId> = reading.live().map(|(fact, _)| fact).collect();
+        let top = reading.version();
+        for (store, seeds, base, drop) in [(&one, &mine, 1000, drop_mine), (&two, &theirs, 2000, drop_theirs)] {
+            let mut next = top + base;
+            for seed in seeds {
+                next += 1;
+                store.0.append(remembered(next, *seed)).expect("climbs");
+            }
+            if let Some(fact) = standing.get(drop % standing.len().max(1)) {
+                next += 1;
+                store.0.append(forgotten(fact.0, next)).expect("climbs");
+            }
+        }
+        let (a, b) = (read(objects(&one.0)), read(objects(&two.0)));
+        let joined = a.clone().join(b.clone());
+        adopt(&one.0, &two.0);
+        adopt(&two.0, &one.0);
+        let (after_one, after_two) = (read(objects(&one.0)), read(objects(&two.0)));
+        prop_assert_eq!(&after_one, &after_two);
+        prop_assert_eq!(after_one.held(), joined.held());
+        crate::laws::join(&[reading, a, b, after_one.clone()], TwoPhase::held, TwoPhase::join)?;
+        let live = |phase: &TwoPhase| phase.live().map(|(fact, _)| fact).collect::<Vec<_>>();
+        prop_assert_eq!(live(&after_one), live(&joined));
+    }
+}

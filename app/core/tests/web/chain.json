@@ -1,0 +1,246 @@
+{
+  "heads": [
+    "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+    "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+    "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+    "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+    "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+    "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
+  ],
+  "untrusted": [
+    "triage"
+  ],
+  "root": "836884e1723c7b17f8b87e76a0272f012de6cff08f134eb9dcdb2670695b1818",
+  "verify": [],
+  "links": [
+    {
+      "hash": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "prev": "",
+      "parents": [],
+      "kind": "Genesis",
+      "todo": "",
+      "actor": "",
+      "at": "",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Genesis(label='todos', nonce='00000000000000000000000000000000')"
+    },
+    {
+      "hash": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "file-permit",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='file-permit', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='permit renewal', note=''))"
+    },
+    {
+      "hash": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "email-harrow",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='email-harrow', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+    },
+    {
+      "hash": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "renew-card",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='renew-card', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+    },
+    {
+      "hash": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+      "prev": "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+      "parents": [
+        "17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e",
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Authored",
+      "todo": "renew-card",
+      "actor": "ada",
+      "at": "2026-08-13T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('17a005185364b928a5ce7670b20fa0fb941b969b9834aa931d6e06d89d211f5e',), event=Authored(todo='renew-card', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Renew the library card', spec=Flat(value=0.4), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+    },
+    {
+      "hash": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "book-flight",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='book-flight', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+    },
+    {
+      "hash": "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
+      "prev": "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+      "parents": [
+        "11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322",
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Authored",
+      "todo": "email-harrow",
+      "actor": "triage",
+      "at": "2026-08-15T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('11d857345512e2e42a3574bca1c6204a668afdb535feaa9c463b66ce92b53322',), event=Authored(todo='email-harrow', at=datetime(2026, 8, 15, 12, 0, 0), actor='triage', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Email *Harrow* about the deed', spec=Flat(value=0.66), rationale=(), category='other', waiting_on='', detail='', source=Source(sender='counsel@example.test', subject='Harrow asked for one more signature', date=datetime(2026, 8, 13, 12, 0, 0), hash='e2e0000message0000hash0000000000000000000000000000000000000000', thread_id='', message_id=''), subtodos=(), notes=(), note=''))"
+    },
+    {
+      "hash": "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
+      "prev": "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+      "parents": [
+        "449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91",
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Authored",
+      "todo": "book-flight",
+      "actor": "ada",
+      "at": "2026-08-13T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('449b6ff3ba4337a3895b01b6dec72bcc4569f996d4e46a3e020f53f6c3e5df91',), event=Authored(todo='book-flight', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Book the flight to Oslo', spec=Flat(value=0.55), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+    },
+    {
+      "hash": "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "pack-bags",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='pack-bags', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+    },
+    {
+      "hash": "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+        "933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c"
+      ],
+      "kind": "Authored",
+      "todo": "pack-bags",
+      "actor": "ada",
+      "at": "2026-08-13T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('933cee30e0663d4a0c1106eb18a0292a25d78aa94de2a2cac018b09f3d52d25c',), event=Authored(todo='pack-bags', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Pack for the trip', spec=Flat(value=0.72), rationale=(), category='home', waiting_on='', detail='After #link(\"todo:book-flight\")[the flight] is booked.', source=None, subtodos=(SubTodo(body='[tickets]', done=True), SubTodo(body='[chargers]', done=False)), notes=(), note=''))"
+    },
+    {
+      "hash": "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
+      "prev": "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+      "parents": [
+        "23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40",
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Completed",
+      "todo": "renew-card",
+      "actor": "ada",
+      "at": "2026-08-14T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('23b0484a9bef48f88e6871c170241041d0a7121a0fc19b62bff17b05447b4a40',), event=Completed(todo='renew-card', at=datetime(2026, 8, 14, 12, 0, 0), actor='ada', note=''))"
+    },
+    {
+      "hash": "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Created",
+      "todo": "water-plants",
+      "actor": "ada",
+      "at": "2026-08-03T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=(), event=Created(todo='water-plants', at=datetime(2026, 8, 3, 12, 0, 0), actor='ada', text='', note=''))"
+    },
+    {
+      "hash": "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
+      "prev": "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+      "parents": [
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4",
+        "ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00"
+      ],
+      "kind": "Authored",
+      "todo": "water-plants",
+      "actor": "ada",
+      "at": "2026-08-13T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('ce2daa2a7faad981190d0045efe947ae954f4245cf42cd29b523ef96fd323c00',), event=Authored(todo='water-plants', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='Water the plants', spec=Flat(value=0.88), rationale=(), category='home', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+    },
+    {
+      "hash": "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c",
+      "prev": "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+      "parents": [
+        "00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e",
+        "5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4"
+      ],
+      "kind": "Authored",
+      "todo": "file-permit",
+      "actor": "ada",
+      "at": "2026-08-13T12:00:00",
+      "note": "",
+      "reverses": {
+        "kind": "nothing"
+      },
+      "literal": "Change(genesis='5e8fbe14abfd0cedc32a4d786b3f86c13ca1566c51d1ea45a34d316f8be35fc4', deps=('00fa21ab9b80bb6439ba43548add59aa1b607ce2f800da2281def68d345d922e',), event=Authored(todo='file-permit', at=datetime(2026, 8, 13, 12, 0, 0), actor='ada', kind='todo', created=datetime(2026, 8, 13, 12, 0, 0), body='File the *permit* renewal', spec=Decay(start=0.6, end=0.05, end_date=datetime(2026, 9, 4, 12, 0, 0), lead_up=timedelta(days=14), start_date=datetime(2026, 8, 21, 12, 0, 0)), rationale=('Missing it is not recoverable.',), category='work', waiting_on='', detail='', source=None, subtodos=(), notes=(), note=''))"
+    }
+  ]
+}

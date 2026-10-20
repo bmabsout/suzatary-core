@@ -1,0 +1,106 @@
+name: Quick checks
+
+# THE PUSH-TIME OPINION, SIZED FOR A SMALL CHANGE (the owner, 2026-09-13: "what
+# would take us down to a minute for small changes?"). The release workflow
+# (tests.yml) proves the Nix derivations; this one checks every commit
+# message (`plan`) and runs `check` (fmt, clippy, docs) from `cargo` against
+# a restored dependency build. The suite and the browser are the merge
+# gate's (`scripts/merge-gate.sh`), which every train passes before it lands.
+#
+# A VERDICT IS A FUNCTION OF ITS INPUTS, SO IT IS KEPT. `plan` names the
+# Rust's inputs by the git tree entries they read (`scripts/ci-names.sh`:
+# every path but docs/, android/ and web/) and looks the name up: a `check`
+# that already passed on exactly those bytes, in this workflow as it now
+# stands, is not run again. A docs change costs the commit-message check and
+# nothing else. Only a pass is kept; a failure is the absence of one, so a
+# re-run runs.
+#
+# ONE SET OF FLAGS: `.github/cargo-ci.toml`, installed as cargo's
+# configuration, so every cargo step builds on the step before.
+on:
+  push:
+    branches: [ master ]
+  # Not on pull requests: each agent session runs the full gate itself and every train is
+  # gated again on the merged tree, so a run per push to a PR branch only spends the
+  # private repository's minutes (928 in the first three days of October 2026).
+  workflow_dispatch: {}
+
+concurrency:
+  group: quick-${{ github.sha }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: ${{ github.workspace }}/app/target
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    outputs:
+      rust: ${{ steps.name.outputs.rust }}
+      check: ${{ steps.check.outputs.cache-hit }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the commit-message check replays the whole pushed range
+
+      - name: Every commit message is a claim about its diff
+        run: |
+          if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            range="${{ github.event.before }}..${{ github.sha }}"
+          else
+            range="HEAD~5..HEAD"
+          fi
+          echo "checking $range"
+          scripts/check-commits.sh "$range"
+
+      - id: name
+        name: Name the check job's inputs
+        run: scripts/ci-names.sh | tee -a "$GITHUB_OUTPUT"
+
+      - id: check
+        uses: actions/cache/restore@v4
+        with: { path: .verdict, key: 'verdict-check-${{ steps.name.outputs.rust }}', lookup-only: true }
+
+  check:
+    needs: plan
+    if: needs.plan.outputs.check != 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: nix develop .#rust --command bash -euo pipefail {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - id: target
+        uses: ./.github/actions/cargo-target
+        with: { mode: restore }
+
+      - name: Format
+        run: cargo fmt --manifest-path app/Cargo.toml --all --check
+
+      # The `test = false` targets by name, since `--all-targets` leaves them out.
+      - id: compile
+        name: Clippy (pedantic, warnings denied, every target, fixture feature)
+        # A public tree holds no live pins (`.gitattributes`).
+        run: |
+          live=$([ -f app/cli/tests/live.rs ] && echo --test live || true)
+          cargo clippy --manifest-path app/Cargo.toml --workspace --all-targets \
+            $live --test guards --test fence --test plugin \
+            --features suzatary/fixture -- -D warnings
+
+      - name: Docs (no broken or private links)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --manifest-path app/Cargo.toml --workspace --no-deps --features suzatary/fixture
+
+      - if: always() && steps.compile.outcome == 'success'
+        uses: ./.github/actions/cargo-target
+        with: { mode: save, hit: '${{ steps.target.outputs.hit }}' }
+
+      - run: echo '${{ github.run_id }}' > .verdict
+      - uses: actions/cache/save@v4
+        with: { path: .verdict, key: 'verdict-check-${{ needs.plan.outputs.rust }}' }

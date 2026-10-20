@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover so the tab bar can pad past the home indicator. NO
+         maximum-scale: pinch zoom is how the document page is read. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Suzatary</title>
+    <meta name="description" content="The owner's todos, folded from the event chain and verified in the browser." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#6a001a" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1718" media="(prefers-color-scheme: dark)" />
+    <!-- Both schemes, so a dark device paints its own canvas before the build's
+         stylesheets arrive, never a white flash; it names no colour. -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Suzatary" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <!-- iOS wants a raster here; an SVG is the honest best effort in a repo
+         with no raster toolchain, and it degrades to the letter glyph. -->
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+  </head>
+  <!-- The same file for every build, so it holds only the loader: the body,
+       the stylesheets and every host element are drawn by the build the
+       loader starts (web/src/boot.ts, web/src/shell/page.ts). -->
+  <body>
+    <script type="module" src="./boot.js"></script>
+  </body>
+</html>

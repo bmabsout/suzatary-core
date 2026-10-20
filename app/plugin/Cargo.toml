@@ -1,0 +1,35 @@
+[package]
+name = "suzatary-plugin"
+description = "Suzatary's plugin host: WebAssembly components, holding only the authority their world imports"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "suzatary_plugin"
+path = "src/lib.rs"
+
+[dependencies]
+# A plugin's schema is a declaration, admitted at load by the Prodrome's own laws.
+prodrome_core.workspace = true
+suzatary-core.workspace = true
+suzatary-io.workspace = true
+thiserror.workspace = true
+wasmtime.workspace = true
+
+# THE FENCES, RUN BY NAME. Each mode of the fence plugin (`app/plugin-fence`) tries one rule and
+# the test asserts its typed refusal. It needs the components the flake builds, which a bare
+# `cargo test` does not have, so it runs from the callers that pass them in
+# (`scripts/merge-gate.sh`, the flake's `suzatary-plugin-fence` check), like `cli`'s `live`.
+[[test]]
+name = "fence"
+path = "tests/fence.rs"
+test = false
+
+[dev-dependencies]
+# A manifest is read as the instance file spells it.
+toml.workspace = true
+
+[lints]
+workspace = true

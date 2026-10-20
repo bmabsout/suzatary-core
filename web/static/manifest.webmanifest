@@ -1,0 +1,31 @@
+{
+  "name": "Suzatary",
+  "short_name": "Suzatary",
+  "description": "The owner's todos, folded from the event chain and verified in the browser.",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "./#/",
+  "scope": "./",
+  "theme_color": "#6a001a",
+  "background_color": "#faf8f5",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

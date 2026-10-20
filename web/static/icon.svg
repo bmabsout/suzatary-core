@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Suzatary">
+  <!-- Three fulfillment bars, shortest first: the app's own list, and its one
+       rule — LOW MEANS URGENT, so the short bar is the one that is owed. The
+       art fills the canvas, which is what "maskable" needs. -->
+  <rect width="512" height="512" rx="112" fill="#6b4fbb"/>
+  <g fill="#ffffff">
+    <rect x="104" y="150" width="112" height="42" rx="21"/>
+    <rect x="104" y="235" width="208" height="42" rx="21" opacity="0.78"/>
+    <rect x="104" y="320" width="304" height="42" rx="21" opacity="0.56"/>
+  </g>
+</svg>

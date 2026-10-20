@@ -1,0 +1,93 @@
+# WHAT MAKES THIS DEPLOYMENT YOURS, written by `suzatary init` (docs/guide/).
+#
+# It holds nothing secret: every secret is set at a prompt with
+# `secretspec set`, and the actors below are in every object's `actor` field
+# anyway, so this file is committed with the data it names.
+#
+# `[web]` is the door: only these Tailscale logins open the app, from your
+# own tailnet. Nothing here opens a public endpoint, and nothing should.
+#
+# `[[chains]]` IS AN ARRAY WHOSE ORDER IS MEANING: the first is what every
+# verb with no `--chain` and the bare `/api/...` paths mean, so your life
+# stays first. Anything about the system itself (a failing sync, a verb to
+# fix) goes to `suzatary`.
+repo = "."
+data = "."
+
+[[chains]]
+name = "life"
+events = "events"
+proposals = "events-triage"
+untrusted = []
+actors = [
+    "ada",
+    "assistant",
+    "triage",
+]
+owner = "ada"
+
+[[chains]]
+name = "suzatary"
+events = "events-suzatary"
+proposals = "events-triage-suzatary"
+untrusted = []
+actors = [
+    "ada",
+    "assistant",
+    "triage",
+]
+owner = "ada"
+
+[web]
+viewers = ["her@example.test"]
+app_url = "https://ada-box.tailnet.ts.net"
+
+[web.act_as]
+"her@example.test" = "ada"
+
+[web.serving]
+host = "127.0.0.1"
+port = 8787
+tls_dir = "/var/lib/suzatary/tls"
+dist = "web/dist"
+briefings = "briefings"
+
+[categories]
+home = 3
+other = 4
+project = 2
+study = 1
+work = 0
+
+[mail]
+root = "Mail"
+state = "state.json"
+notmuch = "notmuch"
+mbsyncrc = "mbsyncrc"
+heartbeat = ".local/state/triage-heartbeat"
+
+[[mail.accounts]]
+email = "her@example.test"
+subdir = "her-at-example-test"
+sync = "gmail"
+
+[secretary]
+conversations = "secretary"
+renders = "secretary-render"
+inbox = "inbox"
+memory = "memory"
+digests = "digests"
+model = "claude-opus-5-5"
+compact = false
+compactor = "claude-sonnet-5-5"
+compact_calls_per_hour = 30
+compact_bytes_per_day = 33554432
+settings = ".claude/secretary-settings.json"
+
+[persona]
+name = "Ada"
+city = "London"
+zone = "Europe/London"
+
+[signatures]
+root = "836884e1723c7b17f8b87e76a0272f012de6cff08f134eb9dcdb2670695b1818"

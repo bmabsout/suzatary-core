@@ -1,0 +1,1 @@
+Change(genesis='1c6752deb225bb67153f12e87cd0dd82a3055e68549589200bfcaccd12d1ac29', deps=(), event=Asked(proposal='pb1798c8f533b941be7ffa766cdd105ed', at=datetime(2026, 9, 29, 4, 20, 0), actor='assistant', act=Auth(account='ada@example.com'), why='she asked', sources=('mail:abcdef012345',), asked='proposal:2026-09-28-1/17', serves=None, spec=None))

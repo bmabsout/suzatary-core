@@ -1,0 +1,1 @@
+Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Remembered(fact=1, at=datetime(2026, 9, 20, 13, 0, 0), actor='assistant', text='cb7bd3b84b4cf3649390bb9fcd5c3473c2d8f1b7b89f00f37a8020032b84f8e4', kind='owner', said=Turn(conversation='default', turn=0)))

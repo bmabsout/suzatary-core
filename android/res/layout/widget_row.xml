@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ONE ROW: the number, then the action line. Both are STRINGS THE BOX SENT —
+  `Entry.value` printed exactly as the JSON spells it, and `Authored.body`'s
+  first line — and Widget.java computes neither. See its header for why the
+  number is not turned into a percentage here or anywhere.
+
+  The number is fixed-width and left of the text so five rows line up as a
+  column a thumb can scan, which is the whole reason a widget beats opening the
+  app. layout_weight on the body is what makes the ellipsis land at the right
+  edge whatever the number is; a widget's layout is inflated normally by the
+  launcher, so weights work here even though a RemoteViews could not set one.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingBottom="3dp"
+    android:paddingTop="3dp">
+
+    <TextView
+        android:id="@+id/widget_row_value"
+        android:layout_width="46dp"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#4a4a48"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/widget_row_body"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#1a1a1a"
+        android:textSize="13sp" />
+</LinearLayout>
