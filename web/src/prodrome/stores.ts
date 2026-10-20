@@ -47,11 +47,13 @@ export namespace stores {
   // What the box is known to hold, for `since=`: every object here came from it.
   export const asked = (r: Replica): heads.Heads => heads.of(r.heads)
 
-  // Whether the box answered in a later epoch than the word this replica heard: its store no longer extends what it
-  // served (a migration rewrote objects, or it went back to an earlier checkpoint), so what is held may name objects
-  // the box no longer holds, and the replica, a copy of the box's alone, starts over and is taken again whole.
-  export const overtaken = (r: Replica, answer: ObjectsPayload): boolean =>
-    said(r.box, false, w => w.epoch < answer.epoch)
+  // Whether the box answered in a later epoch than a word any part of what is held heard (the row pages read, or the
+  // pieces kept beside it): its store no longer extends what it served (a migration rewrote objects, or it went back
+  // to an earlier checkpoint), so what is held may name objects the box no longer holds, and the store, a copy of the
+  // box's alone, starts over and is taken again whole. Each part is asked, not their join: a piece of the later epoch
+  // another tab kept beside a row of the epoch before joins to the piece alone, which hides the row it overtook.
+  export const overtaken = (held: readonly Replica[], answer: ObjectsPayload): boolean =>
+    held.some(r => said(r.box, false, w => w.epoch < answer.epoch))
 
   // Whether the box's heads name an object the tab does not hold, landed or not: a move of the store, or a pull that was
   // cut before it took everything. A frame that says so pulls; one that does not pulls nothing.

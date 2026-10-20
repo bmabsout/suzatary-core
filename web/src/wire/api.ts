@@ -185,7 +185,7 @@ const asked = (text: string, references: readonly Reference[], attachments: read
   attachments: attachments.map(({ id, name }) => ({ id, name })),
 });
 
-/** A 409 in the box's words when nothing runs. */
+/** A 409 in the box's words when nothing runs or waits. */
 export const stopAnswer = (id: string): Promise<ConversationPayload> =>
   http.act(conversationPath(id, "/stop"), {}, payload.ConversationPayload);
 

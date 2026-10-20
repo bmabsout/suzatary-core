@@ -1,0 +1,66 @@
+# THE DEPLOY'S BUILDS, MADE ON GITHUB'S RUNNERS (2026-10-20). Every commit of
+# suzatary-core's master is a publication (scripts/train.sh publish), and a
+# deploy pins one. This workflow builds, for the box's system (aarch64-linux),
+# what scripts/app-builds.sh builds from that tree, the app, the web bundle
+# and the plugins, and pushes their closures to the `bmabsout` Cachix, which
+# the box substitutes from. scripts/deploy.sh waits, bounded, for this run on
+# the commit it pins, so the deploy downloads what this run built; when the
+# run failed or never came, the deploy builds on the box and says so.
+#
+# The operator's shell (`.#triage`), the fourth thing app-builds.sh builds, is
+# left out: it is nixpkgs' packages, which come from cache.nixos.org, and one
+# unfree package this cache must not redistribute. So is the Android portal:
+# its build bakes in the box's name and Firebase project, read from the
+# environment under --impure, and is built in the private repository alone.
+# Every build here is pure, so nothing of the deployment reaches the cache.
+#
+# WHO REACHES THE CACHE'S TOKEN. Only a push to master runs this, and only in
+# the public repository (the private one carries the same file and skips it).
+# A pull request never runs it, and the token is handed to the last step
+# alone, after every build, so nothing the builds run sees it.
+name: Publication cache
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  cache:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - name: Checkout the publication
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd # v31.9.1
+        with:
+          extra_nix_config: |
+            extra-substituters = https://bmabsout.cachix.org
+            extra-trusted-public-keys = bmabsout.cachix.org-1:/GhCEayGQ3NHMIlJiUelQrLtHHXVdGjHtyDz32xNAo4=
+
+      # The attributes scripts/app-builds.sh builds, from the same tree: the
+      # store path of a checkout is the path the box fetches the pinned commit
+      # to, so every output here is the one a deploy asks for.
+      - name: Build what a deploy builds
+        run: |
+          set -euo pipefail
+          nix build --print-build-logs --out-link result-bin .#suzatary
+          nix build --print-build-logs --out-link result-dist .#suzatary-web
+          nix build --print-build-logs --out-link result-plugins .#suzatary-plugins
+
+      # cachix from the flake's own pinned nixpkgs. It pushes each closure and
+      # leaves out what cache.nixos.org already serves.
+      - name: Push the builds to the cache
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          nix run --inputs-from . nixpkgs#cachix -- push bmabsout \
+            "$(readlink -f result-bin)" "$(readlink -f result-dist)" "$(readlink -f result-plugins)"

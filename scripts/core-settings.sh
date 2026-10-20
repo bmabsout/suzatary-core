@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# THE SETTINGS OF CORE THAT LET IT RUN THE GATE, set once by the operator at a terminal
+# (docs/OPERATOR.md). Core is the public repository the train publishes to and runs the tree half
+# in (`scripts/train.sh gate --remote github`, .github/workflows/gate.yml); the train never runs
+# this, and nothing here is read by a gate.
+#
+#   scripts/core-settings.sh [<owner>/<repo>]   (default: the remote `core` of this checkout)
+#
+# Each setting is idempotent, so running it again sets the same values:
+#   - Actions on, running only GitHub's own actions and the two Cachix actions gate.yml pins;
+#   - every workflow but gate.yml disabled: the public tree carries this repository's other
+#     workflows, which are for the private repository (quick.yml would run on every publication,
+#     update-flake-lock.yml on its schedule);
+#   - the token a run is handed reads the repository and writes nothing, and cannot approve a
+#     pull request;
+#   - a run a pull request from any outside contributor starts waits for an approval (gate.yml
+#     names no pull request event, so this covers a workflow added later);
+#   - the secret CACHIX_AUTH_TOKEN, the bmabsout cache's push token, read from secretspec and
+#     handed to `gh secret set` on its stdin, so it is in no argument, file or line printed.
+#
+# It needs `gh` logged in as an administrator of core, and secretspec holding CACHIX_AUTH_TOKEN.
+set -euo pipefail
+
+die() {
+  printf 'core-settings: %s\n' "$*" >&2
+  exit 1
+}
+[[ -t 0 ]] || die "the operator runs this at a terminal, once; it is never run by a script."
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+if (($#)); then
+  repo="$1"
+else
+  url="$(git config --get remote.core.url)" || die "this checkout has no remote \`core\`; name the repository: scripts/core-settings.sh <owner>/<repo>"
+  [[ "$url" =~ github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$ ]] || die "core ($url) is not a GitHub repository"
+  repo="${BASH_REMATCH[1]%.git}"
+fi
+[[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "\"$repo\" is not <owner>/<repo>"
+[[ "$(gh repo view "$repo" --json visibility -q .visibility)" == PUBLIC ]] \
+  || die "$repo is not public, so its runners are not free: nothing set"
+
+echo "core-settings: Actions on in $repo, GitHub's actions and Cachix's alone"
+gh api --silent -X PUT "repos/$repo/actions/permissions" -F enabled=true -f allowed_actions=selected
+gh api --silent -X PUT "repos/$repo/actions/permissions/selected-actions" \
+  -F github_owned_allowed=true -F verified_allowed=false \
+  -f 'patterns_allowed[]=cachix/install-nix-action@*' -f 'patterns_allowed[]=cachix/cachix-action@*'
+
+echo "core-settings: the runs' token reads only"
+gh api --silent -X PUT "repos/$repo/actions/permissions/workflow" \
+  -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false
+
+echo "core-settings: an outside contributor's run waits for an approval"
+gh api --silent -X PUT "repos/$repo/actions/permissions/fork-pr-contributor-approval" \
+  -f approval_policy=all_external_contributors
+
+echo "core-settings: every workflow but gate.yml off"
+while IFS=$'\t' read -r id path state; do
+  [[ "$path" != .github/workflows/gate.yml && "$state" == active ]] || continue
+  gh api --silent -X PUT "repos/$repo/actions/workflows/$id/disable"
+  echo "core-settings:   $path off"
+done < <(gh api --paginate "repos/$repo/actions/workflows" --jq '.workflows[] | "\(.id)\t\(.path)\t\(.state)"')
+
+echo "core-settings: the secret CACHIX_AUTH_TOKEN, from secretspec"
+token="$(secretspec get CACHIX_AUTH_TOKEN --file secretspec.toml --reason "core-settings: the gate's Cachix push token")" \
+  || die "secretspec has no CACHIX_AUTH_TOKEN: secretspec set CACHIX_AUTH_TOKEN, then run this again"
+[[ -n "$token" ]] || die "secretspec's CACHIX_AUTH_TOKEN is empty: nothing set"
+printf '%s' "$token" | gh secret set CACHIX_AUTH_TOKEN --app actions --repo "$repo"
+echo "core-settings: done"

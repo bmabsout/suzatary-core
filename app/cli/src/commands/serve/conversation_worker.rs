@@ -254,22 +254,27 @@ impl Workers {
     }
 
     /// Stop the round running in this conversation, as `by`, and wait (at most `STOP_WAIT`)
-    /// for it to end, so whoever asked reads the stop and never the question still queued.
+    /// for it to end, so whoever asked reads the stop and never the question still queued. A
+    /// question sent but not yet taken by a round is stopped by its line alone, written while the
+    /// halts are held, so no round starts on it in between.
     ///
     /// Blocks: a route calls it off the async workers.
     ///
     /// # Errors
-    /// [`Refusal::conflict`] when no round is running, so a halt never outlives its round.
+    /// [`Refusal::conflict`] when nothing is running or waiting, so a halt never outlives its
+    /// round; the store's failures.
     pub fn stop(
         &self,
+        caps: &suzatary_core::capability::Server<'_>,
         id: &ConversationId,
         by: prodrome_core::event::Actor,
     ) -> Result<(), Refusal> {
         let halts = super::locks::held(&self.halts);
         let Some(halt) = halts.get(id) else {
-            return Err(Refusal::conflict(format!(
-                "nothing is being answered in {id}, so there is nothing to stop"
-            )));
+            secretary::stop_waiting(caps.conversations, caps.clock, id, &by)?;
+            drop(halts);
+            self.announce(id);
+            return Ok(());
         };
         halt.stop(by);
         // A round started since has a fresh halt nobody pulled, so it is not waited for.
@@ -397,10 +402,13 @@ async fn round(id: &ConversationId, state: &Arc<State>) {
     let stream = state.workers.stream(id);
     stream.state(ConversationState::Thinking);
     let for_round = Arc::clone(&stream);
-    let halt = state.workers.halt(id);
     // Asked per round: only the `claude` subprocess holds a session, and which model
     // answers can change between rounds.
     let result = tokio::task::spawn_blocking(move || {
+        // The round arms its halt before it reads what waits. A stop then either finds this halt
+        // or wrote its stop line before that read. The halt is armed on this blocking thread
+        // because a stop holds the halts' lock across a store write.
+        let halt = held.workers.halt(&asked);
         let chains = held.every_chain();
         let settables = held.settables();
         let on_delta = |fragment: &str| for_round.delta(fragment);

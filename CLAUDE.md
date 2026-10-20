@@ -1009,7 +1009,12 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
   poll; the Codespace stopped as soon as its half is done, its keep-alive
   ending with the train; `scripts/gate-codespace.sh` makes it, idle timeout
   10 minutes) while
-  the live half runs here; `bisect` finds the merge that turned a red half
+  the live half runs here; `gate --remote github` runs it in core instead
+  (2026-10-20, docs/OPERATOR.md): the steps that read this repository on
+  the box, then the train commit's public tree, once its leak guard passes,
+  pushed to core's `gate/<train sha>` alone, where `.github/workflows/gate.yml`
+  runs the other lanes in parallel on free arm runners; a job's gate exiting
+  1 is red, success green, anything the runners did no verdict; `bisect` finds the merge that turned a red half
   red; `land` pushes master only from a HEAD both halves passed, then
   publishes it, then `scripts/deploy.sh <rev>` is the operator's. A STACKED
   PR branches from its base PR's branch and lands with it or after it, in

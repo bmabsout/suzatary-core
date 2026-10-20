@@ -1118,6 +1118,9 @@
             # maintained rule set, run offline over a directory, never
             # verifying a finding against its issuer.
             gitleaks
+            # actionlint: the guards lint .github/workflows/gate.yml, the workflow core runs a
+            # train's tree half with (app/cli/tests/guards/gate_yml.rs).
+            actionlint
             # cargo-sweep: a Codespace's merge gate drops the target's units no
             # gate has read lately, where it used to clear the whole target.
             cargo-sweep

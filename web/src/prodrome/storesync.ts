@@ -13,7 +13,7 @@ import type { Rows } from "./objects"
 import { CHAIN, Stored, alterRow, dropRow, dropRows, heldRow, heldRows, holdRow, keepRow } from "./objects"
 import idb from "../app/idb"
 import rendered from "../app/rendered"
-import { NOTHING, canonical, join, pulled, replicaOf, wentBack } from "./replica"
+import { NOTHING, canonical, pulled, replicaOf, wentBack } from "./replica"
 import type { Replica } from "./replica"
 import stores from "./stores"
 import serial from "../algebra/serial"
@@ -164,7 +164,9 @@ export namespace storesync {
   const pending: { [N in stores.Name]: locked.Row } = { inbox: locked.NONE, lines: locked.NONE }
 
   // What the tab holds of a store, landed and not: what a pull asks from, and what a stream's heads are compared with.
-  const holding = (name: stores.Name): Replica => join(source.state()[name].replica, pending[name].replica)
+  const holding = (name: stores.Name): Replica => locked.join(source.state()[name], pending[name]).replica
+  // The two parts of it, each asked on its own whether a later epoch overtook it.
+  const parts = (name: stores.Name): readonly Replica[] => [source.state()[name].replica, pending[name].replica]
 
   // Each piece kept in a row of its own, named by how many objects were held when it was asked for, so keeping one
   // writes that piece alone and a run of them reads back in the order they came.
@@ -269,7 +271,7 @@ export namespace storesync {
         pieces.pull({
           ask: async () => {
             const piece = await askOf(name)
-            if (!stores.overtaken(holding(name), piece.answer)) return piece
+            if (!stores.overtaken(parts(name), piece.answer)) return piece
             await startOver(rd, name)
             return askOf(name)
           },

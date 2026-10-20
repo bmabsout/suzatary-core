@@ -11,11 +11,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// One step of `scripts/merge-gate.sh --list`.
-struct Step {
-    half: String,
+pub(super) struct Step {
+    pub(super) half: String,
     /// The steps of one half and lane run one after another; the lanes run side by side.
     lane: String,
-    name: String,
+    pub(super) name: String,
     /// `all`, `all-but:<path>,…`, `only:<path>,…` or `unkept`; a unit step's, `crates` or
     /// `files:<dir>`, then `~` and its reads as one unit.
     reads: String,
@@ -57,7 +57,7 @@ impl Step {
     }
 }
 
-fn steps() -> Vec<Step> {
+pub(super) fn steps() -> Vec<Step> {
     let out = Command::new(repo().join("scripts").join("merge-gate.sh"))
         .arg("--list")
         .output()
@@ -827,6 +827,63 @@ fn merge_gate_runs_only_the_steps_whose_inputs_moved() {
     assert_eq!(gate.run(&[]).1, every, "the gate is in every key");
 }
 
+/// `--steps` runs the named steps of the halves chosen and no other, a heavy one among them
+/// included (each heavy step waits on the one named before it that runs, never on one left out);
+/// a step it leaves out is neither run nor kept, so a whole gate after it runs that step; and a
+/// name that is no step of those halves runs nothing.
+#[test]
+fn merge_gate_runs_only_the_steps_named() {
+    let every: BTreeSet<String> = steps()
+        .into_iter()
+        .filter(|s| s.half == "tree")
+        .map(|s| s.name)
+        .collect();
+    let gate = Gate::new();
+    assert_eq!(
+        gate.run_args(
+            "stub",
+            &["--no-live", "--steps", "fmt,doc,e2e,changelog"],
+            &[]
+        ),
+        (true, names(&["fmt", "doc", "e2e", "changelog"])),
+    );
+    gate.write("red", "clippy\n");
+    assert_eq!(
+        gate.run_args("stub", &["--no-live", "--steps", "clippy"], &[]),
+        (false, names(&["clippy"])),
+        "a named step's failure is the gate's"
+    );
+    std::fs::remove_file(gate.scratch.join("red")).expect("green again");
+    let rest: BTreeSet<String> = every
+        .iter()
+        .filter(|s| !["fmt", "doc", "e2e"].contains(&s.as_str()))
+        .cloned()
+        .collect();
+    assert_eq!(
+        gate.run(&[]),
+        (true, rest),
+        "a whole gate runs what the named run left out, and the unkept steps again"
+    );
+
+    let probes = gate.scratch.join("probes");
+    let _ = std::fs::remove_file(&probes);
+    for refused in ["live-guards", "no-such-step"] {
+        let out = Command::new(gate.scratch.join("scripts/merge-gate.sh"))
+            .args(["--no-live", "--steps", &format!("fmt,{refused}")])
+            .current_dir(&*gate.scratch)
+            .env("SUZATARY_GATE_RUN", gate.scratch.join("stub"))
+            .env("GATE_PROBES", &probes)
+            .output()
+            .expect("the gate runs");
+        assert_eq!(out.status.code(), Some(64), "{refused}: {out:?}");
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains(refused),
+            "the refusal names it: {out:?}"
+        );
+        assert!(!probes.exists(), "and nothing ran");
+    }
+}
+
 /// A checkout that is not HEAD's tree reads no pass and keeps none: the keys name HEAD's
 /// entries, and the guards read HEAD and the index while the other steps read the files. An
 /// untracked file is a difference too.
@@ -932,6 +989,18 @@ fn merge_gate_keeps_a_stubs_passes_apart() {
     );
 }
 
+/// Each step that reads what another step makes outside the tree, as (maker, reader): e2e serves
+/// the bundle build-web makes, the web steps read what web-inputs prepares, the plugin tests load
+/// the components fence-plugin resolves, and deployed-shape runs the binary public-tree builds.
+pub(super) const MADE_AND_READ: &[(&str, &str)] = &[
+    ("build-web", "e2e"),
+    ("web-inputs", "web-test"),
+    ("web-inputs", "build-web"),
+    ("fence-plugin", "plugin-fence"),
+    ("fence-plugin", "plugin-sync"),
+    ("public-tree", "deployed-shape"),
+];
+
 /// A step that reads another's output runs after it in its lane, or in the `quiet` lane, which
 /// runs after every other, since lanes run side by side: e2e serves the bundle build-web makes,
 /// the web steps read what web-inputs prepares, and the plugin tests load the
@@ -945,13 +1014,7 @@ fn merge_gate_a_step_follows_what_it_reads_in_its_lane() {
             .position(|s| s.name == name)
             .unwrap_or_else(|| panic!("no step {name}"))
     };
-    for (made, reader) in [
-        ("build-web", "e2e"),
-        ("web-inputs", "web-test"),
-        ("web-inputs", "build-web"),
-        ("fence-plugin", "plugin-fence"),
-        ("fence-plugin", "plugin-sync"),
-    ] {
+    for &(made, reader) in MADE_AND_READ {
         let (m, r) = (&steps[at(made)], &steps[at(reader)]);
         assert!(
             m.half == r.half

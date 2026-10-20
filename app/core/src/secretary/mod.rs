@@ -294,6 +294,35 @@ pub fn answer<'p>(
     )
 }
 
+/// Stop what waits in the conversation before any round has started on it, as `by`: the
+/// [`Entry::Stopped`] line a stopped round writes, which closes everything queued, so the next
+/// round finds nothing to answer. The caller holds off every round from starting until it returns.
+///
+/// # Errors
+/// [`Refusal::conflict`] when nothing waits, so no stop is left for a later question; the store's
+/// failures.
+pub fn stop_waiting(
+    conversations: crate::secretary::conversations::Conversations<'_>,
+    clock: &dyn Clock,
+    id: &ConversationId,
+    by: &prodrome_core::event::Actor,
+) -> Result<(), Refusal> {
+    if queue::Pending::of(&read(conversations, id)?).is_none() {
+        return Err(Refusal::conflict(format!(
+            "nothing is being answered in {id}, so there is nothing to stop"
+        )));
+    }
+    transcript::push(
+        conversations,
+        id,
+        &Entry::Stopped {
+            at: stamp(clock.now()),
+            by: by.as_str().to_owned(),
+        },
+    )?;
+    Ok(())
+}
+
 /// One [`Round`] under `rules`, and the conversation as it leaves it.
 pub(crate) fn rounded(
     caps: &Secretary<'_>,

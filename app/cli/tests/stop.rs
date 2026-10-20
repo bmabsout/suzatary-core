@@ -145,3 +145,73 @@ fn a_stop_mid_round_ends_it_in_the_act() {
         "a stopped round is over"
     );
 }
+
+/// A question the page shows as queued, which no round has taken yet, is stopped by the act
+/// alone: the stop answers with the question closed, no model is asked for it, and the next
+/// question is answered as usual, so nothing of the stop is left over.
+#[test]
+fn a_stop_before_any_round_takes_the_question_closes_it() {
+    let whois = common::FakeWhois::new().naming(common::v4(), ada());
+    let fakes = Arc::new(
+        Fakes::new("stop-queued")
+            .whois(whois)
+            .model(FakeModel::saying(["{\"say\": \"here\"}"])),
+    );
+    let deployment = common::deployment([ada()], [(ada(), common::actor("ada"))]);
+    let base = common::Server::new(Arc::clone(&fakes), deployment, Vec::new())
+        .start()
+        .base;
+    let id = open(&base);
+    // Written with no nudge, as a `say` stands between its write and the worker's round.
+    let conversation =
+        suzatary_core::secretary::store::ConversationId::new(&id).expect("a conversation id");
+    suzatary_core::secretary::transcript::push(
+        fakes.conversations.conversations(),
+        &conversation,
+        &suzatary_core::secretary::store::Entry::Said {
+            at: "2026-09-02T12:00:00".to_owned(),
+            turn: suzatary_core::capability::Turn::Person {
+                text: "read every thread".to_owned(),
+                references: Vec::new(),
+                attachments: Vec::new(),
+            },
+            by: None,
+        },
+    )
+    .expect("the question appends");
+
+    let mut stopped = stop(&base, &id);
+    assert_eq!(common::status(&stopped), 202);
+    let stopped = common::body_json(&mut stopped);
+    let stopped_by = suzatary_core::secretary::store::stopped_by(common::CAST.owner.actor);
+    assert_eq!(
+        shape(&stopped),
+        [
+            ("person".to_owned(), "read every thread".to_owned(), false),
+            ("act".to_owned(), stopped_by, false),
+        ],
+        "the stop's answer: {stopped}"
+    );
+    assert_eq!(stopped["state"], "idle", "{stopped}");
+    assert!(fakes.model.asked().is_empty(), "no model was asked");
+    assert_eq!(
+        common::status(&stop(&base, &id)),
+        409,
+        "what was stopped is not stopped twice"
+    );
+
+    let said = common::act(
+        &format!("{base}/api/secretary/conversations/{id}/say"),
+        &serde_json::json!({"say": "still there?"}),
+    );
+    assert_eq!(common::status(&said), 202);
+    let payload = settled(&base, &id);
+    assert_eq!(
+        payload["turns"]
+            .as_array()
+            .and_then(|turns| turns.last())
+            .map(|turn| turn["text"].clone()),
+        Some(serde_json::json!("here")),
+        "the next question is answered: {payload}"
+    );
+}

@@ -565,7 +565,8 @@ fn a_round_whose_load_is_refused_says_so_and_asks_no_model() {
     assert!(matches!(last_turn(&caps), Turn::Model { calls, .. } if calls.is_empty()));
 }
 
-/// A pulled halt ends the round on a stop line naming who pulled it, not on the model's turn.
+/// A pulled halt ends the round on a stop line naming who pulled it, not on the model's turn, and
+/// a halt pulled before the model is asked asks it nothing.
 #[test]
 fn a_stopped_round_ends_on_the_stop() {
     let caps = Fakes::new("round-end-stopped").model(FakeModel::saying([WEATHER]));
@@ -590,6 +591,7 @@ fn a_stopped_round_ends_on_the_stop() {
         }
     );
     assert!(ran.lock().expect("not poisoned").is_empty());
+    assert!(caps.model.asked().is_empty(), "no model was asked");
     assert!(matches!(
         closed.round.appended.last(),
         Some(suzatary_core::secretary::store::Entry::Stopped { by, .. }) if by == "ada"

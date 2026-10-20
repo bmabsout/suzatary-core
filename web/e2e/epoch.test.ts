@@ -20,6 +20,9 @@ const required = (name: string): string => {
 const EPOCH_BASE = required("E2E_BASE_EPOCH")
 const EPOCH_INSTANCE = required("E2E_EPOCH_INSTANCE")
 
+/** The key a line's words are locked under, as its literal prints it. */
+const LOCKED = /Locked\(key='[0-9a-f]{64}'/
+
 /** Every row of every store of the database `name`, as one string: what the device holds of it. */
 const held = (name: string): string => `new Promise((ok, no) => {
   const r = indexedDB.open(${JSON.stringify(name)})
@@ -87,9 +90,12 @@ app.scene("a device holding a line the box rewrote drops its copy at the later e
   const row = await app.page.evaluate<Row>(linesRow)
   // What a device that heard the box before a migration holds: the line the box rewrote, a head beside its image as the
   // box now holds it, and words of the epoch before.
-  const tip = [...row.replica.objects].reverse().find((o) => o.literal.startsWith("Change("))!
-  const literal = tip.literal.replace(/Locked\(key='[0-9a-f]{64}'/, `Locked(key='${"e".repeat(64)}'`)
+  // The line rewritten is one holding words: a line of the round with none, which the box writes too, is the same
+  // literal once the key is replaced, so it would name an object the box still holds.
+  const tip = [...row.replica.objects].reverse().find((o) => o.literal.startsWith("Change(") && LOCKED.test(o.literal))!
+  const literal = tip.literal.replace(LOCKED, `Locked(key='${"e".repeat(64)}'`)
   const old = { hash: createHash("sha256").update(literal, "utf8").digest("hex"), literal }
+  assert.ok(!row.replica.objects.some((o) => o.hash === old.hash), "the rewritten line is no object the box holds")
   const before = {
     ...row,
     replica: {
@@ -102,7 +108,9 @@ app.scene("a device holding a line the box rewrote drops its copy at the later e
   // And a piece of a pull from before it, kept and not landed: its progress, which the later epoch drops too.
   const piece = { replica: { ...before.replica, objects: [old], synced: [old.hash] }, keys: {} }
   // The device is written from a page of the same origin that runs no app: an app tab still open would sync the round's
-  // answer, landing later under load, over the row written here, and then hold nothing the later epoch drops.
+  // answer over the row written here. A pull that tab began before it navigated can still land after this write under
+  // load; its row is of the later epoch, so the row's join keeps it whole and drops the copy written here. Either way the
+  // device ends at the later epoch holding only the box's lines, which is what the wait reads, not a new generation.
   await app.page.navigate(`${EPOCH_BASE}/api/about`)
   await app.page.waitFor(`document.readyState === "complete"`)
   await app.page.evaluate(
@@ -112,7 +120,7 @@ app.scene("a device holding a line the box rewrote drops its copy at the later e
   await app.page.waitFor(`document.querySelector(".pagetitle") !== null`, { timeout: 15000 })
   await app.page
     .waitFor(
-      `${linesRow}.then((row) => row !== null && row.replica.generation > ${row.replica.generation} && row.replica.objects.length > 0 && !row.replica.objects.some((o) => o.hash === "${old.hash}"))`,
+      `${linesRow}.then((row) => row !== null && row.replica.words.length > 0 && row.replica.words.every((w) => w.epoch > 1) && row.replica.objects.length > 0 && !row.replica.objects.some((o) => o.hash === "${old.hash}"))`,
       { timeout: 20000 },
     )
     .catch(async (e: unknown) => {

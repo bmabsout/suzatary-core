@@ -21,10 +21,11 @@
 #
 # `gate --remote <codespace>` and `bisect --remote <codespace>` run the tree
 # half in that Codespace of this repository (.devcontainer/), so the box keeps
-# only the live half, the one that reads the owner's data.
+# only the live half, the one that reads the owner's data. `--remote github`
+# runs it on GitHub's runners in core instead (GITHUB'S RUNNERS, below).
 #
 # Run inside `nix develop .#triage`, from a clean checkout. It reads each PR's
-# title, and reaches a Codespace, through `gh`, which authenticates as itself;
+# title, and reaches a Codespace and core's runs, through `gh`, which authenticates as itself;
 # it never creates or deletes a Codespace, never promotes and never touches
 # the data repository.
 #
@@ -124,11 +125,27 @@
 # last day. A tree both a full and a selective gate judged reads as one table: a full red beside
 # a selective green is a FINDING, a change the selection missed.
 #
+# GITHUB'S RUNNERS. `gate --remote github` (and `bisect --remote github`) runs the tree half in
+# core, a public repository, whose runners cost nothing. Only the train commit's PUBLIC TREE goes
+# there, a function of its tree, and only once its leak guard passes whole (`--check --strict`,
+# as a publication's); a tree that does not pass sends nothing, and the half says nothing of it.
+# The tree half's steps that read this private repository run on the box first (`box_steps`: the
+# public tree's own build and the deploy's shape, which build the public tree from the source,
+# and the changelog, which reads origin's master); a red there is the half's red, and nothing goes
+# to the cloud. Then the public tree is committed on core's master by the publications' fixed
+# author, with a `Gate: <train sha>` trailer, and pushed to core's branch `gate/<train sha>` alone,
+# never to master, where .github/workflows/gate.yml runs the rest of the half's steps, one job per
+# lane, each reading the checkout of that one commit. The run's verdict is the half's: success
+# green; red where a job's `red` step failed, which it does only when its gate exited 1; and
+# anything else (the run cancelled or timed out, a runner lost, a job that never reached its
+# gate, a gate that did not start) no verdict, as a lost Codespace is, so only a gate's own
+# red makes the tree red. The branch is deleted when the half ends, and by the exit trap of a killed train.
+#
 # SUZATARY_TRAIN_GATE names another gate script, for the test's stub. Its
 # verdicts are keyed by its own bytes, apart from the real gate's, so a
 # stub's green never lands a train the real gate has not passed.
-# SUZATARY_TRAIN_GH names another `gh`, for the test's stub Codespace, and
-# SUZATARY_TRAIN_POLL the seconds between reads of its log (60).
+# SUZATARY_TRAIN_GH names another `gh`, for the test's stub Codespace and GitHub, and
+# SUZATARY_TRAIN_POLL the seconds between reads of its log or of a run (60).
 # SUZATARY_TRAIN_PUBLIC names another public-tree script, for the test's stub.
 # SUZATARY_TRAIN_BIN names the app the train reads and writes the chain with.
 set -euo pipefail
@@ -139,7 +156,7 @@ die() {
 }
 say() { printf 'train: %s\n' "$*" >&2; }
 usage() {
-  echo "usage: scripts/train.sh build <pr>... | gate [--full] [--remote <codespace>] | bisect [--remote <codespace>] | land | record [<rev>] | publish [--skip <sha>]... [--admit <path>]... [<rev>]" >&2
+  echo "usage: scripts/train.sh build <pr>... | gate [--full] [--remote <codespace> | --remote github] | bisect [--remote <codespace> | --remote github] | land | record [<rev>] | publish [--skip <sha>]... [--admit <path>]... [<rev>]" >&2
   exit 64
 }
 
@@ -159,10 +176,11 @@ flock -n 9 || die "another scripts/train.sh is running in this checkout; wait fo
 # What leaving undoes: the branch to return to, the tree half running beside
 # the live one, the Codespace's ref, keep-alive and machine (remote_close), and
 # a gate's worktree (worktree_close).
-return_to="" codespace="" ref="" keeper="" there=""
+return_to="" codespace="" ref="" keeper="" there="" cloud="" gate_branch=""
 finish() {
   [[ -z "$there" ]] || { kill "$there" 2>/dev/null; wait "$there" 2>/dev/null; } || true
   [[ -z "$ref" ]] || remote_close
+  [[ -z "$gate_branch" ]] || cloud_close
   worktree_close
   [[ -z "$return_to" ]] || git checkout --quiet "$return_to"
 }
@@ -640,20 +658,33 @@ worktree_close() {
 # worktree at <commit>, with that tree's own gate script, and never reads this
 # checkout. What the train reads for itself (train_reads) is not handed on.
 run_half() {
-  local half="$1" commit="$2" code=0 gate unset=() name
+  local half="$1" commit="$2" code=0
   if [[ "$half" == tree && -n "$codespace" ]]; then
     run_remote "$half" "$commit"
     return
   fi
+  if [[ "$half" == tree && -n "$cloud" ]]; then
+    cloud_half "$commit"
+    return
+  fi
+  run_here "$half" "$commit" || code=$?
+  record "$half" "$commit" "$code"
+}
+
+# <half> of <commit> run here, in a worktree at <commit> with that tree's own gate script, its
+# output kept in the half's log; any further arguments are the gate's (`--steps ...`). Exits as
+# the gate did, or 75, the gate's own "did not start", when no worktree could be made.
+run_here() {
+  local half="$1" commit="$2" code=0 gate unset=() name
   worktree_open "$commit" \
-    || { say "no worktree could be made at ${commit:0:12}, so the $half half says nothing of it"; return 2; }
+    || { say "no worktree could be made at ${commit:0:12}"; return 75; }
   gate="${SUZATARY_TRAIN_GATE:-$worktree/scripts/merge-gate.sh}"
   for name in "${train_reads[@]}"; do unset+=(-u "$name"); done
   # shellcheck disable=SC2046
-  (cd "$worktree" && env "${unset[@]}" "$gate" $(gate_flags "$half")) 2>&1 \
+  (cd "$worktree" && env "${unset[@]}" "$gate" $(gate_flags "$half") "${@:3}") 2>&1 \
     | tee "$(log_of "$half" "$commit")" >&2 || code=$?
   worktree_close
-  record "$half" "$commit" "$code"
+  return "$code"
 }
 
 # --- the environment ----------------------------------------------------------
@@ -693,14 +724,12 @@ gate_environment() {
 
 # --- the Codespace ----------------------------------------------------------
 
-# `--remote <codespace>`, or nothing.
+# `--remote <codespace>`, `--remote github`, or nothing.
 remote_opt() {
-  case "$#/${1:-}" in
-    0/) ;;
-    2/--remote)
-      codespace="$2"
-      [[ -n "$codespace" ]] || usage
-      ;;
+  case "$#/${1:-}/${2:-}" in
+    0//) ;;
+    2/--remote/github) cloud=github ;;
+    2/--remote/?*) codespace="$2" ;;
     *) usage ;;
   esac
 }
@@ -836,6 +865,142 @@ run_remote() {
   record "$half" "$commit" "$code"
 }
 
+# --- GitHub's runners --------------------------------------------------------
+
+# The tree half's steps that read this private repository, run on the box before anything goes to
+# the cloud: public-tree builds the public tree from the source (scripts/public-tree.sh --store),
+# deployed-shape runs the binary it built, and changelog compares with origin's master. Every
+# other step of the half is a job's in .github/workflows/gate.yml (a guard test holds the two to
+# every step of the half, each once).
+box_steps="public-tree,deployed-shape,changelog"
+# The workflow a gate branch runs, and how long the train waits for its run: a run that has not
+# ended in six hours (GitHub's own limit on a job) says nothing of the tree.
+gate_workflow=.github/workflows/gate.yml
+cloud_hours=6
+
+# core's owner/name on GitHub, read off the remote's configured URL.
+core_repo() {
+  local url
+  url="$(git config --get remote.core.url)" || return 1
+  [[ "$url" =~ github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$ ]] || return 1
+  echo "${BASH_REMATCH[1]%.git}"
+}
+
+# The tree half of <commit> on GitHub's runners, start to end: 0 green, 1 red, 2 no verdict.
+cloud_half() {
+  local commit="$1" pushed code=0
+  pushed="$(cloud_push "$commit")" || return
+  gate_branch="gate/$commit"
+  cloud_wait "$commit" "$pushed" || code=$?
+  cloud_close
+  return "$code"
+}
+
+# The box's part of <commit>'s tree half, then the public tree pushed to core: prints the gate
+# commit and succeeds once it is pushed; otherwise 1 when the box's steps are red (recorded) and
+# 2 when there is no verdict (a leak, a gate that did not start, core out of reach), recording
+# nothing and pushing nothing.
+cloud_push() {
+  local commit="$1" dir code=0 repo tree parent pushed
+  repo="$(core_repo)" \
+    || { say "the remote \`core\` is not a GitHub repository, so the tree half cannot run on GitHub's runners"; return 2; }
+  dir="$(mktemp -d)" || return 2
+  # The leak guard first: what fails it never leaves the box.
+  if ! checked "$commit" "$dir"; then
+    rm -rf "$dir"
+    say "the public tree of ${commit:0:12} did not pass its leak guard (the files and lines above), so nothing went to $repo and the tree half says nothing of it; the live half's public-check judges it"
+    return 2
+  fi
+  run_here tree "$commit" --steps "$box_steps" || code=$?
+  if ((code)); then
+    rm -rf "$dir"
+    record tree "$commit" "$code" || return
+  fi
+  if git ls-remote --exit-code --heads core "refs/heads/$core_branch" >/dev/null; then
+    git fetch --quiet core "+refs/heads/$core_branch:refs/remotes/core/$core_branch" \
+      || { rm -rf "$dir"; say "core's $core_branch could not be fetched, so nothing went to $repo"; return 2; }
+    parent="$(git rev-parse "refs/remotes/core/$core_branch")"
+  else
+    parent=""
+  fi
+  tree="$(tree_of "$dir")" || { rm -rf "$dir"; say "the public tree of ${commit:0:12} could not be written as a git tree"; return 2; }
+  rm -rf "$dir"
+  # Named by the instant it is made, so each gate pushes a commit of its own and its run is the
+  # only one of that sha.
+  pushed="$(public_commit "$tree" "$parent" "$(date -u +%FT%TZ)" "Gate ${commit:0:12}, $(date -u +%FT%T.%NZ)" "Gate: $commit")" \
+    && [[ "$pushed" =~ ^[0-9a-f]{40}$ ]] \
+    || { say "the public tree of ${commit:0:12} could not be committed"; return 2; }
+  git push --quiet core "+$pushed:refs/heads/gate/$commit" \
+    || { say "core refused gate/$commit, so the tree half says nothing of ${commit:0:12}"; return 2; }
+  say "the tree half of ${commit:0:12} runs on GitHub's runners: $repo, branch gate/$commit, commit ${pushed:0:12}"
+  echo "$pushed"
+}
+
+# Wait for the gate workflow's run on <pushed>, the gate commit of <commit>, and record its
+# verdict: success green, a job's `red` step failed red, anything else none. Each job's log is
+# kept in the half's log; a red job's ends with the gate's failing steps.
+cloud_wait() {
+  local commit="$1" pushed="$2" repo log run="" status="" misses=0 red job name deadline
+  repo="$(core_repo)"
+  log="$(log_of tree "$commit")"
+  deadline=$((SECONDS + cloud_hours * 3600))
+  while [[ -z "$run" ]] && ((misses < 10 && SECONDS < deadline)); do
+    sleep "${SUZATARY_TRAIN_POLL:-60}"
+    run="$("$gh" api "repos/$repo/actions/runs?head_sha=$pushed&event=push" \
+      --jq ".workflow_runs[] | select(.path == \"$gate_workflow\") | .id" | awk 'NR == 1')" || run=""
+    misses=$((misses + 1))
+  done
+  if [[ -z "$run" ]]; then
+    say "no run of $gate_workflow started on $repo for ${pushed:0:12}, so the tree half says nothing of ${commit:0:12} (are Actions enabled? scripts/core-settings.sh)"
+    return 2
+  fi
+  say "waiting on https://github.com/$repo/actions/runs/$run"
+  misses=0
+  while [[ "$status" != completed\ * ]] && ((misses < 10 && SECONDS < deadline)); do
+    sleep "${SUZATARY_TRAIN_POLL:-60}"
+    if status="$("$gh" api "repos/$repo/actions/runs/$run" --jq '.status + " " + (.conclusion // "")')"; then
+      misses=0
+    else
+      misses=$((misses + 1)) status=""
+    fi
+  done
+  if [[ "$status" != completed\ * ]]; then
+    say "the run $run on $repo did not end (${status:-unreachable}), so the tree half says nothing of ${commit:0:12}"
+    return 2
+  fi
+  if [[ "$status" == "completed success" ]]; then
+    echo "run $run: success" >>"$log"
+    record tree "$commit" 0
+    return
+  fi
+  # Each job whose `red` step failed: its gate exited 1, a finding about the tree.
+  red="$("$gh" api "repos/$repo/actions/runs/$run/jobs?per_page=100" \
+    --jq '.jobs[] | select(any((.steps // [])[]; .name == "red" and .conclusion == "failure")) | "\(.id) \(.name)"')" || {
+    say "the jobs of run $run could not be read, so the tree half says nothing of ${commit:0:12}"
+    return 2
+  }
+  if [[ -z "$red" ]]; then
+    say "the run $run ended ${status#completed }, and no job's gate found the tree red (a runner lost, a cancel, a gate that did not start), so the tree half says nothing of ${commit:0:12}"
+    return 2
+  fi
+  # A job's log stamps each line with its time, which comes off, so the gate's own sections read
+  # as they do here.
+  while read -r job name; do
+    say "red: $name"
+    { echo "--- job $name"
+      "$gh" api "repos/$repo/actions/jobs/$job/logs" | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' ||
+        echo "(its log could not be read)"; } >>"$log"
+  done <<<"$red"
+  record tree "$commit" 1
+}
+
+# Delete the gate branch. Nothing waits on it any more, and a failure leaves only a branch.
+cloud_close() {
+  git push --quiet core --delete "refs/heads/$gate_branch" 2>/dev/null \
+    || say "could not delete core's $gate_branch: delete it by hand (git push core --delete $gate_branch)"
+  gate_branch=""
+}
+
 on_train() {
   git rev-parse --verify --quiet train >/dev/null || die "there is no train; scripts/train.sh build <pr>... first."
   git checkout --quiet train
@@ -869,6 +1034,21 @@ gate() {
     run_half live "$commit" || true
     wait "$there" || true
     there="" ref="" keeper=""
+  elif [[ -n "$cloud" ]]; then
+    # The box's steps first, in the worktree the live half then uses; the cloud's run is waited
+    # on beside the live half.
+    local pushed
+    if pushed="$(cloud_push "$commit")"; then
+      gate_branch="gate/$commit"
+      { cloud_wait "$commit" "$pushed" || true; } &
+      there=$!
+    fi
+    run_half live "$commit" || true
+    if [[ -n "$there" ]]; then
+      wait "$there" || true
+      there=""
+      cloud_close
+    fi
   else
     run_half tree "$commit" || true
     run_half live "$commit" || true
@@ -1336,11 +1516,29 @@ fresh_rows() {
   rm -rf "$scratch"
 }
 
+# <dir>/tree written into this repository's objects as a git tree, its id printed: through an
+# index of its own (<dir>/index), so neither the checkout nor its index is touched, and forced,
+# since a published file is published even where a `.gitignore` names it.
+tree_of() {
+  local gitdir
+  gitdir="$(git rev-parse --absolute-git-dir)" &&
+    (cd "$1/tree" && export GIT_DIR="$gitdir" GIT_WORK_TREE=. GIT_INDEX_FILE="$1/index" &&
+      git add --all --force . && git write-tree)
+}
+
+# A commit of <tree> on <parent> (none when empty), dated <when>, with the subject <subject> and the
+# trailers <trailers>, by the fixed author every commit pushed to core carries: no person's name.
+public_commit() {
+  GIT_AUTHOR_NAME=Suzatary GIT_AUTHOR_EMAIL=publish@suzatary.invalid GIT_AUTHOR_DATE="$3" \
+    GIT_COMMITTER_NAME=Suzatary GIT_COMMITTER_EMAIL=publish@suzatary.invalid GIT_COMMITTER_DATE="$3" \
+    git commit-tree "$1" ${2:+-p "$2"} -m "$4" -m "$5"
+}
+
 # One row: the public tree of <source>, checked whole, committed on core's master and pushed.
 # Every step that fails stops it, naming itself, and nothing is pushed unless it is a commit:
 # pushing an empty name would delete core's master.
 row() {
-  local source="$1" dir gitdir tree parent commit when trailers s new held every path line
+  local source="$1" dir tree parent commit when trailers s new held every path line
   # One paragraph, so git reads every line of it as a trailer.
   trailers="Source: $source"
   for s in "${@:2}"; do trailers+=$'\n'"Skipped: $s"; done
@@ -1367,20 +1565,13 @@ row() {
   while IFS= read -r s; do
     [[ -z "$s" ]] || trailers+=$'\n'"Admitted: $s"
   done <<<"$new"
-  # The tree goes into this repository's objects through an index of its own, so neither the
-  # checkout nor its index is touched; forced, since a published file is published even where a
-  # `.gitignore` names it.
-  gitdir="$(git rev-parse --absolute-git-dir)" || { rm -rf "$dir"; die "could not find this checkout's git directory. Nothing published."; }
-  tree="$(cd "$dir/tree" && export GIT_DIR="$gitdir" GIT_WORK_TREE=. GIT_INDEX_FILE="$dir/index" &&
-    git add --all --force . && git write-tree)" ||
+  tree="$(tree_of "$dir")" ||
     { rm -rf "$dir"; die "could not write the public tree of ${source:0:12} as a git tree. Nothing published."; }
   rm -rf "$dir"
   parent="$(git rev-parse --verify --quiet "refs/remotes/core/$core_branch")" || parent=""
   when="$(git log -1 --format=%cI "$source")" && [[ -n "$when" ]] \
     || die "could not read ${source:0:12}'s date. Nothing published."
-  commit="$(GIT_AUTHOR_NAME=Suzatary GIT_AUTHOR_EMAIL=publish@suzatary.invalid GIT_AUTHOR_DATE="$when" \
-    GIT_COMMITTER_NAME=Suzatary GIT_COMMITTER_EMAIL=publish@suzatary.invalid GIT_COMMITTER_DATE="$when" \
-    git commit-tree "$tree" ${parent:+-p "$parent"} -m "Publish ${source:0:12}" -m "$trailers")" \
+  commit="$(public_commit "$tree" "$parent" "$when" "Publish ${source:0:12}" "$trailers")" \
     || die "could not commit the public tree of ${source:0:12}. Nothing published."
   [[ "$commit" =~ ^[0-9a-f]{40}$ ]] \
     || die "committing the public tree of ${source:0:12} named no commit (\"$commit\"), and pushing it would delete core's $core_branch. Nothing published."

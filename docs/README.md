@@ -42,6 +42,9 @@ and the plans are how it got here.
 - [`../OPERATOR.md`](../OPERATOR.md) and [`../SECRETARY.md`](../SECRETARY.md)
   — the manuals the triage agent and the secretary work from, pricing table
   included.
+- [`OPERATOR.md`](OPERATOR.md) — the operator's notes: the settings of
+  suzatary-core that let a train's tree half run on GitHub's runners, and
+  where a deploy's builds come from.
 - [`CODINGSESSION-ROUTINE.md`](CODINGSESSION-ROUTINE.md) — the fixed brief of
   a cloud coding session the secretary can propose.
 - [`BENCH.md`](BENCH.md) — the deployed server's speed, measured.

@@ -100,13 +100,13 @@ test("a replica overtaken by the box's later epoch starts over and holds only wh
   const heard = locked.of(pulled(NOTHING, word(before, 1), 1), { k: "00" })
   // What the box answers it after the migration: what moved since its heads, in a later epoch.
   const answer = word(after, 2, before)
-  assert.ok(stores.overtaken(heard.replica, answer))
+  assert.ok(stores.overtaken([heard.replica], answer))
   // Joined as any answer is, it keeps the rewritten tip beside its image: two heads where the box holds one.
   const forked = pulled(heard.replica, answer, 2)
   assert.ok(forked.heads.includes(tip) && forked.heads.includes(again), "the fork the reset prevents")
   // Started over and asked again of nothing, it is the box's set.
   const fresh = locked.reset(heard)
-  assert.equal(stores.overtaken(fresh.replica, word(after, 2)), false, "a replica that heard nothing is not overtaken")
+  assert.equal(stores.overtaken([fresh.replica], word(after, 2)), false, "a replica that heard nothing is not overtaken")
   const whole = locked.of(pulled(fresh.replica, word(after, 2), 3))
   assert.deepEqual(new Set(whole.replica.objects.map(o => o.hash)), new Set(after.map(o => o.hash)))
   assert.ok(!whole.replica.heads.includes(tip))
@@ -115,7 +115,7 @@ test("a replica overtaken by the box's later epoch starts over and holds only wh
   assert.equal(locked.join(whole, heard), whole)
   assert.equal(locked.join(heard, whole), whole)
   // And a later answer of the same epoch is no reason to start over again.
-  assert.equal(stores.overtaken(whole.replica, word(after, 2)), false)
+  assert.equal(stores.overtaken([whole.replica], word(after, 2)), false)
 })
 
 test("law: only an answer of a later epoch than every word heard overtakes a replica", () => {
@@ -123,10 +123,10 @@ test("law: only an answer of a later epoch than every word heard overtakes a rep
     const held = replica(r)
     const epoch = held.held.words[0]?.epoch ?? 0
     const at = (e: number) => ({ objects: [], heads: [...(boxHeadsOf(held) ?? [])], untrusted: [], root: null, geneses: [], epoch: e })
-    assert.equal(stores.overtaken(held, at(epoch)), false, "the same epoch")
-    assert.equal(stores.overtaken(held, at(epoch - 1)), false, "an earlier one, which is the box gone back")
-    assert.equal(stores.overtaken(held, at(epoch + 1 + r.int(5))), held.held.words.length > 0)
-    assert.equal(stores.overtaken(NOTHING, at(epoch + 1)), false, "nothing heard")
+    assert.equal(stores.overtaken([held], at(epoch)), false, "the same epoch")
+    assert.equal(stores.overtaken([held], at(epoch - 1)), false, "an earlier one, which is the box gone back")
+    assert.equal(stores.overtaken([held], at(epoch + 1 + r.int(5))), held.held.words.length > 0)
+    assert.equal(stores.overtaken([NOTHING], at(epoch + 1)), false, "nothing heard")
   })
 })
 

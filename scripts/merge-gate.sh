@@ -67,7 +67,14 @@
 #   nix develop .#triage -c scripts/merge-gate.sh --no-live     the tree half
 #   nix develop .#triage -c scripts/merge-gate.sh --only-live   the live half
 #   nix develop .#triage -c scripts/merge-gate.sh --full ...    every step and every unit, no pass read
+#   nix develop .#triage -c scripts/merge-gate.sh --no-live --steps fmt,doc   those steps alone
 #   scripts/merge-gate.sh --list                                every step: half, lane, reads
+#
+# --steps <name>[,<name>...] runs only the named steps of the halves chosen, each in its lane as
+# a whole gate would run it: the caller names a step's writers beside it (e2e reads the bundle
+# build-web writes, from what web-inputs prepares). scripts/train.sh's tree half on GitHub's
+# runners is the gate split this way, some steps on the box and the rest in
+# .github/workflows/gate.yml's jobs, and a name that is no step of those halves is refused (64).
 #
 # A STEP MAY BE SPLIT INTO UNITS, each kept by what it reads: `crates`, the workspace's members,
 # each reading its own directory and those of the members it depends on (cargo metadata); and
@@ -93,20 +100,22 @@
 set -uo pipefail
 
 usage() {
-  echo "usage: scripts/merge-gate.sh [--full] [--no-live | --only-live] (in any order) | --list" >&2
+  echo "usage: scripts/merge-gate.sh [--full] [--no-live | --only-live] [--steps <name>[,<name>...]] (in any order) | --list" >&2
   exit 64
 }
-halves=(tree live) list=0 full=0 half=""
-for arg; do
-  case "$arg" in
+halves=(tree live) list=0 full=0 half="" only="" given=$#
+while (($#)); do
+  case "$1" in
     --full) ((!full)) || usage; full=1 ;;
-    --no-live | --only-live) [[ -z "$half" ]] || usage; half="$arg" ;;
+    --no-live | --only-live) [[ -z "$half" ]] || usage; half="$1" ;;
+    --steps) [[ -z "$only" && -n "${2:-}" ]] || usage; only="$2"; shift ;;
     --list) list=1 ;;
     *) usage ;;
   esac
+  shift
 done
 case "$half" in --no-live) halves=(tree) ;; --only-live) halves=(live) ;; esac
-((!list || ($# == 1))) || usage
+((!list || (given == 1))) || usage
 # How a half's lanes share the machine: `weighted`, side by side with one heavy step at a time,
 # or `serial`, one lane after another (SUZATARY_GATE_SERIAL=1). Read here and taken out of the
 # environment, so no step sees it and no key names it: the order changes no verdict.
@@ -139,6 +148,8 @@ live_modules=(accounts context_headroom live_blocks perf_fold_chain)
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT
 selected() { [[ " ${halves[*]} " == *" $1 "* ]]; }
+# Whether step <i> runs: its half is chosen, and --steps names it or is not given.
+chosen() { selected "${s_half[$1]}" && { [[ -z "$only" ]] || [[ ",$only," == *",${s_name[$1]},"* ]]; }; }
 
 # The kept passes: the real gate's, or a stub's apart by its bytes.
 kept_dir="$(git rev-parse --path-format=absolute --git-common-dir)/gate"
@@ -319,7 +330,7 @@ run_step() {
 run_lane() {
   local i
   for i in "${!s_name[@]}"; do
-    if [[ "${s_half[i]}" == "$1" && "${s_lane[i]}" == "$2" ]]; then run_step "$i"; fi
+    if [[ "${s_half[i]}" == "$1" && "${s_lane[i]}" == "$2" ]] && chosen "$i"; then run_step "$i"; fi
   done
 }
 run_half() {
@@ -327,7 +338,7 @@ run_half() {
   s_after=()
   if [[ "$lanes" == weighted ]]; then
     for i in "${heavy_order[@]}"; do
-      if [[ "${s_half[i]}" == "$1" && -z "${hit[i]:-}" ]]; then s_after[i]="$turn" turn="${s_name[i]}"; fi
+      if [[ "${s_half[i]}" == "$1" && -z "${hit[i]:-}" ]] && chosen "$i"; then s_after[i]="$turn" turn="${s_name[i]}"; fi
     done
   fi
   for l in $(for i in "${!s_name[@]}"; do [[ "${s_half[i]}" != "$1" ]] || echo "${s_lane[i]}"; done | awk '!seen[$0]++'); do
@@ -777,6 +788,15 @@ heavy build web-inputs public-tree clippy clippy-fixture doc live-all live-guard
 
 ((list)) && exit 0
 
+# Every name --steps gives is a step of the halves chosen, or nothing runs.
+for name in ${only//,/ }; do
+  for i in "${!s_name[@]}"; do
+    if [[ "${s_name[i]}" == "$name" ]] && selected "${s_half[i]}"; then continue 2; fi
+  done
+  echo "merge-gate.sh: --steps names $name, which is no step of the ${halves[*]} half" >&2
+  exit 64
+done
+
 # A unit step's units, one `<unit>\t<the paths it skips>` line each, or a failure when the graph
 # cannot be read (the step then runs whole). The crates come from cargo metadata of the checkout,
 # which is HEAD's tree; the test files from esbuild's metafile of their bundles, which needs the
@@ -837,7 +857,7 @@ plan_step() {
 # whole, but a step split into units runs only its own units whose inputs moved: the partners
 # write what a running reader reads, and a kept unit reads nothing.
 kept=() hit=() units=() todo_kept=() todo_units=()
-eligible() { [[ "${s_reads[$1]}" != unkept ]] && selected "${s_half[$1]}"; }
+eligible() { [[ "${s_reads[$1]}" != unkept ]] && chosen "$1"; }
 if why="$(keeping)"; then
   head="$(git rev-parse HEAD)"
   snapshot || { echo "==> could not read HEAD's tree to name the steps' inputs: not starting" >&2; exit 75; }
@@ -896,6 +916,8 @@ echo >&2
 for i in "${!s_name[@]}"; do
   if ! selected "${s_half[i]}"; then
     printf '%-16s skipped (%s half)\n' "${s_name[i]}" "${s_half[i]}" >&2
+  elif ! chosen "$i"; then
+    printf '%-16s skipped (not named by --steps)\n' "${s_name[i]}" >&2
   else
     cat "$logs/${s_name[i]}.row" >&2 2>/dev/null || printf '%-16s FAILED (no row)\n' "${s_name[i]}" >&2
     [[ -e "$logs/${s_name[i]}.row" && ! -e "$logs/${s_name[i]}.failed" ]] || failures+=("${s_name[i]}")

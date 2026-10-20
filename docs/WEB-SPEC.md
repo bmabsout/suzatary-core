@@ -1536,7 +1536,8 @@ under in every larger union and never wins.
 - **A store's row holds its keys, and a key an erasure names is owed.** A
   store's row is its replica and the keys of its words (`locked.Row`),
   written in one transaction, and its join is a pair of unions, the free
-  semilattice on both. A key the objects name as erased (the core's reading,
+  semilattice on both, within one generation and one epoch of the box's
+  word. A key the objects name as erased (the core's reading,
   `transcript::dead`) opens nothing, whatever copy brought it, and is OWED:
   whichever tab reads it, a pull or the device's row (one another tab wrote
   and never purged included), forgets the blocks its words were rendered to,
@@ -1556,6 +1557,21 @@ under in every larger union and never wins.
   cannot forget a block keeps the key…"; `objects.test.ts` "a row a build no
   longer reads is deleted…"; `wipe.test.ts` "the lines' row…";
   `e2e/lines.test.ts`.
+- **A store's later epoch drops the copy in the join that brings it.** A
+  store is a copy of the box's alone, so its rows are ordered by generation
+  and then by the epoch of the box's word (`locked.join`), and the later row
+  is kept whole: the join that takes in a later epoch's word is the one that
+  drops every object and key of the epochs before, so no row holds that word
+  beside an object the box no longer holds, in whatever order a pull, a piece
+  kept from before, another tab's pull and a reset land. A pull answered in a
+  later epoch than either part of what the tab holds heard, the row or the
+  pieces kept beside it (`stores.overtaken`, asked of each part, since a
+  piece of the later epoch beside a row of the one before joins to the piece
+  alone), still starts over (`startOver`): its piece was asked from heads of
+  the epoch before and is not a set the box could have sent, so the row is
+  reset and the store asked for again from nothing. — `epochdrop.test.ts`
+  "law: in every order, the device never holds the box's later word beside
+  an object it no longer holds"; `e2e/epoch.test.ts`.
 - **A store is pulled by pieces, and only for a page that reads it.** The
   boot never pulls the lines: `storesync` restores and pulls a store the
   first time something asks for it (`reading` and `sync` both, `proposals`

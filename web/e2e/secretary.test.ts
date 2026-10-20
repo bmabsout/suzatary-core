@@ -209,8 +209,15 @@ app.scene("a proposal card shows why it was made, and its sources navigate", asy
 
 /**
  * DISMISSING IS THE OTHER ANSWER, and it is three facts: the card says so, the
- * Send button is gone, and the INBOX stops counting it. The third is the one a
- * unit test cannot see, because the count is the bar's badge.
+ * Send button is gone, and the INBOX drops its row. The third is the one a
+ * unit test cannot see.
+ *
+ * The Inbox is checked by this proposal's own row, never by how many rows it
+ * draws: the box files cards of its own whenever it owes them (a secret that
+ * does not resolve, a model that stops answering), and another round can file
+ * a proposal meanwhile, so the count moves for reasons that are not this
+ * dismissal. The scene files one such proposal from a second conversation
+ * while this one is answered, and its row stays.
  */
 app.scene("dismissing a proposal drops it from the Inbox and shows the reason", async () => {
   await converse(WRITE_BASE, "propose the reply to dismiss");
@@ -218,16 +225,23 @@ app.scene("dismissing a proposal drops it from the Inbox and shows the reason", 
     timeout: 20000,
   });
   const conversation = await app.page.evaluate<string>(`location.hash`);
+  const key = await app.page.evaluate<string>(`document.querySelector(".proposal").dataset.key`);
+  const row = (k: string): string => `document.querySelector('.inboxpage .proposal[data-key="${k}"]') !== null`;
 
-  // The Inbox counts it while it stands.
+  // The Inbox holds it while it stands.
   await app.page.navigate(`${WRITE_BASE}/#/inbox`);
-  await app.page.waitFor(`document.querySelector(".inboxpage .proposal") !== null`, {
-    timeout: 15000,
-  });
-  const standing = await app.page.evaluate<number>(
-    `document.querySelectorAll(".inboxpage .proposal").length`,
+  await app.page.waitFor(row(key), { timeout: 15000 });
+
+  // A second writer: another conversation's round files a proposal of its own.
+  const other = await app.page.evaluate<string>(
+    `${SIGNED_POST}("/api/secretary/conversations", JSON.stringify({title: "Untitled"})).then((r) => r.json()).then((j) => j.id)`,
   );
-  assert.ok(standing >= 1, "a standing proposal is waiting in the Inbox");
+  assert.equal(
+    await app.page.evaluate<number>(
+      `${SIGNED_POST}("/api/secretary/conversations/${other}/say", JSON.stringify({say: "propose another reply meanwhile"})).then((r) => r.status)`,
+    ),
+    202,
+  );
 
   await app.page.navigate(`${WRITE_BASE}/${conversation}`);
   await app.page.waitFor(`document.querySelector(".proposal .act-dismiss") !== null`, {
@@ -258,20 +272,14 @@ app.scene("dismissing a proposal drops it from the Inbox and shows the reason", 
     "an answered proposal offers no Send",
   );
   // AND THE SECRETARY SEES IT. The transcript carries an act turn, which is
-  // what the next round reads.
-  assert.match(
-    await app.page.evaluate<string>(
-      `[...document.querySelectorAll('.turn-act .turntext')].map((t) => t.textContent).join("|")`,
-    ),
-    /dismissed it: wrong person/,
-  );
+  // what the next round reads. The box writes the act line after the inbox
+  // records the dismissal, and the tab pulls the two stores apart, so the
+  // card can read Dismissed a moment before the turn is drawn.
+  await app.page.waitFor(`${said("act")}.includes("dismissed it: wrong person")`, { timeout: 15000 });
 
   await app.page.navigate(`${WRITE_BASE}/#/inbox`);
-  await app.page.waitFor(`document.querySelector(".inboxpage") !== null`, { timeout: 15000 });
-  await app.page.waitFor(
-    `document.querySelectorAll(".inboxpage .proposal").length === ${standing - 1}`,
-    { timeout: 15000 },
-  );
+  await app.page.waitFor(row(`${other}/0`), { timeout: 20000 });
+  await app.page.waitFor(`!(${row(key)})`, { timeout: 15000 });
 });
 
 /**

@@ -275,8 +275,6 @@ impl Halt {
     /// Pull it, as `by`; only the first pull counts.
     pub fn stop(&self, by: prodrome_core::event::Actor) {
         let _first = self.0.set(by);
-        #[cfg(feature = "fixture")]
-        pulled::PULLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// Who pulled it, if anyone has.
@@ -292,19 +290,44 @@ impl Halt {
     }
 }
 
-/// How many halts this process has pulled, for the e2e fixture's scripted model, which holds no
-/// halt of its own: a round it keeps waiting ends once one is pulled, so a scene's Stop decides
-/// when the round answers and nothing races it.
+/// The halt of the round asking a model on this thread, for the e2e fixture's scripted model,
+/// which is handed no halt: a round it keeps waiting ends once its own round's halt is pulled,
+/// whether before the model was asked or while it waits, so a scene's Stop decides when the
+/// round answers and nothing races it.
 #[cfg(feature = "fixture")]
 pub mod pulled {
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::cell::RefCell;
 
-    pub(super) static PULLS: AtomicU64 = AtomicU64::new(0);
+    use super::Halt;
 
-    /// The halts pulled so far.
+    thread_local! {
+        static ASKING: RefCell<Option<Halt>> = const { RefCell::new(None) };
+    }
+
+    /// While it lives, `halt` is the one this thread's model is asked under.
+    #[derive(Debug)]
+    pub struct Asking(());
+
+    impl Asking {
+        /// Name `halt` as this thread's until the guard drops.
+        #[must_use]
+        pub fn of(halt: &Halt) -> Self {
+            ASKING.with(|asking| *asking.borrow_mut() = Some(halt.clone()));
+            Self(())
+        }
+    }
+
+    impl Drop for Asking {
+        fn drop(&mut self) {
+            ASKING.with(|asking| *asking.borrow_mut() = None);
+        }
+    }
+
+    /// Whether the halt of the round asking on this thread has been pulled; `false` outside a
+    /// round.
     #[must_use]
-    pub fn count() -> u64 {
-        PULLS.load(Ordering::SeqCst)
+    pub fn halted() -> bool {
+        ASKING.with(|asking| asking.borrow().as_ref().is_some_and(Halt::halted))
     }
 }
 

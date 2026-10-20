@@ -117,7 +117,8 @@ case "$*" in
 esac
 "#;
 
-/// `nix`: `flake lock --override-input suzatary <url> path:<dir>` writes the url's rev as
+/// `nix`: `path-info` answers whether the store holds the builds (`in-store`);
+/// `flake lock --override-input suzatary <url> path:<dir>` writes the url's rev as
 /// `<dir>`'s lock (or refuses, as Nix does, when `lock-refuses` exists); `eval` answers what
 /// `nix/app-input.nix` does (the origin the flake declares and its branch, the pin there, the
 /// locked tree) and the system; `build <tree>#<attr> -o <link>` links the tree's output (or fails, when
@@ -153,6 +154,10 @@ if [ "$1" = build ]; then
   ln -sfn "$out" "$(arg -o)"
   echo "$out"
   exit 0
+fi
+if [ "$1" = path-info ]; then
+  [ -f "$s/in-store" ]
+  exit
 fi
 if [ "$1" = develop ]; then
   profile="$(arg --profile)"
@@ -192,6 +197,19 @@ observe
 status=$?
 observe
 exit $status
+"#;
+
+/// `gh`: `run list …` answers the first line of `runs` as `<status> <conclusion>`, dropping it
+/// while another follows, so the last line stands; nothing where there is no `runs`, as GitHub
+/// answers for a commit no run built; and fails as an unreachable GitHub with `gh-down`.
+const GH: &str = r#"#!/usr/bin/env bash
+s="$DEPLOY_STATE"
+echo "gh $*" >>"$s/log"
+[ ! -f "$s/gh-down" ] || { echo "error connecting to api.github.com" >&2; exit 1; }
+[ "$1 $2" = "run list" ] || exit 64
+[ -s "$s/runs" ] || exit 0
+head -n 1 "$s/runs"
+[ "$(wc -l <"$s/runs")" -le 1 ] || sed -i 1d "$s/runs"
 "#;
 
 /// What [`GIT`] logs when the lock the path unit watches changed to a state no commit holds.
@@ -1159,7 +1177,16 @@ fn stubs(bin: &Path) {
     );
     write(bin, "sleep", "#!/bin/sh\nexit 0\n");
     write(bin, "git", GIT);
-    for stub in ["systemctl", "nix", "nix-store", "curl", "sleep", "git"] {
+    write(bin, "gh", GH);
+    for stub in [
+        "systemctl",
+        "nix",
+        "nix-store",
+        "curl",
+        "sleep",
+        "git",
+        "gh",
+    ] {
         run(Command::new("chmod").arg("+x").arg(bin.join(stub)), "chmod");
     }
 }
@@ -1696,4 +1723,109 @@ fn the_roots_run_builds_only_what_a_deploy_pinned() {
         !admits("master", &f.zero),
         "nothing a lock names becomes the way back"
     );
+}
+
+/// Where the publication run that builds the pinned commit succeeded, the deploy waits for it
+/// and its build downloads; where that run failed, never came, or GitHub could not be asked, it
+/// builds here and says which. Either way it deploys. A deploy whose builds the store holds
+/// asks GitHub nothing.
+#[test]
+fn deploy_waits_for_the_publication_run_and_says_where_its_builds_come_from() {
+    let cases = [
+        (
+            "cache-success",
+            Some("queued \nin_progress \ncompleted success"),
+            "succeeded: its builds come from the binary cache",
+        ),
+        (
+            "cache-failure",
+            Some("in_progress \ncompleted failure"),
+            "ended failure: building it here",
+        ),
+        (
+            "cache-silence",
+            None,
+            "appeared within 30s: building it here",
+        ),
+        (
+            "cache-slow",
+            Some("in_progress "),
+            "was still in_progress after 40s: building it here",
+        ),
+    ];
+    for (name, runs, said) in cases {
+        let deployed = Box_::new(name);
+        deployed.set("next-result", "success");
+        if let Some(runs) = runs {
+            deployed.set("runs", runs);
+        }
+        let core = deployed.core(&deployed.new);
+        let out = deployed.deploy(
+            &[&deployed.new],
+            &[
+                ("SUZATARY_DEPLOY_PUBLICATIONS", "owner/core"),
+                ("SUZATARY_DEPLOY_CACHE_APPEAR", "30"),
+                ("SUZATARY_DEPLOY_CACHE_TIMEOUT", "40"),
+            ],
+        );
+        let stderr = text(&out.stderr);
+        assert!(out.status.success(), "{name}: {stderr}");
+        assert!(stderr.contains(said), "{name}: {stderr}");
+        assert_eq!(deployed.lock_holds(), core, "{name}");
+        let log = deployed.log();
+        let asked = log
+            .find(&format!(
+                "gh run list --repo owner/core --workflow publication.yml --commit {core} "
+            ))
+            .unwrap_or_else(|| panic!("{name}: the run of the publication is asked for:\n{log}"));
+        let built = log
+            .find("nix build")
+            .unwrap_or_else(|| panic!("{name}: the deploy builds:\n{log}"));
+        assert!(
+            asked < built,
+            "{name}: the wait comes before the build:\n{log}"
+        );
+    }
+
+    let deployed = Box_::new("cache-unasked");
+    deployed.set("next-result", "success");
+    deployed.set("gh-down", "");
+    let out = deployed.deploy(
+        &[&deployed.new],
+        &[("SUZATARY_DEPLOY_PUBLICATIONS", "owner/core")],
+    );
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(
+        text(&out.stderr).contains("could not ask GitHub for the publication run")
+            && text(&out.stderr).contains("error connecting to api.github.com"),
+        "{}",
+        text(&out.stderr)
+    );
+
+    let deployed = Box_::new("cache-held");
+    deployed.set("next-result", "success");
+    deployed.set("in-store", "");
+    let out = deployed.deploy(
+        &[&deployed.new],
+        &[("SUZATARY_DEPLOY_PUBLICATIONS", "owner/core")],
+    );
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(
+        text(&out.stderr).contains("the store holds the builds"),
+        "{}",
+        text(&out.stderr)
+    );
+    assert!(!deployed.log().contains("gh "), "{}", deployed.log());
+
+    // An input off GitHub has no publication run to ask for.
+    let deployed = Box_::new("cache-elsewhere");
+    deployed.set("next-result", "success");
+    let out = deployed.deploy(&[&deployed.new], &[]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(
+        text(&out.stderr).contains("is not on GitHub"),
+        "{}",
+        text(&out.stderr)
+    );
+    assert!(!deployed.log().contains("gh "), "{}", deployed.log());
 }

@@ -260,6 +260,8 @@ impl Round {
             let Some(waiting) = queue::Pending::of(&stored) else {
                 return Ok(Ran::Nothing);
             };
+            // When a stop arrives before the model is asked, the round asks the model nothing.
+            obeyed(rules.sink.halt)?;
             if self.steps == 0 {
                 (rules.load)()?;
             }
@@ -268,6 +270,8 @@ impl Round {
             }
             self.steps += 1;
             let after = self.calls.last().map(|called| called.verb.clone());
+            #[cfg(feature = "fixture")]
+            let _asking = crate::capability::pulled::Asking::of(rules.sink.halt);
             let asked = rules
                 .ask
                 .ask(at.id, rules.system, &tools, &stored, &waiting, rules.sink)

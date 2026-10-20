@@ -31,12 +31,16 @@ mod changelog;
 mod credential;
 #[path = "guards/deploy.rs"]
 mod deploy;
+#[path = "guards/gate_yml.rs"]
+mod gate_yml;
 #[path = "guards/guide.rs"]
 mod guide;
 #[path = "guards/leak.rs"]
 mod leak;
 #[path = "guards/merge_gate.rs"]
 mod merge_gate;
+#[path = "guards/publication.rs"]
+mod publication;
 #[path = "guards/template.rs"]
 mod template;
 #[path = "this_box.rs"]

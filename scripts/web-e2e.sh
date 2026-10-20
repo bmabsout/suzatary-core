@@ -56,6 +56,7 @@
 set -euo pipefail
 
 # $SUZATARY_E2E_SCENES, a pattern, runs only the scenes whose names match it.
+# $SUZATARY_E2E_PART=<k>/<n> runs only the k-th of n parts of the files (below); empty, every file.
 # $SUZATARY_E2E_TRACE_REQUESTS=1 logs every signed request: the tab's stages to
 # the console (a failure's trace keeps it) and the box's to each server's log.
 if [[ "${SUZATARY_E2E_TRACE_REQUESTS:-}" == "1" ]]; then
@@ -77,6 +78,17 @@ shards="${SUZATARY_E2E_SHARDS:-$(( $(nproc) < 4 ? $(nproc) : 4 ))}"
 if [[ ! "$shards" =~ ^[1-9][0-9]*$ ]]; then
   echo "web-e2e.sh: SUZATARY_E2E_SHARDS is a count of shards, 1 or more, not '$shards'" >&2
   exit 64
+fi
+
+# A PART, so separate machines split the suite (.github/workflows/gate.yml's e2e jobs): the files
+# of part k of n (scripts/e2e-part.sh, dealt by the tree alone), in place of the files named, and
+# refused before anything is built as the shards are. A part dealt no file runs nothing.
+if [[ -n "${SUZATARY_E2E_PART:-}" ]]; then
+  part="$(scripts/e2e-part.sh "$SUZATARY_E2E_PART" "$@")" || exit $?
+  echo "==> part $SUZATARY_E2E_PART: $(paste -sd' ' <<<"$part")"
+  [[ -n "$part" ]] || exit 0
+  mapfile -t parted <<<"$part"
+  set -- "${parted[@]}"
 fi
 
 echo "==> wait budget $(node -e 'import("./web/e2e/budget.ts").then(b => console.log(b.WAIT_MS))') ms (web/e2e/budget.ts)"
@@ -159,7 +171,7 @@ if ((shards > 1 && ${#names[@]} > 1)); then
   trap 'stop_shards; exit 143' TERM
   for ((i = 0; i < shards; i++)); do
     mapfile -t mine <"$dealt/$i.names"
-    SUZATARY_E2E_SHARDS=1 SUZATARY_FIXTURE_BIN="$fixture_bin" "$0" "${mine[@]}" >"$dealt/$i.log" 2>&1 &
+    SUZATARY_E2E_SHARDS=1 SUZATARY_E2E_PART="" SUZATARY_FIXTURE_BIN="$fixture_bin" "$0" "${mine[@]}" >"$dealt/$i.log" 2>&1 &
     pids[i]=$!
   done
   failed=0
@@ -314,6 +326,10 @@ cat > "$script" <<'SCRIPT'
   {
     "when": "propose the reply to dismiss",
     "reply": "{\"say\": \"Here is the reply.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The reply to dismiss\", \"body\": \"This one is dismissed with a reason.\", \"why\": \"Testing that a dismissal leaves the Inbox and shows the reason.\", \"sources\": \"todo:life/file-permit\"}}]}"
+  },
+  {
+    "when": "propose another reply meanwhile",
+    "reply": "{\"say\": \"Here is another.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"Another reply\", \"body\": \"This one stands while another is dismissed.\", \"why\": \"Testing that a dismissal drops only its own row from the Inbox.\", \"sources\": \"todo:life/file-permit\"}}]}"
   },
   {
     "when": "propose the failing reply",

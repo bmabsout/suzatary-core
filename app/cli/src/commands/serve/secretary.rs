@@ -392,7 +392,9 @@ pub fn stop(
     call: &Call<Actor, ConversationId, ()>,
 ) -> Result<Accepted<wire::ConversationPayload>, Refusal> {
     let id = &call.params;
-    call.state.workers.stop(id, call.guard.clone())?;
+    call.state
+        .workers
+        .stop(call.state.first.caps, id, call.guard.clone())?;
     call.state
         .with_cards(|caps, cards| secretary_routes::newest(caps, cards, id))
         .map(Accepted)

@@ -1,10 +1,10 @@
 // A store's row: the replica of its objects and the keys of their words, joined as a pair of unions, the free
-// semilattice on both. A key its objects name as erased opens nothing (the core reads that slot as erased whatever key
+// semilattice on both, within one generation and one epoch of the box's word. A key its objects name as erased opens nothing (the core reads that slot as erased whatever key
 // is given) and is OWED: held only until the blocks its words were rendered to are forgotten, since nothing else could
 // find them, and then dropped.
 
 import type { Replica } from "./replica"
-import { NOTHING, join, reset } from "./replica"
+import { NOTHING, join, reset, said } from "./replica"
 
 // The replicas' own, under names the row's join and reset do not shadow.
 const joined = join
@@ -38,9 +38,15 @@ export namespace locked {
       }),
     )
 
-  // A semilattice with `NONE` its unit: a later generation is kept whole, as the replicas' join keeps it, and within
-  // one, both sides united. Nothing new is `a` itself.
+  // The epoch of the box's word a row holds, 0 before the box has spoken: every epoch it answers with is 1 or more.
+  const epochOf = (r: Row): number => said(r.replica.box, 0, w => w.epoch)
+
+  // A semilattice with `NONE` its unit, ordered by generation and then by the epoch of the box's word: the later row is
+  // kept whole, so the join that brings in a later epoch's word is the one that drops every object and key of the
+  // epochs before, and no reader holds the word beside them. A store is a copy of the box's alone, so nothing of this
+  // device's own goes with them. Within one generation and epoch, both sides united. Nothing new is `a` itself.
   export const join = (a: Row, b: Row): Row => {
+    if (a.replica.generation === b.replica.generation && epochOf(a) !== epochOf(b)) return epochOf(a) > epochOf(b) ? a : b
     const replica = joined(a.replica, b.replica)
     const keys = a.replica.generation === b.replica.generation ? union(a.keys, b.keys) : replica === a.replica ? a.keys : b.keys
     return replica === a.replica && sameKeys(keys, a.keys) ? a : replica === b.replica && sameKeys(keys, b.keys) ? b : of(replica, keys)

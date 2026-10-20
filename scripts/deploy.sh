@@ -68,7 +68,12 @@
 # already: the merge gate's live half (`deploy-build`) ran this same list over
 # that commit's public tree, which is the store path the published commit is
 # fetched to, byte for byte, so a deploy of what the last train landed finds
-# every output in the store and its build is an evaluation.
+# every output in the store and its build is an evaluation. When the store
+# does not hold them, GitHub's runners have built them: each commit of
+# suzatary-core's master runs .github/workflows/publication.yml, which pushes
+# the builds to the binary cache this box substitutes from, and the deploy
+# waits for that run, bounded, so its build downloads; a run that failed or
+# never came leaves the build to this box, as before, and the deploy says so.
 #
 # THE LOG NEVER LIES, AND ONLY GROWS. The new lock is computed beside the user
 # repository and committed there through an index of the deploy's own, under
@@ -103,6 +108,15 @@
 #                     seconds to wait for the roots run, which only links
 #                     what the deploy built (default 600), and for the web
 #                     (600); the build itself has no timeout
+#   SUZATARY_DEPLOY_CACHE_TIMEOUT, SUZATARY_DEPLOY_CACHE_APPEAR
+#                     seconds to wait for the publication run that builds
+#                     the pinned commit and pushes it to the binary cache
+#                     (default 1200: past it, building here is quicker), and for such a run to appear at all
+#                     (120); past either the deploy builds here
+#   SUZATARY_DEPLOY_PUBLICATIONS
+#                     the GitHub repository (owner/name) whose publication
+#                     runs are asked; default: the one the declared input's
+#                     https://github.com URL names, and none for another
 #   SUZATARY_DEPLOY_REVERT_TIMEOUT
 #                     seconds to wait for the revert's relink (default 600),
 #                     its own bound: a failed forward wait must never shorten
@@ -110,6 +124,8 @@
 #   XDG_RUNTIME_DIR   required: `systemctl --user` answers EMPTY without it
 set -euo pipefail
 
+cache_timeout="${SUZATARY_DEPLOY_CACHE_TIMEOUT:-1200}"
+cache_appear="${SUZATARY_DEPLOY_CACHE_APPEAR:-120}"
 roots_timeout="${SUZATARY_DEPLOY_ROOTS_TIMEOUT:-600}"
 web_timeout="${SUZATARY_DEPLOY_WEB_TIMEOUT:-600}"
 revert_timeout="${SUZATARY_DEPLOY_REVERT_TIMEOUT:-600}"
@@ -270,11 +286,66 @@ pin="$(declared --argstr rev "$core" pinned)" || die "could not pin the input th
 nix flake lock --override-input suzatary "$pin" "path:$scratch" \
   || die "nix would not pin $pin; see its message above. Nothing moved."
 
+# --- the publication's builds -------------------------------------------------
+
+app="$(lock_read "$scratch/flake.lock" source.outPath)" \
+  || die "could not read the app the new lock names. Nothing moved."
+
+# How the publication run of commit <2> in GitHub repository <1> ended, as a word and its
+# detail: `success`; `failed <conclusion>`; `none`, when no run appeared within the appear
+# bound; `running <status>`, when one was still under way at the end of the whole bound; or
+# `unasked <gh's last line>`, when GitHub could not be asked. The newest run of the commit
+# counts, so a re-run that passed stands.
+publication_run() {
+  local polls=0 answer status conclusion
+  while :; do
+    answer="$(gh run list --repo "$1" --workflow publication.yml --commit "$2" --limit 1 \
+      --json status,conclusion --jq '.[] | "\(.status) \(.conclusion)"' 2>&1)" \
+      || { echo "unasked ${answer##*$'\n'}"; return 0; }
+    read -r status conclusion <<<"$answer"
+    case "$status" in
+      "") ((polls * 10 < cache_appear)) || { echo none; return 0; } ;;
+      completed)
+        if [[ "$conclusion" == success ]]; then echo success; else echo "failed $conclusion"; fi
+        return 0
+        ;;
+      *) ((polls * 10 < cache_timeout)) || { echo "running $status"; return 0; } ;;
+    esac
+    polls=$((polls + 1))
+    sleep 10
+  done
+}
+
+# The builds of a commit of suzatary-core's master are made on GitHub's runners
+# (.github/workflows/publication.yml, on each push to it) and pushed to the binary cache this
+# box substitutes from. So unless the store holds them already (the merge gate's deploy-build
+# made them), the deploy waits for that run, bounded: its success means the build below
+# downloads them; any other ending means it compiles them here, and says which.
+publications="${SUZATARY_DEPLOY_PUBLICATIONS:-}"
+if [[ -z "$publications" && "$remote" =~ ^https://github\.com/([^/]+)/([^/]+)$ ]]; then
+  publications="${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}"
+fi
+if nix path-info "$app#suzatary" "$app#suzatary-web" "$app#suzatary-plugins" >/dev/null 2>&1; then
+  say "the store holds the builds of ${rev:0:12} already"
+elif [[ "$branch" != master ]]; then
+  say "${core:0:12} is a commit of $branch, and publication runs build master alone: building it here"
+elif [[ -z "$publications" ]]; then
+  say "$remote is not on GitHub, so no publication run builds ${core:0:12}: building it here"
+else
+  say "waiting for the publication run of ${core:0:12} in $publications (at most ${cache_timeout}s)"
+  run="$(publication_run "$publications" "$core")"
+  case "$run" in
+    success) say "the publication run of ${core:0:12} succeeded: its builds come from the binary cache" ;;
+    failed*) say "the publication run of ${core:0:12} ended ${run#failed }: building it here" ;;
+    none) say "no publication run of ${core:0:12} appeared within ${cache_appear}s: building it here" ;;
+    running*) say "the publication run of ${core:0:12} was still ${run#running } after ${cache_timeout}s: building it here" ;;
+    unasked*) say "could not ask GitHub for the publication run of ${core:0:12} (${run#unasked }): building it here" ;;
+  esac
+fi
+
 # --- the build --------------------------------------------------------------
 
 # No timeout: the units serve the app they ran until the lock moves.
-app="$(lock_read "$scratch/flake.lock" source.outPath)" \
-  || die "could not read the app the new lock names. Nothing moved."
 say "building ${rev:0:12} ($app) before moving the lock"
 "$here/scripts/app-builds.sh" "$app" "$roots/deploy-" \
   || die "the build of ${rev:0:12} failed; see nix's message above. Nothing moved."

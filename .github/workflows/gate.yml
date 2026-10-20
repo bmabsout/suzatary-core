@@ -1,0 +1,106 @@
+name: Gate
+
+# THE MERGE GATE'S TREE HALF, ON GITHUB'S RUNNERS (scripts/train.sh gate --remote github). This
+# file runs in suzatary-core, the public repository the train publishes to, where runners cost
+# nothing. The train pushes one commit to a branch `gate/<train sha>`: the train commit's public
+# tree, a function of its tree. Each job checks out that one commit (depth 1, so it reads the tree
+# and no history) and runs one lane of scripts/merge-gate.sh's tree half with `--steps`; the steps
+# that read the private repository ran on the box before the push (train.sh's `box_steps`), and a
+# guard test holds the two lists to every step of the half.
+#
+# THE VERDICT IS READ OFF THE STEPS, NOT THE RUN. A job's `gate` step writes the gate's exit code
+# and passes; then `red` fails when the gate exited 1, and `no verdict` fails on any other code. So
+# the train reads red only where a gate found the tree red, and a run that failed any other way (a
+# runner lost, a cancel, a timeout, an install that failed, a gate that did not start) is no
+# verdict, never a red tree.
+#
+# WHO REACHES THE SECRET. Only a push to a `gate/**` branch runs this, and only someone with write
+# access to core can push one; a fork's push runs in the fork, with the fork's secrets, and no
+# pull request event is named here, so no pull request runs it, from a fork or not. The token
+# GitHub hands the jobs reads and writes nothing else (`contents: read`), and the checkout does not
+# keep it. The Cachix token pushes what the jobs build to the public `bmabsout` cache; the code it
+# runs beside is a train of reviewed pull requests, the code a land then deploys from that cache.
+on:
+  push:
+    branches: [ 'gate/**' ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+
+jobs:
+  gate:
+    name: gate (${{ matrix.lane }})
+    # The box is aarch64, and no step of the half needs x86_64.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    strategy:
+      # Every lane runs to its own end, so one run names every red step.
+      fail-fast: false
+      matrix:
+        include:
+          - { lane: checks, steps: 'fmt,clippy,clippy-fixture,doc', part: '' }
+          - { lane: tests, steps: 'build,fence-plugin,test,plugin-fence,plugin-sync', part: '' }
+          - { lane: guards, steps: 'guards', part: '' }
+          - { lane: web, steps: 'web-inputs,web-test,build-web', part: '' }
+          # e2e serves the bundle build-web writes from what web-inputs prepares, so each part
+          # makes them again; scripts/e2e-part.sh deals the scenes to the parts.
+          - { lane: e2e-1, steps: 'web-inputs,build-web,e2e', part: '1/4' }
+          - { lane: e2e-2, steps: 'web-inputs,build-web,e2e', part: '2/4' }
+          - { lane: e2e-3, steps: 'web-inputs,build-web,e2e', part: '3/4' }
+          - { lane: e2e-4, steps: 'web-inputs,build-web,e2e', part: '4/4' }
+          - { lane: nix, steps: 'nix-web,nix-module,release-free', part: '' }
+    steps:
+      # The runner's preinstalled toolchains, none of them used here, hold most of its disk, and
+      # the gate does not start short of 12 GB.
+      - name: Free the runner's disk
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell /opt/hostedtoolcache || true
+          df -h /
+
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      # The settings the gate's Codespace is made with (.devcontainer/devcontainer.json).
+      - uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd # v31.9.1
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            max-jobs = auto
+
+      - uses: cachix/cachix-action@3ba601ff5bbb07c7220846facfa2cd81eeee15a1 # v16
+        with:
+          name: bmabsout
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      # The shell the gate runs in, apart, so a download that fails here stops the job before its
+      # gate, as no verdict. A shell the tree cannot build is red on the box, whose public-tree
+      # step builds it.
+      - name: the shell
+        run: nix develop .#triage -c true
+
+      - id: gate
+        name: gate
+        env:
+          STEPS: ${{ matrix.steps }}
+          SUZATARY_E2E_PART: ${{ matrix.part }}
+        run: |
+          code=0
+          nix develop .#triage -c scripts/merge-gate.sh --no-live --steps "$STEPS" || code=$?
+          echo "code=$code" >>"$GITHUB_OUTPUT"
+
+      - name: red
+        if: always() && steps.gate.outputs.code == '1'
+        run: exit 1
+
+      - name: no verdict
+        if: always() && steps.gate.outputs.code != '0' && steps.gate.outputs.code != '1'
+        env:
+          CODE: ${{ steps.gate.outputs.code }}
+        run: |
+          echo "::error::the gate did not reach a verdict (exit ${CODE:-none}), which says nothing of the tree"
+          exit 1

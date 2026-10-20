@@ -1529,8 +1529,9 @@ struct Line {
     when: String,
     reply: String,
     /// A file the model waits for before it answers, and deletes as it does, so a scene sees the
-    /// round running for as long as it looks; a halt pulled meanwhile ends the wait as well, so a
-    /// scene's Stop always comes before the answer, which the box then drops.
+    /// round running for as long as it looks; the round's own halt, pulled before the model was
+    /// asked or while it waits, ends the wait as well, so a scene's Stop always comes before the
+    /// answer, which the box then drops.
     #[serde(default)]
     release: Option<PathBuf>,
 }
@@ -1610,8 +1611,7 @@ impl suzatary_core::capability::Model for Scripted {
             })?;
         if let Some(release) = &line.release {
             // Until the scene lets it answer, or a Stop pulls the round's halt, whose reply the box drops.
-            let pulled = suzatary_core::capability::pulled::count();
-            while suzatary_core::capability::pulled::count() == pulled
+            while !suzatary_core::capability::pulled::halted()
                 && std::fs::remove_file(release).is_err()
             {
                 std::thread::sleep(std::time::Duration::from_millis(50));
@@ -1633,6 +1633,72 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).expect("a writable temp directory");
         dir
+    }
+
+    /// Whether a script line that waits for a release nobody writes, asked under `halt`, answered
+    /// within five seconds; `pull_after` pulls `halt` that long after it is asked. A line still
+    /// waiting is then released, so no test leaves it polling.
+    fn line_answers(
+        name: &str,
+        halt: &suzatary_core::capability::Halt,
+        pull_after: Option<std::time::Duration>,
+    ) -> bool {
+        use suzatary_core::capability::Model;
+        let release = scratch(name).join("release");
+        let script = Scripted {
+            lines: vec![Line {
+                when: String::new(),
+                reply: r#"{"say": "stopped before it landed"}"#.to_owned(),
+                release: Some(release.clone()),
+            }],
+            name: "scripted/test".to_owned(),
+        };
+        let (answered, heard) = std::sync::mpsc::channel();
+        let asking = halt.clone();
+        std::thread::spawn(move || {
+            let _asking = suzatary_core::capability::pulled::Asking::of(&asking);
+            let asked = suzatary_core::capability::Conversation {
+                system: String::new(),
+                turns: Vec::new(),
+            };
+            let _sent = answered.send(script.turn(&asked, &serde_json::json!([])).is_ok());
+        });
+        if let Some(after) = pull_after {
+            std::thread::sleep(after);
+            halt.stop(prodrome_core::event::Actor::new("ada").expect("an actor"));
+        }
+        let within = heard.recv_timeout(std::time::Duration::from_secs(5));
+        if within.is_err() {
+            std::fs::write(&release, "").expect("the release is written");
+            let _ended = heard.recv();
+        }
+        within.unwrap_or(false)
+    }
+
+    /// The scripted model's wait ends on its own round's halt, pulled before it was asked or
+    /// while it waits, and never on another round's.
+    #[test]
+    fn a_waiting_script_line_ends_on_its_own_rounds_halt_whenever_it_is_pulled() {
+        let ada = || prodrome_core::event::Actor::new("ada").expect("an actor");
+        let before = suzatary_core::capability::Halt::new();
+        before.stop(ada());
+        assert!(
+            line_answers("halt-before", &before, None),
+            "pulled before it was asked"
+        );
+        assert!(
+            line_answers(
+                "halt-during",
+                &suzatary_core::capability::Halt::new(),
+                Some(std::time::Duration::from_millis(200))
+            ),
+            "pulled while it waits"
+        );
+        suzatary_core::capability::Halt::new().stop(ada());
+        assert!(
+            !line_answers("halt-other", &suzatary_core::capability::Halt::new(), None),
+            "another round's halt, pulled, does not end it"
+        );
     }
 
     #[test]

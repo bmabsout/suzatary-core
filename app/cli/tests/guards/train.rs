@@ -4,6 +4,7 @@
 //! ssh` runs commands in), and a stub gate whose halves' verdicts are functions of the tree.
 
 use super::{Scratch, repo};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -24,9 +25,50 @@ struct Train {
 /// keep-alive (ten seconds at most, so a train that starts none fails rather than
 /// hangs), so a gate's keep-alive is always the first call it logs. The stub holds
 /// none of the train's lock: what it starts in the Codespace is not the train.
+///
+/// It also plays GitHub's API over the gate branches pushed to `core.git`, logging each call to
+/// `github.log`: `api …/actions/runs?head_sha=<sha>…` answers nothing until core holds `<sha>`,
+/// then runs the stub gate's tree half once in `runner-<sha>`, a checkout of that commit alone, as
+/// gate.yml's jobs do, and answers the run's id (the sha); `api …/actions/runs/<id>` answers
+/// `completed <conclusion>`, success where the gate passed and failure where it failed;
+/// `…/runs/<id>/jobs…` answers `7 gate (tests)` for a failed gate, whose `red` step failed; and
+/// `…/jobs/7/logs` the gate's output, each line stamped with a time as GitHub's are. With
+/// `GH_RUN=cancelled` the run is cancelled, and with `GH_RUN=lost` it fails with no red step, as
+/// a lost runner's does, and with `GH_RUN=running` it never ends; none of them runs the gate.
 const GH: &str = r#"#!/bin/sh
 exec 9>&-
 here="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "$1" = api ]; then
+  echo "api $2" >>"$here/github.log"
+  case "$2" in
+    repos/*/actions/runs\?head_sha=*)
+      sha="${2#*head_sha=}" && sha="${sha%%&*}"
+      git --git-dir="$here/core.git" cat-file -e "$sha^{commit}" 2>/dev/null || exit 0
+      if [ ! -e "$here/runs/$sha" ]; then
+        mkdir -p "$here/runs"
+        case "$GH_RUN" in
+          cancelled) echo "completed cancelled" >"$here/runs/$sha" ;;
+          lost) echo "completed failure" >"$here/runs/$sha" ;;
+          running) echo "in_progress " >"$here/runs/$sha" ;;
+          *)
+            git clone -q "$here/core.git" "$here/runner-$sha" && git -C "$here/runner-$sha" checkout -q --detach "$sha"
+            if (cd "$here/runner-$sha" && "$here/bin/gate" --no-live --steps cloud) >"$here/runs/$sha.log" 2>&1; then
+              echo "completed success" >"$here/runs/$sha"
+            else
+              echo "completed failure" >"$here/runs/$sha" && : >"$here/runs/$sha.red"
+            fi ;;
+        esac
+      fi
+      echo "$sha" ;;
+    repos/*/actions/runs/*/jobs*)
+      run="${2#*/runs/}" && run="${run%%/*}"
+      [ ! -e "$here/runs/$run.red" ] || echo "7 gate (tests)" ;;
+    repos/*/actions/runs/*) cat "$here/runs/${2##*/}" ;;
+    repos/*/actions/jobs/7/logs) sed 's/^/2026-10-20T10:00:00.1234567Z /' "$(ls -t "$here"/runs/*.log | head -n 1)" ;;
+    *) exit 64 ;;
+  esac
+  exit 0
+fi
 case "$1 $2" in
   "pr view")
     if [ "$5" = body ]; then cat "$here/prs/$3.body" 2>/dev/null; exit 0; fi
@@ -55,9 +97,12 @@ esac
 /// fifo and waits on `<GATE_HOLD>` to go on, and with `GATE_HOLD_LIVE` the live half does the
 /// same. A full run of a tree holding `missed` fails, as a selection that missed a step would.
 /// With `GATE_RED_TEXT` set, the tree half is red on a tree whose CHANGELOG.md holds that text.
-/// Each run writes the environment it was handed to `<TRAIN_PROBES>.env`.
+/// Each run writes the environment it was handed to `<TRAIN_PROBES>.env`, and its arguments, a
+/// line, to `<TRAIN_PROBES>.args`. Run with `--steps` naming `changelog`, the box's part of a
+/// tree half on GitHub's runners, it is red on a tree holding `broken-box` and on no other.
 const GATE: &str = r#"#!/bin/sh
 env >"$TRAIN_PROBES.env"
+echo "$*" >>"$TRAIN_PROBES.args"
 full=""
 if [ "$1" = --full ]; then full=1; shift; echo "$1 $(git rev-parse HEAD)" >>"$TRAIN_PROBES.full"; fi
 echo "$1 $(git rev-parse HEAD) $(pwd)" >>"$TRAIN_PROBES"
@@ -65,7 +110,9 @@ echo "$1 $(git rev-parse HEAD) $(pwd)" >>"$TRAIN_PROBES"
 [ -z "$GATE_HOLD" ] || [ "$1" != --no-live ] || { echo up >"$GATE_HOLD.up"; cat "$GATE_HOLD" >/dev/null; }
 [ -z "$GATE_HOLD_LIVE" ] || [ "$1" != --only-live ] || { echo up >"$GATE_HOLD_LIVE.up"; cat "$GATE_HOLD_LIVE" >/dev/null; }
 case "$1" in
-  --no-live) bad=broken ;;
+  --no-live)
+    bad=broken
+    case "$2 $3" in "--steps "*changelog*) bad=broken-box ;; esac ;;
   --only-live) bad=broken-live ;;
   *) exit 64 ;;
 esac
@@ -1536,6 +1583,293 @@ fn train_gate_remote_keep_alive_ends_with_a_train_killed_outright() {
         t.codespace_calls()
     );
     std::fs::write(&hold, "").expect("the held gate goes on");
+}
+
+impl Train {
+    /// Core as a GitHub repository, `github.com/test/core`, which git reaches in `core.git`, so
+    /// the train derives the repository the stub `gh` answers for; and every ref pushed to core
+    /// from now on logged, `<ref> <new sha>` a line, a deletion's sha all zeros.
+    fn on_github(&self) {
+        let url = "https://github.com/test/core.git";
+        self.git(&["remote", "set-url", "core", url]);
+        let core = self.scratch.join("core.git");
+        self.git(&["config", &format!("url.{}.insteadOf", core.display()), url]);
+        let hook = core.join("hooks/update");
+        write(
+            &core,
+            "hooks/update",
+            &format!(
+                "#!/bin/sh\necho \"$1 $3\" >>'{}'\n",
+                self.scratch.join("core-pushes").display()
+            ),
+        );
+        run(Command::new("chmod").args(["+x"]).arg(hook), "chmod");
+    }
+
+    /// The refs pushed to core, in order: `<ref> <new sha>`.
+    fn core_pushes(&self) -> Vec<String> {
+        std::fs::read_to_string(self.scratch.join("core-pushes"))
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// The stub `gh`'s calls to GitHub's API.
+    fn github_calls(&self) -> Vec<String> {
+        std::fs::read_to_string(self.scratch.join("github.log"))
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// The arguments of each run of the stub gate.
+    fn gate_args(&self) -> Vec<String> {
+        std::fs::read_to_string(self.probes_file().with_extension("args"))
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+}
+
+const ZERO: &str = "0000000000000000000000000000000000000000";
+
+/// `gate --remote github`: the box runs its steps of the tree half first, then the train commit's
+/// public tree goes to core, committed on core's master by the publications' author with a `Gate:`
+/// trailer, pushed to `gate/<train sha>` and to no other ref; the runner gates that commit alone,
+/// its success is the half's green, and the branch is deleted once the run is read. The live half
+/// runs on the box as ever, and the train lands.
+#[test]
+fn train_gate_github_runs_the_public_tree_on_a_gate_branch_and_records_its_green() {
+    let t = Train::new("github");
+    t.on_github();
+    t.pr(
+        1,
+        "the first",
+        &[("a.txt", "a\n"), ("private/notes.md", "private\n")],
+    );
+    assert!(t.train(&["build", "1"]).status.success());
+    let train = t.git(&["rev-parse", "train"]);
+    let master = t.core(&["rev-parse", "master"]);
+
+    let out = t.train(&["gate", "--remote", "github"]);
+    assert!(out.status.success(), "gate: {}", text(&out.stderr));
+    assert!(
+        t.gate_args()
+            .iter()
+            .any(|args| args.ends_with("--no-live --steps public-tree,deployed-shape,changelog")),
+        "the box ran its steps: {:?}",
+        t.gate_args()
+    );
+    let refs = t.core_pushes();
+    let branch = format!("refs/heads/gate/{train}");
+    assert_eq!(refs.len(), 2, "one push and one deletion: {refs:?}");
+    let pushed = refs[0]
+        .strip_prefix(&format!("{branch} "))
+        .unwrap_or_else(|| panic!("only gate/<train sha> is pushed: {refs:?}"))
+        .to_owned();
+    assert_eq!(refs[1], format!("{branch} {ZERO}"), "and then deleted");
+    assert_eq!(
+        t.core(&["rev-parse", "master"]),
+        master,
+        "core's master never moves"
+    );
+    assert_eq!(
+        t.core(&["for-each-ref", "refs/heads/gate/"]),
+        "",
+        "no gate branch is left"
+    );
+
+    assert_eq!(t.core(&["rev-parse", &format!("{pushed}^")]), master);
+    assert_eq!(
+        t.core(&["log", "-1", "--format=%an <%ae>", &pushed]),
+        "Suzatary <publish@suzatary.invalid>"
+    );
+    assert_eq!(
+        t.core(&[
+            "log",
+            "-1",
+            "--format=%(trailers:key=Gate,valueonly)",
+            &pushed
+        ]),
+        train
+    );
+    let files = t.core(&["ls-tree", "-r", "--name-only", &pushed]);
+    assert!(
+        files.lines().any(|f| f == "a.txt") && !files.contains("private/"),
+        "the train's public tree: {files}"
+    );
+    let runner = t.scratch.join(format!("runner-{pushed}"));
+    assert!(
+        t.ran_in("--no-live")
+            .contains(&runner.canonicalize().expect("the runner's checkout")),
+        "the runner gated the pushed commit"
+    );
+    assert!(
+        t.github_calls()
+            .iter()
+            .any(|call| call.contains(&format!("head_sha={pushed}"))),
+        "the train waited on that commit's run: {:?}",
+        t.github_calls()
+    );
+
+    let landed = t.train(&["land"]);
+    assert!(landed.status.success(), "land: {}", text(&landed.stderr));
+    assert_eq!(t.origin_master(), train);
+}
+
+/// A run whose gate failed is the tree half's red, with the gate's failing lines, read off the
+/// job's log, and the land is refused; the branch is deleted all the same.
+#[test]
+fn train_gate_github_red_run_is_the_halfs_red() {
+    let t = Train::new("github-red");
+    t.on_github();
+    t.pr(1, "the first", &[("broken", "x\n")]);
+    let seed = t.origin_master();
+    assert!(t.train(&["build", "1"]).status.success());
+
+    let red = t.train(&["gate", "--remote", "github"]);
+    let stderr = text(&red.stderr);
+    assert!(!red.status.success());
+    assert!(
+        stderr.contains("tree half: failed") && stderr.contains("live half: ok"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("broken is in the tree") && stderr.contains("red: gate (tests)"),
+        "the job's failing lines: {stderr}"
+    );
+    assert_eq!(t.core(&["for-each-ref", "refs/heads/gate/"]), "");
+    let refused = t.train(&["land"]);
+    assert!(text(&refused.stderr).contains("tree: failed"));
+    assert_eq!(t.origin_master(), seed, "nothing landed");
+}
+
+/// A run the cloud ended (cancelled, or failed with no gate red, as a lost runner's) says nothing
+/// of the tree: no verdict, so the train lands nothing, and the next gate pushes a commit of its
+/// own and is read afresh.
+#[test]
+fn train_gate_github_cancelled_or_lost_run_is_no_verdict() {
+    for how in ["cancelled", "lost"] {
+        let t = Train::new(&format!("github-{how}"));
+        t.on_github();
+        t.pr(1, "the first", &[("a.txt", "a\n")]);
+        assert!(t.train(&["build", "1"]).status.success());
+
+        let out = t.train_with(&["gate", "--remote", "github"], &[("GH_RUN", how)]);
+        let stderr = text(&out.stderr);
+        assert!(
+            !out.status.success(),
+            "{how}: no tree verdict, no green: {stderr}"
+        );
+        assert!(
+            stderr.contains("tree half: unknown") && stderr.contains("says nothing of"),
+            "{how}: {stderr}"
+        );
+        assert_eq!(t.core(&["for-each-ref", "refs/heads/gate/"]), "");
+        assert!(
+            text(&t.train(&["land"]).stderr).contains("tree: unknown"),
+            "{how}: nothing to land on"
+        );
+
+        let again = t.train(&["gate", "--remote", "github"]);
+        assert!(
+            again.status.success(),
+            "{how}: the next gate is green: {}",
+            text(&again.stderr)
+        );
+        let pushed: BTreeSet<String> = t
+            .core_pushes()
+            .iter()
+            .filter(|line| !line.ends_with(ZERO))
+            .map(|line| line.split(' ').nth(1).expect("a sha").to_owned())
+            .collect();
+        assert_eq!(
+            pushed.len(),
+            2,
+            "{how}: each gate pushed a commit of its own"
+        );
+    }
+}
+
+/// The box's steps red: the half is red, and nothing goes to core.
+#[test]
+fn train_gate_github_red_on_the_box_pushes_nothing() {
+    let t = Train::new("github-box-red");
+    t.on_github();
+    t.pr(1, "the first", &[("broken-box", "x\n")]);
+    assert!(t.train(&["build", "1"]).status.success());
+
+    let out = t.train(&["gate", "--remote", "github"]);
+    assert!(!out.status.success());
+    assert!(
+        text(&out.stderr).contains("tree half: failed"),
+        "{}",
+        text(&out.stderr)
+    );
+    assert_eq!(t.core_pushes(), Vec::<String>::new(), "nothing pushed");
+    assert_eq!(t.github_calls(), Vec::<String>::new(), "no run asked for");
+}
+
+/// A public tree its leak guard refuses never leaves the box: nothing is pushed, no step runs, and
+/// the tree half says nothing of the tree.
+#[test]
+fn train_gate_github_whose_public_tree_leaks_pushes_nothing() {
+    let t = Train::new("github-leak");
+    t.on_github();
+    t.pr(1, "the first", &[("a.txt", "a leak\n")]);
+    assert!(t.train(&["build", "1"]).status.success());
+
+    let out = t.train(&["gate", "--remote", "github"]);
+    let stderr = text(&out.stderr);
+    assert!(!out.status.success());
+    assert!(
+        stderr.contains("leak guard") && stderr.contains("tree half: unknown"),
+        "{stderr}"
+    );
+    assert_eq!(t.core_pushes(), Vec::<String>::new(), "nothing pushed");
+    assert_eq!(t.probes("--no-live"), 0, "no step of the tree half ran");
+}
+
+/// A train killed while it waits on the cloud's run deletes its gate branch on the way out.
+#[test]
+fn train_gate_github_killed_deletes_its_branch() {
+    let t = Train::new("github-killed");
+    t.on_github();
+    t.pr(1, "the first", &[("a.txt", "a\n")]);
+    assert!(t.train(&["build", "1"]).status.success());
+    let train = t.git(&["rev-parse", "train"]);
+
+    let gating = t
+        .command(&["gate", "--remote", "github"], &[("GH_RUN", "running")])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .expect("train.sh starts");
+    let branch = format!("refs/heads/gate/{train}");
+    assert!(
+        within_twenty_seconds(|| {
+            t.core(&["for-each-ref", "--format=%(refname)", "refs/heads/gate/"]) == branch
+                && t.github_calls()
+                    .iter()
+                    .any(|call| call.contains("/actions/runs/") && !call.contains("head_sha"))
+        }),
+        "the train pushed its branch and waits on the run: {:?}",
+        t.github_calls()
+    );
+    run(
+        Command::new("kill").arg(gating.id().to_string()),
+        "kill the train",
+    );
+    let out = gating.wait_with_output().expect("the train ends");
+    assert!(!out.status.success(), "a killed train is not green");
+    assert_eq!(
+        t.core(&["for-each-ref", "refs/heads/gate/"]),
+        "",
+        "its gate branch went with it"
+    );
 }
 
 /// A land publishes the landed commit's public tree to core's master as one commit naming its
