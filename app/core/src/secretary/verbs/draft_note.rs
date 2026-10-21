@@ -38,7 +38,7 @@ impl Verb for DraftNote {
                 turn: Turn::Tool {
                     verb: crate::secretary::SecretaryVerb::DraftNote.into(),
                     answer: format!("{}\n\n{}", args.title, args.note),
-                    refused: false,
+                    outcome: crate::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
                 by: None,

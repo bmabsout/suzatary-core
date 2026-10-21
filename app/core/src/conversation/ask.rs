@@ -297,7 +297,7 @@ fn heading(memories: crate::secretary::memories::Memories<'_>, telling: Telling<
                 turn: Some(Turn::Tool {
                     verb: crate::secretary::tool_name::ToolName::Memory,
                     answer: format!("your memory could not be read: {}", refusal.message()),
-                    refused: true,
+                    outcome: crate::secretary::outcome::Outcome::Refused,
                     files: Vec::new(),
                 }),
                 version: None,

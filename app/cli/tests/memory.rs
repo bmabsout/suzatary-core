@@ -417,9 +417,9 @@ fn a_round_the_box_opened_remembers_nothing() {
             suzatary_core::capability::Turn::Tool {
                 verb,
                 answer,
-                refused,
+                outcome,
                 files: _,
-            } if verb.as_str() == "remember" => Some((answer.clone(), *refused)),
+            } if verb.as_str() == "remember" => Some((answer.clone(), outcome.refused())),
             _ => None,
         })
         .expect("a remember turn");

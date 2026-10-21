@@ -331,8 +331,8 @@ impl Stored {
         let wrote =
             |index: usize, said: &Said| match crate::secretary::turn_shape::shape(&said.turn) {
                 TurnShape::Model { .. } => false,
-                TurnShape::Tool { verb, refused, .. } => {
-                    !refused
+                TurnShape::Tool { verb, outcome, .. } => {
+                    !outcome.refused()
                         && verb.verb().is_some_and(|verb| {
                             verb.class().effect != crate::secretary::Effect::Reads
                         })

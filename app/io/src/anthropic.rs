@@ -328,7 +328,7 @@ mod tests {
             turns: vec![Turn::Tool {
                 verb: "drive_read".into(),
                 answer: "{}".to_owned(),
-                refused: false,
+                outcome: suzatary_core::secretary::outcome::Outcome::Answered,
                 files: vec![Enclosed {
                     id,
                     name: "lease.pdf".to_owned(),

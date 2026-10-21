@@ -185,7 +185,7 @@ fn imaged(
             .iter()
             .map(|(name, text)| (name.clone(), text.clone())),
         genesis,
-        map,
+        |_, event| map(event),
     )
     .expect("an image")
 }
@@ -290,7 +290,49 @@ fn a_history_of_two_prodromes_has_no_image() {
     );
     let both: BTreeMap<_, _> = a.into_iter().chain(objects(&b)).collect();
     assert_eq!(
-        image::<MemoryEvent>(&MemoryVocabulary, both, &other('2'), identity()),
+        image::<MemoryEvent>(&MemoryVocabulary, both, &other('2'), |_, event| identity()(
+            event
+        )),
         Err(suzatary_core::store::NotAnImage::Geneses(2))
     );
+}
+
+/// The map is told the name of the object whose event it rewrites, once for every change and
+/// never for the genesis.
+#[test]
+fn the_map_is_told_each_changes_name() {
+    let history = history(
+        &[
+            Step::Remember {
+                b: false,
+                n: 1,
+                kind: Kind::Owner,
+            },
+            Step::Forget { b: false, n: 1 },
+        ],
+        true,
+    );
+    let genesis = genesis_of(&history);
+    let told = std::cell::RefCell::new(Vec::new());
+    image::<MemoryEvent>(
+        &MemoryVocabulary,
+        history
+            .iter()
+            .map(|(name, text)| (name.clone(), text.clone())),
+        &genesis,
+        |name, event| {
+            told.borrow_mut().push(name.clone());
+            Ok(event.clone())
+        },
+    )
+    .expect("an image");
+    let mut told = told.into_inner();
+    told.sort();
+    let changes: Vec<Hash> = history
+        .iter()
+        .filter(|(_, text)| text.starts_with("Change("))
+        .map(|(name, _)| name.clone())
+        .collect();
+    assert_eq!(told, changes);
+    assert!(changes.len() >= 2, "the remember and the forget at least");
 }

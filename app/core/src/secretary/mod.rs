@@ -61,6 +61,7 @@ pub mod memory_event;
 pub mod memory_registers;
 pub mod noticed;
 pub mod opened;
+pub mod outcome;
 pub mod phase;
 pub mod proposer;
 pub mod queue;
@@ -360,14 +361,14 @@ fn load_references(
         Some(Turn::Model { .. } | Turn::Tool { .. } | Turn::Erased { .. }) | None => return Ok(()),
     };
     for reference in &references {
-        let (answer, refused) = match load(caps, deployment, settables, chains, id, reference) {
-            Ok(Value::String(text)) => (text, false),
+        let (answer, outcome) = match load(caps, deployment, settables, chains, id, reference) {
+            Ok(Value::String(text)) => (text, outcome::Outcome::Answered),
             Ok(other) => (
                 serde_json::to_string_pretty(&other)
                     .unwrap_or_else(|failed| format!("(the answer did not serialise: {failed})")),
-                false,
+                outcome::Outcome::Answered,
             ),
-            Err(refusal) => (refusal.message().to_owned(), true),
+            Err(refusal) => (refusal.message().to_owned(), outcome::Outcome::Refused),
         };
         append(
             caps.conversations,
@@ -378,7 +379,7 @@ fn load_references(
                     verb: tool_name::ToolName::Reference,
                     // The text form first, so the model can name the thing back.
                     answer: format!("{reference}\n\n{answer}"),
-                    refused,
+                    outcome,
                     files: Vec::new(),
                 },
                 by: None,

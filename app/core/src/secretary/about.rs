@@ -98,7 +98,7 @@ mod tests {
             "verb" => Turn::Tool {
                 verb: "todo_show".into(),
                 answer: row.text.clone(),
-                refused: false,
+                outcome: crate::secretary::outcome::Outcome::Answered,
                 files: Vec::new(),
             },
             other => panic!("the fixture named an unknown turn kind {other:?}"),

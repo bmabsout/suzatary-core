@@ -195,7 +195,7 @@ pub fn plan(history: &[(Hash, String)], secretary: &str) -> anyhow::Result<Plan>
         &InboxVocabulary,
         history.iter().cloned(),
         &genesis,
-        |event| {
+        |_, event| {
             Ok(by_print
                 .get(&print_literal(event))
                 .cloned()

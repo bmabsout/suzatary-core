@@ -246,7 +246,11 @@ fn conversation(script: &[(Step, u32)]) -> Vec<Entry> {
                     } else {
                         "the permit is due Friday".to_owned()
                     },
-                    refused: *refused,
+                    outcome: if *refused {
+                        suzatary_core::secretary::outcome::Outcome::Refused
+                    } else {
+                        suzatary_core::secretary::outcome::Outcome::Answered
+                    },
                     files: Vec::new(),
                 },
             ),
@@ -956,7 +960,7 @@ fn live_shaped(lines: usize) -> Vec<Entry> {
                 2 => Turn::Tool {
                     verb: "mail_search".into(),
                     answer: text,
-                    refused: false,
+                    outcome: suzatary_core::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
                 _ => Turn::Model {

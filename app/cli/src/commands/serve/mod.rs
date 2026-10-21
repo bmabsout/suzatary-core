@@ -1871,10 +1871,13 @@ pub fn run(path: &Path, args: Args) -> anyhow::Result<()> {
 /// [`run`] over an instance already read; public so the CLI's tests drive the refusal.
 ///
 /// # Errors
-/// An inbox still in the old forms, flags that do not resolve, and the server's own.
+/// An inbox or conversations still in the old forms, flags that do not resolve, and the
+/// server's own.
 pub fn serve(instance: &Instance, args: Args) -> anyhow::Result<()> {
-    // Until the inbox is carried this build would read it wrong, so it does not start.
+    // Until the inbox and the conversations are carried this build would read them wrong, so
+    // it does not start.
     super::migrate_inbox::uncarried(instance)?;
+    super::migrate_receipts::uncarried(instance)?;
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),

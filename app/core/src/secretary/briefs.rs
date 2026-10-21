@@ -157,7 +157,7 @@ mod tests {
         Turn::Tool {
             verb: verb.into(),
             answer: "{}".to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         }
     }

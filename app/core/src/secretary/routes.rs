@@ -2604,7 +2604,7 @@ mod tests {
                 turn: crate::capability::Turn::Tool {
                     verb: "propose_email".into(),
                     answer: "to must name at least one recipient".to_owned(),
-                    refused: true,
+                    outcome: crate::secretary::outcome::Outcome::Refused,
                     files: Vec::new(),
                 },
                 by: None,
@@ -2628,8 +2628,9 @@ mod tests {
     /// A receipt's words are the memory's, whatever the answer quoted: an answer stored before the
     /// verb stopped echoing its fact still names it, and a forgotten fact still draws none.
     #[test]
-    fn a_receipt_reads_its_words_from_the_memory_never_the_answer() {
+    fn a_receipt_is_the_shapes_fact_and_its_words_the_memorys() {
         use crate::secretary::memory::{Fact, FactId, Forgotten, Kind, Memory, Origin, Remembered};
+        use crate::secretary::outcome::Outcome;
         let memory = Memory {
             facts: vec![Remembered {
                 id: FactId(1),
@@ -2649,16 +2650,11 @@ mod tests {
             }],
             version: 3,
         };
-        let drawn = |answer: &str, memory: Option<&Memory>| match turn(
+        let row = |turn_said: crate::capability::Turn, memory: Option<&Memory>| match turn(
             &NeverAsked,
             &Said {
                 at: crate::capability::Datetime::new(2026, 10, 2, 9, 0, 0, 0).expect("an instant"),
-                turn: crate::capability::Turn::Tool {
-                    verb: "remember".into(),
-                    answer: answer.to_owned(),
-                    refused: false,
-                    files: Vec::new(),
-                },
+                turn: turn_said,
                 by: None,
             },
             Place::at(2),
@@ -2669,34 +2665,71 @@ mod tests {
             wire::Speaker::Verb { remembered, .. } => remembered,
             other => panic!("a verb's turn reads as {other:?}"),
         };
-        let earlier = r#"{"remembered": 1, "fact": "Something else", "kind": "owner"}"#;
+        // The answer names another fact than the shape, so a reading of the answer would show.
+        let drawn = |outcome: Outcome, memory: Option<&Memory>| {
+            row(
+                crate::capability::Turn::Tool {
+                    verb: "remember".into(),
+                    answer: r#"{"remembered": 5, "kind": "owner"}"#.to_owned(),
+                    outcome,
+                    files: Vec::new(),
+                },
+                memory,
+            )
+        };
+        let remembered = |fact: u64| Outcome::Remembered { fact: FactId(fact) };
         assert_eq!(
-            drawn(earlier, Some(&memory)),
+            drawn(remembered(1), Some(&memory)),
             Some(wire::Receipt::Standing {
                 fact: FactId(1),
                 text: "He takes the 7:40 train".to_owned()
             })
         );
-        let gone = r#"{"remembered": 2, "fact": "Mira is the accountant", "kind": "person"}"#;
         assert_eq!(
-            drawn(gone, Some(&memory)),
+            drawn(remembered(2), Some(&memory)),
             Some(wire::Receipt::Forgotten { fact: FactId(2) })
         );
         assert_eq!(
-            drawn(r#"{"remembered": 2, "kind": "person"}"#, Some(&memory)),
-            Some(wire::Receipt::Forgotten { fact: FactId(2) })
-        );
-        assert_eq!(
-            drawn(r#"{"remembered": 9, "kind": "person"}"#, Some(&memory)),
+            drawn(remembered(9), Some(&memory)),
             Some(wire::Receipt::Unread { fact: FactId(9) }),
             "a fact whose words are lost"
         );
         assert_eq!(
-            drawn(gone, None),
+            drawn(remembered(2), None),
             Some(wire::Receipt::Unread { fact: FactId(2) }),
             "a memory that will not read"
         );
-        assert_eq!(drawn(r#"{"proposed": 0}"#, Some(&memory)), None);
+        assert_eq!(
+            drawn(Outcome::Answered, Some(&memory)),
+            None,
+            "an answer that wrote no fact, such as a card filed, has no receipt"
+        );
+        assert_eq!(drawn(Outcome::Refused, Some(&memory)), None);
+        // Erased by the owner, not by a forget: the shape still names the fact.
+        let erased = crate::secretary::turn_shape::join(
+            crate::secretary::turn_shape::TurnShape::Tool {
+                verb: "remember".into(),
+                outcome: remembered(1),
+                files: Vec::new(),
+            },
+            vec![
+                crate::secretary::words::Gone::Erased {
+                    erasure: crate::secretary::erasure::Erasure::Asked {
+                        by: prodrome_core::event::Actor::new("ada").expect("an actor"),
+                    },
+                }
+                .into(),
+            ],
+        );
+        assert!(matches!(erased, crate::capability::Turn::Erased { .. }));
+        assert_eq!(
+            row(erased, Some(&memory)),
+            Some(wire::Receipt::Standing {
+                fact: FactId(1),
+                text: "He takes the 7:40 train".to_owned()
+            }),
+            "a receipt outlives its turn's words"
+        );
     }
 
     struct AlwaysRenders;

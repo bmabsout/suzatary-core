@@ -15,6 +15,7 @@ use crate::secretary::SecretaryVerb;
 use crate::secretary::line_shape::LineShape;
 use crate::secretary::locked_text::KeyName;
 use crate::secretary::memory::{FactId, Origin};
+use crate::secretary::outcome::Outcome;
 use crate::secretary::store::Entry;
 use crate::secretary::transcript::Transcript;
 use crate::secretary::turn_shape::TurnShape;
@@ -89,14 +90,16 @@ impl Caused {
     }
 }
 
-/// Whether `entry` is the answer of the `remember` call that wrote `fact` at `origin`.
+/// Whether `entry` is the answer of the `remember` call that wrote `fact` at `origin`: for a
+/// fact written in a turn, the turn's receipt names it; for a tapped card, the answer that filed
+/// the card names the card.
 fn receipt(entry: &Entry, fact: FactId, origin: &Origin) -> bool {
     let Entry::Said {
         turn:
             Turn::Tool {
                 verb,
                 answer,
-                refused: false,
+                outcome,
                 ..
             },
         ..
@@ -104,17 +107,17 @@ fn receipt(entry: &Entry, fact: FactId, origin: &Origin) -> bool {
     else {
         return false;
     };
-    if verb.verb() != Some(SecretaryVerb::Remember) {
-        return false;
+    match origin {
+        Origin::Turn { .. } => outcome.remembered() == Some(fact),
+        Origin::Tapped { proposal, .. } => {
+            verb.verb() == Some(SecretaryVerb::Remember)
+                && *outcome == Outcome::Answered
+                && serde_json::from_str::<serde_json::Value>(answer)
+                    .ok()
+                    .and_then(|answered| answered.get("proposed")?.as_u64())
+                    == u64::try_from(*proposal).ok()
+        }
     }
-    let Ok(answered) = serde_json::from_str::<serde_json::Value>(answer) else {
-        return false;
-    };
-    let (field, number) = match origin {
-        Origin::Turn { .. } => ("remembered", Some(fact.0)),
-        Origin::Tapped { proposal, .. } => ("proposed", u64::try_from(*proposal).ok()),
-    };
-    number.is_some() && answered.get(field).and_then(serde_json::Value::as_u64) == number
 }
 
 /// A model turn's calls, by verb; `None` for any other line.

@@ -214,7 +214,7 @@ mod tests {
         Turn::Tool {
             verb: "show".into(),
             answer: text.to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         }
     }

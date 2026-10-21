@@ -79,8 +79,8 @@ pub fn turn(said: &Said) -> Taint {
 fn of_turn(turn: &Turn, stamp: Option<&Stamp>) -> Taint {
     match shape(turn) {
         TurnShape::Model { .. } => Taint::Clean,
-        TurnShape::Tool { verb, refused, .. } => match verb.verb() {
-            Some(SecretaryVerb::Zoom) if !refused => match turn {
+        TurnShape::Tool { verb, outcome, .. } => match verb.verb() {
+            Some(SecretaryVerb::Zoom) if !outcome.refused() => match turn {
                 Turn::Tool { answer, .. } => zoomed(answer),
                 _ => Taint::Tainted,
             },
@@ -255,7 +255,7 @@ mod tests {
         Turn::Tool {
             verb: verb.into(),
             answer: "{}".to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         }
     }

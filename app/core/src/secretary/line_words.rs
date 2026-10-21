@@ -276,7 +276,7 @@ pub(crate) mod tests {
             let turn = crate::capability::Turn::Tool {
                 verb: crate::secretary::tool_name::ToolName::from("junk_digest"),
                 answer: answer.clone(),
-                refused: false,
+                outcome: crate::secretary::outcome::Outcome::Answered,
                 files: Vec::new(),
             };
             let (_, words) = crate::secretary::turn_shape::split(&turn);

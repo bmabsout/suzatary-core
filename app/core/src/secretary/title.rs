@@ -232,7 +232,7 @@ mod tests {
                 Turn::Tool {
                     verb: "search".into(),
                     answer: "secret mail".to_owned(),
-                    refused: false,
+                    outcome: crate::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
                 answer("On the 3rd."),

@@ -90,7 +90,7 @@ fn the_openai_compatible_interpreter_keeps_every_law_over_a_scripted_far_end() {
             Turn::Tool {
                 verb: "search".into(),
                 answer: "one message: the lease renews on 1 October".to_owned(),
-                refused: false,
+                outcome: suzatary_core::secretary::outcome::Outcome::Answered,
                 files: Vec::new(),
             },
             Turn::Act {

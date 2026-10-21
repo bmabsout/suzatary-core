@@ -122,14 +122,6 @@
       "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('b401a367f3637b095defc64c68706a7e961c3c70042d102eef7ec47ffa8b0f19',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 21), actor='assistant', held=1, carried=None, turn='{\"who\":\"person\",\"references\":[],\"attachments\":[]}', by=None, words=(Locked(key='c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60', box='Lylb+Ww31yoOlfms192bdEgYQ2F1G9Tp49ztZ2wcKfzceO+ygmrnoWsm6PWHKFPnYtsG7De8i5J9EFUA0t8EvpBAfVFpRdh82SewFo+vPC2cFqnipLXEGrZ+MwaKEEthAZJsPuE7Wrdg1uJlY0y3hQ5b32sccWAkX1W5QflFRJyXuGu69UQS5fnV6Q4Mx2+9hsIaZKUmCt+Q2QbkM4bOKoY2d4SrEMB3flNQU3E/an60F40QcBE3ABFMJBMPiMjPb0h8clRB2CdmTX888lgL5kFc4hxWBKUYJbZhG8nwV2RMKfnaNvrYLGLRHNoeNVmHNlOUJmz/Ak1iIqxM/97t7mXNBPQZQCkZxvtLP3HiJXo='),)))"
     },
     {
-      "hash": "9bcb274457d8eb3078881f1313bfbb9f1065fbdef9071e5917a41d7caa64953b",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 22), actor='assistant', held=2, carried=None, turn='{\"who\":\"tool\",\"verb\":\"remember\",\"refused\":false,\"files\":[]}', by=None, words=(Locked(key='ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1', box='/TA+iR7pfpmygK9i7HMeBcOC3f2KrbZfVLk7UerdOn8hvk/K5rqq2ZTbklgL+AiNwnxlrqnLEBqRTMhg9N4FTCWOJnR9UjyOuFNbMC3u9XMd4/3GwBSrwBBUK3+8QdQQ4VPHTNrSuPu8F121qizJe3zM9HW9A7J9itHPQETLk/K5Qvxvb+OpaMTJUyM7+95aI19y9NCQXi41i5kpexQpnqVHA6dAhykoii+QrMgIvAEZ9ruJYsrkweYvy7NVtTm84NFs9BJiPJOZnAiE55A8ucegf9Ril2/fFCXhVlP+Q30wa5MDL5j4A2L4502BmcIICwu7CL8+v31XH1O+xtqx//dbMF9kClas9VOionZQ4eo='),)))"
-    },
-    {
-      "hash": "ba6b3ee910fc07f6073a77ab49a14b6f2025c141d738607c868e71a9da227812",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('9bcb274457d8eb3078881f1313bfbb9f1065fbdef9071e5917a41d7caa64953b',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 23), actor='assistant', held=3, carried=None, turn='{\"who\":\"model\",\"calls\":[]}', by=None, words=(Locked(key='9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c', box='awlJiPaRJw+Pvch6iSX1CkWvgRVkRiZGBuSUkhdwmmYfEwVevM0WtpDLaB1ua/146wwQZK/wR4KdZ2tz61paPB0f3NE59gXT7aEGLsqfgxyrT15Pi2tlMCpMN3qgtxPuyhW7XVbQxPdCmSCRdvA0aLdqcJz7MMM4LjyJyUHix7U+lr7qG2rTWEIOjCJbDSa2sBNqOfw9QGJNDZ05yeYl/bMhWSC0q1SSunwfnhmRUPDNtI1EnwSB5Z5tRLvWTtTMDY3zud7st2lpMbdmbaUCzsYl5B2YYK4NT5lopELFNS4UqjYtZpIt5IAePZ1OFwgcboSBsoGMplnQAmM/bu2ZsD5kt7qmYXo480ianWN9g7o='),)))"
-    },
-    {
       "hash": "baaef16eaf654b8077ed5ca6b09004d384c7aec869eac217cfc6f7db8c7e6267",
       "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a', box='wTpUBRjqfdZpwotSqrJ2GHurHOJb/tq5yoQyFNJPehwUGYnpuQHIjo3FYkHLHPoxcT8Q68+gaDAII4nJVdAdTtg+onnKMi86wKMTkvQ74+GSXUCg1VvmDpTxbbhioijMKyIxj+x8nAB3KarKZpEdJAzEFn1pbCOm/+1kTtXF8374aBffjHq5ltXe5yiy7PKo+TvMsmSC9X85jsVR/ztsVkeXlIXt9FXOUnXflE9iM3rJCz9UcMLPq05VOXC96cHxD3aJHMXsjt4CjgXKVB8MFfgmj2ruQLLgi6SVNBBAmCdR3DwTOA4/qWBXkK7P4L1kruhOFfFb7bFCtcNgHDaxyuhHnFXafzedFR65DTXw7s4='),)))"
     },
@@ -146,8 +138,24 @@
       "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('781da3042d6831a3fdb17407c322ca292e03fead27d52f31831ed8230e141245',), event=Proposed(conversation='lagging', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=3, carried=None, object='pe0202384e0620cf052da2283f47c43c8', revises=None))"
     },
     {
-      "hash": "d444719cc93d4da8c17952a0031ddca8566054a138410d570c90746472731a93",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('ba6b3ee910fc07f6073a77ab49a14b6f2025c141d738607c868e71a9da227812',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 24), actor='assistant', held=4, carried=None, object='p7bf745230679b9064803a823f584469b', revises=None))"
+      "hash": "d76bf104a1a34e985d97d784753d2554429d62ebbed7d1fa39d4e4c31592bb3a",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 22), actor='assistant', held=2, carried=None, turn='{\"who\":\"tool\",\"verb\":\"remember\",\"outcome\":{\"is\":\"remembered\",\"fact\":1},\"files\":[]}', by=None, words=(Locked(key='ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1', box='/TA+iR7pfpmygK9i7HMeBcOC3f2KrbZfVLk7UerdOn8hvk/K5rqq2ZTbklgL+AiNwnxlrqnLEBqRTMhg9N4FTCWOJnR9UjyOuFNbMC3u9XMd4/3GwBSrwBBUK3+8QdQQ4VPHTNrSuPu8F121qizJe3zM9HW9A7J9itHPQETLk/K5Qvxvb+OpaMTJUyM7+95aI19y9NCQXi41i5kpexQpnqVHA6dAhykoii+QrMgIvAEZ9ruJYsrkweYvy7NVtTm84NFs9BJiPJOZnAiE55A8ucegf9Ril2/fFCXhVlP+Q30wa5MDL5j4A2L4502BmcIICwu7CL8+v31XH1O+xtqx/4b/oEPLDxaF7hxD415abyQ='),)))"
+    },
+    {
+      "hash": "8070370ff93e0171b33d203aea9bd3aa8e8ba94fbf17047eae2c76d4359df1be",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('d76bf104a1a34e985d97d784753d2554429d62ebbed7d1fa39d4e4c31592bb3a',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 23), actor='assistant', held=3, carried=None, turn='{\"who\":\"model\",\"calls\":[]}', by=None, words=(Locked(key='9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c', box='awlJiPaRJw+Pvch6iSX1CkWvgRVkRiZGBuSUkhdwmmYfEwVevM0WtpDLaB1ua/146wwQZK/wR4KdZ2tz61paPB0f3NE59gXT7aEGLsqfgxyrT15Pi2tlMCpMN3qgtxPuyhW7XVbQxPdCmSCRdvA0aLdqcJz7MMM4LjyJyUHix7U+lr7qG2rTWEIOjCJbDSa2sBNqOfw9QGJNDZ05yeYl/bMhWSC0q1SSunwfnhmRUPDNtI1EnwSB5Z5tRLvWTtTMDY3zud7st2lpMbdmbaUCzsYl5B2YYK4NT5lopELFNS4UqjYtZpIt5IAePZ1OFwgcboSBsoGMplnQAmM/bu2ZsD5kt7qmYXo480ianWN9g7o='),)))"
+    },
+    {
+      "hash": "0694762dc9a27ee57d92612b90697b775bc0d650f82e52480b4c2ac6563157a2",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8070370ff93e0171b33d203aea9bd3aa8e8ba94fbf17047eae2c76d4359df1be',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 24), actor='assistant', held=4, carried=None, object='p7bf745230679b9064803a823f584469b', revises=None))"
+    },
+    {
+      "hash": "298c746b260694893137a78e300c7c0e3db53c6932a0ddb4b4c55a9217fa07b2",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('0694762dc9a27ee57d92612b90697b775bc0d650f82e52480b4c2ac6563157a2',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 25), actor='assistant', held=5, carried=None, object='pda3d123aec30ef75a018ccd6ad1dc1fa', revises=None))"
+    },
+    {
+      "hash": "07a6dc381447217d11bc2d89c48847aa16df36804c57e08c5535becba2e5600c",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('298c746b260694893137a78e300c7c0e3db53c6932a0ddb4b4c55a9217fa07b2',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 26), actor='assistant', held=6, carried=None, object='p7631d4dbe886e2eda86186f981faa87a', revises=None))"
     },
     {
       "hash": "d8f99fcbd523d0a95a5247b2c0942ef096ff252c081b9114156e95203ffbbc75",
@@ -174,20 +182,12 @@
       "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('724acf9747475582d7802aff7fbf0dadf1c0cf98b1cfd4fbaf9bbba81c72471d',), event=Erased(conversation='about-the-deed', at=datetime(2026, 9, 2, 12, 5, 0), actor='assistant', held=6, carried=None, keys=('6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890',), erasure='{\"erasure\":\"asked\",\"by\":\"ada\"}'))"
     },
     {
-      "hash": "f4efc99f13dfe839445bf9ef26b5af06dd8a92c65525283db7b7f6c3a12ea98f",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('d444719cc93d4da8c17952a0031ddca8566054a138410d570c90746472731a93',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 25), actor='assistant', held=5, carried=None, object='pda3d123aec30ef75a018ccd6ad1dc1fa', revises=None))"
+      "hash": "dc77d114da90a434246ff9b22f944d041c1a19bf6dba53ca8ab059b890b009d0",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('07a6dc381447217d11bc2d89c48847aa16df36804c57e08c5535becba2e5600c',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=7, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/0\"]}', by='ada', words=(Locked(key='762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973', box='cPtFnZVsihBF4gfAlXcMzd56aXslUWSHs0pD/Mk1yHqdBi08MTZ4Tax08vzKS424e6aT1aiVEnIzxntQRx6XMOq1EohfZThQRzydy+UWgzYf6vN0RGiaL6djAs3fBfldtHv5kuEcYiXdK5LHbHdA//wANXWmVkKQRbPknSWDj/J4Lwvgy0KBmrWSza66O6unOZgxq8H+6yskN3UkvyG0SXW1/MbtciTF3uvinz0PFxAKBThYLAdciQgWsju3bl2h7/pIG2tSRWI8p5MAAXUZ4ZmB6xe05hmI1G44WcKG8v1Uc+2f/rw3BMJQzFo2eqBOwLR7N68fmB9IqGYL24qd1Diz3aunUSLQTWrIny2D5LQ='),)))"
     },
     {
-      "hash": "f646f0c239cccd609f9e6ad6324849b1e2a1522601268c7ddb25a9882db21a84",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('f4efc99f13dfe839445bf9ef26b5af06dd8a92c65525283db7b7f6c3a12ea98f',), event=Proposed(conversation='trains', at=datetime(2026, 9, 2, 12, 3, 26), actor='assistant', held=6, carried=None, object='p7631d4dbe886e2eda86186f981faa87a', revises=None))"
-    },
-    {
-      "hash": "8e6a49ea1ee9086cdffc8d77123941c3e2230bb5a3c8e3519e1383fd0ebc183a",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('f646f0c239cccd609f9e6ad6324849b1e2a1522601268c7ddb25a9882db21a84',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=7, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/0\"]}', by='ada', words=(Locked(key='762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973', box='cPtFnZVsihBF4gfAlXcMzd56aXslUWSHs0pD/Mk1yHqdBi08MTZ4Tax08vzKS424e6aT1aiVEnIzxntQRx6XMOq1EohfZThQRzydy+UWgzYf6vN0RGiaL6djAs3fBfldtHv5kuEcYiXdK5LHbHdA//wANXWmVkKQRbPknSWDj/J4Lwvgy0KBmrWSza66O6unOZgxq8H+6yskN3UkvyG0SXW1/MbtciTF3uvinz0PFxAKBThYLAdciQgWsju3bl2h7/pIG2tSRWI8p5MAAXUZ4ZmB6xe05hmI1G44WcKG8v1Uc+2f/rw3BMJQzFo2eqBOwLR7N68fmB9IqGYL24qd1Diz3aunUSLQTWrIny2D5LQ='),)))"
-    },
-    {
-      "hash": "41f98d06497d136ada491bed255157ba27afdd69ba444622fc15b42498a6abe1",
-      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('8e6a49ea1ee9086cdffc8d77123941c3e2230bb5a3c8e3519e1383fd0ebc183a',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=8, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/2\"]}', by='ada', words=(Locked(key='6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf', box='9MjP9xNsPw/QewXhUsRGygUeVL/F4pBl7eKdgHmB3rUUeldXMpcujP6IG1PmwlCnzx88xR203e0NkFbcNPUvVTp4Lz5k+eWUP5jY5kQ7Xc6yZgCuks6P2gTkmX5I5Tu2I+TcyKuZIvChOFZx9goQphLrgaPf2QLVZ0VUy7LwSC4JTRECiNHpp+hBUgraMKDs6CpNr522it5uV0QDfMdqgZxZy6rw2uwqbNRREQhXBuPN+wy9bd7XkZLhRBf+POWFyZbs0IlRRULGtnQmbjbCcKIXlJeV4CkUHqPZ6MBJzzD6mLedx60/zcb41/taNjf+1+LS+pLRUlMoPIJ80fC3uWac7lQoV7Ueu5i6JU68t7w='),)))"
+      "hash": "e3aa3e7e2a766c870fb5b4afea2a8a91f695758714ac98fdb6e60682e8cb24b3",
+      "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('dc77d114da90a434246ff9b22f944d041c1a19bf6dba53ca8ab059b890b009d0',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=8, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/2\"]}', by='ada', words=(Locked(key='6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf', box='9MjP9xNsPw/QewXhUsRGygUeVL/F4pBl7eKdgHmB3rUUeldXMpcujP6IG1PmwlCnzx88xR203e0NkFbcNPUvVTp4Lz5k+eWUP5jY5kQ7Xc6yZgCuks6P2gTkmX5I5Tu2I+TcyKuZIvChOFZx9goQphLrgaPf2QLVZ0VUy7LwSC4JTRECiNHpp+hBUgraMKDs6CpNr522it5uV0QDfMdqgZxZy6rw2uwqbNRREQhXBuPN+wy9bd7XkZLhRBf+POWFyZbs0IlRRULGtnQmbjbCcKIXlJeV4CkUHqPZ6MBJzzD6mLedx60/zcb41/taNjf+1+LS+pLRUlMoPIJ80fC3uWac7lQoV7Ueu5i6JU68t7w='),)))"
     }
   ],
   "keys": {

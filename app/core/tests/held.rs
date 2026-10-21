@@ -93,7 +93,7 @@ fn answered(verb: &str) -> Entry {
     said(Turn::Tool {
         verb: verb.into(),
         answer: "{}".to_owned(),
-        refused: false,
+        outcome: suzatary_core::secretary::outcome::Outcome::Answered,
         files: Vec::new(),
     })
 }

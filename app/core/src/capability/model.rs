@@ -38,8 +38,9 @@ pub enum Turn {
         verb: ToolName,
         /// What the verb answered, as text.
         answer: String,
-        /// Whether the call was refused; a refusal is still a turn the model must see.
-        refused: bool,
+        /// How the call ended: answered, refused (still a turn the model must see), or a fact
+        /// remembered.
+        outcome: crate::secretary::outcome::Outcome,
         /// Files the answer hands the model as themselves, named by their digest; absent on
         /// transcripts written before a verb could.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]

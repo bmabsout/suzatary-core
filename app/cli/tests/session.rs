@@ -920,7 +920,7 @@ fn a_full_window_that_read_a_mail(caps: &Fakes) {
         Turn::Tool {
             verb: "show".into(),
             answer: "the bank's mail".to_owned(),
-            refused: false,
+            outcome: suzatary_core::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         },
     );

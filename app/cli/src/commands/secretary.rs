@@ -706,12 +706,13 @@ fn web_turn(
     answered: Result<suzatary_core::capability::WebAnswer, suzatary_core::capability::WebFailure>,
 ) -> Performed {
     use suzatary_core::capability::{Clock as _, Turn};
+    use suzatary_core::secretary::outcome::Outcome;
     use suzatary_core::secretary::store::Entry;
 
-    let (answer, refused, outcome) = match answered {
+    let (answer, said, outcome) = match answered {
         Ok(page) => (
             format!("{} (HTTP {})\n\n{}", page.url, page.status, page.text),
-            false,
+            Outcome::Answered,
             Performed::Done(Done::Acted {
                 what: request.sentence(),
             }),
@@ -719,7 +720,7 @@ fn web_turn(
         // A read, so a failure is plainly not sent: asking again cannot do harm.
         Err(failed) => (
             failed.to_string(),
-            true,
+            Outcome::Refused,
             Performed::Tried(Tried::NotSent {
                 reason: format!("{}: {failed}", request.sentence()),
             }),
@@ -734,7 +735,7 @@ fn web_turn(
             turn: Turn::Tool {
                 verb: "web".into(),
                 answer,
-                refused,
+                outcome: said,
                 files: Vec::new(),
             },
             by: None,
@@ -1203,6 +1204,15 @@ enum Action {
         #[arg(long)]
         dry: bool,
     },
+    /// Carry every tool line of the conversations into the shape that says how its call ended,
+    /// a `remember` answer's fact included, locking each carried line's words again: once, with
+    /// the server and the timers stopped. A server of this build refuses to start until it has
+    /// run.
+    MigrateReceipts {
+        /// Write nothing: say what a run would carry, write and remove.
+        #[arg(long)]
+        dry: bool,
+    },
 }
 
 /// The morning brief's question, which lives in core so transcripts can be read for answers.
@@ -1251,6 +1261,7 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
             actor,
         } => dismiss(&instance, conversation, *n, reason, actor.as_deref()),
         Action::MigrateInbox { dry } => super::migrate_inbox::run(&instance, *dry),
+        Action::MigrateReceipts { dry } => super::migrate_receipts::run(&instance, *dry),
     }
 }
 
@@ -1953,8 +1964,11 @@ fn transcript(
                     println!("\nSECRETARY: {text}");
                 }
             }
-            suzatary_core::capability::Turn::Tool { verb, refused, .. } => {
-                println!("  [{}{verb}]", if *refused { "refused " } else { "" });
+            suzatary_core::capability::Turn::Tool { verb, outcome, .. } => {
+                println!(
+                    "  [{}{verb}]",
+                    if outcome.refused() { "refused " } else { "" }
+                );
             }
             suzatary_core::capability::Turn::Erased { words, .. } => {
                 println!("\n{}", suzatary_core::secretary::turn_shape::prose(words));

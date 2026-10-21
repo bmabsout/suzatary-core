@@ -8,6 +8,8 @@ use crate::capability::Turn;
 use crate::enclosed::{Enclosed, Enclosure};
 use crate::file_read::FileRead;
 use crate::refusal::Refusal;
+use crate::secretary::memory::FactId;
+use crate::secretary::outcome::Outcome;
 use crate::secretary::tool_name::ToolName;
 
 /// One verb's answer.
@@ -17,6 +19,8 @@ pub struct VerbAnswer {
     pub value: Value,
     /// Files it hands the model, each already in the file store.
     pub files: Vec<Enclosed>,
+    /// The fact it wrote to the memory, which only `remember` writes: the turn's receipt.
+    pub remembered: Option<FactId>,
 }
 
 impl From<Value> for VerbAnswer {
@@ -24,6 +28,7 @@ impl From<Value> for VerbAnswer {
         Self {
             value,
             files: Vec::new(),
+            remembered: None,
         }
     }
 }
@@ -103,6 +108,7 @@ impl VerbAnswer {
         Ok(Self {
             value: Value::Object(head),
             files,
+            remembered: None,
         })
     }
 
@@ -110,23 +116,28 @@ impl VerbAnswer {
     /// so the model can correct itself.
     #[must_use]
     pub fn turn(verb: impl Into<ToolName>, result: Result<Self, Refusal>) -> Turn {
-        let (answer, refused, files) = match result {
+        let (answer, outcome, files) = match result {
             Ok(Self {
                 value: Value::String(text),
                 files,
-            }) => (text, false, files),
-            Ok(Self { value, files }) => (
+                remembered,
+            }) => (text, Outcome::answered(remembered), files),
+            Ok(Self {
+                value,
+                files,
+                remembered,
+            }) => (
                 serde_json::to_string_pretty(&value)
                     .unwrap_or_else(|failed| format!("(the answer did not serialise: {failed})")),
-                false,
+                Outcome::answered(remembered),
                 files,
             ),
-            Err(refusal) => (refusal.message().to_owned(), true, Vec::new()),
+            Err(refusal) => (refusal.message().to_owned(), Outcome::Refused, Vec::new()),
         };
         Turn::Tool {
             verb: verb.into(),
             answer,
-            refused,
+            outcome,
             files,
         }
     }
@@ -137,7 +148,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_answer_s_files_ride_on_its_turn_and_a_refusal_carries_none() {
+    fn an_answer_s_files_and_fact_ride_on_its_turn_and_a_refusal_carries_none() {
         let file = Enclosed {
             id: crate::attachment::AttachmentId::of(b"%PDF-1.7"),
             name: "notice.pdf".to_owned(),
@@ -150,13 +161,30 @@ mod tests {
             Ok(VerbAnswer {
                 value: serde_json::json!({"name": "notice.pdf"}),
                 files: vec![file.clone()],
+                remembered: None,
             }),
         );
-        assert!(matches!(&turn, Turn::Tool { files, refused: false, .. } if files == &[file]));
+        assert!(
+            matches!(&turn, Turn::Tool { files, outcome: Outcome::Answered, .. } if files == &[file])
+        );
+        let remembered = VerbAnswer::turn(
+            "remember",
+            Ok(VerbAnswer {
+                remembered: Some(FactId(3)),
+                ..VerbAnswer::from(serde_json::json!({"remembered": 3}))
+            }),
+        );
+        assert!(matches!(
+            &remembered,
+            Turn::Tool {
+                outcome: Outcome::Remembered { fact: FactId(3) },
+                ..
+            }
+        ));
         let refused = VerbAnswer::turn("attachments", Err(Refusal::not_found("no such message")));
         assert!(matches!(
             &refused,
-            Turn::Tool { files, refused: true, answer, .. } if files.is_empty() && answer == "no such message"
+            Turn::Tool { files, outcome: Outcome::Refused, answer, .. } if files.is_empty() && answer == "no such message"
         ));
     }
 }

@@ -357,7 +357,7 @@ fn a_server_over_an_uncarried_inbox_does_not_start() {
 
 /// The binary's `serve` over `instance` listens: it is still running and accepts a connection
 /// within a minute. The server is stopped after.
-fn assert_starts(instance: &Instance) {
+pub(crate) fn assert_starts(instance: &Instance) {
     let home = instance.path.with_file_name("home");
     let runtime = instance.path.with_file_name("run");
     std::fs::create_dir_all(&runtime).expect("a runtime directory");

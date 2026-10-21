@@ -549,14 +549,14 @@ pub(crate) fn turn<A: Answers + ?Sized>(
         crate::capability::Turn::Tool {
             verb,
             answer,
-            refused,
+            outcome,
             files: _,
         } => row(
             answer,
             wire::Speaker::Verb {
                 verb: verb.to_string(),
-                refused: *refused,
-                remembered: receipt(verb, answer, *refused, memory),
+                refused: outcome.refused(),
+                remembered: outcome.remembered().map(|fact| receipt(fact, memory)),
             },
         ),
         crate::capability::Turn::Erased { shape, words } => wire::TurnRow {
@@ -565,7 +565,7 @@ pub(crate) fn turn<A: Answers + ?Sized>(
                 .first()
                 .and_then(crate::secretary::words::Words::gone)
                 .map(wire::TurnGone::from),
-            ..row("", erased(shape, words, said.by.as_ref()))
+            ..row("", erased(shape, said.by.as_ref(), memory))
         },
     }
 }
@@ -585,8 +585,8 @@ fn acted_by(
 /// Who said an erased turn, read off its shape, which keeps everything but the words.
 fn erased(
     shape: &TurnShape,
-    words: &[crate::secretary::words::Words<crate::secretary::line_words::LineWords>],
     by: Option<&crate::secretary::stamp::Stamp>,
+    memory: Option<&wire::MemoryPayload>,
 ) -> wire::Speaker {
     match shape {
         TurnShape::Person { references, .. } => wire::Speaker::Person {
@@ -595,22 +595,12 @@ fn erased(
             queued: false,
         },
         TurnShape::Model { .. } => wire::Speaker::Model { blocks: Vec::new() },
-        TurnShape::Tool { verb, refused, .. } => wire::Speaker::Verb {
+        TurnShape::Tool { verb, outcome, .. } => wire::Speaker::Verb {
             verb: verb.to_string(),
-            refused: *refused,
-            // A remember answer erased by forgetting its fact is that fact's receipt still: the
-            // erasure names the fact, and the words it held were the fact's.
-            remembered: match words.first() {
-                Some(crate::secretary::words::Words::Gone {
-                    gone:
-                        crate::secretary::words::Gone::Erased {
-                            erasure: crate::secretary::erasure::Erasure::Forgot { fact },
-                        },
-                }) if verb.verb() == Some(crate::secretary::SecretaryVerb::Remember) => {
-                    Some(wire::Receipt::Forgotten { fact: *fact })
-                }
-                _ => None,
-            },
+            refused: outcome.refused(),
+            // The receipt is the shape's, so a remember answer whose words are gone, by a forget
+            // or by the owner's erasure, still names its fact.
+            remembered: outcome.remembered().map(|fact| receipt(fact, memory)),
         },
         TurnShape::Act { references } => acted_by(by, references.clone()),
     }
@@ -632,32 +622,23 @@ pub(crate) fn blocks_of<A: Answers + ?Sized>(answers: &A, text: &str) -> Vec<wir
         .collect()
 }
 
-/// The receipt a `remember` turn carries: the fact's number from the answer and its words from
-/// the memory, so a forgotten fact's receipt says it was forgotten and never what it said.
+/// The receipt of fact `fact`, a `remember` turn's: its words from the memory, so a forgotten
+/// fact's receipt says it was forgotten and never what it said.
 fn receipt(
-    verb: &crate::secretary::tool_name::ToolName,
-    answer: &str,
-    refused: bool,
+    fact: crate::secretary::memory::FactId,
     memory: Option<&wire::MemoryPayload>,
-) -> Option<wire::Receipt> {
-    if refused || verb.verb() != Some(crate::secretary::SecretaryVerb::Remember) {
-        return None;
-    }
-    let answered: serde_json::Value = serde_json::from_str(answer).ok()?;
-    let fact = crate::secretary::memory::FactId(answered.get("remembered")?.as_u64()?);
+) -> wire::Receipt {
     let Some(memory) = memory else {
-        return Some(wire::Receipt::Unread { fact });
+        return wire::Receipt::Unread { fact };
     };
-    Some(
-        match memory.facts.iter().find(|standing| standing.id == fact) {
-            Some(standing) => wire::Receipt::Standing {
-                fact,
-                text: standing.fact.clone(),
-            },
-            None if memory.forgotten.contains(&fact) => wire::Receipt::Forgotten { fact },
-            None => wire::Receipt::Unread { fact },
+    match memory.facts.iter().find(|standing| standing.id == fact) {
+        Some(standing) => wire::Receipt::Standing {
+            fact,
+            text: standing.fact.clone(),
         },
-    )
+        None if memory.forgotten.contains(&fact) => wire::Receipt::Forgotten { fact },
+        None => wire::Receipt::Unread { fact },
+    }
 }
 
 /// A connection to make, as its card reads it: what it writes, its steps spelled as the box

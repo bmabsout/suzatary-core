@@ -127,10 +127,14 @@ fn format_turn(out: &mut String, turn: &Turn, reads: Reads) {
         Turn::Tool {
             verb,
             answer,
-            refused,
+            outcome,
             files,
         } => {
-            out.push_str(if *refused { "VERB (REFUSED) " } else { "VERB " });
+            out.push_str(if outcome.refused() {
+                "VERB (REFUSED) "
+            } else {
+                "VERB "
+            });
             out.push_str(verb.as_str());
             out.push_str(":\n");
             out.push_str(answer);
@@ -165,8 +169,12 @@ fn format_turn(out: &mut String, turn: &Turn, reads: Reads) {
                         out.push(')');
                     }
                 }
-                TurnShape::Tool { verb, refused, .. } => {
-                    out.push_str(if *refused { "VERB (REFUSED) " } else { "VERB " });
+                TurnShape::Tool { verb, outcome, .. } => {
+                    out.push_str(if outcome.refused() {
+                        "VERB (REFUSED) "
+                    } else {
+                        "VERB "
+                    });
                     out.push_str(verb.as_str());
                     out.push_str(":\n");
                     out.push_str(&prose);
@@ -325,7 +333,7 @@ mod tests {
                 Turn::Tool {
                     verb: "briefing_delta".into(),
                     answer: "{\"authored\": []}".to_owned(),
-                    refused: false,
+                    outcome: suzatary_core::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
             ],
@@ -388,7 +396,7 @@ mod tests {
                 turns: vec![Turn::Tool {
                     verb: "propose_email".into(),
                     answer: "to must name at least one recipient".to_owned(),
-                    refused: true,
+                    outcome: suzatary_core::secretary::outcome::Outcome::Refused,
                     files: Vec::new(),
                 }],
             },
@@ -415,7 +423,7 @@ mod tests {
             turns: vec![Turn::Tool {
                 verb: "attachments".into(),
                 answer: "{}".to_owned(),
-                refused: false,
+                outcome: suzatary_core::secretary::outcome::Outcome::Answered,
                 files: vec![
                     file("letter.pdf", Enclosure::Pdf, "Receipt WAC0000000001"),
                     file("scan.pdf", Enclosure::Pdf, "\u{c}"),
@@ -502,7 +510,7 @@ mod tests {
             [Turn::Tool {
                 verb: "propose_email".into(),
                 answer: "to must name at least one recipient".to_owned(),
-                refused: true,
+                outcome: suzatary_core::secretary::outcome::Outcome::Refused,
                 files: Vec::new(),
             }],
         );

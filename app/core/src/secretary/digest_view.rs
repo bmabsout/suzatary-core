@@ -16,6 +16,7 @@ use crate::capability::Turn;
 use crate::secretary::digest::Digest;
 use crate::secretary::digest_label::{Kind, Label};
 use crate::secretary::digest_line::Line;
+use crate::secretary::outcome::Outcome;
 use crate::secretary::store::Entry;
 use crate::secretary::tool_name::ToolName;
 use crate::secretary::turn_shape::TurnShape;
@@ -301,15 +302,14 @@ fn said_turn(turn: &Turn) -> String {
         Turn::Tool {
             verb,
             answer,
-            refused: false,
+            outcome,
             ..
-        } => format!("{} answered: {answer}", verb.as_str()),
-        Turn::Tool {
-            verb,
-            answer,
-            refused: true,
-            ..
-        } => format!("{} refused: {answer}", verb.as_str()),
+        } => match outcome {
+            Outcome::Answered | Outcome::Remembered { .. } => {
+                format!("{} answered: {answer}", verb.as_str())
+            }
+            Outcome::Refused => format!("{} refused: {answer}", verb.as_str()),
+        },
         Turn::Act { text, .. } => format!("Owner did: {text}"),
         Turn::Erased { shape, words } => {
             let prose = crate::secretary::turn_shape::prose(words);

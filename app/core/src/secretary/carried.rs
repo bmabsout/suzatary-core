@@ -1,8 +1,8 @@
-//! Where a line came from: written here, or carried from an object of an earlier store.
+//! Where a line came from: written here, or carried from an object it replaced.
 //!
-//! The earlier store is gone; a carried line keeps the NAME of the object it carried, which the
-//! digest reads as its leaf, so the summaries written before the carry still name their nodes.
-//! It is never read for meaning, and nothing writes one any more.
+//! The earlier object is gone; a carried line keeps its NAME, which the digest reads as its leaf,
+//! so the summaries written before the carry still name their nodes. It is never read for
+//! meaning, and only a migration writes one (`suzatary secretary migrate-receipts`).
 
 use prodrome_core::event::Hash;
 

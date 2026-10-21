@@ -265,7 +265,7 @@ fn a_round_never_runs_a_verb_its_surface_does_not_list() {
                     suzatary_core::capability::Turn::Tool {
                         verb,
                         answer,
-                        refused: true,
+                        outcome: suzatary_core::secretary::outcome::Outcome::Refused,
                         ..
                     },
                 ..
@@ -352,7 +352,7 @@ fn a_round_appends_the_models_turns_and_the_verbs_answers_in_order() {
     let tool = |answer: &str| suzatary_core::capability::Turn::Tool {
         verb: "weather".into(),
         answer: answer.to_owned(),
-        refused: false,
+        outcome: suzatary_core::secretary::outcome::Outcome::Answered,
         files: Vec::new(),
     };
     assert_eq!(turns.len(), 4);
@@ -397,7 +397,7 @@ fn a_refusal_is_an_answer_not_an_error() {
         Some(&suzatary_core::capability::Turn::Tool {
             verb: "todo_show".into(),
             answer: "no such todo".to_owned(),
-            refused: true,
+            outcome: suzatary_core::secretary::outcome::Outcome::Refused,
             files: Vec::new(),
         })
     );

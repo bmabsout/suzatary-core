@@ -559,7 +559,11 @@ fn answered_by(verb: &str, refused: bool) -> Turn {
     Turn::Tool {
         verb: verb.into(),
         answer: "{}".to_owned(),
-        refused,
+        outcome: if refused {
+            crate::secretary::outcome::Outcome::Refused
+        } else {
+            crate::secretary::outcome::Outcome::Answered
+        },
         files: Vec::new(),
     }
 }
@@ -866,7 +870,8 @@ proptest::proptest! {
         }
         let stored = Stored::of(&id(), &entries).expect("a conversation");
         for (index, said) in stored.turns.iter().enumerate() {
-            if let Turn::Tool { verb, refused: false, .. } = &said.turn
+            if let Turn::Tool { verb, outcome, .. } = &said.turn
+                && !outcome.refused()
                 && WRITES.contains(&verb.as_str())
             {
                 proptest::prop_assert!(stored.is_live(index), "the write at {} was hidden", index);
@@ -911,7 +916,7 @@ fn state_is_derived_from_the_last_turn_only() {
         turn: Turn::Tool {
             verb: "context".into(),
             answer: "{}".to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         },
         by: None,

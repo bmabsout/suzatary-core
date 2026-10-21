@@ -192,11 +192,18 @@ where
             let args: serde_json::Map<String, serde_json::Value> =
                 call.args.clone().into_iter().collect();
             let outcome = dispatch(chains, deployment, call.verb.as_str(), &args);
-            let refused = matches!(outcome, CallOutcome::Refused { .. });
             turns.push(Turn::Tool {
                 verb: call.verb.clone(),
                 answer: shown(&outcome),
-                refused,
+                // The bench runs the agent's verbs, none of which remembers a fact.
+                outcome: match outcome {
+                    CallOutcome::Refused { .. } => {
+                        suzatary_core::secretary::outcome::Outcome::Refused
+                    }
+                    CallOutcome::Answered { .. } => {
+                        suzatary_core::secretary::outcome::Outcome::Answered
+                    }
+                },
                 files: Vec::new(),
             });
             call_records.push(CallRecord {

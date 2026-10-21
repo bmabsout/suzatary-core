@@ -1176,7 +1176,7 @@ mod tests {
                 Turn::Tool {
                     verb: "search".into(),
                     answer: "an email".to_owned(),
-                    refused: false,
+                    outcome: crate::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
                 None,

@@ -316,8 +316,8 @@ fn completing_an_already_resolved_todo_is_refused_and_proposes_nothing() {
     let refused = swept.stored.turns.iter().any(|said| {
         matches!(
             &said.turn,
-            suzatary_core::capability::Turn::Tool { verb, refused, .. }
-                if verb.as_str() == "propose_changes" && *refused
+            suzatary_core::capability::Turn::Tool { verb, outcome, .. }
+                if verb.as_str() == "propose_changes" && outcome.refused()
         )
     });
     assert!(refused, "{:?}", swept.stored.turns);
@@ -369,9 +369,9 @@ fn a_todo_add_call_is_refused_by_the_verb_set() {
         suzatary_core::capability::Turn::Tool {
             verb,
             answer,
-            refused,
+            outcome,
             files: _,
-        } if verb.as_str() == "todo_add" => Some((answer.clone(), *refused)),
+        } if verb.as_str() == "todo_add" => Some((answer.clone(), outcome.refused())),
         _ => None,
     });
     let (answer, refused) = refusal.expect("the todo_add call is on the transcript");
@@ -437,9 +437,9 @@ fn completing_an_open_todo_with_no_candidates_is_refused_and_proposes_nothing() 
         suzatary_core::capability::Turn::Tool {
             verb,
             answer,
-            refused,
+            outcome,
             files: _,
-        } if verb.as_str() == "propose_changes" => Some((answer.clone(), *refused)),
+        } if verb.as_str() == "propose_changes" => Some((answer.clone(), outcome.refused())),
         _ => None,
     });
     let (answer, refused) = refusal.expect("the propose_changes call is on the transcript");

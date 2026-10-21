@@ -198,7 +198,7 @@ mod tests {
         Turn::Tool {
             verb: "attachments".into(),
             answer: "{}".to_owned(),
-            refused: false,
+            outcome: suzatary_core::secretary::outcome::Outcome::Answered,
             files: vec![Enclosed {
                 id,
                 name: name.to_owned(),

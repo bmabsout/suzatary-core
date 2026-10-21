@@ -1515,7 +1515,9 @@ fn remembering(bundle: &Bundle, id: &ConversationId) -> Vec<ConversationEntry> {
             turn: Turn::Tool {
                 verb: "remember".into(),
                 answer: r#"{"remembered": 1, "kind": "owner"}"#.to_owned(),
-                refused: false,
+                outcome: suzatary_core::secretary::outcome::Outcome::Remembered {
+                    fact: suzatary_core::secretary::memory::FactId(1),
+                },
                 files: Vec::new(),
             },
             by: None,

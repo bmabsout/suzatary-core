@@ -103,7 +103,7 @@ pub fn review(
                 verb: SecretaryVerb::ProposalsList.into(),
                 answer: serde_json::to_string_pretty(&answered(&standing))
                     .unwrap_or_else(|failed| format!("(the batches did not serialise: {failed})")),
-                refused: false,
+                outcome: crate::secretary::outcome::Outcome::Answered,
                 files: Vec::new(),
             },
             by: None,

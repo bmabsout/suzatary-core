@@ -84,7 +84,7 @@ pub fn heading(told: String) -> Turn {
     Turn::Tool {
         verb: ToolName::Memory,
         answer: told,
-        refused: false,
+        outcome: crate::secretary::outcome::Outcome::Answered,
         files: Vec::new(),
     }
 }
@@ -288,7 +288,7 @@ mod tests {
         let heading = Turn::Tool {
             verb: ToolName::Memory,
             answer: "fact 3: she flies on Friday".to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         };
         assert_eq!(
@@ -361,7 +361,7 @@ mod tests {
                 Turn::Tool {
                     verb: "briefing_delta".into(),
                     answer: "{}".to_owned(),
-                    refused: false,
+                    outcome: crate::secretary::outcome::Outcome::Answered,
                     files: Vec::new(),
                 },
             ),
@@ -611,7 +611,7 @@ mod tests {
         Turn::Tool {
             verb: verb.into(),
             answer: "ok".to_owned(),
-            refused: false,
+            outcome: crate::secretary::outcome::Outcome::Answered,
             files: Vec::new(),
         }
     }

@@ -118,7 +118,7 @@ impl<'h> Old<'h> {
 }
 
 /// The image of `history`, each object its name and its stored text, read at the schema `E`:
-/// begun by `genesis`, each change's event rewritten by `event`.
+/// begun by `genesis`, each change's event rewritten by `event`, which is told the object's name.
 ///
 /// # Errors
 /// [`NotAnImage`], naming the object.
@@ -126,7 +126,7 @@ pub fn image<E: Schema>(
     vocabulary: &E::Vocabulary,
     history: impl IntoIterator<Item = (Hash, String)>,
     genesis: &Genesis,
-    event: impl Fn(&Value) -> Result<Value, String>,
+    event: impl Fn(&Hash, &Value) -> Result<Value, String>,
 ) -> Result<Image, NotAnImage> {
     let words = EventVocabulary::<E>::new(vocabulary);
     let mut calls = BTreeMap::new();
@@ -184,7 +184,7 @@ pub fn image<E: Schema>(
                 continue;
             };
             deps.sort();
-            let mapped = event(change.event).map_err(|why| NotAnImage::Refused {
+            let mapped = event(object, change.event).map_err(|why| NotAnImage::Refused {
                 object: object.as_str().to_owned(),
                 why,
             })?;

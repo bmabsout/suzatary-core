@@ -13,6 +13,7 @@ use crate::capability::{ToolCall, Turn};
 use crate::enclosed::{Enclosed, Enclosure};
 use crate::reference::Reference;
 use crate::secretary::line_words::{AttachmentWords, LineWords};
+use crate::secretary::outcome::Outcome;
 use crate::secretary::tool_name::ToolName;
 use crate::secretary::words::{Gone, Words};
 
@@ -32,12 +33,12 @@ pub enum TurnShape {
         /// The calls' verbs.
         calls: Vec<ToolName>,
     },
-    /// A verb's answer: which verb, whether it was refused, each file it handed over.
+    /// A verb's answer: which verb, how the call ended, each file it handed over.
     Tool {
         /// The verb.
         verb: ToolName,
-        /// Whether it was refused.
-        refused: bool,
+        /// How the call ended, a remembered fact's receipt included.
+        outcome: Outcome,
         /// Each file, in order.
         files: Vec<FileShape>,
     },
@@ -124,12 +125,12 @@ pub fn split(turn: &Turn) -> (TurnShape, Option<Vec<LineWords>>) {
         Turn::Tool {
             verb,
             answer,
-            refused,
+            outcome,
             files,
         } => (
             TurnShape::Tool {
                 verb: verb.clone(),
-                refused: *refused,
+                outcome: *outcome,
                 files: files
                     .iter()
                     .map(|file| FileShape {
@@ -245,7 +246,7 @@ fn whole(shape: &TurnShape, words: &[Words<LineWords>]) -> Option<Turn> {
         (
             TurnShape::Tool {
                 verb,
-                refused,
+                outcome,
                 files,
             },
             [
@@ -258,7 +259,7 @@ fn whole(shape: &TurnShape, words: &[Words<LineWords>]) -> Option<Turn> {
         ) => Turn::Tool {
             verb: verb.clone(),
             answer: answer.as_str().to_owned(),
-            refused: *refused,
+            outcome: *outcome,
             files: files
                 .iter()
                 .zip(names.iter().zip(texts))

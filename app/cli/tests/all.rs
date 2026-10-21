@@ -73,6 +73,8 @@ mod mcp;
 mod memory;
 #[path = "migrate_inbox.rs"]
 mod migrate_inbox;
+#[path = "migrate_receipts.rs"]
+mod migrate_receipts;
 #[path = "objects.rs"]
 mod objects;
 #[path = "paths.rs"]
