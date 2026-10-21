@@ -7,16 +7,19 @@
 #   scripts/core-settings.sh [<owner>/<repo>]   (default: the remote `core` of this checkout)
 #
 # Each setting is idempotent, so running it again sets the same values:
-#   - Actions on, running only GitHub's own actions and the two Cachix actions gate.yml pins;
-#   - every workflow but gate.yml disabled: the public tree carries this repository's other
-#     workflows, which are for the private repository (quick.yml would run on every publication,
-#     update-flake-lock.yml on its schedule);
+#   - Actions on, running only GitHub's own actions, `cachix/install-nix-action` and
+#     `nix-community/cache-nix-action`, which the workflows below pin;
+#   - gate.yml, gate-store.yml and publication.yml on, and every other workflow off: the public
+#     tree carries this repository's other workflows, which are for the private repository
+#     (quick.yml would run on every publication, update-flake-lock.yml on its schedule);
 #   - the token a run is handed reads the repository and writes nothing, and cannot approve a
 #     pull request;
 #   - a run a pull request from any outside contributor starts waits for an approval (gate.yml
 #     names no pull request event, so this covers a workflow added later);
-#   - the secret CACHIX_AUTH_TOKEN, the bmabsout cache's push token, read from secretspec and
-#     handed to `gh secret set` on its stdin, so it is in no argument, file or line printed.
+#   - the environment `cachix`, which only a run on master may enter, and in it the secret
+#     CACHIX_AUTH_TOKEN, the bmabsout cache's push token, which publication.yml alone names, read
+#     from secretspec and handed to `gh secret set` on its stdin, so it is in no argument, file or
+#     line printed; a repository-wide copy of it is deleted.
 #
 # It needs `gh` logged in as an administrator of core, and secretspec holding CACHIX_AUTH_TOKEN.
 set -euo pipefail
@@ -39,11 +42,13 @@ fi
 [[ "$(gh repo view "$repo" --json visibility -q .visibility)" == PUBLIC ]] \
   || die "$repo is not public, so its runners are not free: nothing set"
 
-echo "core-settings: Actions on in $repo, GitHub's actions and Cachix's alone"
+echo "core-settings: Actions on in $repo, GitHub's actions and the two Nix actions alone"
 gh api --silent -X PUT "repos/$repo/actions/permissions" -F enabled=true -f allowed_actions=selected
 gh api --silent -X PUT "repos/$repo/actions/permissions/selected-actions" \
   -F github_owned_allowed=true -F verified_allowed=false \
-  -f 'patterns_allowed[]=cachix/install-nix-action@*' -f 'patterns_allowed[]=cachix/cachix-action@*'
+  -f 'patterns_allowed[]=cachix/install-nix-action@*' \
+  -f 'patterns_allowed[]=nix-community/cache-nix-action/restore@*' \
+  -f 'patterns_allowed[]=nix-community/cache-nix-action/save@*'
 
 echo "core-settings: the runs' token reads only"
 gh api --silent -X PUT "repos/$repo/actions/permissions/workflow" \
@@ -53,16 +58,46 @@ echo "core-settings: an outside contributor's run waits for an approval"
 gh api --silent -X PUT "repos/$repo/actions/permissions/fork-pr-contributor-approval" \
   -f approval_policy=all_external_contributors
 
-echo "core-settings: every workflow but gate.yml off"
+echo "core-settings: gate.yml, gate-store.yml and publication.yml on, every other workflow off"
 while IFS=$'\t' read -r id path state; do
-  [[ "$path" != .github/workflows/gate.yml && "$state" == active ]] || continue
-  gh api --silent -X PUT "repos/$repo/actions/workflows/$id/disable"
-  echo "core-settings:   $path off"
+  case "$path" in
+    .github/workflows/gate.yml | .github/workflows/gate-store.yml | .github/workflows/publication.yml)
+      [[ "$state" != active ]] || continue
+      gh api --silent -X PUT "repos/$repo/actions/workflows/$id/enable"
+      echo "core-settings:   $path on" ;;
+    *)
+      [[ "$state" == active ]] || continue
+      gh api --silent -X PUT "repos/$repo/actions/workflows/$id/disable"
+      echo "core-settings:   $path off" ;;
+  esac
 done < <(gh api --paginate "repos/$repo/actions/workflows" --jq '.workflows[] | "\(.id)\t\(.path)\t\(.state)"')
 
-echo "core-settings: the secret CACHIX_AUTH_TOKEN, from secretspec"
-token="$(secretspec get CACHIX_AUTH_TOKEN --file secretspec.toml --reason "core-settings: the gate's Cachix push token")" \
+# The token is the environment's, not the repository's: a gate branch runs the gate.yml of its
+# own commit, so a repository secret is one any workflow file a pushed commit carries can name.
+echo "core-settings: the environment cachix, which a run on master alone enters"
+gh api --silent -X PUT "repos/$repo/environments/cachix" --input - <<'JSON'
+{"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}
+JSON
+master=""
+while IFS=$'\t' read -r id type name; do
+  if [[ "$type" == branch && "$name" == master ]]; then
+    master="$id"
+  else
+    gh api --silent -X DELETE "repos/$repo/environments/cachix/deployment-branch-policies/$id"
+    echo "core-settings:   the $type $name may no longer enter it"
+  fi
+done < <(gh api "repos/$repo/environments/cachix/deployment-branch-policies" \
+  --jq '.branch_policies[] | "\(.id)\t\(.type // "branch")\t\(.name)"')
+[[ -n "$master" ]] ||
+  gh api --silent -X POST "repos/$repo/environments/cachix/deployment-branch-policies" -f name=master -f type=branch
+
+echo "core-settings: the secret CACHIX_AUTH_TOKEN, from secretspec, in the environment cachix"
+token="$(secretspec get CACHIX_AUTH_TOKEN --file secretspec.toml --reason "core-settings: the publication's Cachix push token")" \
   || die "secretspec has no CACHIX_AUTH_TOKEN: secretspec set CACHIX_AUTH_TOKEN, then run this again"
 [[ -n "$token" ]] || die "secretspec's CACHIX_AUTH_TOKEN is empty: nothing set"
-printf '%s' "$token" | gh secret set CACHIX_AUTH_TOKEN --app actions --repo "$repo"
+printf '%s' "$token" | gh secret set CACHIX_AUTH_TOKEN --env cachix --repo "$repo"
+if gh secret list --app actions --repo "$repo" --json name --jq '.[].name' | grep -qx CACHIX_AUTH_TOKEN; then
+  gh secret delete CACHIX_AUTH_TOKEN --app actions --repo "$repo"
+  echo "core-settings:   the repository's own copy deleted"
+fi
 echo "core-settings: done"

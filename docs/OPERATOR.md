@@ -41,20 +41,24 @@ administrator of core and `CACHIX_AUTH_TOKEN` in secretspec (`secretspec set
 CACHIX_AUTH_TOKEN`, the push token of the `bmabsout` cache, scoped to that
 cache). It sets:
 
-- **Actions on**, allowing GitHub's own actions and
-  `cachix/install-nix-action` and `cachix/cachix-action` alone; `gate.yml`
-  pins each by its commit.
-- **Every workflow but `gate.yml` disabled.** The public tree carries the
-  private repository's workflows too (`quick.yml` would run on every
-  publication, `update-flake-lock.yml` on its schedule).
+- **Actions on**, allowing GitHub's own actions,
+  `cachix/install-nix-action` and `nix-community/cache-nix-action`'s
+  `restore` and `save` alone; every workflow pins each by its commit.
+- **`gate.yml`, `gate-store.yml` and `publication.yml` on, every other
+  workflow off.** The public tree carries the private repository's
+  workflows too (`quick.yml` would run on every publication,
+  `update-flake-lock.yml` on its schedule).
 - **The runs' token reads only** (`default_workflow_permissions=read`) and
   cannot approve a pull request. `gate.yml` asks for `contents: read` itself,
   and its checkout keeps no credential.
 - **An outside contributor's run waits for an approval**
   (`all_external_contributors`). `gate.yml` runs on a push to `gate/**` alone,
   so no pull request runs it; this covers a workflow added later.
-- **The secret `CACHIX_AUTH_TOKEN`**, read from secretspec and given to `gh
-  secret set` on its stdin, so it is never in an argument or printed.
+- **The environment `cachix`**, which only a run on `master` may enter, and
+  in it **the secret `CACHIX_AUTH_TOKEN`**, which `publication.yml` alone
+  names, read from secretspec and given to `gh secret set` on its stdin, so
+  it is never in an argument or printed. A repository-wide copy of the
+  secret, which the script set before, is deleted.
 
 Nothing else in the gate sets any of these. Core's ruleset, which keeps
 `master` fast-forward only, stays as it is: a gate branch is never `master`.
@@ -66,12 +70,39 @@ carries `gate.yml`.
 
 ## Who can reach the Cachix token
 
-Only a run on a push to `gate/**`, and only a person with write access to core
-can push one. A fork's push runs in the fork with the fork's own secrets, and
-no pull request event runs `gate.yml`. The jobs that hold the token run the
-train's code: pull requests the owner reviewed and put on the train, the code
-a land then deploys. What they build is pushed to the `bmabsout` cache, which
-the box and the Codespace read.
+Only a run on a push to core's `master`, a publication, which only someone
+with write access to core can push (the train does, with its own
+credential): `publication.yml`, and in it only the last step, after every
+build. The secret is the environment `cachix`'s, which only a run on
+`master` may enter, so a workflow a gate branch carries, which is the
+`gate.yml` of the pushed commit, cannot read it even if it names it. No job
+of `gate.yml` holds a secret.
+Its token reads the repository and nothing else, it reads the `bmabsout`
+cache as a plain substituter, and it pushes nothing anywhere, so a gate
+branch, whoever pushed it, cannot write to the cache.
+
+## The two caches and their budgets
+
+- **The `bmabsout` Cachix** holds 5 GB on Cachix's free plan and evicts the
+  least recently used past it; the Prodrome's CI pushes to it too.
+  `publication.yml` is its one writer here: it pushes the closures of the
+  app, the web bundle and the plugins, less what cache.nixos.org or the
+  cache already serve. Its step "Measure what the push adds" prints that
+  size, and fails, pushing nothing, when one publication would add more
+  than 1 GB; the deploy of that commit then builds on the box.
+- **The Actions cache of core** holds 10 GB and evicts past it. The gate's
+  jobs keep a warm Nix store there: `gate-store.yml`, on each push to
+  `master`, builds the dependency builds no binary cache serves (the three
+  crane dependency builds and the Prodrome's typst module), collects the
+  store down to them and saves it under one key of `flake.nix`, `flake.lock`
+  and the Cargo manifests and lock, then purges every older entry of it.
+  It is saved on `master` because a run on a branch reads only the caches of
+  that branch and of `master`, and each train's gate branch is new. Each
+  gate job restores it, or the newest before it when the key moved, and
+  saves nothing; a miss or a failed restore makes the job slower, never red.
+  The job's last step fails when the entry is over 5 GB, so two of it, the
+  most there is while a new one is saved, stay inside the 10 GB. The purge
+  needs `actions: write`, which `gate-store.yml` alone holds.
 
 ## What the verdict means
 

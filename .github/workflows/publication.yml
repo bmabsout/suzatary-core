@@ -17,7 +17,10 @@
 # WHO REACHES THE CACHE'S TOKEN. Only a push to master runs this, and only in
 # the public repository (the private one carries the same file and skips it).
 # A pull request never runs it, and the token is handed to the last step
-# alone, after every build, so nothing the builds run sees it.
+# alone, after every build, so nothing the builds run sees it. The token is a
+# secret of the environment `cachix`, which only a run on master may enter,
+# so a workflow file a gate branch carries cannot name it either. This is the
+# one workflow that writes to the cache: the gate's jobs only read it.
 name: Publication cache
 
 on:
@@ -30,6 +33,9 @@ permissions:
 jobs:
   cache:
     if: ${{ !github.event.repository.private }}
+    # The token is this environment's secret, and only a run on master enters
+    # it (scripts/core-settings.sh), so no other branch's workflow can read it.
+    environment: cachix
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     steps:
@@ -55,12 +61,40 @@ jobs:
           nix build --print-build-logs --out-link result-dist .#suzatary-web
           nix build --print-build-logs --out-link result-plugins .#suzatary-plugins
 
-      # cachix from the flake's own pinned nixpkgs. It pushes each closure and
-      # leaves out what cache.nixos.org already serves.
+      # What the push adds to the cache: every path of the three closures that
+      # neither cache.nixos.org nor the cache already serves, by its NAR size
+      # (an upper bound of what Cachix stores, which compresses it). The
+      # `bmabsout` cache holds 5 GB on Cachix's free plan and evicts the least
+      # recently used past it, the Prodrome's builds among them, so a
+      # publication that would add more than 1 GB fails here and pushes
+      # nothing; the deploy then builds on the box, and says so. A query that
+      # fails counts its path as unserved, so it errs toward failing.
+      - name: Measure what the push adds
+        env:
+          LIMIT: 1000000000
+        run: |
+          set -euo pipefail
+          nix path-info --recursive ./result-bin ./result-dist ./result-plugins | sort -u >closure.txt
+          # A path is served when its cache answers its narinfo.
+          for cache in https://cache.nixos.org https://bmabsout.cachix.org; do
+            # shellcheck disable=SC2016
+            xargs -P 16 -I '{}' sh -c 'name="${1#/nix/store/}"; curl -sfI -o /dev/null "$0/${name%%-*}.narinfo" && echo "$1"' "$cache" '{}' <closure.txt || true
+          done | sort -u >served.txt
+          comm -23 closure.txt served.txt >unserved.txt
+          bytes="$(xargs -r nix path-info --size <unserved.txt | awk '{ sum += $2 } END { print sum + 0 }')"
+          echo "the push adds $(wc -l <unserved.txt) paths, $((bytes / 1000000)) MB uncompressed"
+          if ((bytes > LIMIT)); then
+            echo "::error::this publication would add $((bytes / 1000000)) MB to the bmabsout Cachix, over the $((LIMIT / 1000000)) MB one publication may add to its 5 GB: nothing pushed"
+            exit 1
+          fi
+
+      # cachix from the flake's own pinned nixpkgs, pushing the paths measured
+      # above. The rest of their closures is served already, and cachix leaves
+      # out what either cache serves.
       - name: Push the builds to the cache
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
         run: |
           set -euo pipefail
-          nix run --inputs-from . nixpkgs#cachix -- push bmabsout \
-            "$(readlink -f result-bin)" "$(readlink -f result-dist)" "$(readlink -f result-plugins)"
+          xargs -r nix run --inputs-from . nixpkgs#cachix -- push bmabsout <unserved.txt
+          echo "pushed $(wc -l <unserved.txt) paths"

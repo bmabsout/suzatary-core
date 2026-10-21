@@ -1,0 +1,109 @@
+name: Gate store
+
+# THE STORE THE GATE'S JOBS START FROM (.github/workflows/gate.yml). A run on a branch reads only
+# the Actions caches saved on that branch or on master, and every train gates on a new branch
+# `gate/<train sha>`, so the gate's jobs cannot keep a store for each other. This job saves one,
+# on master, on each publication: the builds the lanes start from that no binary cache serves (the
+# three crane dependency builds and the Prodrome's typst module), under a key of what they are
+# built from. Every gate job restores it and saves nothing. The operator's shell (`.#triage`) is
+# left out: it is 5.1 GB, and cache.nixos.org serves all of it but three small paths a job builds
+# in seconds.
+#
+# THE BUDGET. A repository's Actions cache holds 10 GB, and GitHub evicts the least recently used
+# entries past it. This writes one entry: before saving, the store is collected down to what the
+# roots below hold, and after saving, every older entry of the store is purged. So the cache holds
+# one store, and two only while a new one is saved; the last step fails, loudly, when the entry
+# is larger than half of the 10 GB, and a failed step here is no gate's verdict.
+#
+# WHO REACHES WHAT. Only a push to master runs this, and only in the public repository (the
+# private one carries the same file and skips it); no pull request runs it. It names no secret and
+# pushes nothing to the Cachix. Its token reads the repository and may delete this repository's
+# Actions caches (`actions: write`), which the purge needs; no job of gate.yml holds that.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-store
+
+jobs:
+  store:
+    if: ${{ !github.event.repository.private }}
+    # The gate's runners: the store is theirs.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Free the runner's disk
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/powershell /opt/hostedtoolcache || true
+          df -h /
+
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      # gate.yml's settings, so the store saved is the store its jobs run in.
+      - uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd # v31.9.1
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            max-jobs = auto
+            extra-substituters = https://bmabsout.cachix.org
+            extra-trusted-public-keys = bmabsout.cachix.org-1:/GhCEayGQ3NHMIlJiUelQrLtHHXVdGjHtyDz32xNAo4=
+
+      # The last store, so a moved key builds only what moved.
+      - name: The last store
+        uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        continue-on-error: true
+        with:
+          primary-key: gate-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'app/Cargo.lock', 'app/**/Cargo.toml') }}
+          restore-prefixes-first-match: gate-store-${{ runner.os }}-${{ runner.arch }}-
+
+      # Each rooted, so the collection below keeps them and nothing else.
+      - name: Build what the gate's jobs start from
+        run: |
+          set -euo pipefail
+          roots="$RUNNER_TEMP/roots"
+          mkdir -p "$roots"
+          for out in suzatary-deps suzatary-wasm-deps suzatary-core-deps suzatary-typst-wasm; do
+            nix build --print-build-logs --out-link "$roots/$out" ".#$out"
+          done
+
+      - name: Collect the store down to the roots
+        run: |
+          set -euo pipefail
+          nix store gc
+          bytes="$(nix path-info --all --size | awk '{ sum += $2 } END { print sum + 0 }')"
+          echo "the store holds $((bytes / 1000000)) MB uncompressed"
+
+      - name: Save the store, and purge the older ones
+        uses: nix-community/cache-nix-action/save@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: gate-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'app/Cargo.lock', 'app/**/Cargo.toml') }}
+          purge: true
+          purge-prefixes: gate-store-${{ runner.os }}-${{ runner.arch }}-
+          purge-created: 0
+          purge-primary-key: never
+
+      # Two entries while a new one is saved: so one is at most half of the 10 GB.
+      - name: The entry's size
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: gate-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'app/Cargo.lock', 'app/**/Cargo.toml') }}
+          LIMIT: 5000000000
+        run: |
+          set -euo pipefail
+          bytes="$(gh api "repos/$GITHUB_REPOSITORY/actions/caches?ref=$GITHUB_REF&key=$KEY" \
+            --jq '[.actions_caches[] | select(.key == env.KEY) | .size_in_bytes] | add // 0')"
+          echo "the store's entry is $((bytes / 1000000)) MB"
+          if ((bytes > LIMIT)); then
+            echo "::error::the gate's store is $((bytes / 1000000)) MB, over the $((LIMIT / 1000000)) MB that keeps two of it inside the repository's 10 GB Actions cache"
+            exit 1
+          fi

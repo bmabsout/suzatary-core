@@ -14,12 +14,19 @@ name: Gate
 # runner lost, a cancel, a timeout, an install that failed, a gate that did not start) is no
 # verdict, never a red tree.
 #
-# WHO REACHES THE SECRET. Only a push to a `gate/**` branch runs this, and only someone with write
-# access to core can push one; a fork's push runs in the fork, with the fork's secrets, and no
-# pull request event is named here, so no pull request runs it, from a fork or not. The token
-# GitHub hands the jobs reads and writes nothing else (`contents: read`), and the checkout does not
-# keep it. The Cachix token pushes what the jobs build to the public `bmabsout` cache; the code it
-# runs beside is a train of reviewed pull requests, the code a land then deploys from that cache.
+# NO JOB HOLDS A SECRET. Only a push to a `gate/**` branch runs this, and only someone with write
+# access to core can push one; a fork's push runs in the fork, and no pull request event is named
+# here, so no pull request runs it. The token GitHub hands the jobs reads the repository and
+# nothing else (`contents: read`), and the checkout does not keep it. The jobs push nothing: they
+# read the public `bmabsout` Cachix as a plain substituter, which only publication.yml writes, and
+# the Actions cache's store, which only gate-store.yml writes, from master.
+#
+# THE STORE. A run on a branch reads only the caches saved on that branch or on master, and a
+# gate branch is new for every train, so what a job saved here no later job could read. So each
+# job restores the one store gate-store.yml saves on each push to master (the dependency builds
+# no binary cache serves, keyed by what they are built from), or the newest one before it when
+# the key moved, and saves nothing. A miss, or a restore that fails, leaves the job a cold store:
+# slower, never red.
 on:
   push:
     branches: [ 'gate/**' ]
@@ -71,11 +78,16 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             max-jobs = auto
+            extra-substituters = https://bmabsout.cachix.org
+            extra-trusted-public-keys = bmabsout.cachix.org-1:/GhCEayGQ3NHMIlJiUelQrLtHHXVdGjHtyDz32xNAo4=
 
-      - uses: cachix/cachix-action@3ba601ff5bbb07c7220846facfa2cd81eeee15a1 # v16
+      # The key is gate-store.yml's, spelled the same (a guard test holds the two equal).
+      - name: the store
+        uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        continue-on-error: true
         with:
-          name: bmabsout
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          primary-key: gate-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'app/Cargo.lock', 'app/**/Cargo.toml') }}
+          restore-prefixes-first-match: gate-store-${{ runner.os }}-${{ runner.arch }}-
 
       # The shell the gate runs in, apart, so a download that fails here stops the job before its
       # gate, as no verdict. A shell the tree cannot build is red on the box, whose public-tree

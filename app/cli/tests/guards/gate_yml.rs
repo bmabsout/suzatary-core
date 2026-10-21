@@ -1,8 +1,9 @@
 //! The tree half on GitHub's runners (`scripts/train.sh gate --remote github`): the steps the box
 //! runs (`box_steps` in `scripts/train.sh`) and the jobs of `.github/workflows/gate.yml` hold every
 //! step of `scripts/merge-gate.sh`'s tree half between them; the workflow runs on a push to a gate
-//! branch alone, with a read-only token and every action pinned; and `scripts/e2e-part.sh` deals
-//! the browser suite's files to parts that hold each once.
+//! branch alone, with a read-only token, no secret and every action pinned, and restores the store
+//! `.github/workflows/gate-store.yml` saves on master and saves nothing; and `scripts/e2e-part.sh`
+//! deals the browser suite's files to parts that hold each once.
 
 use super::merge_gate::{MADE_AND_READ, steps};
 use super::{Scratch, repo};
@@ -136,32 +137,27 @@ fn gate_yml_e2e_jobs_are_every_part_once() {
     );
 }
 
-/// The workflow runs on a push to `gate/**` and on nothing else (no pull request event, from a
-/// fork or not), its token reads only, its checkout keeps no credential, every action is pinned
-/// by its commit, and the one secret it names is handed to the Cachix action alone.
-#[test]
-fn gate_yml_runs_on_a_gate_branch_alone_with_a_read_only_token() {
-    let text = read(".github/workflows/gate.yml");
-    let body: Vec<&str> = text
+/// A workflow's lines that are not comments.
+fn code(rel: &str) -> String {
+    read(rel)
         .lines()
         .filter(|line| !line.trim_start().starts_with('#'))
-        .collect();
-    let on = body
-        .iter()
-        .skip_while(|line| **line != "on:")
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The trigger block: the lines under `on:`, trimmed.
+fn trigger(body: &str) -> Vec<&str> {
+    body.lines()
+        .skip_while(|line| *line != "on:")
         .skip(1)
         .take_while(|line| line.starts_with(' ') || line.is_empty())
-        .map(|line| line.trim())
-        .collect::<Vec<_>>();
-    assert_eq!(on, ["push:", "branches: [ 'gate/**' ]", ""], "{on:?}");
-    let body = body.join("\n");
-    assert!(!body.contains("pull_request"), "no pull request event");
-    assert!(
-        body.contains("permissions:\n  contents: read\n"),
-        "the token reads only"
-    );
-    assert!(!body.contains(": write"), "and no job asks to write");
-    assert!(body.contains("persist-credentials: false"));
+        .map(str::trim)
+        .collect()
+}
+
+/// Every `uses:` names its action by a commit.
+fn assert_pinned(body: &str) {
     for line in body.lines().filter(|l| l.contains("uses: ")) {
         let pin = line
             .rsplit_once('@')
@@ -172,19 +168,139 @@ fn gate_yml_runs_on_a_gate_branch_alone_with_a_read_only_token() {
             "pinned by commit: {line}"
         );
     }
-    assert_eq!(body.matches("secrets.").count(), 1, "one secret");
-    let cachix = body
-        .split("- uses: ")
-        .find(|part| part.starts_with("cachix/cachix-action@"))
-        .expect("the Cachix action");
-    assert!(cachix.contains("authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}"));
 }
 
-/// actionlint passes the workflow: its syntax, its expressions and its runner labels.
+/// The values of a `<key>: ` the text spells, each once per spelling.
+fn values<'a>(body: &'a str, key: &str) -> BTreeSet<&'a str> {
+    body.lines()
+        .filter_map(|line| line.trim_start().strip_prefix(key)?.strip_prefix(": "))
+        .collect()
+}
+
+/// The workflow runs on a push to `gate/**` and on nothing else (no pull request event, from a
+/// fork or not), its token reads only, its checkout keeps no credential, every action is pinned
+/// by its commit, and it names no secret: it reads the Cachix as a substituter, pushes to no
+/// binary cache, and restores the Actions cache without saving to it.
 #[test]
-fn gate_yml_passes_actionlint() {
+fn gate_yml_runs_on_a_gate_branch_alone_holding_no_secret() {
+    let body = code(".github/workflows/gate.yml");
+    let on = trigger(&body);
+    assert_eq!(on, ["push:", "branches: [ 'gate/**' ]", ""], "{on:?}");
+    assert!(!body.contains("pull_request"), "no pull request event");
+    assert!(
+        body.contains("permissions:\n  contents: read\n"),
+        "the token reads only"
+    );
+    assert!(!body.contains(": write"), "and no job asks to write");
+    assert!(body.contains("persist-credentials: false"));
+    assert_pinned(&body);
+    assert!(!body.contains("secrets."), "no secret");
+    assert!(!body.contains("cachix-action"), "no Cachix action");
+    assert!(!body.contains("cachix push"), "no push to the Cachix");
+    assert!(body.contains("extra-substituters = https://bmabsout.cachix.org\n"));
+    let caches: Vec<&str> = body
+        .lines()
+        .filter_map(|l| l.split_once("uses: nix-community/cache-nix-action"))
+        .map(|(_, rest)| rest)
+        .collect();
+    assert_eq!(caches.len(), 1, "one use of the cache action: {caches:?}");
+    assert!(
+        caches[0].starts_with("/restore@"),
+        "its restore alone, which has no saving post step: {caches:?}"
+    );
+    assert!(
+        body.contains("continue-on-error: true"),
+        "a failed restore is no failure"
+    );
+}
+
+/// gate-store.yml runs on a push to master in the public repository alone, names no secret, is
+/// the one workflow whose token may write (the Actions cache, for its purge), saves under the key
+/// gate.yml restores, collects the store to its roots before saving, purges every older entry of
+/// it, and fails when its entry is over half of the repository's 10 GB.
+#[test]
+fn gate_store_yml_saves_the_one_store_on_master() {
+    let store = code(".github/workflows/gate-store.yml");
+    let gate = code(".github/workflows/gate.yml");
+    assert_eq!(
+        trigger(&store),
+        ["push:", "branches: [master]", ""],
+        "a push to master and nothing else"
+    );
+    assert!(!store.contains("pull_request"));
+    assert!(store.contains("if: ${{ !github.event.repository.private }}"));
+    assert!(!store.contains("secrets."), "no secret");
+    assert!(!store.contains("cachix push") && !store.contains("cachix-action"));
+    assert!(store.contains("persist-credentials: false"));
+    assert_pinned(&store);
+    assert_eq!(store.matches(": write").count(), 1, "one permission writes");
+    assert!(store.contains("      contents: read\n      actions: write\n"));
+    let workflows = std::fs::read_dir(repo().join(".github/workflows")).expect("the workflows");
+    for entry in workflows {
+        let name = entry.expect("a workflow").file_name();
+        let name = name.to_string_lossy();
+        if name != "gate-store.yml" {
+            assert!(
+                !code(&format!(".github/workflows/{name}")).contains("actions: write"),
+                "{name} may not delete the Actions cache"
+            );
+        }
+    }
+    let keys = values(&store, "primary-key");
+    assert_eq!(keys.len(), 1, "one key: {keys:?}");
+    assert_eq!(
+        values(&gate, "primary-key"),
+        keys,
+        "gate.yml restores what this saves"
+    );
+    let key = keys.first().expect("a key");
+    for read in ["flake.nix", "flake.lock", "app/Cargo.lock"] {
+        assert!(
+            key.contains(&format!("'{read}'")),
+            "the key reads {read}: {key}"
+        );
+    }
+    let prefixes = values(&store, "restore-prefixes-first-match");
+    assert_eq!(values(&gate, "restore-prefixes-first-match"), prefixes);
+    assert_eq!(
+        values(&store, "purge-prefixes"),
+        prefixes,
+        "purges its own entries"
+    );
+    let prefix = prefixes.first().expect("a prefix");
+    assert!(key.starts_with(prefix), "{key} has the prefix {prefix}");
+    assert_eq!(values(&store, "purge"), BTreeSet::from(["true"]));
+    assert_eq!(values(&store, "purge-created"), BTreeSet::from(["0"]));
+    assert_eq!(
+        values(&store, "purge-primary-key"),
+        BTreeSet::from(["never"])
+    );
+    let at = |needle: &str| {
+        store
+            .find(needle)
+            .unwrap_or_else(|| panic!("gate-store.yml has {needle:?}"))
+    };
+    assert!(
+        at("nix store gc") < at("cache-nix-action/save@"),
+        "collected, then saved"
+    );
+    assert!(
+        at("cache-nix-action/save@") < at("LIMIT: 5000000000"),
+        "measured once saved"
+    );
+    assert!(store.contains("if ((bytes > LIMIT)); then"));
+}
+
+/// actionlint passes the workflows the gate and the caches rest on: their syntax, their
+/// expressions, their runner labels and the shell of each step.
+#[test]
+fn gate_workflows_pass_actionlint() {
     let out = Command::new("actionlint")
-        .arg(".github/workflows/gate.yml")
+        .args([
+            ".github/workflows/gate.yml",
+            ".github/workflows/gate-store.yml",
+            ".github/workflows/publication.yml",
+        ])
         .current_dir(repo())
         .output()
         .expect("actionlint runs (the .#triage shell carries it)");
