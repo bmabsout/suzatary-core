@@ -27,6 +27,10 @@ if [ "${#subject}" -gt 72 ]; then
   echo "commit-msg: the subject line is ${#subject} characters; git tooling truncates past 72" >&2
   exit 1
 fi
+if printf '%s\n' "$body" | grep -qiE 'claude\.ai/code/session|^Claude-Session:'; then
+  echo "commit-msg: the message links a Claude session; the owner keeps sessions private, so drop the link or trailer" >&2
+  exit 1
+fi
 mentions=$(printf '%s\n' "$body" | grep -iE '^Mentions:' | sed -E 's/^[Mm]entions:[[:space:]]*//' | tr ',' ' ' || true)
 # The diff the message is a claim about: the index when git runs this as a
 # hook, or one existing commit when scripts/check-commits.sh replays it over

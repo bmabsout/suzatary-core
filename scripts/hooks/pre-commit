@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# The staged files' cheap checks, before the gate finds them an hour later: rustfmt on the staged
+# Rust, and no term of the data repository's privacy lists in a staged line where those lists are
+# on this machine (the box; the gate's leak guard covers the rest).
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+mapfile -t rust < <(git diff --cached --name-only --diff-filter=ACMR -- '*.rs')
+if ((${#rust[@]})); then
+  if ! command -v rustfmt >/dev/null; then
+    exec nix develop .#triage -c "$0" "$@"
+  fi
+  if ! rustfmt --check --edition 2024 "${rust[@]}" >/dev/null 2>&1; then
+    echo "pre-commit: rustfmt would change these staged files; run cargo fmt --all and stage again:" >&2
+    rustfmt --check --edition 2024 -l "${rust[@]}" 2>/dev/null | sed 's/^/  /' >&2 || true
+    exit 1
+  fi
+fi
+
+instance=instance.toml
+[[ -e $instance ]] || instance="$(git rev-parse --path-format=absolute --git-common-dir)/../instance.toml"
+if [[ -e $instance ]]; then
+  lists="$(dirname "$(realpath "$instance")")/local"
+  terms=$(mktemp)
+  trap 'rm -f "$terms"' EXIT
+  for list in "$lists/personal-terms.txt" "$lists/context-terms.txt"; do
+    [[ -f $list ]] && grep -vE '^[[:space:]]*(#|$)' "$list" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' >>"$terms"
+  done
+  if [[ -s $terms ]]; then
+    hits=$(git diff --cached -U0 --no-color | grep -E '^\+[^+]' | grep -ciF -f "$terms" || true)
+    if ((hits)); then
+      echo "pre-commit: $hits staged line(s) name a term of the privacy lists; find them with:" >&2
+      echo "  git diff --cached -U0 | grep -niF -f $lists/personal-terms.txt -f $lists/context-terms.txt" >&2
+      exit 1
+    fi
+  fi
+fi

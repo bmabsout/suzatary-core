@@ -1139,7 +1139,7 @@ fn commit_msg_paths_that_do_not_exist_are_not_claims() {
     touch(&root, "suzatary/todos.py");
     let r = commit(
         &root,
-        "See https://claude.ai/code/session_x and docs/nothing.md and foo/bar.py",
+        "See https://example.test/a/b and docs/nothing.md and foo/bar.py",
     );
     assert!(r.status.success(), "{}", stderr(&r));
 }
