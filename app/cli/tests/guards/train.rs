@@ -1657,9 +1657,9 @@ fn train_gate_github_runs_the_public_tree_on_a_gate_branch_and_records_its_green
     let out = t.train(&["gate", "--remote", "github"]);
     assert!(out.status.success(), "gate: {}", text(&out.stderr));
     assert!(
-        t.gate_args()
-            .iter()
-            .any(|args| args.ends_with("--no-live --steps public-tree,deployed-shape,changelog")),
+        t.gate_args().iter().any(
+            |args| args.ends_with("--no-live --steps fmt,public-tree,deployed-shape,changelog")
+        ),
         "the box ran its steps: {:?}",
         t.gate_args()
     );

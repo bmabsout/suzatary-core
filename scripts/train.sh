@@ -129,9 +129,10 @@
 # core, a public repository, whose runners cost nothing. Only the train commit's PUBLIC TREE goes
 # there, a function of its tree, and only once its leak guard passes whole (`--check --strict`,
 # as a publication's); a tree that does not pass sends nothing, and the half says nothing of it.
-# The tree half's steps that read this private repository run on the box first (`box_steps`: the
-# public tree's own build and the deploy's shape, which build the public tree from the source,
-# and the changelog, which reads origin's master); a red there is the half's red, and nothing goes
+# The tree half's steps that read this private repository run on the box first (`box_steps`:
+# fmt, whose workspace names test targets the public tree leaves out, the public tree's own build
+# and the deploy's shape, which build the public tree from the source, and the changelog, which
+# reads origin's master); a red there is the half's red, and nothing goes
 # to the cloud. Then the public tree is committed on core's master by the publications' fixed
 # author, with a `Gate: <train sha>` trailer, and pushed to core's branch `gate/<train sha>` alone,
 # never to master, where .github/workflows/gate.yml runs the rest of the half's steps, one job per
@@ -872,7 +873,7 @@ run_remote() {
 # deployed-shape runs the binary it built, and changelog compares with origin's master. Every
 # other step of the half is a job's in .github/workflows/gate.yml (a guard test holds the two to
 # every step of the half, each once).
-box_steps="public-tree,deployed-shape,changelog"
+box_steps="fmt,public-tree,deployed-shape,changelog"
 # The workflow a gate branch runs, and how long the train waits for its run: a run that has not
 # ended in six hours (GitHub's own limit on a job) says nothing of the tree.
 gate_workflow=.github/workflows/gate.yml

@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { lane: checks, steps: 'fmt,clippy,clippy-fixture,doc', part: '' }
+          - { lane: checks, steps: 'clippy,clippy-fixture,doc', part: '' }
           - { lane: tests, steps: 'build,fence-plugin,test,plugin-fence,plugin-sync', part: '' }
           - { lane: guards, steps: 'guards', part: '' }
           - { lane: web, steps: 'web-inputs,web-test,build-web', part: '' }
