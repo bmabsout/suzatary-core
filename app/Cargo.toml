@@ -257,11 +257,10 @@ pedantic = { level = "warn", priority = -1 }
 # restate the error enum in prose, which is the second declaration this
 # architecture exists to avoid (§2, last bullet).
 missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 
 [workspace.lints.rust]
-# A public item with no doc comment is an item whose rule was not written
-# down, and the rules are the point of these crates (§3).
-missing_docs = "warn"
+missing_docs = "allow"
 
 # THE TEST BUILD IS NOT A DEBUGGER SESSION. Full debuginfo plus incremental
 # caches made a `cargo test --workspace` tree of 9–16 GB, on a 45 GB box that

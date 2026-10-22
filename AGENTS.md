@@ -205,6 +205,27 @@ generated inputs. Write the test's name next to the law in the docs.
 Do not make a test pass because a read is fast. If a test needs one event before another, make
 that order happen in the test. Do not add a sleep or a retry.
 
+What to test, and where:
+
+- Keep a standing test only where the code is complicated or costly to get wrong: merge and
+  fold laws, orders and concurrency, migrations and stored formats, and the security and
+  privacy boundaries. A simple pure transform between two types needs no standing test once
+  it is written. Do not test what a type already proves, or what another test already checks.
+- Test a pure function directly. A unit test reaches the core's folds and the page's steps
+  without a server or a browser. The e2e scenes (`web/e2e/`) run a real browser against a real
+  server, so use a scene only for what only that pair can show: the page drawn from the box's
+  answers, a click reaching a route, a device's storage across a reload. A rule a unit test can
+  reach does not belong in a scene.
+- Write one test for each law, and loop over its cases inside that test. Do not copy a test
+  for each case.
+- Comments follow the same rule: write one only where the code cannot say it, such as an
+  invariant, a hazard, an outside constraint or a reason that is not obvious. Do not restate
+  what the code does, tell its history or justify a choice. A public item needs no doc comment
+  when its name and type say what it is.
+- When a change alters behaviour, change its test in the same commit. Regenerate a pin, a
+  vector or a golden file (`app/cli/tests/pins/`, `app/core/tests/web/`) only when the change
+  is meant to move it, and say in the commit what moved.
+
 ### 9. Put one concept in each file
 
 Name each file for its main type, and declare that type first, after the imports. If a file has
