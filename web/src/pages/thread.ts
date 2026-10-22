@@ -1,6 +1,7 @@
 // One mail thread, oldest first, with only the newest open: read the way it happened. Bodies are text.
 
-import { mailThread } from "../wire/api";
+import { mailThread, revealHeld } from "../wire/api";
+import heldvalue from "../view/heldvalue";
 import type { MailMessage, ThreadPayload } from "../wire/generated/wire";
 import { el } from "../view/dom";
 import { chip, whenOf } from "../view/format";
@@ -39,7 +40,7 @@ function messageBlock(message: MailMessage, open: boolean): HTMLElement {
       todo === null ? null : el("code", { class: "cardid" }, todo),
       el("a", { class: "hashlink", href: hrefOf({ type: "message", id: row.id }) }, "open"),
     ),
-    el("div", { class: "mailbody" }, message.body === "" ? "(this message has no readable body)" : message.body),
+    heldvalue.within(el("div", { class: "mailbody" }, message.body === "" ? "(this message has no readable body)" : message.body), revealHeld),
     message.truncated ? el("p", { class: "legend" }, "Cut at 200 KB.") : null,
   );
 }

@@ -3,7 +3,7 @@
 use axum::routing::get;
 
 use super::route::{Route, Scope};
-use super::{chain, google, mail, proposals, secretary, settings, stores, stream, the_box};
+use super::{chain, google, held, mail, proposals, secretary, settings, stores, stream, the_box};
 
 /// Every route.
 #[must_use]
@@ -46,6 +46,7 @@ pub fn table() -> Vec<Route> {
         // A device asks to be trusted; the tap on its card, from a trusted device, trusts it.
         Route::post("/api/act/key", Scope::Box, the_box::key),
         Route::post("/api/act/pair", Scope::Box, the_box::pair),
+        Route::post("/api/held/reveal", Scope::Box, held::reveal),
         // A GET under /api/act/ is 405 here, or the catch-all would answer the index.
         Route::special("/api/act/{*verb}", Scope::Box, get(the_box::act_read)),
         // What is connected; a change to it is a card, tapped through the route below.

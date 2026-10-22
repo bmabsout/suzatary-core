@@ -1,7 +1,7 @@
 // Every route the box answers, named once: its path, its method, and the decoder its answer passes through `http`.
 
 import app from "../app/app";
-import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, RejectedPayload, ReleasesPayload, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload } from "./generated/wire";
+import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload } from "./generated/wire";
 import { print } from "../chat/refs";
 import type { Reference } from "../chat/refs";
 import heads from "../prodrome/heads";
@@ -257,6 +257,10 @@ export const dropSession = (id: string, index: number, reason: string): Promise<
   http.act(proposalPath(id, index, "drop"), { reason } satisfies Reasoning, payload.ConversationPayload);
 
 export const getMemory = (): Promise<MemoryPayload> => http.get("/api/secretary/memory", payload.MemoryPayload);
+
+/** The owner's tap on a held value's placeholder: the value, answered once and kept nowhere; `null` when the box holds it no more. */
+export const revealHeld = (handle: string): Promise<string | null> =>
+  http.act("/api/held/reveal", { handle } satisfies Revealing, payload.RevealPayload).then((p) => (p.type === "Shown" ? p.value : null));
 
 /** A device asks to be trusted: the box files one Inbox card, which a tap from a trusted device answers. */
 export const askTrust = (key: string): Promise<{ proposed: number }> =>

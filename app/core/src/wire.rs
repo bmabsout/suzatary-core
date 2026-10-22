@@ -1001,6 +1001,40 @@ pub struct Pairing {
     pub code: String,
 }
 
+/// `POST /api/held/reveal`: the owner's tap on a held value's placeholder.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct Revealing {
+    /// The handle, as the placeholder prints it (`held:…`).
+    pub handle: String,
+}
+
+/// What `POST /api/held/reveal` answers. The box keeps [`RevealPayload::NotKept`] for a replay
+/// of the request, never the value.
+#[derive(Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "type")]
+pub enum RevealPayload {
+    /// The value, as the message writes it.
+    Shown {
+        /// The value.
+        value: String,
+    },
+    /// The message is gone, or holds no value at that place any more.
+    Gone,
+    /// A replay: the value was answered once and not kept; tap again.
+    NotKept,
+}
+
+impl std::fmt::Debug for RevealPayload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Shown { .. } => "Shown(a held value)",
+            Self::Gone => "Gone",
+            Self::NotKept => "NotKept",
+        })
+    }
+}
+
 /// `POST /api/act/device`: the phone saying "wake me here".
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
 #[serde(deny_unknown_fields)]
@@ -2795,6 +2829,7 @@ fn answers(visit: &mut impl TypeVisitor) {
     visit.visit::<BlockRender>();
     visit.visit::<AttachmentRow>();
     visit.visit::<Uploaded>();
+    visit.visit::<RevealPayload>();
     visit.visit::<ConversationsPayload>();
     visit.visit::<SearchPayload>();
     visit.visit::<SayPayload>();
@@ -2818,6 +2853,7 @@ fn bodies(visit: &mut impl TypeVisitor) {
     visit.visit::<Reasoning>();
     visit.visit::<KeyAsked>();
     visit.visit::<Pairing>();
+    visit.visit::<Revealing>();
     visit.visit::<Registering>();
     visit.visit::<crate::clienterror::Sent>();
     visit.visit::<PostedObjects>();
@@ -2961,6 +2997,7 @@ mod tests {
         reads::<Reasoning>(&serde_json::json!({"reason": "r"}));
         reads::<KeyAsked>(&serde_json::json!({"key": "k"}));
         reads::<Pairing>(&serde_json::json!({"code": "c"}));
+        reads::<Revealing>(&serde_json::json!({"handle": "held:YQ.0"}));
         reads::<Registering>(&serde_json::json!({"platform": "android", "token": "t"}));
         reads::<Registering>(
             &serde_json::json!({"platform": "android", "token": "t", "nonce": "n"}),

@@ -8,7 +8,8 @@ import type { BlockRow, ProposalRow, TurnGone, TurnRow } from "../wire/generated
 import spoken from "../inbox/spoken";
 import onscreen, { store } from "../app/store";
 import waiting from "../inbox/waiting";
-import { block } from "../wire/api";
+import { block, revealHeld } from "../wire/api";
+import heldvalue from "../view/heldvalue";
 import attachment from "./attachment";
 import rendered from "../app/rendered";
 import app from "../app/app";
@@ -152,7 +153,7 @@ function turnBlock(
   if (turn.gone !== null) classes.push("gone");
   const source = el("div", { class: "turntext" }, ...textWithReferences(turn.text, turn.who));
   const rich = turn.gone === null && turn.who === "model" && turn.blocks.length > 0 ? turn : null;
-  const body = turn.gone !== null ? goneText(turn, turn.gone) : rich !== null ? answerBlocks(rich) : source;
+  const body = turn.gone !== null ? goneText(turn, turn.gone) : heldvalue.within(rich !== null ? answerBlocks(rich) : source, revealHeld);
   const block = el(
     "div",
     { class: classes.join(" "), "data-who": turn.who },

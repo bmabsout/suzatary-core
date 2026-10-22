@@ -2915,6 +2915,27 @@
       "maps": []
     }
   ],
+  "RevealPayload": [
+    {
+      "value": {
+        "type": "Shown",
+        "value": "000-12-3456"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "type": "Gone"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "type": "NotKept"
+      },
+      "maps": []
+    }
+  ],
   "SayPayload": [
     {
       "value": {

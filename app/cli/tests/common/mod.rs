@@ -2713,6 +2713,7 @@ pub struct Server {
     checks: Option<Arc<CheckRecorder>>,
     watching: Option<PathBuf>,
     google: Googled,
+    reveal: Option<Arc<dyn suzatary_core::held_value::Reveal + Send + Sync>>,
 }
 
 /// Where a test server asks Google and keeps what a sign-in with Google keeps: Google's own and
@@ -2890,6 +2891,15 @@ impl Server {
             checks: None,
             watching: None,
             google: Googled::default(),
+            reveal: None,
+        }
+    }
+
+    /// Reading held values back through `reveal`, as a box over its mail does.
+    pub fn reveal(self, reveal: Arc<dyn suzatary_core::held_value::Reveal + Send + Sync>) -> Self {
+        Self {
+            reveal: Some(reveal),
+            ..self
         }
     }
 
@@ -3187,6 +3197,10 @@ impl Server {
             None => state,
         }
         .with_google(consenting);
+        let state = match self.reveal {
+            Some(reveal) => state.with_reveal(reveal),
+            None => state,
+        };
         let state = self.models.serving(state, signing);
         if let Some(path) = self.watching {
             runtime().spawn(serve::instance_watched(state.clone(), path));

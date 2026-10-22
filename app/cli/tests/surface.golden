@@ -16,6 +16,7 @@ GET /api/chain read -
 POST /api/client-errors write -
 GET /api/content read -
 GET /api/fold read -
+POST /api/held/reveal tap signed
 GET /api/mail/inbox read -
 GET /api/mail/message/{id} read -
 GET /api/mail/search read -

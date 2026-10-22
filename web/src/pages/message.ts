@@ -1,7 +1,8 @@
 // One message: its body as text (mail is never markup here, and never goes near rich.ts), its links, and the todos
 // whose latest record names it, drawn as the list's own cards with their acts.
 
-import { mailMessage } from "../wire/api";
+import { mailMessage, revealHeld } from "../wire/api";
+import heldvalue from "../view/heldvalue";
 import http from "../wire/http";
 import app from "../app/app";
 import type { Entry, MailMessage } from "../wire/generated/wire";
@@ -162,7 +163,7 @@ export function mount(root: HTMLElement, id: string): Promise<Mounted> {
         : [
             chips(read.message),
             el("div", { class: "askrow" }, askLink({ kind: "mail", hash: read.message.row.hash })),
-            el("div", { class: "mailbody" }, read.message.body === "" ? "(this message has no readable body)" : read.message.body),
+            heldvalue.within(el("div", { class: "mailbody" }, read.message.body === "" ? "(this message has no readable body)" : read.message.body), revealHeld),
             read.message.truncated
               ? el("p", { class: "legend" }, "Cut at 200 KB — the rest is in the maildir, not on this page.")
               : null,

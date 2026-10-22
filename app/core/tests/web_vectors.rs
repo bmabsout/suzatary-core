@@ -2339,6 +2339,13 @@ fn the_answers_vector_holds_every_answer() {
     }]);
     samples.add([row(1)]);
     samples.add([
+        wire::RevealPayload::Shown {
+            value: "000-12-3456".to_owned(),
+        },
+        wire::RevealPayload::Gone,
+        wire::RevealPayload::NotKept,
+    ]);
+    samples.add([
         wire::Uploaded::Kept { file: row(2) },
         wire::Uploaded::Sensitive {
             why: "it names a tax number".to_owned(),

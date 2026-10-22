@@ -213,7 +213,7 @@ async fn serve<W: Guarded, P: Params, B: Body, O: Outcome>(
     let status = response.status().as_u16();
     let kept = match performing {
         Some(performing) => performing
-            .kept(response, wrote)
+            .kept(response, wrote, O::KEEPS)
             .await
             .map_err(|refusal| traced.refused("keep", refusal))?,
         None => response,

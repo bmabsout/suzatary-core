@@ -20,6 +20,8 @@ mod digest;
 mod drive_port;
 #[path = "held.rs"]
 mod held;
+#[path = "held_values.rs"]
+mod held_values;
 #[path = "image.rs"]
 mod image;
 #[path = "inbox.rs"]

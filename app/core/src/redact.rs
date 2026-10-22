@@ -184,47 +184,123 @@ fn scrubbed(tree: serde_json::Value) -> serde_json::Value {
     }
 }
 
+/// Which identity number a span of text is, by the label beside it or, with none, by its shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Kind {
+    /// A Social Security number.
+    Ssn,
+    /// An Individual Taxpayer Identification Number.
+    Itin,
+    /// A Taxpayer Identification Number of no narrower kind.
+    Tin,
+    /// An Employer Identification Number.
+    Ein,
+}
+
+impl Kind {
+    /// The kind as a person writes it.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::Ssn => "SSN",
+            Kind::Itin => "ITIN",
+            Kind::Tin => "TIN",
+            Kind::Ein => "EIN",
+        }
+    }
+
+    fn of_label(label: &str) -> Self {
+        let label = label.to_ascii_lowercase();
+        if label == "itin" {
+            Kind::Itin
+        } else if label == "tin" {
+            Kind::Tin
+        } else if label == "ein" {
+            Kind::Ein
+        } else {
+            Kind::Ssn
+        }
+    }
+}
+
+/// One identity number in a text: its byte range and its kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Found {
+    /// Where it starts.
+    pub start: usize,
+    /// Where it ends.
+    pub end: usize,
+    /// What it is.
+    pub kind: Kind,
+}
+
+/// Every SSN, ITIN, TIN and EIN this module recognises in `text`, in order and never
+/// overlapping: two matches that overlap are one, from the first one's start to the later end.
+#[must_use]
+pub fn identity_numbers(text: &str) -> Vec<Found> {
+    let labels: Vec<(usize, usize, Kind)> = LABEL
+        .find_iter(text)
+        .map(|found| (found.start(), found.end(), Kind::of_label(found.as_str())))
+        .collect();
+    // The kind of the closest label within `NEAR` characters, if any.
+    let labelled = |start: usize, end: usize| {
+        labels
+            .iter()
+            .filter_map(|&(label_start, label_end, kind)| {
+                let gap = if label_end <= start {
+                    &text[label_end..start]
+                } else if end <= label_start {
+                    &text[end..label_start]
+                } else {
+                    ""
+                };
+                let gap = gap.chars().count();
+                (gap <= NEAR).then_some((gap, kind))
+            })
+            .min_by_key(|&(gap, _)| gap)
+            .map(|(_, kind)| kind)
+    };
+    let mut spans: Vec<Found> = WRITTEN_OUT
+        .find_iter(text)
+        .map(|found| Found {
+            start: found.start(),
+            end: found.end(),
+            kind: labelled(found.start(), found.end()).unwrap_or(
+                if found.as_str().starts_with('9') {
+                    Kind::Itin
+                } else {
+                    Kind::Ssn
+                },
+            ),
+        })
+        .collect();
+    spans.extend(NINE_DIGITS.find_iter(text).filter_map(|found| {
+        labelled(found.start(), found.end()).map(|kind| Found {
+            start: found.start(),
+            end: found.end(),
+            kind,
+        })
+    }));
+    spans.sort_unstable_by_key(|found| (found.start, found.end));
+    let mut merged: Vec<Found> = Vec::with_capacity(spans.len());
+    for found in spans {
+        match merged.last_mut() {
+            Some(last) if found.start < last.end => last.end = last.end.max(found.end),
+            Some(_) | None => merged.push(found),
+        }
+    }
+    merged
+}
+
 /// Replace every SSN, ITIN, TIN and EIN this module recognises in `text`.
 #[must_use]
 pub fn redact(text: &str) -> Redacted {
-    let labels: Vec<(usize, usize)> = LABEL
-        .find_iter(text)
-        .map(|found| (found.start(), found.end()))
-        .collect();
-    let near_a_label = |start: usize, end: usize| {
-        labels.iter().any(|&(label_start, label_end)| {
-            let gap = if label_end <= start {
-                &text[label_end..start]
-            } else if end <= label_start {
-                &text[end..label_start]
-            } else {
-                ""
-            };
-            gap.chars().count() <= NEAR
-        })
-    };
-    let mut spans: Vec<(usize, usize)> = WRITTEN_OUT
-        .find_iter(text)
-        .map(|found| (found.start(), found.end()))
-        .collect();
-    spans.extend(
-        NINE_DIGITS
-            .find_iter(text)
-            .map(|found| (found.start(), found.end()))
-            .filter(|&(start, end)| near_a_label(start, end)),
-    );
-    spans.sort_unstable();
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
-    for (start, end) in spans {
-        if start < at {
-            // Overlaps a span already replaced; its tail, if any, goes too.
-            at = at.max(end);
-            continue;
-        }
-        out.push_str(&text[at..start]);
+    for found in identity_numbers(text) {
+        out.push_str(&text[at..found.start]);
         out.push_str(REDACTED);
-        at = end;
+        at = found.end;
     }
     out.push_str(&text[at..]);
     Redacted(out)
@@ -236,6 +312,37 @@ mod tests {
 
     fn shown(text: &str) -> String {
         redact(text).into_string()
+    }
+
+    /// Each number found says what it is: by its label, the closest one, or by its shape.
+    #[test]
+    fn each_number_found_names_its_kind() {
+        let kinds = |text: &str| -> Vec<(String, Kind)> {
+            identity_numbers(text)
+                .into_iter()
+                .map(|found| (text[found.start..found.end].to_owned(), found.kind))
+                .collect()
+        };
+        assert_eq!(
+            kinds("000-12-3456"),
+            vec![("000-12-3456".to_owned(), Kind::Ssn)]
+        );
+        assert_eq!(
+            kinds("912-70-1234"),
+            vec![("912-70-1234".to_owned(), Kind::Itin)]
+        );
+        assert_eq!(
+            kinds("EIN: 00-0000001 and TIN 000000002"),
+            vec![
+                ("00-0000001".to_owned(), Kind::Ein),
+                ("000000002".to_owned(), Kind::Tin)
+            ]
+        );
+        assert_eq!(
+            kinds("ITIN 000-12-3456"),
+            vec![("000-12-3456".to_owned(), Kind::Itin)]
+        );
+        assert!(kinds("call 555 0100 on 2026-10-21").is_empty());
     }
 
     #[test]

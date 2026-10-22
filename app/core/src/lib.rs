@@ -32,6 +32,7 @@ pub mod excerpt;
 pub mod file_read;
 pub mod gate;
 pub mod google;
+pub mod held_value;
 pub mod leak;
 pub mod literal;
 pub mod mail;

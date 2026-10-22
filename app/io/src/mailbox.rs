@@ -6,6 +6,7 @@
 
 pub mod attachments;
 pub mod dedup;
+pub mod held;
 pub mod message;
 pub mod text;
 
@@ -21,6 +22,7 @@ use self::message::NotmuchMessage;
 use suzatary_core::capability::{Datetime, MailError, Mailbox, Query};
 use suzatary_core::enclosed::Enclosure;
 use suzatary_core::file_read::FileRead;
+use suzatary_core::held_value::{self, Handle, Reveal, Revealed};
 use suzatary_core::mail::account::{MailAccount, Roster};
 use suzatary_core::mail::known::Known;
 use suzatary_core::mail::local_state::{Ambiguous, Kept};
@@ -150,6 +152,7 @@ impl Notmuch {
                 continue;
             };
             let hash = dedup::canonical_hash(&bytes);
+            let values = held::values(&bytes, &[]);
             let parsed = mail_parser::MessageParser::default().parse(&bytes);
             let sender = parsed
                 .as_ref()
@@ -167,6 +170,10 @@ impl Notmuch {
                 .as_ref()
                 .and_then(|m| m.header_raw(mail_parser::HeaderName::Date))
                 .and_then(dedup::parse_rfc2822_date);
+            let (sender, title) = (
+                held_value::mask(&sender, &msg.id, &values),
+                held_value::mask(&title, &msg.id, &values),
+            );
             let source = Source {
                 account: self.account_for(&msg.file),
                 container: container_of(&msg.tags),
@@ -610,15 +617,52 @@ struct Shown {
     links: Vec<MailLink>,
 }
 
+/// A shown message as a model may read it: every identity number a placeholder (`held_value`).
 fn shown_of(msg: NotmuchMessage) -> Shown {
-    let body = msg.body.unwrap_or_default();
+    let (shown, values) = unmasked(msg);
+    let mask = |text: &str| held_value::mask(text, &shown.id, &values);
     Shown {
+        headers: shown
+            .headers
+            .iter()
+            .map(|(name, value)| (name.clone(), mask(value)))
+            .collect(),
+        body: mask(&shown.body),
+        links: shown
+            .links
+            .iter()
+            .map(|link| MailLink {
+                url: mask(&link.url),
+                label: mask(&link.label),
+            })
+            .collect(),
+        id: shown.id,
+        tags: shown.tags,
+    }
+}
+
+/// A shown message as notmuch shows it, and its held values: its file's, then the header values
+/// by name and the body, so a reveal counts them as the mask did. A file that cannot be read
+/// gives the shown texts' values alone, which a reveal then finds gone.
+fn unmasked(msg: NotmuchMessage) -> (Shown, held_value::Values) {
+    let raw = std::fs::read(&msg.file).unwrap_or_default();
+    let body = msg.body.unwrap_or_default();
+    let shown = Shown {
         id: msg.id,
         tags: msg.tags,
         headers: msg.headers,
         body: text::body_text(&body),
         links: text::extract_links(&body),
-    }
+    };
+    let mut named: Vec<(&String, &String)> = shown.headers.iter().collect();
+    named.sort();
+    let texts: Vec<&str> = named
+        .into_iter()
+        .map(|(_, value)| value.as_str())
+        .chain(std::iter::once(shown.body.as_str()))
+        .collect();
+    let values = held::values(&raw, &texts);
+    (shown, values)
 }
 
 /// A notmuch query naming exactly these ids; an id with a quote or whitespace is dropped rather
@@ -660,6 +704,25 @@ fn before_query(query: &str, before: Option<Datetime>) -> String {
             let epoch = naive.and_utc().timestamp();
             format!("({query}) and date:..@{}", epoch - 1)
         }
+    }
+}
+
+impl Reveal for Notmuch {
+    fn reveal(&self, handle: &Handle) -> Result<Revealed, MailError> {
+        let query = by_id_query(std::iter::once(handle.message()));
+        if query.is_empty() {
+            return Ok(Revealed::Gone);
+        }
+        let raw = self.run(&["show", "--format=json", "--include-html", &query])?;
+        let Some(msg) = message::matched(&raw)?.into_iter().next() else {
+            return Ok(Revealed::Gone);
+        };
+        let (_, values) = unmasked(msg);
+        Ok(values
+            .get(handle.ordinal())
+            .map_or(Revealed::Gone, |value| {
+                Revealed::Value(held_value::Shown::new(value))
+            }))
     }
 }
 
@@ -776,6 +839,179 @@ pub(crate) fn read_of(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Synthetic numbers no person holds: SSN area 000, ITIN area 912, an EIN of zeros.
+    const SSN: &str = "000-12-3456";
+    const ITIN: &str = "912-70-1234";
+    const EIN: &str = "00-0000001";
+
+    /// A sent, an inbound and a clean message under `root`, indexed by the real notmuch under a
+    /// config of their own, and the reader over them.
+    fn indexed(root: &std::path::Path) -> (Notmuch, Known) {
+        let mail = root.join("Mail");
+        for leaf in [
+            "ada/Sent/cur",
+            "ada/Inbox/cur",
+            "ada/Inbox/new",
+            "ada/Inbox/tmp",
+        ] {
+            std::fs::create_dir_all(mail.join(leaf)).expect("a leaf");
+        }
+        let config = root.join("notmuch-config");
+        std::fs::write(
+            &config,
+            format!(
+                "[database]\npath={}\n[user]\nname=Ada\nprimary_email=ada@example.test\n\
+             [new]\ntags=new\n",
+                mail.display()
+            ),
+        )
+        .expect("a notmuch config");
+        let sent = format!(
+            "From: ada@example.test\nTo: counsel@example.test\nSubject: ITIN {ITIN}\n\
+         Message-ID: <form-1@example.test>\nDate: Mon, 06 Mar 2023 10:00:00 +0000\n\n\
+         My SSN is {SSN}; the zebra form is attached.\n"
+        );
+        let inbound = format!(
+            "From: counsel@example.test\nTo: ada@example.test\nSubject: filed\n\
+         Message-ID: <in-1@example.test>\nDate: Tue, 07 Mar 2023 10:00:00 +0000\n\n\
+         The trust's EIN: {EIN} is on the yak filing.\n"
+        );
+        let clean = "From: counsel@example.test\nTo: ada@example.test\nSubject: thanks\n\
+                 Message-ID: <ok-1@example.test>\nDate: Wed, 08 Mar 2023 10:00:00 +0000\n\n\
+                 Received with thanks, ibex 123456789.\n";
+        std::fs::write(mail.join("ada/Sent/cur/1:2,S"), &sent).expect("sent");
+        std::fs::write(mail.join("ada/Inbox/cur/2:2,S"), &inbound).expect("inbound");
+        std::fs::write(mail.join("ada/Inbox/cur/3:2,S"), clean).expect("clean");
+        crate::run::succeed(
+            &Cmd::new("notmuch")
+                .arg("new")
+                .env("NOTMUCH_CONFIG", &config),
+        )
+        .expect("indexed");
+        let roster = Roster::new(vec![MailAccount {
+            email: suzatary_core::mail::account_email::AccountEmail::new("ada@example.test")
+                .expect("a lower-case address"),
+            subdir: "ada".to_owned(),
+            sync: suzatary_core::mail::account::Sync::Gmail,
+        }])
+        .expect("a roster");
+        let keyed = crate::state::Ledger::new(
+            root.join("state.json"),
+            root.join("local/mail.json"),
+            || {
+                Ok(suzatary_core::mail::dedup_key::DedupKey::of(
+                    &suzatary_core::capability::Secret::new("12".repeat(32)),
+                )
+                .expect("a key"))
+            },
+        );
+        let mailbox = Notmuch::new(&mail, keyed.clone(), roster).with_config(&config);
+        let known = keyed.read().expect("no ledger is an empty one");
+        (mailbox, known)
+    }
+
+    /// With the real notmuch, where it is on PATH: every reading a model or a page gets of a sent
+    /// and an inbound message naming numbers holds placeholders and never a number, the index
+    /// still finds the number (it is the box's own), a handle read off a placeholder reveals its
+    /// value, and a clean message reads as it is.
+    #[test]
+    fn every_reading_holds_placeholders_and_a_handle_reveals_its_value() {
+        if crate::run::run(&Cmd::new("notmuch").arg("--version")).is_err() {
+            eprintln!("notmuch is not on PATH: the real-index half of held values is not run");
+            return;
+        }
+        let scratch = tempfile::tempdir().expect("a scratch directory");
+        let (mailbox, known) = indexed(scratch.path());
+        let query = |text: &str| Query::new(text).expect("a query");
+
+        // The index is the box's own and still finds the number.
+        assert_eq!(
+            mailbox.newest_ids(SSN, 5).expect("a search"),
+            vec!["form-1@example.test"]
+        );
+
+        let readings: Vec<String> = vec![
+            serde_json::to_string(
+                &mailbox
+                    .search(&query("zebra or yak or ibex"), None, 10, None)
+                    .expect("rows"),
+            )
+            .expect("JSON"),
+            serde_json::to_string(&mailbox.message("form-1@example.test").expect("a message"))
+                .expect("JSON"),
+            serde_json::to_string(&mailbox.message("in-1@example.test").expect("a message"))
+                .expect("JSON"),
+            serde_json::to_string(&mailbox.thread("form-1@example.test", 10).ok()).expect("JSON"),
+            serde_json::to_string(&mailbox.summaries("folder:ada/Sent", None).expect("rows"))
+                .expect("JSON"),
+            serde_json::to_string(
+                &mailbox
+                    .full_message("form-1@example.test", &known)
+                    .expect("shown"),
+            )
+            .expect("JSON"),
+            serde_json::to_string(
+                &mailbox
+                    .full_message("in-1@example.test", &known)
+                    .expect("shown"),
+            )
+            .expect("JSON"),
+        ];
+        for reading in &readings {
+            for number in [SSN, ITIN, EIN] {
+                assert!(!reading.contains(number), "{number} in {reading}");
+            }
+        }
+        let all = readings.join("\n");
+        for placeholder in [
+            "[SSN ending 3456 · tap to show · held:",
+            "[ITIN ending 1234 · tap to show · held:",
+            "[EIN ending 0001 · tap to show · held:",
+        ] {
+            assert!(all.contains(placeholder), "{placeholder} in {all}");
+        }
+
+        let handles: std::collections::BTreeSet<String> =
+            regex::Regex::new(r"held:[A-Za-z0-9_-]+\.[0-9]+")
+                .expect("a literal pattern")
+                .find_iter(&all)
+                .map(|found| found.as_str().to_owned())
+                .collect();
+        let revealed: std::collections::BTreeSet<String> = handles
+            .iter()
+            .map(|text| {
+                match mailbox
+                    .reveal(&Handle::parse(text).expect("a handle"))
+                    .expect("read")
+                {
+                    Revealed::Value(shown) => shown.into_string(),
+                    Revealed::Gone => panic!("{text} is gone"),
+                }
+            })
+            .collect();
+        assert_eq!(
+            revealed,
+            [SSN, ITIN, EIN].into_iter().map(str::to_owned).collect()
+        );
+
+        let shown = mailbox.message("ok-1@example.test").expect("the clean one");
+        assert_eq!(
+            shown.body.trim_end(),
+            "Received with thanks, ibex 123456789."
+        );
+        assert_eq!(shown.row.subject, "thanks");
+        for gone in [
+            Handle::new("ok-1@example.test", 0),
+            Handle::new("form-1@example.test", 9),
+            Handle::new("no\"such@example.test", 0),
+        ] {
+            assert_eq!(
+                mailbox.reveal(&gone.expect("a handle")).expect("read"),
+                Revealed::Gone
+            );
+        }
+    }
 
     /// A ledger no test here reads: its key never resolves.
     fn ledger() -> crate::state::Ledger {

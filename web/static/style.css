@@ -3785,6 +3785,28 @@ h1[tabindex="-1"]:focus {
    writes and what the box stores, so a reader learns the spelling by seeing it.
    Monospace because it IS a spelling, and tinted like every other link into the
    app rather than like an outbound one. */
+/* A held value's placeholder: kind and last digits, and Show, which reveals it in place. */
+.heldvalue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0 0.4em;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-family: var(--f-mono);
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+
+.heldshow {
+  font: inherit;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 .reflink {
   font-family: var(--f-mono);
   font-size: var(--t-small);

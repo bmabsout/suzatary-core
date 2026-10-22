@@ -18,6 +18,7 @@ mod gate;
 pub use gate::door;
 pub mod google;
 mod guard;
+mod held;
 pub(crate) mod interpreters;
 pub mod listening;
 pub mod live;
@@ -148,6 +149,9 @@ pub struct Inner {
     /// What deletes what the box kept for a removed account, its sign-in and, on its card's
     /// wider yes, its mail; outside every record.
     pub forget: Arc<dyn suzatary_core::mail::cache::Forget + Send + Sync>,
+    /// What reads a held value back for the owner's tap (`POST /api/held/reveal`); outside every
+    /// record, so no verb of the secretary or the agent can.
+    pub reveal: Arc<dyn suzatary_core::held_value::Reveal + Send + Sync>,
     /// What syncs a plugin once a tap stored its link; outside every record.
     pub checks: checks::Checks,
     /// How the person reaches the app at a terminal, which a step's command is spelled in.
@@ -437,6 +441,7 @@ impl State {
             declares,
             edits,
             forget: Arc::new(mail_cache::Unkept(None)),
+            reveal: Arc::new(suzatary_core::held_value::Unread),
             checks: Arc::new(checks::Unsynced),
             reach: Arc::new(suzatary_core::connect::PLAIN.clone()),
             uploads: None,
@@ -629,6 +634,16 @@ impl State {
     #[must_use]
     pub fn with_checks(mut self, checks: checks::Checks) -> Self {
         self.building().checks = checks;
+        self
+    }
+
+    /// The same state reading held values back through `reveal`.
+    #[must_use]
+    pub fn with_reveal(
+        mut self,
+        reveal: Arc<dyn suzatary_core::held_value::Reveal + Send + Sync>,
+    ) -> Self {
+        self.building().reveal = reveal;
         self
     }
 
@@ -1180,6 +1195,7 @@ pub async fn listen(instance: &Instance, serving: Serving) -> anyhow::Result<()>
     .with_reach(instance.reach())
     .with_repos(instance.repos.clone())
     .with_mail_cache(mail_cache::MailCache::of(instance))
+    .with_reveal(Arc::new(crate::commands::mail::notmuch(instance)))
     .with_checks(Arc::new(checks::Synced::of(instance.path.clone())))
     .with_answered(Arc::new(serving.answered))
     .with_probes(Arc::new(suzatary_io::drive_health::beside(

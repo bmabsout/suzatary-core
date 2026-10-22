@@ -225,12 +225,18 @@ impl Performing {
         })
     }
 
-    /// The route's answer kept on the box and the request's record, with its status and what the
-    /// box wrote doing it, kept under its name; the answer handed on as it was given.
+    /// The route's answer kept on the box as `keeps` says, and the request's record, with its
+    /// status and what the box wrote doing it, kept under its name; the answer handed on as it
+    /// was given.
     ///
     /// # Errors
     /// An answer too large to keep, or the record store refusing it.
-    pub async fn kept(mut self, response: Response, wrote: Vec<Hash>) -> Result<Response, Refusal> {
+    pub async fn kept(
+        mut self,
+        response: Response,
+        wrote: Vec<Hash>,
+        keeps: super::reply::Keeps,
+    ) -> Result<Response, Refusal> {
         let Some(requests) = self.state.requests.clone() else {
             return Ok(response);
         };
@@ -240,7 +246,10 @@ impl Performing {
             .map_err(|_| Refusal::internal("an answer too large to keep"))?;
         let answer = Answer {
             status: parts.status.as_u16(),
-            body: String::from_utf8_lossy(&bytes).into_owned(),
+            body: match keeps {
+                super::reply::Keeps::Answer => String::from_utf8_lossy(&bytes).into_owned(),
+                super::reply::Keeps::Instead(body) => body.to_owned(),
+            },
         };
         self.record.status = answer.status;
         self.record.wrote = wrote.iter().map(|name| name.as_str().to_owned()).collect();

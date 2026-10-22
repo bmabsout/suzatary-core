@@ -59,6 +59,8 @@ fn every_write_route_refuses_a_bare_post_from_loopback() {
         "/api/act/key",
         // Loopback typing a pairing code would be the box trusting a device nobody holds.
         "/api/act/pair",
+        // Loopback reading a held value would hand it to the box's shell or the triage agent.
+        "/api/held/reveal",
         // Loopback settling a batch would be the triage agent settling its own proposals.
         "/api/proposals/accept",
         "/api/proposals/reject",

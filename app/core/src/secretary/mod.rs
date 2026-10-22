@@ -547,14 +547,22 @@ pub fn run(
     request: Request<SecretaryCall>,
 ) -> Result<VerbAnswer, Refusal> {
     let bound = bound_of(chains, request.chain.as_deref())?;
-    request.call.run(&Call {
-        caps: &bound.caps,
-        deployment,
-        settables,
-        chain: bound.policy,
-        chains,
-        conversation: id,
-    })
+    // Whatever a verb read, no identity number reaches the model: mail's are placeholders the
+    // owner can reveal already, and anything else (Junk, a page, a calendar) is withheld here.
+    request
+        .call
+        .run(&Call {
+            caps: &bound.caps,
+            deployment,
+            settables,
+            chain: bound.policy,
+            chains,
+            conversation: id,
+        })
+        .map(|answer| VerbAnswer {
+            value: crate::held_value::withheld_value(answer.value),
+            ..answer
+        })
 }
 
 /// Which chain a call is about: absent means the first, an unknown name is refused.

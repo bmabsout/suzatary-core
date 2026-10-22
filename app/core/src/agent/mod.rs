@@ -69,11 +69,15 @@ pub fn call(
     let caps = records.get(chain.name.as_str()).ok_or_else(|| {
         Refusal::internal(format!("no interpreters are bound to chain {}", chain.name))
     })?;
-    request.call.run(&Call {
-        caps,
-        deployment,
-        chain,
-    })
+    // No identity number reaches the agent, whatever a verb read (`crate::held_value`).
+    request
+        .call
+        .run(&Call {
+            caps,
+            deployment,
+            chain,
+        })
+        .map(crate::held_value::withheld_value)
 }
 
 /// Any effect's failure, as the words the agent reads.
