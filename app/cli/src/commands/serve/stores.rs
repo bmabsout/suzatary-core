@@ -1,6 +1,8 @@
 //! The secretary's two stores as replicas a tab holds: what a replica lacks, and their heads as
 //! they move. The inbox and the conversations' lines are written only by the box, so a tab only
-//! pulls, a piece at a time; the lines' pull carries the keys of the words it sends.
+//! pulls, a piece at a time; the lines' pull carries the keys of the words it sends. The lines'
+//! skeleton is that pull without the literals, and every store's literals are asked for by hash
+//! (`docs/LAZYSYNC-PLAN-2026-10-21.md`).
 
 use axum::Json;
 use suzatary_core::capability::Server;
@@ -12,6 +14,7 @@ use super::Chained;
 use super::call::Call;
 use super::guard::Reader;
 use super::params::{Asked, Params};
+use super::reply::Immutable;
 
 /// A store a tab holds a replica of, named by its path segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +88,60 @@ pub fn objects(call: &Call<Reader, Since, ()>) -> Result<Json<wire::StorePayload
         Store::Lines => routes::lines_since(caps.conversations, since, epochs, now, cut),
     }
     .map(Json)
+}
+
+/// The lines' skeleton: the heads a replica of them holds.
+pub struct LinesSince(Vec<prodrome_core::event::Hash>);
+
+impl Params for LinesSince {
+    fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
+        query::since(asked.query("since")).map(Self)
+    }
+}
+
+/// `GET /api/stores/lines/skeleton?since=<heads>`: a piece of what a replica of the lines
+/// holding those heads lacks, each object without its literal.
+pub fn skeleton(
+    call: &Call<Reader, LinesSince, ()>,
+) -> Result<Json<wire::SkeletonPayload>, Refusal> {
+    let caps = call.state.first.caps;
+    routes::lines_skeleton(
+        caps.conversations,
+        &call.params.0,
+        call.state.epochs.as_ref(),
+        caps.clock.now(),
+        routes::Cut::PIECE,
+    )
+    .map(Json)
+}
+
+/// A store, and the objects asked of it by hash.
+pub struct Wanted {
+    store: Store,
+    hashes: query::Hashes,
+}
+
+impl Params for Wanted {
+    fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
+        Ok(Self {
+            store: Store::named(asked.segment("store")?)?,
+            hashes: query::Hashes::parse(asked.query("hashes"))?,
+        })
+    }
+}
+
+/// `GET /api/stores/<store>/content?hashes=<hashes>`: the literals of those objects of that
+/// store, kept for good by whoever asked.
+pub fn content(
+    call: &Call<Reader, Wanted, ()>,
+) -> Result<Immutable<Json<wire::ContentPayload>>, Refusal> {
+    let caps = call.state.first.caps;
+    let Wanted { store, hashes } = &call.params;
+    match store {
+        Store::Inbox => routes::content(caps.inbox, hashes),
+        Store::Lines => routes::content(caps.conversations.lines, hashes),
+    }
+    .map(|answer| Immutable(Json(answer)))
 }
 
 /// `GET /api/waiting`: the Inbox badge's count, read here so a tab shows it without pulling the

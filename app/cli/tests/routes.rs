@@ -153,7 +153,7 @@ fn the_reserved_names_are_exactly_the_ones_a_static_route_shadows() {
     }
     // `mail` is usable because matchit backtracks past a static prefix that has no match.
     for usable in [
-        "mail", "chain", "fold", "me", "tip", "tree", "objects", "author",
+        "mail", "chain", "fold", "me", "tip", "tree", "objects", "author", "content", "stores",
     ] {
         assert!(
             reaches_the_chain_router(usable),

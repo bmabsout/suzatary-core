@@ -1176,7 +1176,10 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
     inline script, inline style attributes alone because typst lays out with
     them, no base, form or frame) and every API answer `no-store`, a JSON read
     with a weak `ETag` of its bytes (`serve::validated`; the page keeps its
-    last answers and sends the tag, and a 304 is that answer again).
+    last answers and sends the tag, and a 304 is that answer again), but an
+    object's literal asked for by its name (`…/content?hashes=`, 2026-10-21,
+    `docs/LAZYSYNC-PLAN-2026-10-21.md`), which never changes and is sent
+    `private, immutable` (`reply::Immutable`); a refusal of one is `no-store`.
   - **Mail** (2026-09-04), read-only: notmuch as a SUBPROCESS, maildir through
     `mail-parser`, the agent's own queries, at
     `/api/mail/{inbox,search,message/<id>,thread/<id>}` behind the same gate.

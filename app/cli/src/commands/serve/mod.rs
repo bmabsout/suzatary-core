@@ -1064,8 +1064,10 @@ pub fn app(state: State, dist: &std::path::Path) -> Router {
         Router::new().fallback(not_built)
     };
 
-    // Every answer of the API is the owner's mail or todos, so none is kept by a browser's cache;
-    // the page keeps each read's last answer itself and asks with its tag (`validated`). Brotli
+    // Every answer of the API is the owner's mail or todos, so none is kept by a browser's cache,
+    // but an object's literal asked for by its name, which never changes and is marked again
+    // outside this layer (`reply::kept`); the page keeps each other read's last answer itself and
+    // asks with its tag (`validated`). Brotli
     // where the request accepts it, gzip otherwise, each at its fastest: on a private tailnet
     // bytes cost less than compression time, and brotli's fastest still beats gzip's on JSON.
     api.layer(axum::middleware::from_fn(validated::revalidated))
@@ -1073,6 +1075,7 @@ pub fn app(state: State, dist: &std::path::Path) -> Router {
             header::CACHE_CONTROL,
             HeaderValue::from_static("no-store"),
         ))
+        .layer(axum::middleware::from_fn(reply::kept))
         .layer(
             CompressionLayer::new()
                 .br(true)

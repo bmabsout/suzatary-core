@@ -14,6 +14,7 @@ GET /api/briefings/{date} read -
 GET /api/calendar/{date} read -
 GET /api/chain read -
 POST /api/client-errors write -
+GET /api/content read -
 GET /api/fold read -
 GET /api/mail/inbox read -
 GET /api/mail/message/{id} read -
@@ -49,6 +50,8 @@ GET /api/secretary/conversations/{conversation}/stream read -
 POST /api/secretary/conversations/{conversation}/title act signed
 GET /api/secretary/memory read -
 POST /api/secretary/memory/{id}/forget act signed
+GET /api/stores/lines/skeleton read -
+GET /api/stores/{store}/content read -
 GET /api/stores/{store}/events read -
 GET /api/stores/{store}/objects read -
 GET /api/tip read -
@@ -58,6 +61,7 @@ GET /api/usage read -
 GET /api/waiting read -
 POST /api/{chain}/author act signed
 GET /api/{chain}/chain read -
+GET /api/{chain}/content read -
 GET /api/{chain}/events read -
 GET /api/{chain}/fold read -
 GET /api/{chain}/me read -

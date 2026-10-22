@@ -546,11 +546,12 @@ pub fn objects_since(
             let held = crate::sync::Objects::of(objects);
             crate::sync::missing(&held, since).into_iter().collect()
         },
+        stored,
     )
-    .map(|(payload, _)| wire::ObjectsPayload {
+    .map(|(snapshot, objects, _)| wire::ObjectsPayload {
         untrusted: chain.untrusted_names(),
         root: Some(chain.root.as_str().to_owned()),
-        ..payload
+        ..snapshot.payload(objects)
     })
 }
 
@@ -591,35 +592,82 @@ pub fn store_objects_since<E: prodrome_core::schema::Schema>(
     now: Datetime,
     cut: Cut,
 ) -> Answered<wire::StorePayload> {
-    let (objects, rest) = answered(
+    let (snapshot, objects, rest) = answered(
         store,
         &format!("store/{named}"),
         epochs,
         now,
         cut,
-        |objects| {
-            let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
-            let held = dag.closure(since.iter().filter(|name| dag.get(name).is_some()).cloned());
-            objects
-                .iter()
-                .map(|(name, _)| name.clone())
-                .filter(|name| !held.contains(name))
-                .collect()
-        },
+        |objects| lacking(objects, since),
+        stored,
     )?;
     Ok(wire::StorePayload {
-        objects,
+        objects: snapshot.payload(objects),
         keys: BTreeMap::new(),
         rest,
         erased: Vec::new(),
     })
 }
 
-/// An objects answer of `store`, read under its epoch's lock so the epoch and the objects are one
-/// snapshot: every head, the prodromes it serves, and the objects `wanted` names, cut as `cut`
-/// says, in linearisation order so a receiver can apply them as they arrive, with how many of
-/// those it names are left out. No policy: the caller's.
-fn answered<E: prodrome_core::schema::Schema>(
+/// The objects of `objects` outside the ancestry of every head in `since` they hold.
+fn lacking<E: prodrome_core::schema::Schema>(
+    objects: &[(
+        prodrome_core::event::Hash,
+        prodrome_core::event::Envelope<E>,
+    )],
+    since: &[prodrome_core::event::Hash],
+) -> std::collections::BTreeSet<prodrome_core::event::Hash> {
+    let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
+    let held = dag.closure(since.iter().filter(|name| dag.get(name).is_some()).cloned());
+    objects
+        .iter()
+        .map(|(name, _)| name.clone())
+        .filter(|name| !held.contains(name))
+        .collect()
+}
+
+/// One object as a replica carries it, weighed by its literal's bytes.
+fn stored<E: prodrome_core::schema::Schema>(
+    name: &prodrome_core::event::Hash,
+    envelope: &prodrome_core::event::Envelope<E>,
+) -> (wire::StoredObject, usize) {
+    let literal = prodrome_core::event::canonical_envelope(envelope);
+    let bytes = literal.len();
+    (
+        wire::StoredObject {
+            hash: name.as_str().to_owned(),
+            literal,
+        },
+        bytes,
+    )
+}
+
+/// What a store held at one answer, in the epoch it was read in.
+struct Snapshot {
+    heads: Vec<String>,
+    geneses: Vec<String>,
+    epoch: u64,
+}
+
+impl Snapshot {
+    /// An objects answer of these objects, read under no policy: the caller's.
+    fn payload(self, objects: Vec<wire::StoredObject>) -> wire::ObjectsPayload {
+        wire::ObjectsPayload {
+            heads: self.heads,
+            untrusted: Vec::new(),
+            root: None,
+            geneses: self.geneses,
+            epoch: self.epoch,
+            objects,
+        }
+    }
+}
+
+/// An answer of `store`, read under its epoch's lock so the epoch and the objects are one
+/// snapshot: every head, the prodromes it serves, and what `emit` makes of each object `wanted`
+/// names, cut as `cut` says by the weight `emit` gives each, in linearisation order so a receiver
+/// can apply them as they arrive, with how many of those it names are left out.
+fn answered<E: prodrome_core::schema::Schema, T>(
     store: &dyn Prodrome<E>,
     key: &str,
     epochs: &crate::epoch::Epochs,
@@ -631,8 +679,9 @@ fn answered<E: prodrome_core::schema::Schema>(
             prodrome_core::event::Envelope<E>,
         )],
     ) -> std::collections::BTreeSet<prodrome_core::event::Hash>,
-) -> Answered<(wire::ObjectsPayload, usize)> {
-    let (epoch, (heads, geneses, objects, rest)) = epochs.served(key, now, || {
+    emit: impl Fn(&prodrome_core::event::Hash, &prodrome_core::event::Envelope<E>) -> (T, usize),
+) -> Answered<(Snapshot, Vec<T>, usize)> {
+    let (epoch, (heads, geneses, sent, rest)) = epochs.served(key, now, || {
         let objects = store.objects()?;
         let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
         let heads = head_set(store)?;
@@ -646,31 +695,26 @@ fn answered<E: prodrome_core::schema::Schema>(
                 .collect(),
         };
         let wanted = wanted(&objects);
-        let mut sent: Vec<wire::StoredObject> = Vec::new();
+        let mut sent: Vec<T> = Vec::new();
         let mut bytes = 0usize;
         for (name, envelope) in objects.iter().filter(|(name, _)| wanted.contains(name)) {
-            let literal = prodrome_core::event::canonical_envelope(envelope);
-            bytes += literal.len();
+            let (item, weight) = emit(name, envelope);
+            bytes += weight;
             match cut {
                 Cut::Bytes(most) if bytes > most && !sent.is_empty() => break,
-                Cut::Whole | Cut::Bytes(_) => sent.push(wire::StoredObject {
-                    hash: name.as_str().to_owned(),
-                    literal,
-                }),
+                Cut::Whole | Cut::Bytes(_) => sent.push(item),
             }
         }
         let rest = wanted.len() - sent.len();
         Ok((seen, (heads, geneses, sent, rest)))
     })?;
     Ok((
-        wire::ObjectsPayload {
+        Snapshot {
             heads,
-            untrusted: Vec::new(),
-            root: None,
             geneses,
             epoch,
-            objects,
         },
+        sent,
         rest,
     ))
 }
@@ -691,14 +735,70 @@ pub fn lines_since(
     cut: Cut,
 ) -> Answered<wire::StorePayload> {
     let payload = store_objects_since(conversations.lines, "lines", since, epochs, now, cut)?;
+    let (keys, erased) = words(
+        conversations,
+        payload
+            .objects
+            .objects
+            .iter()
+            .map(|object| object.hash.as_str()),
+    )?;
+    Ok(wire::StorePayload {
+        keys,
+        erased,
+        ..payload
+    })
+}
+
+/// `GET /api/stores/lines/skeleton?since=<heads>`: what [`lines_since`] answers, each object as
+/// its [`wire::SkeletonNode`] instead of its literal, cut by the nodes' own weight: the same
+/// heads, prodromes and epoch, read under the same lock, the same keys and the same erasures. A
+/// replica that takes the pieces of the skeleton and the literal of each node by hash
+/// ([`content`]) holds what the pieces of the objects' pull would have brought it.
+///
+/// # Errors
+/// The stores' own.
+pub fn lines_skeleton(
+    conversations: crate::secretary::conversations::Conversations<'_>,
+    since: &[prodrome_core::event::Hash],
+    epochs: &crate::epoch::Epochs,
+    now: Datetime,
+    cut: Cut,
+) -> Answered<wire::SkeletonPayload> {
+    let (snapshot, nodes, rest) = answered(
+        conversations.lines,
+        "store/lines",
+        epochs,
+        now,
+        cut,
+        |objects| lacking(objects, since),
+        |name, envelope| {
+            let node = skeleton_node(name, envelope);
+            let weight = weight(&node);
+            (node, weight)
+        },
+    )?;
+    let (keys, erased) = words(conversations, nodes.iter().map(|node| node.hash.as_str()))?;
+    Ok(wire::SkeletonPayload {
+        heads: snapshot.heads,
+        geneses: snapshot.geneses,
+        epoch: snapshot.epoch,
+        nodes,
+        keys,
+        rest,
+        erased,
+    })
+}
+
+/// The key of every slot the lines named `sent` name, by name, but a key an erasure anywhere in
+/// the store names; and every key so named, sorted.
+fn words<'a>(
+    conversations: crate::secretary::conversations::Conversations<'_>,
+    sent: impl Iterator<Item = &'a str>,
+) -> Answered<(BTreeMap<String, String>, Vec<String>)> {
     let objects = conversations.lines.objects()?;
     let erased = crate::secretary::transcript::erased(&objects);
-    let sent: std::collections::BTreeSet<&str> = payload
-        .objects
-        .objects
-        .iter()
-        .map(|object| object.hash.as_str())
-        .collect();
+    let sent: std::collections::BTreeSet<&str> = sent.collect();
     let keys = objects
         .iter()
         .filter(|(name, _)| sent.contains(name.as_str()))
@@ -713,11 +813,118 @@ pub fn lines_since(
             ))
         })
         .collect();
-    Ok(wire::StorePayload {
+    Ok((
         keys,
-        erased: erased.keys().map(|name| name.as_str().to_owned()).collect(),
-        ..payload
-    })
+        erased.keys().map(|name| name.as_str().to_owned()).collect(),
+    ))
+}
+
+/// One line's node: its name, what it rests on, its literal's size, and its header.
+fn skeleton_node(
+    name: &prodrome_core::event::Hash,
+    envelope: &prodrome_core::event::Envelope<crate::secretary::line_event::LineEvent>,
+) -> wire::SkeletonNode {
+    let header = match envelope.event() {
+        Some(line) => wire::NodeHeader::Line {
+            conversation: line.conversation().as_str().to_owned(),
+            at: fpl::iso(fpl::instant_of(line.at())),
+            kind: line.shape().name().to_owned(),
+            keys: line.keys().map(|key| key.as_str().to_owned()).collect(),
+        },
+        None => wire::NodeHeader::Structure {
+            kind: constructor(envelope).to_owned(),
+        },
+    };
+    wire::SkeletonNode {
+        hash: name.as_str().to_owned(),
+        parents: prodrome_core::event::parents_of(envelope)
+            .iter()
+            .map(|parent| parent.as_str().to_owned())
+            .collect(),
+        size: prodrome_core::event::canonical_envelope(envelope).len(),
+        header,
+    }
+}
+
+/// An envelope's constructor, as its literal spells it.
+fn constructor<E>(envelope: &prodrome_core::event::Envelope<E>) -> &'static str {
+    use prodrome_core::event::Envelope;
+    match envelope {
+        Envelope::Sealed { .. } => "Sealed",
+        Envelope::Woven { .. } => "Woven",
+        Envelope::Genesis(_) => "Genesis",
+        Envelope::Change(_) => "Change",
+        Envelope::Snapshot(_) => "Snapshot",
+        Envelope::Signed(_) => "Signed",
+        Envelope::KeyAdded(_) => "KeyAdded",
+        Envelope::KeyRevoked(_) => "KeyRevoked",
+    }
+}
+
+/// About how many bytes a node is on the wire: its strings and a little for the JSON around
+/// them, which is what a skeleton's piece is cut by.
+fn weight(node: &wire::SkeletonNode) -> usize {
+    const AROUND: usize = 96;
+    let header = match &node.header {
+        wire::NodeHeader::Structure { kind } => kind.len(),
+        wire::NodeHeader::Line {
+            conversation,
+            at,
+            kind,
+            keys,
+        } => {
+            conversation.len()
+                + at.len()
+                + kind.len()
+                + keys.iter().map(|key| key.len() + 3).sum::<usize>()
+        }
+    };
+    AROUND + node.hash.len() + node.parents.iter().map(|p| p.len() + 3).sum::<usize>() + header
+}
+
+/// The most bytes of literals one content answer of more than one hash carries: a piece's
+/// ([`Cut::PIECE`]). A single object is answered whatever its size, since a line written before
+/// a stored answer was bounded can be larger.
+pub const MOST_CONTENT_BYTES: usize = 1 << 20;
+
+/// `GET /api/stores/<store>/content?hashes=` and a chain's `…/content?hashes=`: the literal of
+/// each object `hashes` names, in that order, read from `store` alone. A hash the store does not
+/// hold is refused, whether no store holds it or another store does, in the same words, and so
+/// is a set whose literals together pass [`MOST_CONTENT_BYTES`]: either refuses the whole
+/// question. An answer depends on nothing but the hashes, so it never changes.
+///
+/// # Errors
+/// [`Refusal::not_found`] naming the hashes the store does not hold;
+/// [`Refusal::bad_request`] for literals past the bound; the store's own.
+pub fn content<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+    hashes: &query::Hashes,
+) -> Answered<wire::ContentPayload> {
+    let objects: BTreeMap<prodrome_core::event::Hash, prodrome_core::event::Envelope<E>> =
+        store.objects()?.into_iter().collect();
+    let unheld: Vec<&str> = hashes
+        .iter()
+        .filter(|name| !objects.contains_key(*name))
+        .map(prodrome_core::event::Hash::as_str)
+        .collect();
+    if !unheld.is_empty() {
+        return Err(Refusal::not_found(format!(
+            "this store holds no object named {}",
+            unheld.join(", ")
+        )));
+    }
+    let sent: Vec<wire::StoredObject> = hashes
+        .iter()
+        .filter_map(|name| objects.get(name).map(|envelope| stored(name, envelope).0))
+        .collect();
+    let bytes: usize = sent.iter().map(|object| object.literal.len()).sum();
+    if sent.len() > 1 && bytes > MOST_CONTENT_BYTES {
+        return Err(Refusal::bad_request(format!(
+            "these {} objects are {bytes} bytes, past the {MOST_CONTENT_BYTES} one answer carries: ask for fewer at a time, by the sizes the skeleton gives",
+            sent.len()
+        )));
+    }
+    Ok(wire::ContentPayload { objects: sent })
 }
 
 /// `GET /api/waiting`: how many cards the Inbox draws, as the page resolves its rows

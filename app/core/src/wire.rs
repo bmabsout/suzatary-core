@@ -799,6 +799,76 @@ pub struct StorePayload {
     pub erased: Vec<String>,
 }
 
+/// `GET /api/stores/<store>/content?hashes=<hashes>` and a chain's `…/content?hashes=`: the
+/// literal of each object asked for, in the order asked. An object's literal is what its name is
+/// the hash of, so the same question always gets the same answer, and the box sends it to be
+/// kept for good (`Cache-Control: immutable`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct ContentPayload {
+    /// One per hash asked, in the order asked.
+    pub objects: Vec<StoredObject>,
+}
+
+/// One object of a store's skeleton: its name, what it rests on, how large its literal is, and
+/// what a fold reads of it without its literal.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct SkeletonNode {
+    /// The object's name, the sha256 of its literal.
+    pub hash: String,
+    /// Every object it rests on, its prodrome's genesis included, sorted.
+    pub parents: Vec<String>,
+    /// The bytes of its literal, so a tab can ask for content in answers of a bounded size.
+    pub size: usize,
+    /// What a fold reads of it.
+    pub header: NodeHeader,
+}
+
+/// What a fold of the lines reads of one object without its literal.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "node", rename_all = "lowercase")]
+pub enum NodeHeader {
+    /// An object that carries no line: a genesis, a signature, a key.
+    Structure {
+        /// Its constructor, `Genesis` for instance.
+        kind: String,
+    },
+    /// One line of one conversation.
+    Line {
+        /// The conversation it is a line of.
+        conversation: String,
+        /// When it was written, by its writer's clock.
+        at: String,
+        /// Its shape's constructor, `Said` for instance.
+        kind: String,
+        /// The name of the key of each slot of its words, in slot order.
+        keys: Vec<String>,
+    },
+}
+
+/// `GET /api/stores/lines/skeleton?since=<heads>`: the lines a replica holding those heads lacks,
+/// each without its literal, parents first, cut like a piece of the objects' pull, with the same
+/// heads, prodromes, epoch, keys and erasures that pull answers. Joined to the literals fetched by
+/// hash, the pieces of a skeleton are what the objects' pull sends.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct SkeletonPayload {
+    /// Every head, sorted.
+    pub heads: Vec<String>,
+    /// The genesis of every prodrome the store holds, sorted.
+    pub geneses: Vec<String>,
+    /// The box's clock over what the store serves, the one the objects' pull answers with.
+    #[ts(type = "number")]
+    pub epoch: u64,
+    /// Parents first.
+    pub nodes: Vec<SkeletonNode>,
+    /// The key of every slot of words the nodes sent name, as the objects' pull carries them.
+    #[ts(type = "Record<string, string>")]
+    pub keys: BTreeMap<String, String>,
+    /// How many objects the replica still lacks after these.
+    pub rest: usize,
+    /// The name of every key an erasure anywhere in the store names, sorted.
+    pub erased: Vec<String>,
+}
+
 /// `POST /api/objects`: literals only; a name is what the bytes are.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields)]
@@ -2706,6 +2776,8 @@ fn answers(visit: &mut impl TypeVisitor) {
     visit.visit::<ThreadPayload>();
     visit.visit::<ObjectsPayload>();
     visit.visit::<StorePayload>();
+    visit.visit::<ContentPayload>();
+    visit.visit::<SkeletonPayload>();
     visit.visit::<WaitingPayload>();
     visit.visit::<ReceiptPayload>();
     visit.visit::<MePayload>();

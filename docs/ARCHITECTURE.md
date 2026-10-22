@@ -1512,7 +1512,10 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   from the heads it left (2026-10-13: the whole lines store was 34 MB, which a
   phone never pulled inside its wait), only once something reads a store (the
   "Needs you" popup reads the inbox alone, `storesync.proposals`), told
-  of a move by `GET /api/stores/<store>/events`, and read by the core once per
+  of a move by `GET /api/stores/<store>/events` (2026-10-21: every store's
+  objects are also served by hash, `…/content?hashes=`, kept for good, and
+  the lines' skeleton at `GET /api/stores/lines/skeleton?since=`, which no
+  page reads yet; `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core once per
   change of what is held (`secretaryOf`: one `Proposals` and one
   `Conversations`, kept until the next change). The todo chains are not held
   here: the Inbox prices through the replicas the chain pages read

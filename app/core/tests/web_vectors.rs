@@ -1940,23 +1940,37 @@ fn the_answers_vector_holds_every_answer() {
     }]);
     let epochs = suzatary_core::epoch::Epochs::remembered();
     samples.add([routes::objects_since(&bundle, &policy, &[], &epochs, at).expect("the objects")]);
-    samples.add([{
-        // The lines' pull: a conversation's objects and the key of every slot they name.
-        let lines = suzatary_core::secretary::conversations::InMemory::default();
-        suzatary_core::secretary::transcript::start(
-            lines.conversations(),
-            &ConversationId::new("pulled").expect("a slug"),
-            &ConversationEntry::Opened {
-                at,
-                title: suzatary_core::secretary::words::Words::kept("Pulled".to_owned()),
-                model: "vectors-fixture".to_owned(),
-                kind: suzatary_core::secretary::store::Kind::Topic,
-            },
-        )
-        .expect("opens");
+    // The lines' pull: a conversation's objects and the key of every slot they name.
+    let lines = suzatary_core::secretary::conversations::InMemory::default();
+    suzatary_core::secretary::transcript::start(
+        lines.conversations(),
+        &ConversationId::new("pulled").expect("a slug"),
+        &ConversationEntry::Opened {
+            at,
+            title: suzatary_core::secretary::words::Words::kept("Pulled".to_owned()),
+            model: "vectors-fixture".to_owned(),
+            kind: suzatary_core::secretary::store::Kind::Topic,
+        },
+    )
+    .expect("opens");
+    samples.add([
         routes::lines_since(lines.conversations(), &[], &epochs, at, routes::Cut::PIECE)
-            .expect("the lines")
-    }]);
+            .expect("the lines"),
+    ]);
+    // Its skeleton: the genesis, a structure, and the opening line.
+    let skeleton =
+        routes::lines_skeleton(lines.conversations(), &[], &epochs, at, routes::Cut::PIECE)
+            .expect("the skeleton");
+    let mut names: Vec<&str> = skeleton
+        .nodes
+        .iter()
+        .map(|node| node.hash.as_str())
+        .collect();
+    names.sort_unstable();
+    let hashes =
+        suzatary_core::query::Hashes::parse(Some(&names.join(","))).expect("the lines' names");
+    samples.add([routes::content(&lines.lines, &hashes).expect("the lines' content")]);
+    samples.add([skeleton]);
     samples.add([wire::WaitingPayload { count: 2 }]);
     samples.add([wire::ReceiptPayload {
         heads: heads.clone(),

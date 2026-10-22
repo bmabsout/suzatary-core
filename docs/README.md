@@ -69,6 +69,7 @@ older word. Newest first.
 
 | Date | Plan | About |
 |---|---|---|
+| 2026-10-21 | [LAZYSYNC](LAZYSYNC-PLAN-2026-10-21.md) | A store's skeleton eagerly, its content by hash on demand |
 | 2026-10-03 | [TWOPOINTOH](TWOPOINTOH-PLAN-2026-10-03.md) | 2.0 in waves: every item judged by the register-types structure |
 | 2026-10-02 | [APP-AS-READING](APP-AS-READING-PLAN-2026-10-02.md) | The whole app as one reading of history, intents, ui and time |
 | 2026-10-02 | [PLUGINS](PLUGINS-PLAN-2026-10-02.md) | The outside world behind WebAssembly interfaces |

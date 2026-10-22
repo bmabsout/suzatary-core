@@ -106,6 +106,54 @@ pub fn since(raw: Option<&str>) -> Result<Vec<prodrome_core::event::Hash>, Refus
         .collect()
 }
 
+/// The most hashes one `hashes=` may name: 64 names of 64 hex digits fit a URL of about 4 KiB.
+pub const MOST_HASHES: usize = 64;
+
+/// A content answer's `hashes`: one to [`MOST_HASHES`] object names, each 64 hex digits, in
+/// ascending order with none twice, so one set of objects has one URL and a cache that kept its
+/// answer answers every tab that asks for the same set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hashes(Vec<prodrome_core::event::Hash>);
+
+impl Hashes {
+    /// The names `raw` spells, comma-separated.
+    ///
+    /// # Errors
+    /// [`Refusal::bad_request`] for none, more than [`MOST_HASHES`], a name that is not 64 hex
+    /// digits, and names out of ascending order or named twice.
+    pub fn parse(raw: Option<&str>) -> Result<Self, Refusal> {
+        let names: Vec<&str> = raw.unwrap_or_default().split(',').collect();
+        if names.len() > MOST_HASHES {
+            return Err(Refusal::bad_request(format!(
+                "hashes names at most {MOST_HASHES} objects, got {}",
+                names.len()
+            )));
+        }
+        let hashes = names
+            .into_iter()
+            .map(|name| {
+                prodrome_core::event::Hash::new(name).map_err(|_| {
+                    Refusal::bad_request(format!(
+                        "hashes is object names of 64 hex digits, comma-separated, got {}",
+                        shown(name)
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if hashes.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(Refusal::bad_request(
+                "hashes names each object once, in ascending order",
+            ));
+        }
+        Ok(Self(hashes))
+    }
+
+    /// The names, in ascending order.
+    pub fn iter(&self) -> impl Iterator<Item = &prodrome_core::event::Hash> {
+        self.0.iter()
+    }
+}
+
 /// `/api/tree`'s `by`: category when absent or empty, the list's default.
 pub fn tree_by(raw: Option<&str>) -> Result<crate::wire::TreeBy, Refusal> {
     use crate::wire::TreeBy;
@@ -228,6 +276,26 @@ mod tests {
             refused.message(),
             "t must be an ISO datetime, got 'yesterday'"
         );
+    }
+
+    /// One set of objects has one spelling: one to the most, ascending, none twice.
+    #[test]
+    fn hashes_are_one_to_the_most_ascending_and_none_twice() {
+        let names: Vec<String> = (0..=MOST_HASHES).map(|n| format!("{n:064x}")).collect();
+        let parsed = Hashes::parse(Some(&names[..MOST_HASHES].join(","))).expect("the most");
+        assert_eq!(parsed.iter().count(), MOST_HASHES);
+        for refused in [
+            None,
+            Some(String::new()),
+            Some(names.join(",")),
+            Some(format!("{},{}", names[1], names[0])),
+            Some(format!("{},{}", names[0], names[0])),
+            Some(format!("{},", names[0])),
+            Some("ABC".to_owned()),
+        ] {
+            let refusal = Hashes::parse(refused.as_deref()).expect_err("refused");
+            assert_eq!(refusal.status().code(), 400, "{refused:?}");
+        }
     }
 
     /// Capped, not obeyed.

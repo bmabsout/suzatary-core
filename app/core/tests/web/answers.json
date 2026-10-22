@@ -393,6 +393,23 @@
       "maps": []
     }
   ],
+  "ContentPayload": [
+    {
+      "value": {
+        "objects": [
+          {
+            "hash": "77075e671755f23c57f4e25cd8a1fb99a078f12ebeaf43feba848f92eff8525c",
+            "literal": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=(), event=Opened(conversation='pulled', at=datetime(2026, 9, 2, 12, 0, 0), actor='assistant', held=0, carried=None, model='vectors-fixture', kind='topic', words=(Locked(key='630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd', box='Y5oxXcKShOsxFTUVwyZsC9rFmoGNyHlmzqiJfkZQEX4PiAht0e48XZ2BWCRkDgA8m6D2Xt5dWc4NKkp/MZVazULyLdynSpLVbKeK7ymOcjtgI382R+q+t/PgnDDOgOPihKgCG4pcCySUzTyNWxNQfsfnoHhN9KPi6oFi0mHFnSPnqxHA9zw7frCYOVCz4sSgj4Q9qV+3/LPxNFaBa1G3gk3y+b1WE9S07ZUv2FjNG5hKy/j/H9GnyAbYHKjkrjss/9uhGCdYjEOPVDTqyVa+j5WgQ60Ezf0Kl9f6SdQNCZ7iLVMurXcAQPrjVFZbSgPyHfqUGj1PdvT5niCR5aBVZYur3Z7CK3Fi9td3p0jLuN8='),)))"
+          },
+          {
+            "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+            "literal": "Genesis(label='memory', nonce='00000000000000000000000000000000')"
+          }
+        ]
+      },
+      "maps": []
+    }
+  ],
   "ConversationsPayload": [
     {
       "value": {
@@ -4734,6 +4751,56 @@
         "text": "Signed(object='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', key='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', signature='')"
       },
       "maps": []
+    }
+  ],
+  "SkeletonPayload": [
+    {
+      "value": {
+        "epoch": 1788350400,
+        "erased": [],
+        "geneses": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "heads": [
+          "77075e671755f23c57f4e25cd8a1fb99a078f12ebeaf43feba848f92eff8525c"
+        ],
+        "keys": {
+          "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        },
+        "nodes": [
+          {
+            "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+            "header": {
+              "kind": "Genesis",
+              "node": "structure"
+            },
+            "parents": [],
+            "size": 65
+          },
+          {
+            "hash": "77075e671755f23c57f4e25cd8a1fb99a078f12ebeaf43feba848f92eff8525c",
+            "header": {
+              "at": "2026-09-02T12:00:00",
+              "conversation": "pulled",
+              "keys": [
+                "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd"
+              ],
+              "kind": "Opened",
+              "node": "line"
+            },
+            "parents": [
+              "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+            ],
+            "size": 704
+          }
+        ],
+        "rest": 0
+      },
+      "maps": [
+        [
+          "keys"
+        ]
+      ]
     }
   ],
   "StorePayload": [

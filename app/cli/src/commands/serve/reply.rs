@@ -1,6 +1,8 @@
 //! How an answer goes on the wire, beyond a plain JSON 200.
 
+use axum::extract::Request;
 use axum::http::{StatusCode, header};
+use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use suzatary_core::refusal::{Refusal, Status};
@@ -39,6 +41,41 @@ impl<T: Serialize> IntoResponse for Accepted<T> {
     fn into_response(self) -> Response {
         (StatusCode::ACCEPTED, axum::Json(self.0)).into_response()
     }
+}
+
+/// An answer that is a function of its URL alone, as an object's literal is of its name: the
+/// browser keeps it for good and never asks again (`immutable`), and keeps it for this person
+/// alone (`private`). The API's layer marks every answer `no-store`, and [`kept`], outside it,
+/// marks this one instead, so a refusal, a stream and every other answer stay `no-store`. A
+/// wipe's `Clear-Site-Data` clears what was kept.
+pub struct Immutable<T>(pub T);
+
+/// What [`Immutable`] answers with: a year, the longest a cache is asked to keep anything.
+pub const IMMUTABLE: &str = "private, max-age=31536000, immutable";
+
+/// The mark an [`Immutable`] answer carries to [`kept`].
+#[derive(Debug, Clone, Copy)]
+struct KeptForGood;
+
+impl<T: IntoResponse> IntoResponse for Immutable<T> {
+    fn into_response(self) -> Response {
+        let mut response = self.0.into_response();
+        response.extensions_mut().insert(KeptForGood);
+        response
+    }
+}
+
+/// Marks an [`Immutable`] answer to be kept for good, after the API's layer marked it
+/// `no-store` with every other answer.
+pub async fn kept(request: Request, next: Next) -> Response {
+    let mut response = next.run(request).await;
+    if response.extensions().get::<KeptForGood>().is_some() {
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static(IMMUTABLE),
+        );
+    }
+    response
 }
 
 /// A refusal on the wire: one body shape, the server's own sentence.

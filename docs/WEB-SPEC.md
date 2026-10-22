@@ -1061,7 +1061,10 @@ algebra over both), and the card is how the owner answers it.
   prices at the instant asked, so the same heads give new bytes an hour on);
   a request naming it is a 304 with no body. Answers stay `no-store`: the
   page keeps the last answer of the paths it read most recently and sends its
-  tag (`wire/http.ts`). — `validated.rs` "the tag changes exactly when the
+  tag (`wire/http.ts`). The one exception is an object's literal asked for by
+  its name (`…/content?hashes=`), which is a function of the URL and is sent
+  `private, immutable`; no page asks for one yet
+  (`docs/LAZYSYNC-PLAN-2026-10-21.md`). — `validated.rs` "the tag changes exactly when the
   bytes do"; `app/cli/tests/routes.rs` "a read answers 304 to its own tag and
   a new tag once the chain moves"; `revalidate.test.ts`.
 

@@ -21,6 +21,8 @@ pub fn table() -> Vec<Route> {
         Route::get("/me", Scope::Chain, chain::me),
         // Replica sync: the GET is what the caller lacks, the POST its objects, rehashed.
         Route::get("/objects", Scope::Chain, chain::objects),
+        // An object's literal by its name, kept for good by the browser: it never changes.
+        Route::get("/content", Scope::Chain, chain::content),
         Route::post("/objects", Scope::Chain, chain::take_objects),
         // Appends nothing: the answer is an event's print, which the phone seals.
         Route::post("/author", Scope::Chain, chain::author),
@@ -68,6 +70,8 @@ pub fn table() -> Vec<Route> {
         Route::get("/api/mail/thread/{id}", Scope::Box, mail::thread),
         // The inbox and the conversations, as replicas a tab pulls; nothing posts to them.
         Route::get("/api/stores/{store}/objects", Scope::Box, stores::objects),
+        Route::get("/api/stores/{store}/content", Scope::Box, stores::content),
+        Route::get("/api/stores/lines/skeleton", Scope::Box, stores::skeleton),
         Route::special(
             "/api/stores/{store}/events",
             Scope::Box,

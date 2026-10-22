@@ -195,3 +195,300 @@ fn the_decorations_are_asked_by_content() {
         );
     }
 }
+
+/// How the box marks an answer a browser keeps for good.
+const KEPT: &str = "private, max-age=31536000, immutable";
+
+/// Each object of a store by name, with its literal, from its whole pull.
+fn literals(base: &str, store: &str) -> std::collections::BTreeMap<String, String> {
+    objects(base, store, "")["objects"]
+        .as_array()
+        .expect("objects")
+        .iter()
+        .map(|object| {
+            (
+                object["hash"].as_str().expect("a name").to_owned(),
+                object["literal"].as_str().expect("a literal").to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// A content answer, its status, its `Cache-Control` and its body as text.
+fn content(url: &str) -> (u16, String, String) {
+    let mut answer = common::get(url);
+    let cache = answer
+        .headers()
+        .get("cache-control")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    let status = common::status(&answer);
+    let body = answer.body_mut().read_to_string().expect("a body");
+    (status, cache, body)
+}
+
+/// Every object of each store is asked for by its name and answered with its literal, kept for
+/// good; the same question asked after the store moved answers the same bytes.
+#[test]
+fn a_store_s_objects_are_asked_for_by_hash_and_kept_for_good() {
+    let base = writing("stores-content");
+    let _ = answered(&base);
+    for store in ["inbox", "lines"] {
+        let held = literals(&base, store);
+        let names: Vec<&str> = held.keys().map(String::as_str).collect();
+        let url = format!(
+            "{base}/api/stores/{store}/content?hashes={}",
+            names.join(",")
+        );
+        let (status, cache, body) = content(&url);
+        assert_eq!(status, 200, "{store}: {body}");
+        assert_eq!(cache, KEPT);
+        let answered: serde_json::Value = serde_json::from_str(&body).expect("JSON");
+        let got: std::collections::BTreeMap<String, String> = answered["objects"]
+            .as_array()
+            .expect("objects")
+            .iter()
+            .map(|object| {
+                (
+                    object["hash"].as_str().expect("a name").to_owned(),
+                    object["literal"].as_str().expect("a literal").to_owned(),
+                )
+            })
+            .collect();
+        assert_eq!(got, held, "{store}: the literal of each object asked");
+        // The lines and the inbox move: another conversation is opened.
+        let opened = common::act(
+            &format!("{base}/api/secretary/conversations"),
+            &serde_json::json!({"title": format!("After {store}")}),
+        );
+        assert_eq!(common::status(&opened), 200);
+        assert_ne!(literals(&base, "lines").len(), 0);
+        assert_eq!(content(&url), (status, cache, body), "{store}: asked again");
+    }
+    // Every other answer stays `no-store`, a stream's included, whose own header says less.
+    for path in [
+        "/api/stores/lines/objects",
+        "/api/stores/lines/events",
+        "/api/tip",
+    ] {
+        let answer = common::get(&format!("{base}{path}"));
+        assert_eq!(
+            answer
+                .headers()
+                .get("cache-control")
+                .and_then(|value| value.to_str().ok()),
+            Some("no-store"),
+            "{path}"
+        );
+    }
+}
+
+/// A hash a store does not hold is refused as any other is, whoever holds it: another store, a
+/// chain, or nothing; and a refusal is never kept.
+#[test]
+fn a_hash_outside_the_store_is_refused_as_an_unknown_one() {
+    let base = writing("stores-content-refused");
+    let _ = answered(&base);
+    let inbox = literals(&base, "inbox");
+    let lines = literals(&base, "lines");
+    let mut tip = common::get(&format!("{base}/api/tip"));
+    let chain = common::body_json(&mut tip)["heads"][0]
+        .as_str()
+        .expect("a head")
+        .to_owned();
+    let nowhere = "0".repeat(64);
+    let refused = |url: &str, hash: &str| {
+        let (status, cache, body) = content(url);
+        assert_eq!(cache, "no-store", "{url}: a refusal is never kept");
+        (status, body.replace(hash, "<hash>"))
+    };
+    let first_of = |held: &std::collections::BTreeMap<String, String>| {
+        held.keys().next().expect("an object").clone()
+    };
+    let unknown = refused(
+        &format!("{base}/api/stores/lines/content?hashes={nowhere}"),
+        &nowhere,
+    );
+    assert_eq!(unknown.0, 404);
+    for (url, hash) in [
+        (
+            format!(
+                "{base}/api/stores/lines/content?hashes={}",
+                first_of(&inbox)
+            ),
+            first_of(&inbox),
+        ),
+        (
+            format!("{base}/api/stores/lines/content?hashes={chain}"),
+            chain.clone(),
+        ),
+        (
+            format!(
+                "{base}/api/stores/inbox/content?hashes={}",
+                first_of(&lines)
+            ),
+            first_of(&lines),
+        ),
+        (
+            format!("{base}/api/content?hashes={}", first_of(&lines)),
+            first_of(&lines),
+        ),
+    ] {
+        assert_eq!(refused(&url, &hash), unknown, "{url}");
+    }
+    // One held and one not refuses the whole question.
+    let mut both = [first_of(&lines), nowhere.clone()];
+    both.sort();
+    assert_eq!(
+        refused(
+            &format!("{base}/api/stores/lines/content?hashes={}", both.join(",")),
+            &nowhere
+        ),
+        unknown
+    );
+    // A store a tab does not hold is no store.
+    assert_eq!(
+        content(&format!(
+            "{base}/api/stores/memory/content?hashes={nowhere}"
+        ))
+        .0,
+        404
+    );
+}
+
+/// The question is bounded and spelled one way: one to sixty-four names, ascending, none twice.
+#[test]
+fn a_content_question_is_bounded() {
+    let base = writing("stores-content-bound");
+    let names: Vec<String> = (0..=suzatary_core::query::MOST_HASHES)
+        .map(|n| format!("{n:064x}"))
+        .collect();
+    let at = |hashes: &str| content(&format!("{base}/api/stores/lines/content?hashes={hashes}"));
+    for asked in [
+        String::new(),
+        names.join(","),
+        format!("{},{}", names[1], names[0]),
+        format!("{},{}", names[0], names[0]),
+        "not-a-hash".to_owned(),
+    ] {
+        let (status, cache, body) = at(&asked);
+        assert_eq!(status, 400, "{asked:.80}: {body}");
+        assert_eq!(cache, "no-store");
+    }
+    assert_eq!(
+        content(&format!("{base}/api/stores/lines/content")).0,
+        400,
+        "no hashes at all"
+    );
+    assert_eq!(
+        at(&names[..suzatary_core::query::MOST_HASHES].join(",")).0,
+        404,
+        "sixty-four names are a question, of objects this store does not hold"
+    );
+}
+
+/// A chain's objects are asked for by hash too, at the bare path and the chain's own.
+#[test]
+fn a_chain_s_objects_are_asked_for_by_hash() {
+    let base = writing("stores-content-chain");
+    let mut me = common::get(&format!("{base}/api/me"));
+    let name = common::body_json(&mut me)["chains"][0]
+        .as_str()
+        .expect("the chain's name")
+        .to_owned();
+    let mut pulled = common::get(&format!("{base}/api/objects"));
+    let pulled = common::body_json(&mut pulled);
+    let mut held: Vec<(&str, &str)> = pulled["objects"]
+        .as_array()
+        .expect("objects")
+        .iter()
+        .map(|object| {
+            (
+                object["hash"].as_str().expect("a name"),
+                object["literal"].as_str().expect("a literal"),
+            )
+        })
+        .collect();
+    held.sort_unstable();
+    held.truncate(suzatary_core::query::MOST_HASHES);
+    let names: Vec<&str> = held.iter().map(|(name, _)| *name).collect();
+    for path in ["/api", &format!("/api/{name}")] {
+        let (status, cache, body) =
+            content(&format!("{base}{path}/content?hashes={}", names.join(",")));
+        assert_eq!(status, 200, "{path}: {body}");
+        assert_eq!(cache, KEPT);
+        let answered: serde_json::Value = serde_json::from_str(&body).expect("JSON");
+        let got: Vec<(&str, &str)> = answered["objects"]
+            .as_array()
+            .expect("objects")
+            .iter()
+            .map(|object| {
+                (
+                    object["hash"].as_str().expect("a name"),
+                    object["literal"].as_str().expect("a literal"),
+                )
+            })
+            .collect();
+        assert_eq!(got, held, "{path}");
+    }
+}
+
+/// The lines' skeleton, and each node's literal asked for by hash, are the lines' whole pull:
+/// the same objects in the same order, the same heads, prodromes and epoch, the same keys and
+/// erasures; and a replica holding the heads lacks nothing.
+#[test]
+fn the_lines_skeleton_and_their_content_are_the_whole_pull() {
+    let base = writing("stores-skeleton");
+    let _ = answered(&base);
+    let whole = objects(&base, "lines", "");
+    let mut asked = common::get(&format!("{base}/api/stores/lines/skeleton"));
+    assert_eq!(common::status(&asked), 200);
+    let skeleton = common::body_json(&mut asked);
+    assert_eq!(skeleton["rest"], 0);
+    for field in ["heads", "geneses", "epoch", "keys", "erased"] {
+        assert_eq!(skeleton[field], whole[field], "{field}");
+    }
+    let nodes = skeleton["nodes"].as_array().expect("nodes");
+    let mut names: Vec<&str> = nodes
+        .iter()
+        .map(|node| node["hash"].as_str().expect("a name"))
+        .collect();
+    names.sort_unstable();
+    let (status, _, body) = content(&format!(
+        "{base}/api/stores/lines/content?hashes={}",
+        names.join(",")
+    ));
+    assert_eq!(status, 200, "{body}");
+    let fetched: serde_json::Value = serde_json::from_str(&body).expect("JSON");
+    let by_name: std::collections::BTreeMap<&str, &serde_json::Value> = fetched["objects"]
+        .as_array()
+        .expect("objects")
+        .iter()
+        .map(|object| (object["hash"].as_str().expect("a name"), &object["literal"]))
+        .collect();
+    let rebuilt: Vec<serde_json::Value> = nodes
+        .iter()
+        .map(|node| {
+            let hash = node["hash"].as_str().expect("a name");
+            assert_eq!(
+                node["size"],
+                by_name[hash].as_str().expect("a literal").len(),
+                "{hash}"
+            );
+            serde_json::json!({"hash": hash, "literal": by_name[hash]})
+        })
+        .collect();
+    assert_eq!(serde_json::Value::Array(rebuilt), whole["objects"]);
+    let heads: Vec<&str> = whole["heads"]
+        .as_array()
+        .expect("heads")
+        .iter()
+        .map(|head| head.as_str().expect("a name"))
+        .collect();
+    let mut none = common::get(&format!(
+        "{base}/api/stores/lines/skeleton?since={}",
+        heads.join(",")
+    ));
+    assert_eq!(common::body_json(&mut none)["nodes"], serde_json::json!([]));
+}

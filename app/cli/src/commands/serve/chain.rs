@@ -13,6 +13,7 @@ use super::body::{Body, MAX_ACT_BYTES};
 use super::call::Call;
 use super::guard::{Poster, Reader};
 use super::params::{Asked, Params};
+use super::reply::Immutable;
 use super::{Chained, State};
 
 /// `?t=` and `?limit=` of a fold.
@@ -35,6 +36,9 @@ pub struct Treeing {
 
 /// `?since=<heads>`: what a replica already holds.
 pub struct Since(Vec<prodrome_core::event::Hash>);
+
+/// `?hashes=`: the objects asked for by name.
+pub struct Wanted(query::Hashes);
 
 /// A replica's objects, each a canonical literal, refused one by one later.
 pub struct Literals(Vec<String>);
@@ -79,6 +83,12 @@ impl Params for Since {
     }
 }
 
+impl Params for Wanted {
+    fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
+        query::Hashes::parse(asked.query("hashes")).map(Self)
+    }
+}
+
 impl Body for Literals {
     const CAP: usize = MAX_OBJECTS_BYTES;
 
@@ -102,6 +112,14 @@ impl Body for wire::Authoring {
 /// `GET …/chain`: every object, with the policy it is read under.
 pub fn chain(call: &Call<Reader, (), ()>) -> Result<Json<wire::ChainPayload>, Refusal> {
     routes::chain(call.chain.caps.chain, &call.chain.policy).map(Json)
+}
+
+/// `GET …/content?hashes=<hashes>`: the literals of those objects of the chain, kept for good
+/// by whoever asked.
+pub fn content(
+    call: &Call<Reader, Wanted, ()>,
+) -> Result<Immutable<Json<wire::ContentPayload>>, Refusal> {
+    routes::content(call.chain.caps.chain, &call.params.0).map(|answer| Immutable(Json(answer)))
 }
 
 /// `GET …/tip`: the heads a replica compares against.

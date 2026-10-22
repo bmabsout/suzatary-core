@@ -298,3 +298,254 @@ fn a_fork_then_a_line_is_a_merge() {
         .count();
     assert_eq!(merges, 1);
 }
+
+/// The literals of `hashes`, asked of `lines` by hash as a tab would ask: in ascending order, in
+/// answers of at most `query::MOST_HASHES` names and `routes::MOST_CONTENT_BYTES` bytes by the
+/// sizes the skeleton gave, an object larger than that asked for alone.
+fn fetched(
+    lines: &dyn suzatary_core::store::Prodrome<LineEvent>,
+    nodes: &BTreeMap<String, usize>,
+) -> BTreeMap<String, String> {
+    let mut asks: Vec<Vec<&str>> = vec![Vec::new()];
+    let mut bytes = 0usize;
+    for (hash, size) in nodes {
+        let last = asks.last().map_or(0, Vec::len);
+        if last == suzatary_core::query::MOST_HASHES
+            || (last > 0 && bytes + size > routes::MOST_CONTENT_BYTES)
+        {
+            asks.push(Vec::new());
+            bytes = 0;
+        }
+        bytes += size;
+        if let Some(ask) = asks.last_mut() {
+            ask.push(hash);
+        }
+    }
+    asks.into_iter()
+        .filter(|ask| !ask.is_empty())
+        .flat_map(|ask| {
+            let hashes = suzatary_core::query::Hashes::parse(Some(&ask.join(","))).expect("a set");
+            routes::content(lines, &hashes).expect("held").objects
+        })
+        .map(|object| (object.hash, object.literal))
+        .collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(48))]
+
+    /// The skeleton's pieces, asked one after another from what the last left while the store
+    /// moves, and then each node's literal asked for by hash, rebuild what the objects' pull
+    /// sends: each piece holds with what came before everything it rests on, as its parents say,
+    /// and each node's parents and size are its literal's; the heads, prodromes and epoch are the
+    /// pull's; the keys and the erasures are the pull's, no erased key among them. Where nothing
+    /// moved, the objects come in the pull's own order, literal for literal.
+    #[test]
+    fn law_the_skeleton_and_the_content_by_hash_are_the_whole_pull(
+        script in prop::collection::vec(write(), 1..24),
+        moves in prop::collection::vec(prop::option::of(write()), 0..6),
+        held_first in 0..64usize,
+        budget in 200..4000usize,
+    ) {
+        let mut store = Writer::new();
+        for write in &script {
+            store.apply(write);
+        }
+        let epochs = suzatary_core::epoch::Epochs::remembered();
+        let first = store.lines.lines.objects().expect("reads");
+        let mut held: BTreeSet<Hash> =
+            first.iter().take(held_first).map(|(name, _)| name.clone()).collect();
+        let since: Vec<Hash> = held.iter().cloned().collect();
+        let mut nodes: Vec<suzatary_core::wire::SkeletonNode> = Vec::new();
+        let mut keys = BTreeMap::new();
+        let mut moved = false;
+        let mut asked = 0usize;
+        let last = loop {
+            let since_now: Vec<Hash> = held.iter().cloned().collect();
+            let piece = routes::lines_skeleton(store.lines.conversations(), &since_now, &epochs, now(), Cut::Bytes(budget)).expect("a piece");
+            for node in &piece.nodes {
+                for parent in &node.parents {
+                    let parent = Hash::new(parent.clone()).expect("a name");
+                    prop_assert!(held.contains(&parent), "{} came before {} it rests on", node.hash, parent.as_str());
+                }
+                prop_assert!(held.insert(Hash::new(node.hash.clone()).expect("a name")), "{} sent again", node.hash);
+            }
+            for name in piece.keys.keys() {
+                prop_assert!(!piece.erased.contains(name), "the erased key {} was sent", name);
+            }
+            keys.extend(piece.keys.clone());
+            nodes.extend(piece.nodes.clone());
+            if piece.rest == 0 {
+                break piece;
+            }
+            if let Some(Some(write)) = moves.get(asked) {
+                store.apply(write);
+                moved = true;
+            }
+            asked += 1;
+            prop_assert!(asked <= first.len() + moves.len() * 4 + 1, "the pull ends");
+        };
+        let whole = routes::lines_since(store.lines.conversations(), &since, &epochs, now(), Cut::Whole).expect("the whole");
+        prop_assert_eq!(&last.heads, &whole.objects.heads);
+        prop_assert_eq!(&last.geneses, &whole.objects.geneses);
+        prop_assert_eq!(last.epoch, whole.objects.epoch);
+        prop_assert_eq!(&last.erased, &whole.erased);
+        let sizes: BTreeMap<String, usize> = nodes.iter().map(|node| (node.hash.clone(), node.size)).collect();
+        let literals = fetched(&store.lines.lines, &sizes);
+        let objects = store.lines.lines.objects().expect("reads");
+        let by_name: BTreeMap<&Hash, &Envelope<LineEvent>> = objects.iter().map(|(n, o)| (n, o)).collect();
+        for node in &nodes {
+            let name = Hash::new(node.hash.clone()).expect("a name");
+            let literal = &literals[&node.hash];
+            prop_assert_eq!(node.size, literal.len());
+            prop_assert_eq!(literal, &prodrome_core::event::canonical_envelope(by_name[&name]));
+            let mut parents: Vec<String> = rests_on(by_name[&name]).iter().map(|h| h.as_str().to_owned()).collect();
+            parents.sort();
+            parents.dedup();
+            prop_assert_eq!(&node.parents, &parents);
+        }
+        let rebuilt: Vec<suzatary_core::wire::StoredObject> = nodes
+            .iter()
+            .map(|node| suzatary_core::wire::StoredObject { hash: node.hash.clone(), literal: literals[&node.hash].clone() })
+            .collect();
+        if moved {
+            let sent: BTreeSet<&str> = rebuilt.iter().map(|o| o.hash.as_str()).collect();
+            let all: BTreeSet<&str> = whole.objects.objects.iter().map(|o| o.hash.as_str()).collect();
+            prop_assert_eq!(sent, all);
+            for (name, key) in &whole.keys {
+                prop_assert_eq!(keys.get(name), Some(key));
+            }
+        } else {
+            prop_assert_eq!(&rebuilt, &whole.objects.objects);
+            prop_assert_eq!(&keys, &whole.keys);
+        }
+    }
+}
+
+/// A content answer is a function of the hashes asked: the same question asked again after the
+/// store moved, an erasure of those very words included, answers the same bytes.
+#[test]
+fn a_content_answer_never_changes() {
+    let mut store = Writer::new();
+    store.apply(&Write::Said {
+        conversation: 0,
+        words: 40,
+    });
+    let objects = store.lines.lines.objects().expect("reads");
+    let asked = objects
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .join(",");
+    let hashes = suzatary_core::query::Hashes::parse(Some(&asked)).expect("a set");
+    let before = routes::content(&store.lines.lines, &hashes).expect("held");
+    for write in [
+        Write::Said {
+            conversation: 1,
+            words: 9,
+        },
+        Write::Erased { conversation: 0 },
+        Write::Fork {
+            conversation: 0,
+            words: 3,
+        },
+    ] {
+        store.apply(&write);
+    }
+    let after = routes::content(&store.lines.lines, &hashes).expect("held");
+    assert_eq!(
+        serde_json::to_vec(&before).expect("prints"),
+        serde_json::to_vec(&after).expect("prints")
+    );
+}
+
+/// A hash another store holds is refused by this one in the very words a hash no store holds
+/// is: a store's content route reads that store alone, and says nothing of the others.
+#[test]
+fn another_store_s_hash_is_refused_as_an_unknown_one_is() {
+    let (mut ours, mut theirs) = (Writer::new(), Writer::new());
+    ours.apply(&Write::Said {
+        conversation: 0,
+        words: 5,
+    });
+    theirs.apply(&Write::Said {
+        conversation: 2,
+        words: 7,
+    });
+    let elsewhere = theirs.lines.lines.tips().expect("reads");
+    let elsewhere = elsewhere.first().expect("a head").as_str().to_owned();
+    let nowhere = "0".repeat(64);
+    let refused = |hash: &str| {
+        let hashes = suzatary_core::query::Hashes::parse(Some(hash)).expect("a set");
+        let refusal = routes::content(&ours.lines.lines, &hashes).expect_err("not ours");
+        (refusal.status(), refusal.message().replace(hash, "<hash>"))
+    };
+    assert_eq!(refused(&elsewhere), refused(&nowhere));
+    assert_eq!(
+        refused(&nowhere).0,
+        suzatary_core::refusal::Status::NotFound
+    );
+}
+
+/// The bound holds: a set whose literals pass the bytes one answer carries is refused whole,
+/// and one object is answered whatever its size.
+#[test]
+fn the_content_bound_holds() {
+    let mut store = Writer::new();
+    for conversation in 0..3 {
+        store.apply(&Write::Said {
+            conversation,
+            words: 500,
+        });
+    }
+    let objects = store.lines.lines.objects().expect("reads");
+    let mut names: Vec<&str> = objects.iter().map(|(name, _)| name.as_str()).collect();
+    names.sort_unstable();
+    let total: usize = objects
+        .iter()
+        .map(|(_, object)| prodrome_core::event::canonical_envelope(object).len())
+        .sum();
+    assert!(
+        total < routes::MOST_CONTENT_BYTES,
+        "the store fits one answer"
+    );
+    let all = suzatary_core::query::Hashes::parse(Some(&names.join(","))).expect("a set");
+    assert_eq!(
+        routes::content(&store.lines.lines, &all)
+            .expect("under the bound")
+            .objects
+            .len(),
+        names.len()
+    );
+    // A turn past the bound on its own: answered alone, refused beside another.
+    store.apply(&Write::Said {
+        conversation: 0,
+        words: routes::MOST_CONTENT_BYTES + 10,
+    });
+    let objects = store.lines.lines.objects().expect("reads");
+    let (large, _) = objects
+        .iter()
+        .find(|(_, object)| {
+            prodrome_core::event::canonical_envelope(object).len() > routes::MOST_CONTENT_BYTES
+        })
+        .expect("the large line");
+    let alone = suzatary_core::query::Hashes::parse(Some(large.as_str())).expect("a set");
+    assert_eq!(
+        routes::content(&store.lines.lines, &alone)
+            .expect("one object is answered")
+            .objects
+            .len(),
+        1
+    );
+    let mut two = [large.as_str(), names[0]];
+    two.sort_unstable();
+    let two = suzatary_core::query::Hashes::parse(Some(&two.join(","))).expect("a set");
+    assert_eq!(
+        routes::content(&store.lines.lines, &two)
+            .expect_err("past the bound")
+            .status(),
+        suzatary_core::refusal::Status::BadRequest
+    );
+}

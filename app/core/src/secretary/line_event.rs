@@ -184,6 +184,12 @@ impl LineEvent {
         &self.conversation
     }
 
+    /// When it was written, by its writer's clock.
+    #[must_use]
+    pub fn at(&self) -> Datetime {
+        self.at
+    }
+
     /// How many lines its writer held.
     #[must_use]
     pub fn held(&self) -> u32 {
