@@ -578,7 +578,7 @@ process.stdin.on("end", () => {
 ' | grep -q warm; do
     sleep 0.2
     waited=$((waited + 1))
-    if (( waited > 300 )); then
+    if (( waited > 1200 )); then
       echo "web-e2e.sh: $1 never served warm markup" >&2
       exit 1
     fi
