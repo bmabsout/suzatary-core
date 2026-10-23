@@ -396,8 +396,8 @@ fn a_device_registration_from_loopback_is_refused() {
     );
 }
 
-/// The Android app's report, as `Push.java` builds it (`platform`, `token`, `nonce`), is taken,
-/// and its retry with the same nonce answers the same: one phone, whatever the count of reports.
+/// The page's report of the Android app's token (`platform`, `token`) is taken, and a second
+/// report of the same token answers the same: one phone, whatever the count of reports.
 #[test]
 fn the_android_apps_report_and_its_retry_register_one_phone() {
     let (_, fakes) = writer();
@@ -411,7 +411,6 @@ fn the_android_apps_report_and_its_retry_register_one_phone() {
     let report = serde_json::json!({
         "platform": "android",
         "token": "a-token-from-the-phone",
-        "nonce": "2b1f0c9e-7a8d-4e55-9c1a-3f6d2e8b4a10",
     });
     for _ in 0..2 {
         let mut response = common::act(&format!("{base}/api/act/device"), &report);
@@ -441,7 +440,7 @@ fn a_malformed_platform_or_token_is_refused_before_it_is_written() {
         ),
         (
             serde_json::json!({"platform": "android", "token": "t", "app": "x"}),
-            "unknown field `app`, expected one of `platform`, `token`, `nonce`",
+            "unknown field `app`, expected `platform` or `token`",
         ),
         (
             serde_json::json!({"platform": "android", "token": ""}),

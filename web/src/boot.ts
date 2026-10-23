@@ -8,9 +8,13 @@ import shell from "./app/shell"
 import primed from "./app/primed"
 import loader from "./app/loader"
 import { remembered } from "./app/chain"
+import pushtoken from "./app/pushtoken"
 
 // Said on the document as it starts, so a harness can tell a page booting from one that runs no app.
 document.documentElement.dataset["booting"] = ""
+
+// The Android app's push token, held for the app's module, which may be imported after the app sends it.
+pushtoken.hold()
 
 // The list's fold, the first thing the app reads on the chain this browser last read.
 primed.start(`/api/${encodeURIComponent(remembered())}/fold`)

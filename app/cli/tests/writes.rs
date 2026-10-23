@@ -239,6 +239,11 @@ fn every_answer_carries_the_policy_and_no_api_answer_is_stored() {
             "{path}"
         );
         assert_eq!(
+            header(&response, "cross-origin-opener-policy").as_deref(),
+            Some("same-origin"),
+            "{path}"
+        );
+        assert_eq!(
             header(&response, "cache-control").as_deref(),
             Some("no-store"),
             "{path}"
@@ -248,6 +253,10 @@ fn every_answer_carries_the_policy_and_no_api_answer_is_stored() {
     assert_eq!(
         header(&shell, "content-security-policy").as_deref(),
         Some(suzatary_cli::serve::POLICY)
+    );
+    assert_eq!(
+        header(&shell, "cross-origin-opener-policy").as_deref(),
+        Some("same-origin")
     );
     assert_ne!(header(&shell, "cache-control").as_deref(), Some("no-store"));
     for directive in [

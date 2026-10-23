@@ -1035,7 +1035,8 @@ impl std::fmt::Debug for RevealPayload {
     }
 }
 
-/// `POST /api/act/device`: the phone saying "wake me here".
+/// `POST /api/act/device`: the phone saying "wake me here", sent by the page with its device's
+/// signature, since the Android portal's native code holds no key.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
 #[serde(deny_unknown_fields)]
 pub struct Registering {
@@ -1043,12 +1044,6 @@ pub struct Registering {
     pub platform: crate::devices::Platform,
     /// The token, one line.
     pub token: String,
-    /// The Android app's key for one report and its retries. Read and not used: a retry appends
-    /// a line naming the same token, and [`crate::devices::Phones::of`] folds every line of one
-    /// token into one phone, so a report taken twice reads as it did once.
-    #[serde(default)]
-    #[ts(optional)]
-    pub nonce: Option<String>,
 }
 
 /// `true`, the one value a yes takes on the wire, so `{"whole": false}` is no request.
@@ -3046,9 +3041,6 @@ mod tests {
         reads::<Pairing>(&serde_json::json!({"code": "c"}));
         reads::<Revealing>(&serde_json::json!({"handle": "held:YQ.0"}));
         reads::<Registering>(&serde_json::json!({"platform": "android", "token": "t"}));
-        reads::<Registering>(
-            &serde_json::json!({"platform": "android", "token": "t", "nonce": "n"}),
-        );
         reads::<crate::clienterror::Sent>(&serde_json::json!({"kind": "error", "message": "m"}));
     }
 

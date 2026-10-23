@@ -63,6 +63,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -70,6 +71,7 @@ import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -78,6 +80,7 @@ import android.webkit.HttpAuthHandler;
 import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebMessage;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -89,6 +92,9 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 
@@ -176,6 +182,17 @@ public final class MainActivity extends Activity {
      */
     private ValueCallback<Uri[]> choosing;
 
+    /** Hands each token Play Services gives to the page; held here, since preferences hold listeners weakly. */
+    private final SharedPreferences.OnSharedPreferenceChangeListener tokens =
+            new SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override
+                public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
+                    if (Push.KEY_TOKEN.equals(key)) {
+                        handToken();
+                    }
+                }
+            };
+
     @Override
     protected void onCreate(final Bundle saved) {
         super.onCreate(saved);
@@ -211,7 +228,33 @@ public final class MainActivity extends Activity {
         } else {
             begin(saved);
         }
+        Push.kept(this).registerOnSharedPreferenceChangeListener(tokens);
         askToNotify();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Push.kept(this).unregisterOnSharedPreferenceChangeListener(tokens);
+        super.onDestroy();
+    }
+
+    /**
+     * THE TOKEN GOES TO THE PAGE, which reports it signed: this app holds no
+     * device key. postWebMessage delivers only to a main frame at the box's
+     * origin, so no other page reads the token, and no JavaScript interface
+     * is exposed. Before a box is kept there is no origin to hand it to.
+     */
+    private void handToken() {
+        String token = Push.token(this);
+        if (box == null || token == null) {
+            return;
+        }
+        try {
+            String said = new JSONObject().put("pushToken", token).toString();
+            web.postWebMessage(new WebMessage(said), Uri.parse("https://" + box.host));
+        } catch (JSONException e) {
+            Log.w(Push.TAG, "the token could not be written for the page", e);
+        }
     }
 
     /** The box is known: the first page waits for the route, and push is asked for. */
@@ -723,6 +766,14 @@ public final class MainActivity extends Activity {
                 // link from killing the app.
             }
             return true;
+        }
+
+        /** A box page has loaded and listens: the token goes to it. */
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            if (box != null && box.host.equals(Uri.parse(url).getHost())) {
+                handToken();
+            }
         }
 
         /** A challenge only the route can answer (a proxy's); anything else is refused. */

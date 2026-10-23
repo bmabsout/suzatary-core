@@ -61,24 +61,8 @@ public final class PushReceiver extends BroadcastReceiver {
         if (token.isEmpty()) {
             return; // Push.tokenOf logged why; no push is a state, not a failure
         }
-        // onReceive is the MAIN THREAD and has about ten seconds before the
-        // system may kill the process. goAsync holds the process open for the
-        // HTTPS post and finish() releases it — the one place this app is
-        // allowed to outlive a callback, and it ends by construction.
-        final PendingResult pending = goAsync();
-        final Context app = context.getApplicationContext();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Push.accept(app, token);
-                } catch (Throwable e) {
-                    Log.w(Push.TAG, "reporting the token failed", e);
-                } finally {
-                    pending.finish();
-                }
-            }
-        }, "suzatary-push").start();
+        // A write to preferences, applied off this thread; the page reports it.
+        Push.accept(context.getApplicationContext(), token);
     }
 
     /**

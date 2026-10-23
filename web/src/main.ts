@@ -1,12 +1,13 @@
 // The shell: what the tab hears becomes an `app.Event`, and after each one the shell is drawn from `App` —
 // the chrome around the page, and the page `pages.table` mounts for its screen.
 
-import { forgetChain, me, waitingCount, wasOurWrite } from "./wire/api";
+import { forgetChain, me, reportPushToken, waitingCount, wasOurWrite } from "./wire/api";
 import storesync from "./prodrome/storesync";
 import intentsync from "./prodrome/intentsync";
 import app from "./app/app";
 import chrome from "./shell/chrome";
 import beacon from "./app/beacon";
+import pushtoken from "./app/pushtoken";
 import wipe from "./app/wipe";
 import rendered from "./app/rendered";
 import asked from "./app/asked";
@@ -256,6 +257,8 @@ http.signWith(async () => {
   const held = await signer.held();
   return held.type === "Held" ? { key: held.key.public, sign: (name: string) => signer.sign(held.key, name) } : null;
 });
+// The Android portal's push token: the one the boot script held, and any the app sends later.
+pushtoken.install(reportPushToken);
 installKeyboard();
 // Another tab's write to a register this browser keeps is heard as that register moving.
 ui.install();

@@ -27,10 +27,12 @@
  *
  * IT CARRIES NO CREDENTIAL EITHER. The token is not a secret about the owner: it
  * is a name Google will deliver to, useful only to whoever holds the FCM key on
- * the box. It is reported over the same tailnet address and the same CSRF gate
- * as every other write (`POST /api/act/device`), so the server learns the
- * device from a request it already knows is the owner's phone — the actor is still
- * `tailscale whois`'s answer and never a field of the body.
+ * the box.
+ *
+ * THE PAGE REPORTS IT, NOT THIS CLASS. `POST /api/act/device` admits only a
+ * request a trusted device key signs, and that key belongs to the page. So
+ * this class keeps the token, and MainActivity hands it to the box's page,
+ * which reports it with its own signature (web/src/app/pushtoken.ts).
  */
 package com.bmabsout.suzatary;
 
@@ -39,17 +41,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.util.Log;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
-import java.util.UUID;
-
-import javax.net.ssl.HttpsURLConnection;
 
 final class Push {
 
@@ -72,18 +63,15 @@ final class Push {
     private static final String KID = "|ID|1|";
 
     private static final String PREFS = "push";
-    private static final String KEY_TOKEN = "token";
+    static final String KEY_TOKEN = "token";
     private static final String KEY_SENDER = "sender";
-    private static final String KEY_REPORTED = "reported_at";
-    private static final String KEY_NONCE = "pending_nonce";
+    private static final String KEY_AT = "token_at";
 
     /**
-     * How long a reported token is believed. FCM tokens do not expire on a
-     * schedule, but they are revoked when the app's data is cleared, when it is
-     * restored onto another device, or when Google decides to rotate one — and
-     * every one of those is silent. Re-asking weekly is the cheap half of that
-     * problem; the other half is the server noticing a token it sends to has
-     * gone stale, which is the server's business and not this app's.
+     * How long a token is believed before Play Services is asked again. FCM
+     * tokens do not expire on a schedule, but Google rotates them silently;
+     * asking weekly is the cheap half of that problem, and the box forgetting
+     * a token FCM calls dead is the other half.
      */
     private static final long FRESH_MS = 7L * 24L * 60L * 60L * 1000L;
 
@@ -95,7 +83,7 @@ final class Push {
     }
 
     /**
-     * Ask for a token unless the one on file was reported recently. Called off
+     * Ask for a token unless the one on file is recent. Called off
      * the main thread from MainActivity.onCreate — SharedPreferences is disk
      * and startService is IPC, and neither belongs on the frame clock.
      *
@@ -114,7 +102,7 @@ final class Push {
             SharedPreferences prefs = prefs(ctx);
             boolean sameSender = box.sender.equals(prefs.getString(KEY_SENDER, ""));
             boolean haveToken = !prefs.getString(KEY_TOKEN, "").isEmpty();
-            long since = System.currentTimeMillis() - prefs.getLong(KEY_REPORTED, 0L);
+            long since = System.currentTimeMillis() - prefs.getLong(KEY_AT, 0L);
             if (sameSender && haveToken && since >= 0 && since < FRESH_MS) {
                 return;
             }
@@ -209,98 +197,31 @@ final class Push {
         return raw;
     }
 
-    /**
-     * Store the token and tell the box. Runs on PushReceiver's worker thread.
-     * The token is written FIRST and `reported_at` only on a 2xx, so a failed
-     * report is retried on the next app start rather than forgotten — which is
-     * the same shape as the web app's outbox (web/src/queue.ts): the intent
-     * survives the failure and nothing is invented to cover it.
-     */
+    /** Keep the token; MainActivity hears the write and hands it to the page. */
     static void accept(Context ctx, String token) {
         Box box = Box.of(ctx);
-        if (box == null) {
+        if (box == null || box.sender == null) {
             return; // Play Services answered after this app's data was cleared
         }
+        prefs(ctx).edit()
+                .putString(KEY_TOKEN, token)
+                .putString(KEY_SENDER, box.sender)
+                .putLong(KEY_AT, System.currentTimeMillis())
+                .apply();
+    }
+
+    /** The token Play Services gave for this box's sender, or null: no box yet, no push, or no answer yet. */
+    static String token(Context ctx) {
+        Box box = Box.of(ctx);
         SharedPreferences prefs = prefs(ctx);
-        prefs.edit().putString(KEY_TOKEN, token).putString(KEY_SENDER, box.sender).apply();
-        String nonce = prefs.getString(KEY_NONCE, "");
-        if (nonce.isEmpty()) {
-            // A NONCE PER ATTEMPT, NOT PER REQUEST. It is what makes a retry
-            // idempotent (suzatary/nonces.py), so the retry of a failed report
-            // must carry the SAME one; a re-registration a week later is a new
-            // fact about the device and gets a new one.
-            nonce = UUID.randomUUID().toString();
-            prefs.edit().putString(KEY_NONCE, nonce).apply();
-        }
-        try {
-            if (report(box, token, nonce)) {
-                prefs.edit().putLong(KEY_REPORTED, System.currentTimeMillis()).remove(KEY_NONCE).apply();
-                Log.i(TAG, "the box has this device's token");
-            }
-        } catch (IOException | JSONException e) {
-            Log.w(TAG, "could not report the token; will retry next start", e);
-        }
+        String token = prefs.getString(KEY_TOKEN, "");
+        return box != null && box.sender != null && box.sender.equals(prefs.getString(KEY_SENDER, "")) && !token.isEmpty()
+                ? token
+                : null;
     }
 
-    /**
-     * HTTPS ONLY, like the WebView: a token posted in the clear is invisible,
-     * so this waits for the certificate instead of downgrading. The certificate is a real Let's Encrypt one for the ts.net
-     * name, so the platform's own trust store validates it and this class adds
-     * no TrustManager of its own.
-     */
-    private static boolean report(Box box, String token, String nonce) throws IOException, JSONException {
-        JSONObject body = new JSONObject();
-        body.put("platform", "android");
-        body.put("token", token);
-        body.put("nonce", nonce);
-        byte[] bytes = body.toString().getBytes("UTF-8");
-
-        HttpsURLConnection c = (HttpsURLConnection) new URL(box.https() + "api/act/device").openConnection();
-        try {
-            c.setRequestMethod("POST");
-            c.setConnectTimeout(15000);
-            c.setReadTimeout(15000);
-            c.setDoOutput(true);
-            c.setFixedLengthStreamingMode(bytes.length);
-            // THE CSRF TRIPLE (webapp.check_act_headers). The custom header is
-            // the half whois cannot cover; Sec-Fetch-Site is a browser's word
-            // and absent here, which the server allows precisely because a
-            // native client is not a page some other origin can drive.
-            c.setRequestProperty("X-Suzatary-Act", "1");
-            c.setRequestProperty("Content-Type", "application/json");
-            c.setRequestProperty("Accept", "application/json");
-            OutputStream out = c.getOutputStream();
-            try {
-                out.write(bytes);
-            } finally {
-                out.close();
-            }
-            int code = c.getResponseCode();
-            if (code / 100 == 2) {
-                return true;
-            }
-            Log.w(TAG, "the box refused the token: " + code + " " + read(c.getErrorStream()));
-            return false;
-        } finally {
-            c.disconnect();
-        }
-    }
-
-    /** A capped read of a refusal, for the log. Never parsed, never displayed. */
-    private static String read(InputStream in) throws IOException {
-        if (in == null) {
-            return "";
-        }
-        try {
-            byte[] buffer = new byte[512];
-            int got = 0;
-            int n;
-            while (got < buffer.length && (n = in.read(buffer, got, buffer.length - got)) > 0) {
-                got += n;
-            }
-            return new String(buffer, 0, got, "UTF-8");
-        } finally {
-            in.close();
-        }
+    /** Where the token is kept, for a listener that hands each new one to the page. */
+    static SharedPreferences kept(Context ctx) {
+        return prefs(ctx);
     }
 }

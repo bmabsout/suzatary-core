@@ -1117,6 +1117,12 @@ pub fn app(state: State, dist: &std::path::Path) -> Router {
             header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(POLICY),
         ))
+        // A page of another origin that opened this one keeps no handle on it, so it cannot post
+        // a message that reads as the Android app's (`web/src/app/pushtoken.ts`).
+        .layer(SetResponseHeaderLayer::overriding(
+            header::HeaderName::from_static("cross-origin-opener-policy"),
+            HeaderValue::from_static("same-origin"),
+        ))
         .with_state(state)
 }
 

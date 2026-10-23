@@ -118,11 +118,15 @@ Stage 2 fixes it.
 
 ## Stage 2: the token through the page, and the box by a scan
 
-- **The token goes through the page.** Native code cannot sign: the device
-  key belongs to the page. The app hands the token to the page through a
-  `WebMessageListener` limited to the box's origin (androidx.webkit, which
-  the tsnet route already links). The page posts it with its own signed
-  request. `Push.report` and its nonce are deleted.
+- **The token goes through the page (done).** Native code cannot sign: the
+  device key belongs to the page. `MainActivity` hands the token to the page
+  with the platform's `WebView.postWebMessage`, which delivers only to a main
+  frame at the box's origin. It does this when a box page loads and when a
+  new token is kept, and never before a box is kept. `boot.ts` holds a
+  message that arrives before the app module is imported.
+  `web/src/app/pushtoken.ts` reports the token with the page's signed
+  `http.act` when it is new or a week old. `Push.report` and its nonce are
+  deleted.
 - **The box by a scan.** Settings shows a QR code of
   `suzatary://box/<host>`. The phone's camera app opens it in the generic APK,
   which fills the pairing screen's field. The person still taps Connect, so a

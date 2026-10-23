@@ -1678,8 +1678,12 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   Reverse-documented: each extra's comment gives its source and confidence
   (action, `sender`, `app`, reply HIGH; InstanceID extras MEDIUM); a device
   that answers nothing has no push, logged, never thrown. The token (a delivery
-  name, not a credential) goes to `POST /api/act/device` with the CSRF triple
-  over HTTPS only, one nonce per attempt. The box sends a DATA message, never
+  name, not a credential) is kept, and `MainActivity` hands it to the box's
+  page with `WebView.postWebMessage` (delivered only to a main frame at the
+  box's origin) when a page loads and when a new token is kept. The page
+  (`web/src/app/pushtoken.ts`) reports it to `POST /api/act/device` signed by
+  its device key (SPEC law 42), when it is new or a week old; native code
+  holds no key and posts nothing. The box sends a DATA message, never
   an FCM "notification": `PushReceiver` reads `title`, `body`, `click` as text,
   caps them, checks `click` against this host like `MainActivity.targetOf`, and
   opens MainActivity by CLASS.
