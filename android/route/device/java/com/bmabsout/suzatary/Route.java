@@ -16,7 +16,7 @@ final class Route {
 
     private final Runnable reached;
 
-    Route(Activity activity, FrameLayout root, Runnable reached) {
+    Route(Activity activity, FrameLayout root, String host, Runnable reached) {
         this.reached = reached;
     }
 

@@ -112,6 +112,7 @@ zone = "Europe/London"
 
 [notify]
 channels = ["fcm", "ntfy"]
+fcm_sender = "100000000000"
 
 [[providers]]
 name = "phala"
@@ -275,6 +276,7 @@ fn printed(instance: &Instance) -> String {
             suzatary_core::nonempty::NonEmpty::listed(instance.notify.as_ref())
         ),
     );
+    line("portal", format!("{:?}", instance.portal));
     for provider in &instance.providers {
         line(
             &format!("provider.{}", provider.name),
@@ -482,6 +484,11 @@ const REFUSALS: &[(&str, &str, &str)] = &[
         "an unknown key in [notify]",
         "channels = [\"fcm\", \"ntfy\"]",
         "channels = []\ncolour = 1",
+    ),
+    (
+        "a Firebase sender that is no number",
+        "fcm_sender = \"100000000000\"",
+        "fcm_sender = \"sender-1\"",
     ),
     (
         "a provider named anthropic",

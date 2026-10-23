@@ -1104,6 +1104,38 @@ pub struct ReceiptPayload {
     pub refused: Vec<RefusedObject>,
 }
 
+/// `GET /api/portal`: what the Android portal reads from a box before it keeps it as its box.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct PortalPayload {
+    /// How the box wakes the phone.
+    pub push: PortalPush,
+}
+
+/// How a box wakes the portal's phone, as [`crate::portal::Portal`] reads it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum PortalPush {
+    /// No push: the portal registers with no push service.
+    None,
+    /// Firebase: the portal registers with Play Services against `sender`.
+    Fcm {
+        /// The Firebase project's number.
+        sender: String,
+    },
+}
+
+impl From<&crate::portal::Portal> for PortalPayload {
+    fn from(portal: &crate::portal::Portal) -> Self {
+        let push = match portal {
+            crate::portal::Portal::Quiet => PortalPush::None,
+            crate::portal::Portal::Fcm(sender) => PortalPush::Fcm {
+                sender: sender.as_str().to_owned(),
+            },
+        };
+        Self { push }
+    }
+}
+
 /// `GET /api/about`: the version and the revision this build is, and what the version
 /// completed.
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
@@ -2830,6 +2862,7 @@ fn answers(visit: &mut impl TypeVisitor) {
     visit.visit::<ReceiptPayload>();
     visit.visit::<MePayload>();
     visit.visit::<AboutPayload>();
+    visit.visit::<PortalPayload>();
     visit.visit::<ReleasesPayload>();
     visit.visit::<AuthoredPayload>();
     visit.visit::<DevicePayload>();
@@ -3017,6 +3050,46 @@ mod tests {
             &serde_json::json!({"platform": "android", "token": "t", "nonce": "n"}),
         );
         reads::<crate::clienterror::Sent>(&serde_json::json!({"kind": "error", "message": "m"}));
+    }
+
+    /// The portal's answer is what `Pairing.java` parses, and a phone keeps an installed APK for
+    /// months, so its JSON moves only together with that file.
+    #[test]
+    fn the_portal_answer_is_the_json_the_android_portal_reads() {
+        use crate::connect::Channel;
+        use crate::nonempty::NonEmpty;
+        use crate::portal::{Portal, Sender};
+        let sender = || Sender::try_from("100000000000".to_owned()).expect("a number");
+        let fcm = NonEmpty::of(vec![Channel::Ntfy, Channel::Fcm]);
+        let ntfy = NonEmpty::of(vec![Channel::Ntfy]);
+        for (channels, sender, json) in [
+            (
+                fcm.as_ref(),
+                Some(sender()),
+                serde_json::json!({"push": {"kind": "fcm", "sender": "100000000000"}}),
+            ),
+            (
+                fcm.as_ref(),
+                None,
+                serde_json::json!({"push": {"kind": "none"}}),
+            ),
+            (
+                ntfy.as_ref(),
+                Some(sender()),
+                serde_json::json!({"push": {"kind": "none"}}),
+            ),
+            (
+                None,
+                Some(sender()),
+                serde_json::json!({"push": {"kind": "none"}}),
+            ),
+        ] {
+            let answer = PortalPayload::from(&Portal::of(channels, sender));
+            assert_eq!(serde_json::to_value(&answer).expect("prints"), json);
+        }
+        for refused in ["", "12a", "+1000", &"1".repeat(21)] {
+            assert!(Sender::try_from(refused.to_owned()).is_err(), "{refused:?}");
+        }
     }
 
     /// An erasure names its turns, at least one, or says yes to the whole.

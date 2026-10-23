@@ -388,6 +388,9 @@ impl Secretary {
 pub(crate) struct Notify {
     #[serde(default)]
     pub(crate) channels: Vec<suzatary_core::connect::Channel>,
+    /// The Firebase project's number the box hands the Android portal at pairing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) fcm_sender: Option<suzatary_core::portal::Sender>,
 }
 
 /// `[models]`: each job's order stays text here, because an entry's backend

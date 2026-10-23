@@ -714,7 +714,6 @@ mod tests {
             ANTHROPIC_API_KEY,
             CLAUDE_CODE_OAUTH_TOKEN,
             "FCM_SERVICE_ACCOUNT_B64",
-            "FCM_SENDER_ID",
             "NTFY_TOPIC",
         ] {
             assert_eq!(

@@ -853,7 +853,7 @@ mod tests {
         };
         assert!(!asks("NTFY_TOPIC"), "{cards:?}");
         assert!(
-            asks("FCM_SENDER_ID"),
+            asks("FCM_SERVICE_ACCOUNT_B64"),
             "a missing name is still asked for: {cards:?}"
         );
         assert!(
@@ -883,7 +883,6 @@ mod tests {
         let every = [
             "ANTHROPIC_API_KEY",
             "CLAUDE_CODE_OAUTH_TOKEN",
-            "FCM_SENDER_ID",
             "FCM_SERVICE_ACCOUNT_B64",
             "NTFY_TOPIC",
         ];

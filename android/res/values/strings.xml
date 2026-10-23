@@ -12,6 +12,18 @@
     <string name="offline_retry">Try again</string>
 
     <!--
+      PAIRING. Only the generic APK, whose profile names no box, shows these:
+      at first launch it asks for the box's name and keeps it once the box
+      answers.
+    -->
+    <string name="pairing_title">Which box?</string>
+    <string name="pairing_body">Type your box\'s name on the tailnet, as its address shows it in a browser. Tailscale must be connected on this phone.</string>
+    <string name="pairing_hint">box.tailnet.ts.net</string>
+    <string name="pairing_connect">Connect</string>
+    <string name="pairing_asking">Asking %1$s…</string>
+    <string name="pairing_not_a_name">That is not a box\'s name: type the name alone, with no https:// and no path.</string>
+
+    <!--
       PUSH. A notification's own title and text come from the box and are never
       here; these are the words ABOUT notifications — what the channel is called
       in Settings, what it is for, and the one line that says why the permission
@@ -36,5 +48,6 @@
     <string name="widget_heading">lowest fulfillment first — low means urgent</string>
     <string name="widget_nothing">Nothing is open.</string>
     <string name="widget_unreachable">Not reached yet — check that Tailscale is connected.</string>
+    <string name="widget_unpaired">Open Suzatary and choose its box.</string>
     <string name="widget_stale">stale since %1$s</string>
 </resources>

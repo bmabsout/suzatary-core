@@ -102,9 +102,14 @@ public final class PushReceiver extends BroadcastReceiver {
             Log.i(Push.TAG, "ignoring a control delivery: " + type);
             return;
         }
+        Box box = Box.of(context);
+        if (box == null) {
+            Log.i(Push.TAG, "a push arrived after this app's data was cleared");
+            return;
+        }
         String title = text(intent.getStringExtra("title"), context.getString(R.string.app_name));
         String body = text(intent.getStringExtra("body"), "");
-        String click = page(intent.getStringExtra("click"));
+        String click = page(box, intent.getStringExtra("click"));
 
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) {
@@ -167,17 +172,15 @@ public final class PushReceiver extends BroadcastReceiver {
      * a stranger's page by a stranger's payload is the one thing this app must
      * not do.
      */
-    private static String page(String click) {
+    private static String page(Box box, String click) {
         if (click == null || click.isEmpty()) {
-            return MainActivity.HTTPS;
+            return box.https();
         }
         Uri url = Uri.parse(click);
-        String scheme = url.getScheme();
-        boolean ours = ("https".equals(scheme) || "http".equals(scheme)) && MainActivity.HOST.equals(url.getHost());
-        if (ours) {
+        if (box.holds(url)) {
             return url.buildUpon().scheme("https").build().toString(); // never cleartext
         }
         Log.w(Push.TAG, "a push named a page that is not this app's; opening home");
-        return MainActivity.HTTPS;
+        return box.https();
     }
 }

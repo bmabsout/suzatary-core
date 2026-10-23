@@ -835,7 +835,8 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
   front page (`README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   `docs/README.md`) naming no file of the tree. Box facts live in the data
   repository: `<data>/FETCHER`, `<data>/VAULT_RECIPIENT`, and the Android
-  portal's host and sender as the build's `SUZATARY_PORTAL_*`. The matcher
+  portal's box and sender, which the release workflow writes into the APK's
+  profile from the repository's `SUZATARY_PORTAL_*`. The matcher
   is pinned separately, against a throwaway tree and deployment. Since
   2026-10-09 it is the binary's (`suzatary_core::leak`, `suzatary leaks`),
   which also refuses a tailnet node's address and a telephone number.
@@ -1309,8 +1310,10 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
   a home path in any tracked file — reach for `$SUZATARY_REPO`/`$SUZATARY_INSTANCE` or the module's options,
   never a hand-typed path.
 - **The Android app is a PORTAL** (`android/`, 2026-09-04): a WebView onto
-  `https://<your-box>.<tailnet>.ts.net/`, the build's `SUZATARY_PORTAL_HOST`
-  (443 since 2026-09-05), https ONLY: cleartext is refused for every host, an
+  `https://<your-box>.<tailnet>.ts.net/`, the box its APK PROFILE names
+  (`nix/apk-profile.nix`, 2026-10-23, `docs/APKPROFILE-PLAN-2026-10-23.md`)
+  or, for the generic APK, the one typed at first launch and kept once that
+  box answers `GET /api/portal` with its Firebase sender (443 since 2026-09-05), https ONLY: cleartext is refused for every host, an
   SSL or load error is the offline screen and never a downgrade (2026-10-09),
   and data extraction rules keep everything out of backup and device
   transfer; screenshots stay allowed (the owner sends them). No fold,

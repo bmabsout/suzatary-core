@@ -177,25 +177,15 @@ const FCM: Template = Template {
     group: Group::Notifications,
     title: "notifications through Firebase",
     table: Table::Channel(Channel::Fcm),
-    steps: &[
-        StepShape::Secret {
-            name: SecretName::Fixed("FCM_SERVICE_ACCOUNT_B64"),
-            help: Words {
-                label: "the Firebase service account",
-                text: "In the Firebase console, project settings, Service accounts: generate a \
+    steps: &[StepShape::Secret {
+        name: SecretName::Fixed("FCM_SERVICE_ACCOUNT_B64"),
+        help: Words {
+            label: "the Firebase service account",
+            text: "In the Firebase console, project settings, Service accounts: generate a \
                        private key, and paste the file base64-encoded.",
-                page: Page::At("https://console.firebase.google.com/"),
-            },
+            page: Page::At("https://console.firebase.google.com/"),
         },
-        StepShape::Secret {
-            name: SecretName::Fixed("FCM_SENDER_ID"),
-            help: Words {
-                label: "the Firebase sender ID",
-                text: "In the Firebase console, project settings, Cloud Messaging: the sender ID.",
-                page: Page::At("https://console.firebase.google.com/"),
-            },
-        },
-    ],
+    }],
     check: Check::Delivered,
 };
 

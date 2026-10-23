@@ -55,15 +55,6 @@ final class Push {
 
     static final String TAG = "SuzataryPush";
 
-    /**
-     * The Suzatary Firebase project's NUMBER, under the deployment's own
-     * Google account. It is `FCM_SENDER_ID` in secretspec beside
-     * the sending key, and it is not a secret: it names who may send to this
-     * app, and only the holder of the service-account key can actually send.
-     * The build spells it (nix/apk.nix's `portal.sender`).
-     */
-    private static final String SENDER = "@PORTAL_SENDER@";
-
     /** Play Services. The one package that answers the registration intent. */
     private static final String GMS = "com.google.android.gms";
 
@@ -96,9 +87,6 @@ final class Push {
      */
     private static final long FRESH_MS = 7L * 24L * 60L * 60L * 1000L;
 
-    /** The route the main session writes; the CSRF triple is `check_act_headers`. */
-    private static final String ENDPOINT = MainActivity.HTTPS + "api/act/device";
-
     private Push() {
     }
 
@@ -118,14 +106,19 @@ final class Push {
      */
     static void ensure(Context ctx) {
         try {
+            // A box that sends no push has no sender.
+            Box box = Box.of(ctx);
+            if (box == null || box.sender == null) {
+                return;
+            }
             SharedPreferences prefs = prefs(ctx);
-            boolean sameSender = SENDER.equals(prefs.getString(KEY_SENDER, ""));
+            boolean sameSender = box.sender.equals(prefs.getString(KEY_SENDER, ""));
             boolean haveToken = !prefs.getString(KEY_TOKEN, "").isEmpty();
             long since = System.currentTimeMillis() - prefs.getLong(KEY_REPORTED, 0L);
             if (sameSender && haveToken && since >= 0 && since < FRESH_MS) {
                 return;
             }
-            register(ctx);
+            register(ctx, box.sender);
         } catch (Throwable e) {
             // No push is a degraded portal; a crash is a broken one.
             Log.w(TAG, "registration could not be started", e);
@@ -164,12 +157,12 @@ final class Push {
      * broadcast is the fallback for both. Sending it twice would at worst make
      * GMS answer twice with the same token, which the receiver handles.
      */
-    private static void register(Context ctx) {
+    private static void register(Context ctx, String sender) {
         Intent i = new Intent(ACTION_REGISTER);
         i.setPackage(GMS);
-        i.putExtra("sender", SENDER);
-        i.putExtra("subtype", SENDER);
-        i.putExtra("X-subtype", SENDER);
+        i.putExtra("sender", sender);
+        i.putExtra("subtype", sender);
+        i.putExtra("X-subtype", sender);
         i.putExtra("scope", "*");
         i.putExtra("kid", KID);
         i.putExtra("app", PendingIntent.getBroadcast(ctx, 0, new Intent(), PendingIntent.FLAG_IMMUTABLE));
@@ -224,8 +217,12 @@ final class Push {
      * survives the failure and nothing is invented to cover it.
      */
     static void accept(Context ctx, String token) {
+        Box box = Box.of(ctx);
+        if (box == null) {
+            return; // Play Services answered after this app's data was cleared
+        }
         SharedPreferences prefs = prefs(ctx);
-        prefs.edit().putString(KEY_TOKEN, token).putString(KEY_SENDER, SENDER).apply();
+        prefs.edit().putString(KEY_TOKEN, token).putString(KEY_SENDER, box.sender).apply();
         String nonce = prefs.getString(KEY_NONCE, "");
         if (nonce.isEmpty()) {
             // A NONCE PER ATTEMPT, NOT PER REQUEST. It is what makes a retry
@@ -236,7 +233,7 @@ final class Push {
             prefs.edit().putString(KEY_NONCE, nonce).apply();
         }
         try {
-            if (report(token, nonce)) {
+            if (report(box, token, nonce)) {
                 prefs.edit().putLong(KEY_REPORTED, System.currentTimeMillis()).remove(KEY_NONCE).apply();
                 Log.i(TAG, "the box has this device's token");
             }
@@ -251,14 +248,14 @@ final class Push {
      * name, so the platform's own trust store validates it and this class adds
      * no TrustManager of its own.
      */
-    private static boolean report(String token, String nonce) throws IOException, JSONException {
+    private static boolean report(Box box, String token, String nonce) throws IOException, JSONException {
         JSONObject body = new JSONObject();
         body.put("platform", "android");
         body.put("token", token);
         body.put("nonce", nonce);
         byte[] bytes = body.toString().getBytes("UTF-8");
 
-        HttpsURLConnection c = (HttpsURLConnection) new URL(ENDPOINT).openConnection();
+        HttpsURLConnection c = (HttpsURLConnection) new URL(box.https() + "api/act/device").openConnection();
         try {
             c.setRequestMethod("POST");
             c.setConnectTimeout(15000);

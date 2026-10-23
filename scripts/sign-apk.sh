@@ -4,9 +4,9 @@
 # WHY THIS IS NOT A DERIVATION. Everything a derivation touches ends up in
 # /nix/store, which is world-readable on this box and copied verbatim to every
 # substituter it is pushed to. A signing key there is a signing key published.
-# So `nix build --impure .#apk-unsigned` (impure only to read the deployment's
-# SUZATARY_PORTAL_HOST and SUZATARY_PORTAL_SENDER) is reproducible for those two
-# names and produces an APK nobody can install, and this — the one impure step — turns it into one they
+# So `nix build .#apk-unsigned` (or `.#apk-profiled-unsigned`, impure only to
+# read the profile SUZATARY_APK_PROFILE names) is reproducible for its profile
+# and produces an APK nobody can install, and this — the one impure step — turns it into one they
 # can, from a keystore that lives in secretspec (on the box) or in a GitHub
 # Actions secret (in CI) and in neither case in git.
 #

@@ -150,16 +150,25 @@
           signScript = ./scripts/sign-apk.sh;
           versionCode = appVersionCode;
           versionName = appVersionName;
-          # A build argument, since the code names no deployment: an impure
-          # build reads `SUZATARY_PORTAL_HOST` and `SUZATARY_PORTAL_SENDER`
-          # (the release workflow sets them from the repository's variables).
-          # Unset, they are empty and the build fails saying so: there is no
-          # default box, so no portal opens one by accident.
-          portal = {
-            host = builtins.getEnv "SUZATARY_PORTAL_HOST";
-            sender = builtins.getEnv "SUZATARY_PORTAL_SENDER";
-          };
         };
+        # An APK is a function of its PROFILE (nix/apk-profile.nix). The
+        # generic one is empty and names no deployment; a person's names their
+        # box, and an impure build reads its path from `SUZATARY_APK_PROFILE`.
+        # Unset, the build fails saying so, at build time rather than
+        # evaluation, so `nix flake check` still evaluates every package.
+        apkProfile = import ./nix/apk-profile.nix { inherit (nixpkgs) lib; };
+        apkNamed =
+          build:
+          let
+            path = builtins.getEnv "SUZATARY_APK_PROFILE";
+          in
+          if path == "" then
+            pkgs.runCommand "suzatary-apk-unnamed" { } ''
+              echo "apk: name a profile's TOML file in SUZATARY_APK_PROFILE and build with --impure" >&2
+              exit 1
+            ''
+          else
+            build (apkProfile path);
 
 
         # =====================================================================
@@ -853,15 +862,19 @@
           roots = services.roots;
           # `nix run .#web` — the read-only chain browser on the tailnet.
           web = services.web;
-          # `SUZATARY_PORTAL_HOST=… SUZATARY_PORTAL_SENDER=… nix build --impure
-          # .#apk-unsigned` — the portal, with no network and no Gradle. Unsigned because a key in the store is a key
+          # `nix build .#apk-unsigned` — the generic portal, which asks for its
+          # box at first launch, with no network and no Gradle. Unsigned because a key in the store is a key
           # published; `nix run .#apk-sign -- <in> <out>` is the impure half.
-          apk-unsigned = apk.unsigned;
-          # `nix build .#apk-tsnet-unsigned` — a SPIKE: the same portal joining
+          apk-unsigned = apk.unsigned (apkProfile ./android/profile/generic.toml);
+          # `SUZATARY_APK_PROFILE=<file> nix build --impure
+          # .#apk-profiled-unsigned` — the portal one profile names.
+          apk-profiled-unsigned = apkNamed apk.unsigned;
+          # `SUZATARY_APK_PROFILE=<file> nix build --impure
+          # .#apk-tsnet-unsigned` — a SPIKE: the same portal joining
           # the tailnet itself through an embedded tsnet node, installed beside
           # the portal as com.bmabsout.suzatary.tsnet
           # (the `tsnetportal-android-spike-x2b41w` report).
-          apk-tsnet-unsigned = apk.tsnet;
+          apk-tsnet-unsigned = apkNamed apk.tsnet;
           apk-sign = apk.sign;
           # `nix build .#suzatary` — the application (docs/ARCHITECTURE.md).
           suzatary = suzatary-app;

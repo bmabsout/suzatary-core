@@ -44,10 +44,6 @@
   # when the thing it describes changes.
   versionCode,
   versionName,
-  # THE DEPLOYMENT: the box the portal opens (`host`) and the Firebase project
-  # number allowed to push to it (`sender`). The sources spell them
-  # `@PORTAL_HOST@` and `@PORTAL_SENDER@`, so the code names no box.
-  portal,
 }:
 
 let
@@ -218,7 +214,28 @@ let
     '';
   };
 
-  apk = route: buildPkgs.stdenvNoCC.mkDerivation {
+  # Profile.java, from a profile nix/apk-profile.nix read: its fields are
+  # checked there, so they are spliced here as they are.
+  profileJava = profile: buildPkgs.writeText "Profile.java" ''
+    package com.bmabsout.suzatary;
+
+    /** Written by nix/apk.nix from the APK's profile: the box it names, or null for the generic APK. */
+    final class Profile {
+        static final Box BOX = ${
+          if profile.box == null then "null"
+          else
+            let
+              sender = if profile.box.sender == null then "null" else ''"${profile.box.sender}"'';
+            in
+            ''new Box("${profile.box.host}", ${sender})''
+        };
+
+        private Profile() {
+        }
+    }
+  '';
+
+  apk = profile: route: buildPkgs.stdenvNoCC.mkDerivation {
     pname = "suzatary-apk-unsigned-${route.name}";
     version = versionName;
 
@@ -238,20 +255,20 @@ let
       # the installed PWA are the same picture by construction, not by two
       # people exporting the same SVG twice. -strip drops the PNG tIME chunk,
       # which would otherwise put a clock in the output.
-      # THE DEPLOYMENT'S NAMES, spelled into a copy of the common sources (a
-      # route's carry none); a name missing or a token left over is a build
-      # failure, not a portal onto nowhere.
-      if [ -z ${lib.escapeShellArg portal.host} ] || [ -z ${lib.escapeShellArg portal.sender} ]; then
-        echo "apk: set SUZATARY_PORTAL_HOST and SUZATARY_PORTAL_SENDER and build with --impure" >&2
-        exit 1
-      fi
+      # THE PROFILE (nix/apk-profile.nix), spelled into a copy of the common
+      # sources: Profile.java names the box or none, and the manifest keeps
+      # its https link filter only for a named box. A token left over is a
+      # build failure.
       cp -r ${common} android
       chmod -R u+w android
-      grep -rlZ '@PORTAL_' android | xargs -0 -r sed -i \
-        -e 's|@PORTAL_HOST@|${portal.host}|g' \
-        -e 's|@PORTAL_SENDER@|${portal.sender}|g'
-      if grep -rq '@PORTAL_' android; then
-        echo "apk: a @PORTAL_ token has no value" >&2
+      cp ${profileJava profile} android/java/com/bmabsout/suzatary/Profile.java
+      ${if profile.box == null then ''
+        sed -i '/<!-- profile box:/,/<!-- \/profile box -->/d' android/AndroidManifest.xml
+      '' else ''
+        sed -i 's|@PROFILE_HOST@|${profile.box.host}|g' android/AndroidManifest.xml
+      ''}
+      if grep -rq '@PROFILE_' android; then
+        echo "apk: a @PROFILE_ token has no value" >&2
         exit 1
       fi
 
@@ -368,7 +385,14 @@ let
   '';
 in
 {
-  unsigned = apk routes.device;
-  tsnet = apk routes.tsnet;
+  # Each takes a profile, as nix/apk-profile.nix reads one.
+  unsigned = profile: apk profile routes.device;
+  # The tsnet node needs its box before the app runs, so its profile names one.
+  tsnet =
+    profile:
+    if profile.box == null then
+      throw "apk: the tsnet route joins the tailnet to reach one box, so its profile names the box"
+    else
+      apk profile routes.tsnet;
   inherit sign;
 }

@@ -96,6 +96,12 @@ pub fn about(call: &Call<Reader, (), ()>) -> Result<Json<wire::AboutPayload>, Re
         .map(Json)
 }
 
+/// `GET /api/portal`: how this box wakes the Android portal, which the portal reads before it
+/// keeps this box as its own.
+pub fn portal(call: &Call<Reader, (), ()>) -> Json<wire::PortalPayload> {
+    Json(wire::PortalPayload::from(call.state.portal.as_ref()))
+}
+
 /// `GET /api/releases`: the releases this build's plan declares, as the project chain reads
 /// them now.
 pub fn releases(call: &Call<Reader, (), ()>) -> Result<Json<wire::ReleasesPayload>, Refusal> {

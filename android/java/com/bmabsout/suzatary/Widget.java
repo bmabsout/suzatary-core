@@ -80,13 +80,13 @@ public final class Widget extends AppWidgetProvider {
     private static final int ROWS = 5;
 
     /**
-     * The one read this app makes outside the WebView.
+     * The fold this widget draws, a path under the box's home page.
      *
      * `limit` is `suzatary_core::query::fold_limit` and it means "the lowest
      * fulfillments, ascending, open only" — pinned by `app/cli/tests/reads.rs`
      * so this widget's contract is a test on the box and not a hope here.
      */
-    private static final String ENDPOINT = MainActivity.HTTPS + "api/fold?limit=" + ROWS;
+    private static final String ENDPOINT = "api/fold?limit=" + ROWS;
 
     /** A five-entry fold is a few kilobytes. Anything past this is not one. */
     private static final int MAX_BODY = 256 * 1024;
@@ -180,10 +180,20 @@ public final class Widget extends AppWidgetProvider {
      * the same local-first bargain `web/src/app/cache.ts` makes one client in.
      */
     private static void draw(Context context, int[] ids) {
+        Box box = Box.of(context);
+        if (box == null) {
+            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget);
+            views.removeAllViews(R.id.widget_rows);
+            views.setViewVisibility(R.id.widget_note, View.VISIBLE);
+            views.setTextViewText(R.id.widget_note, context.getString(R.string.widget_unpaired));
+            views.setOnClickPendingIntent(R.id.widget_heading, launches(context));
+            AppWidgetManager.getInstance(context).updateAppWidget(ids, views);
+            return;
+        }
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String payload = "";
         try {
-            payload = fetch();
+            payload = fetch(box);
         } catch (IOException e) {
             Log.i(TAG, "the box did not answer: " + e.getMessage());
         }
@@ -205,7 +215,7 @@ public final class Widget extends AppWidgetProvider {
         // the previous fold's rows are removed rather than appended to.
         views.removeAllViews(R.id.widget_rows);
         for (Row row : rows) {
-            views.addView(R.id.widget_rows, row.draw(context));
+            views.addView(R.id.widget_rows, row.draw(context, box));
         }
         views.setViewVisibility(R.id.widget_note, rows.isEmpty() || stale ? View.VISIBLE : View.GONE);
         // The three things that can be true, most specific first: this phone
@@ -221,7 +231,7 @@ public final class Widget extends AppWidgetProvider {
         }
         // The heading opens the whole list, so a widget with no rows on it is
         // still a way into the app.
-        views.setOnClickPendingIntent(R.id.widget_heading, opens(context, MainActivity.HTTPS, 0));
+        views.setOnClickPendingIntent(R.id.widget_heading, opens(context, box.https(), 0));
         AppWidgetManager.getInstance(context).updateAppWidget(ids, views);
     }
 
@@ -270,13 +280,13 @@ public final class Widget extends AppWidgetProvider {
          * animate. CONFIDENCE: HIGH — both are documented, addStableView's
          * `since` is documented.
          */
-        private RemoteViews draw(Context context) {
+        private RemoteViews draw(Context context, Box box) {
             RemoteViews view = new RemoteViews(context.getPackageName(), R.layout.widget_row);
             view.setTextViewText(R.id.widget_row_value, value);
             view.setTextViewText(R.id.widget_row_body, body);
             view.setOnClickPendingIntent(
                     R.id.widget_row,
-                    opens(context, MainActivity.HTTPS + "#/todo/" + Uri.encode(todo), todo.hashCode()));
+                    opens(context, box.https() + "#/todo/" + Uri.encode(todo), todo.hashCode()));
             return view;
         }
     }
@@ -296,6 +306,12 @@ public final class Widget extends AppWidgetProvider {
                 new Intent(Intent.ACTION_VIEW, Uri.parse(url)).setClass(context, MainActivity.class);
         return PendingIntent.getActivity(
                 context, code, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    /** The app itself, where a phone with no box yet is asked for one. */
+    private static PendingIntent launches(Context context) {
+        Intent open = new Intent(context, MainActivity.class).setAction(Intent.ACTION_MAIN);
+        return PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE);
     }
 
     /**
@@ -366,8 +382,8 @@ public final class Widget extends AppWidgetProvider {
     }
 
     /** The read. Returns "" for anything that is not a 2xx with a body. */
-    private static String fetch() throws IOException {
-        HttpsURLConnection connection = (HttpsURLConnection) new URL(ENDPOINT).openConnection();
+    private static String fetch(Box box) throws IOException {
+        HttpsURLConnection connection = (HttpsURLConnection) new URL(box.https() + ENDPOINT).openConnection();
         try {
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(15000);

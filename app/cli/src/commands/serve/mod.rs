@@ -225,6 +225,8 @@ pub struct Inner {
     pub noticing: Arc<std::sync::Mutex<Option<Heard>>>,
     /// Each store's epoch, which every objects answer carries.
     pub epochs: Arc<suzatary_core::epoch::Epochs>,
+    /// What `GET /api/portal` answers, read from `[notify]` when the server starts.
+    pub portal: Arc<suzatary_core::portal::Portal>,
 }
 
 /// Whether each model answered, held in memory: a test's register, joined as the file is.
@@ -474,6 +476,7 @@ impl State {
             noticing: Arc::default(),
             // A test's server keeps its epochs in memory; `listen` keeps the box's on disk.
             epochs: Arc::new(suzatary_core::epoch::Epochs::remembered()),
+            portal: Arc::new(suzatary_core::portal::Portal::Quiet),
             fallback,
         }))
     }
@@ -553,6 +556,13 @@ impl State {
     #[must_use]
     pub fn with_google(mut self, consenting: google::Consenting) -> Self {
         self.building().consenting = Arc::new(consenting);
+        self
+    }
+
+    /// The same state answering the Android portal with `portal`.
+    #[must_use]
+    pub fn with_portal(mut self, portal: suzatary_core::portal::Portal) -> Self {
+        self.building().portal = Arc::new(portal);
         self
     }
 
@@ -1194,6 +1204,7 @@ pub async fn listen(instance: &Instance, serving: Serving) -> anyhow::Result<()>
     .with_plugins(instance.plugins.clone())
     .with_reach(instance.reach())
     .with_repos(instance.repos.clone())
+    .with_portal(instance.portal.clone())
     .with_mail_cache(mail_cache::MailCache::of(instance))
     .with_reveal(Arc::new(crate::commands::mail::notmuch(instance)))
     .with_checks(Arc::new(checks::Synced::of(instance.path.clone())))

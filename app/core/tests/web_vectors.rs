@@ -2111,6 +2111,16 @@ fn the_answers_vector_holds_every_answer() {
         ok: true,
         devices: 1,
     }]);
+    samples.add([
+        wire::PortalPayload {
+            push: wire::PortalPush::None,
+        },
+        wire::PortalPayload {
+            push: wire::PortalPush::Fcm {
+                sender: "100000000000".to_owned(),
+            },
+        },
+    ]);
     samples.add([wire::ErrorPayload {
         error: "refused".to_owned(),
     }]);

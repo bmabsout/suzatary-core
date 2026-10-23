@@ -6,8 +6,8 @@ name: Android APK
 # ON A RELEASE THAT CHANGES THE PORTAL, NOT ON EVERY TAG (the owner,
 # 2026-10-13). Every train tags a release now, and the web app updates itself
 # behind the portal, so the APK is built only when the Android shell changed
-# since the previous tag (android/, nix/apk.nix, the icon it renders) or the
-# tag starts a new MAJOR, and on a manual dispatch.
+# since the previous tag (android/, nix/apk.nix, nix/apk-profile.nix, the icon
+# it renders) or the tag starts a new MAJOR, and on a manual dispatch.
 #
 # PUBLISHED TO THE VERSION'S OWN RELEASE, NOT A ROLLING ONE (2026-09-13,
 # the owner: "tell me what to do so it autoupdates"). The phone updates through
@@ -50,7 +50,7 @@ jobs:
           major() { echo "${1#v}" | cut -d. -f1; }
           if [ -z "$previous" ] || [ "$(major "$previous")" != "$(major "${{ github.ref_name }}")" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$previous" "$GITHUB_SHA" -- android nix/apk.nix web/static/icon-512.png; then
+          elif git diff --quiet "$previous" "$GITHUB_SHA" -- android nix/apk.nix nix/apk-profile.nix web/static/icon-512.png; then
             echo "::notice::The Android shell is unchanged since $previous and the major is the same, so no APK."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
@@ -82,12 +82,14 @@ jobs:
       - name: Cache Nix store
         uses: nix-community/cache-nix-action@v7
         with:
-          primary-key: apk-${{ runner.os }}-${{ hashFiles('flake.lock', 'nix/apk.nix', 'android/**') }}
+          primary-key: apk-${{ runner.os }}-${{ hashFiles('flake.lock', 'nix/apk.nix', 'nix/apk-profile.nix', 'android/**') }}
           restore-prefixes-first-match: apk-${{ runner.os }}-${{ hashFiles('flake.lock') }}
 
       # THE DEPLOYMENT'S NAMES are the repository's variables, never the
       # code's: the box the portal opens and the Firebase project that may push
-      # to it. A release without them would open nothing, so it fails here.
+      # to it. They are written into the APK's profile (nix/apk-profile.nix),
+      # which the build reads. A release without them would be the generic
+      # APK under this repository's package and key, so it fails here.
       - name: Build the unsigned APK
         env:
           SUZATARY_PORTAL_HOST: ${{ vars.SUZATARY_PORTAL_HOST }}
@@ -98,7 +100,10 @@ jobs:
             echo "::error::Set the repository variables SUZATARY_PORTAL_HOST (the box's MagicDNS name) and SUZATARY_PORTAL_SENDER (the Firebase project number)."
             exit 1
           fi
-          nix build --impure --print-build-logs .#apk-unsigned --out-link result-apk
+          profile="$RUNNER_TEMP/profile.toml"
+          printf 'box = "%s"\nsender = "%s"\n' "$SUZATARY_PORTAL_HOST" "$SUZATARY_PORTAL_SENDER" > "$profile"
+          SUZATARY_APK_PROFILE="$profile" \
+            nix build --impure --print-build-logs .#apk-profiled-unsigned --out-link result-apk
 
       # The unsigned build is the reproducible artefact; keep it whether or
       # not signing can proceed, so a box that CAN sign (an aarch64 box

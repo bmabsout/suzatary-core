@@ -46,6 +46,11 @@
  * carried as TEXT — capped, URL-encoded once, never composed into markup or
  * script — so there is no path by which a shared string is parsed as anything.
  *
+ * THE BOX IS THE PROFILE'S OR THE PERSON'S (Box). An APK whose profile names
+ * a box opens it at once; the generic APK shows the pairing screen first, and
+ * keeps the name only once that box has answered Pairing. Until then nothing
+ * loads, no route opens and no push is asked for.
+ *
  * THIS CLASS AUTHORS NO HTML. webapp.py serves plain text and JSON and lets the
  * one bundle do the rendering; the same rule one client further out means the
  * failure screen below is Android widgets, not a string of markup handed to the
@@ -64,6 +69,7 @@ import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -78,45 +84,31 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
+
 public final class MainActivity extends Activity {
 
     /**
-     * The one host this app talks to. Anything else is the system browser's.
-     * Package-visible since 2026-09-06 because Push and PushReceiver name the
-     * same box — the token goes to `/api/act/device` on it and a notification's
-     * click URL must be one of its pages — and the host belongs in one place
-     * for the same reason the suzatary:// mapping does. The build spells it
-     * (nix/apk.nix's `portal.host`), so the source names no box.
-     */
-    static final String HOST = "@PORTAL_HOST@";
-
-    /**
-     * NO PORT since 2026-09-05. The unit binds 443 (nix/nixos-module.nix,
-     * web.port) because Android verifies an app's claim to a host's links only
-     * over https on the default port, and because a URL without a port is what
-     * a person types and what the briefing writes.
-     */
-    static final String HTTPS = "https://" + HOST + "/";
-
-    /**
      * The unverifiable half of the link surface (AndroidManifest.xml):
-     * `suzatary://todo/<id>` is the same page as HTTPS + "#/todo/<id>", for
-     * the places that cannot linkify a tailnet name. The mapping lives here
+     * `suzatary://todo/<id>` is the same page as the box's home page plus
+     * "#/todo/<id>", for the places that cannot linkify a tailnet name. The mapping lives here
      * and nowhere else, so the scheme cannot come to mean a second thing.
      */
     private static final String SCHEME = "suzatary";
 
     /**
-     * The add form, as an address (`web/src/shell/route.ts`'s `add` arm). Written
-     * here and nowhere else, like the `suzatary://` mapping above and for the
-     * same reason: a second spelling of a route is a second route.
+     * The add form, as an address under the box's home page
+     * (`web/src/shell/route.ts`'s `add` arm). Written here and nowhere else,
+     * like the `suzatary://` mapping above and for the same reason: a second
+     * spelling of a route is a second route.
      */
-    private static final String ADD = HTTPS + "#/add";
+    private static final String ADD = "#/add";
 
     /**
      * How much shared text this app will carry into a URL, and how much of a
@@ -137,6 +129,19 @@ public final class MainActivity extends Activity {
     private WebView web;
     private View offline;
     private TextView reason;
+    private FrameLayout root;
+
+    /** The box this app opens; null while the generic APK shows the pairing screen. */
+    private Box box;
+
+    /** The pairing screen, or null once the app has a box. */
+    private View pairing;
+    private EditText typed;
+    private TextView said;
+    private Button connect;
+
+    /** Between onStart and onStop: a box paired then opens its route at once. */
+    private boolean foreground;
 
     /**
      * What load() last asked for, https and fragment and all. The retry button
@@ -149,7 +154,7 @@ public final class MainActivity extends Activity {
      * the history left off. That is the behaviour this app had before deep
      * links existed, and it costs one page rather than a wrong page.
      */
-    private String current = HTTPS;
+    private String current;
 
     /** The way to the box (android/route/), opened while the activity is in the foreground. */
     private Route route;
@@ -193,11 +198,25 @@ public final class MainActivity extends Activity {
         offline = buildOfflineView();
         offline.setVisibility(View.GONE);
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.addView(web, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         root.addView(offline, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         setContentView(root);
 
+        box = Box.of(this);
+        if (box == null) {
+            pairing = buildPairingView();
+            root.addView(pairing, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            web.setVisibility(View.GONE);
+        } else {
+            begin(saved);
+        }
+        askToNotify();
+    }
+
+    /** The box is known: the first page waits for the route, and push is asked for. */
+    private void begin(final Bundle saved) {
+        current = box.https();
         // A link the OS handed us wins over restored state: the process may
         // have been killed while the app sat on some other page, and the thing
         // the owner just tapped is what he asked for. With no link, a restore
@@ -211,11 +230,11 @@ public final class MainActivity extends Activity {
                 } else if (saved != null) {
                     web.restoreState(saved);
                 } else {
-                    load(HTTPS);
+                    load(box.https());
                 }
             }
         };
-        route = new Route(this, root, new Runnable() {
+        route = new Route(this, root, box.host, new Runnable() {
             @Override
             public void run() {
                 reached();
@@ -233,20 +252,80 @@ public final class MainActivity extends Activity {
                 Push.ensure(getApplicationContext());
             }
         }, "suzatary-register").start();
-
-        askToNotify();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        route.open();
+        foreground = true;
+        if (route != null) {
+            route.open();
+        }
     }
 
     @Override
     protected void onStop() {
-        route.close();
+        foreground = false;
+        if (route != null) {
+            route.close();
+        }
         super.onStop();
+    }
+
+    /**
+     * Ask the typed box, off the main thread, and keep it once it answers.
+     * The box is kept only from Pairing's answer, so a typo or a stranger's
+     * name is never this app's box.
+     */
+    private void pair() {
+        final String host = Box.hostOf(typed.getText());
+        if (host == null) {
+            said.setText(R.string.pairing_not_a_name);
+            return;
+        }
+        said.setText(getString(R.string.pairing_asking, host));
+        connect.setEnabled(false);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Box answered = null;
+                String why = "";
+                try {
+                    answered = Pairing.ask(host);
+                    Box.keep(getApplicationContext(), answered);
+                } catch (IOException e) {
+                    why = String.valueOf(e.getMessage());
+                }
+                final Box kept = answered;
+                final String refused = why;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        paired(kept, refused);
+                    }
+                });
+            }
+        }, "suzatary-pairing").start();
+    }
+
+    /** Pairing's outcome, on the main thread: the box opens, or the screen says why not. */
+    private void paired(Box answered, String refused) {
+        if (isDestroyed()) {
+            return;
+        }
+        connect.setEnabled(true);
+        if (answered == null) {
+            said.setText(refused);
+            return;
+        }
+        box = answered;
+        root.removeView(pairing);
+        pairing = null;
+        web.setVisibility(View.VISIBLE);
+        begin(null);
+        if (foreground) {
+            route.open();
+        }
     }
 
     /** The route reached the box; the first page, if it is still waiting, is shown now. */
@@ -307,6 +386,9 @@ public final class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        if (box == null) {
+            return; // begin() reads the intent once the box has answered
+        }
         final String target = targetOf(intent);
         if (target != null) {
             Runnable page = new Runnable() {
@@ -353,12 +435,11 @@ public final class MainActivity extends Activity {
         if (data == null) {
             return null;
         }
-        String scheme = data.getScheme();
         // An http link to this host is read as its https page: the app never asks for cleartext.
-        if (("https".equals(scheme) || "http".equals(scheme)) && HOST.equals(data.getHost())) {
+        if (box.holds(data)) {
             return over("https", data.toString());
         }
-        if (!SCHEME.equals(scheme)) {
+        if (!SCHEME.equals(data.getScheme())) {
             return null;
         }
         String authority = data.getEncodedAuthority();
@@ -367,7 +448,7 @@ public final class MainActivity extends Activity {
         while (route.startsWith("/")) {
             route = route.substring(1); // `suzatary:///todo/x` names the same page
         }
-        return route.isEmpty() ? HTTPS : HTTPS + "#/" + route;
+        return route.isEmpty() ? box.https() : box.https() + "#/" + route;
     }
 
     /**
@@ -398,13 +479,13 @@ public final class MainActivity extends Activity {
      * A share with nothing in it opens the app, rather than an empty form: an
      * intent this app cannot read is not a reason to show a blank sheet.
      */
-    private static String shared(Intent intent) {
+    private String shared(Intent intent) {
         String text = capped(intent.getCharSequenceExtra(Intent.EXTRA_TEXT), MAX_SHARED);
         String title = capped(intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT), MAX_SUBJECT);
         if (text.isEmpty() && title.isEmpty()) {
-            return HTTPS;
+            return box.https();
         }
-        StringBuilder url = new StringBuilder(ADD);
+        StringBuilder url = new StringBuilder(box.https()).append(ADD);
         char join = '?';
         if (!text.isEmpty()) {
             url.append(join).append("text=").append(Uri.encode(text));
@@ -434,7 +515,7 @@ public final class MainActivity extends Activity {
     /** Back walks the app's own history first; at its root it leaves. */
     @Override
     public void onBackPressed() {
-        if (offline.getVisibility() == View.VISIBLE) {
+        if (pairing != null || offline.getVisibility() == View.VISIBLE) {
             super.onBackPressed();
         } else if (web.canGoBack()) {
             web.goBack();
@@ -463,12 +544,12 @@ public final class MainActivity extends Activity {
     }
 
     private View buildOfflineView() {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER);
-        box.setBackgroundColor(Color.parseColor("#fbfbfa")); // the manifest's theme_color
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setGravity(Gravity.CENTER);
+        screen.setBackgroundColor(Color.parseColor("#fbfbfa")); // the manifest's theme_color
         int pad = dp(24);
-        box.setPadding(pad, pad, pad, pad);
+        screen.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(this);
         title.setText(R.string.offline_title);
@@ -494,11 +575,57 @@ public final class MainActivity extends Activity {
             }
         });
 
-        box.addView(title);
-        box.addView(body);
-        box.addView(reason);
-        box.addView(retry);
-        return box;
+        screen.addView(title);
+        screen.addView(body);
+        screen.addView(reason);
+        screen.addView(retry);
+        return screen;
+    }
+
+    private View buildPairingView() {
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setGravity(Gravity.CENTER);
+        screen.setBackgroundColor(Color.parseColor("#fbfbfa"));
+        int pad = dp(24);
+        screen.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText(R.string.pairing_title);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextColor(Color.parseColor("#1a1a1a"));
+
+        TextView body = new TextView(this);
+        body.setText(R.string.pairing_body);
+        body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        body.setTextColor(Color.parseColor("#4a4a48"));
+        body.setPadding(0, dp(12), 0, dp(12));
+
+        typed = new EditText(this);
+        typed.setHint(R.string.pairing_hint);
+        typed.setSingleLine(true);
+        typed.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+
+        said = new TextView(this);
+        said.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        said.setTextColor(Color.parseColor("#8a8a86"));
+        said.setPadding(0, dp(8), 0, dp(8));
+
+        connect = new Button(this);
+        connect.setText(R.string.pairing_connect);
+        connect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                pair();
+            }
+        });
+
+        screen.addView(title);
+        screen.addView(body);
+        screen.addView(typed);
+        screen.addView(said);
+        screen.addView(connect);
+        return screen;
     }
 
     private int dp(int units) {
@@ -585,7 +712,7 @@ public final class MainActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri url = request.getUrl();
-            if (HOST.equals(url.getHost())) {
+            if (box.host.equals(url.getHost())) {
                 return false;
             }
             try {

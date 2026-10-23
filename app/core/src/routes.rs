@@ -1987,7 +1987,7 @@ mod tests {
     fn the_overview_groups_what_the_instance_declares() {
         use crate::connect::{Group, Standing};
         let instance = Instance::new();
-        let page = instance.overview(&holding(&["PHALA_API_KEY", "NTFY_TOPIC", "FCM_SENDER_ID"]));
+        let page = instance.overview(&holding(&["PHALA_API_KEY", "NTFY_TOPIC"]));
         assert_eq!(
             page.groups
                 .iter()
@@ -2029,7 +2029,7 @@ mod tests {
             Standing::Missing {
                 what: vec!["the Firebase service account".to_owned()]
             },
-            "fcm needs both of its secrets"
+            "fcm needs its service account"
         );
         let university = &group(&page, Group::Mail)[1];
         assert_eq!(

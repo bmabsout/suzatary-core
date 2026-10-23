@@ -234,10 +234,7 @@ mod tests {
         let held = World::new();
         let settables = declared(&[Channel::Fcm, Channel::Ntfy]);
         held.file(&settables, 0);
-        assert_eq!(
-            held.open(),
-            vec!["FCM_SENDER_ID", "FCM_SERVICE_ACCOUNT_B64", "NTFY_TOPIC"]
-        );
+        assert_eq!(held.open(), vec!["FCM_SERVICE_ACCOUNT_B64", "NTFY_TOPIC"]);
         let objects = held.inbox.objects().expect("reads").len();
         held.file(&settables, 1);
         assert_eq!(held.inbox.objects().expect("reads").len(), objects);
@@ -250,14 +247,14 @@ mod tests {
         let settables = declared(&[Channel::Ntfy, Channel::Fcm]);
         held.file(&settables, 0);
         held.tap("NTFY_TOPIC", 1);
-        held.stored.insert("FCM_SENDER_ID".to_owned());
+        held.stored.insert("FCM_SERVICE_ACCOUNT_B64".to_owned());
         let filed = held.file(&settables, 2);
         assert_eq!(
             filed.withdrawn.len(),
             1,
             "the card for the name set at a terminal"
         );
-        assert_eq!(held.open(), vec!["FCM_SERVICE_ACCOUNT_B64"]);
+        assert!(held.open().is_empty());
     }
 
     /// The owner's no stands: a dismissed card is the same card when asked again.
@@ -316,7 +313,7 @@ mod tests {
         File,
     }
 
-    const NAMES: [&str; 3] = ["NTFY_TOPIC", "FCM_SENDER_ID", "FCM_SERVICE_ACCOUNT_B64"];
+    const NAMES: [&str; 2] = ["NTFY_TOPIC", "FCM_SERVICE_ACCOUNT_B64"];
 
     fn steps() -> impl proptest::strategy::Strategy<Value = Vec<Step>> {
         use proptest::prelude::*;

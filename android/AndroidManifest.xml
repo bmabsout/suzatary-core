@@ -101,12 +101,15 @@
                  FRAGMENT anyway, which no intent filter can match on — it
                  rides along in the intent's data and MainActivity loads the
                  whole URI. -->
+            <!-- profile box: nix/apk.nix keeps this filter only when the
+                 profile names the box; the generic APK has no host to claim. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="@PORTAL_HOST@" />
+                <data android:scheme="https" android:host="@PROFILE_HOST@" />
             </intent-filter>
+            <!-- /profile box -->
 
             <!-- BELT TO THE BRACES. `suzatary://todo/<id>`,
                  `suzatary://briefings/<date>` and bare `suzatary://` say the

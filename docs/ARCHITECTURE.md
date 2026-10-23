@@ -1707,6 +1707,16 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   Obtainium on this repo's releases (a rolling tag was invisible to it),
   "fallback to older releases" on. Every update MUST use the same signing key:
   losing the keystore costs a reinstall everywhere.
+- **The APK is a function of its PROFILE** (2026-10-23,
+  `docs/APKPROFILE-PLAN-2026-10-23.md`): a TOML file `nix/apk-profile.nix`
+  reads, `box` and `sender`, both optional, refused at evaluation when
+  malformed. `.#apk-unsigned` is the generic APK (`android/profile/generic.toml`,
+  empty): `Box.java` finds no box in `Profile.java`, so `MainActivity` asks for
+  one at first launch and keeps it only once it answers `GET /api/portal`
+  (`suzatary_core::portal::Portal`, from `[notify] fcm_sender`) with how it
+  pushes. `.#apk-profiled-unsigned` reads `SUZATARY_APK_PROFILE`; the release
+  workflow writes the owner's profile from the repository variables, so the
+  owner's APK keeps its package, key and box.
 - **The APK is a function of its ROUTE** (2026-10-03, a spike,
   the `tsnetportal-android-spike-x2b41w` report): how the WebView reaches
   the box, one `Route.java` per `android/route/<name>/` with the jars, native

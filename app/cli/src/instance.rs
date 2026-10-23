@@ -118,6 +118,8 @@ pub struct Instance {
     /// The channels `[notify]` names, the one list the server and `suzatary notify` push
     /// through. `None`, the table absent or empty, is no push, and no push secret is resolved.
     pub notify: Option<NonEmpty<Channel>>,
+    /// What the box answers the Android portal at pairing.
+    pub portal: suzatary_core::portal::Portal,
     /// Every declared model provider.
     pub providers: Vec<DeclaredProvider>,
     /// Each job's model order and the reserve.
@@ -524,9 +526,10 @@ impl Instance {
             .coding
             .map(|coding| served(coding, &policies))
             .transpose()?;
-        let notify = file
-            .notify
-            .and_then(|section| NonEmpty::of(section.channels));
+        let (notify, sender) = file.notify.map_or((None, None), |section| {
+            (NonEmpty::of(section.channels), section.fcm_sender)
+        });
+        let portal = suzatary_core::portal::Portal::of(notify.as_ref(), sender);
         let plugins = plugins_of(path, &data, file.cache.as_deref(), file.plugins)?;
         let secretary = file.secretary.rooted(&code, &data);
         let repos = match &coding {
@@ -584,6 +587,7 @@ impl Instance {
             persona,
             local,
             notify,
+            portal,
             providers,
             models,
             plugins,

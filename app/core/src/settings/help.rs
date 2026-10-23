@@ -167,7 +167,7 @@ mod tests {
         let names = Preset::ALL
             .iter()
             .map(|preset| preset.key_name())
-            .chain(["NTFY_TOPIC", "FCM_SERVICE_ACCOUNT_B64", "FCM_SENDER_ID"])
+            .chain(["NTFY_TOPIC", "FCM_SERVICE_ACCOUNT_B64"])
             .chain([
                 crate::coding::ROUTINE_TOKEN,
                 crate::settings::DATA_PUSH_TOKEN,

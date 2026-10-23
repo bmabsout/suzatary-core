@@ -314,7 +314,7 @@ mod tests {
         use crate::connect::Channel;
         assert_eq!(
             channel_secrets(Channel::Fcm),
-            vec!["FCM_SERVICE_ACCOUNT_B64", "FCM_SENDER_ID"]
+            vec!["FCM_SERVICE_ACCOUNT_B64"]
         );
         assert_eq!(channel_secrets(Channel::Ntfy), vec!["NTFY_TOPIC"]);
     }

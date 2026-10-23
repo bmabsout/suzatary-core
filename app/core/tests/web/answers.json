@@ -2559,6 +2559,25 @@
       "maps": []
     }
   ],
+  "PortalPayload": [
+    {
+      "value": {
+        "push": {
+          "kind": "none"
+        }
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "push": {
+          "kind": "fcm",
+          "sender": "100000000000"
+        }
+      },
+      "maps": []
+    }
+  ],
   "ProposalsPayload": [
     {
       "value": {

@@ -39,6 +39,7 @@ pub fn table() -> Vec<Route> {
         Route::get("/api/presence", Scope::Box, the_box::presence),
         Route::get("/api/about", Scope::Box, the_box::about),
         Route::get("/api/releases", Scope::Box, the_box::releases),
+        Route::get("/api/portal", Scope::Box, the_box::portal),
         // A browser's failure: a write's gate, a per-login budget, one log line, nothing stored.
         Route::post("/api/client-errors", Scope::Box, the_box::client_errors),
         Route::get("/api/usage", Scope::Box, the_box::usage),

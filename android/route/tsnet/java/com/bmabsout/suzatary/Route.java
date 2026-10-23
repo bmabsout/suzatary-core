@@ -51,6 +51,7 @@ import java.util.concurrent.Executors;
 final class Route implements Reach {
 
     private final Activity activity;
+    private final String host;
     private final Runnable reached;
     private final View screen;
     private final TextView title;
@@ -67,8 +68,9 @@ final class Route implements Reach {
     private String user;
     private String password;
 
-    Route(Activity activity, FrameLayout root, Runnable reached) {
+    Route(Activity activity, FrameLayout root, String host, Runnable reached) {
         this.activity = activity;
+        this.host = host;
         this.reached = reached;
 
         LinearLayout box = new LinearLayout(activity);
@@ -103,7 +105,7 @@ final class Route implements Reach {
                 try {
                     // Go's runtime takes its temporary directory from the app's.
                     go.Seq.setContext(activity.getApplicationContext());
-                    Node.start(dir, "suzatary-portal", MainActivity.HOST, reach);
+                    Node.start(dir, "suzatary-portal", host, reach);
                 } catch (Exception e) {
                     down(String.valueOf(e.getMessage()));
                 }

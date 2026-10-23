@@ -27,6 +27,7 @@ GET /api/oauth/google/consent/{card} read -
 GET /api/objects read -
 POST /api/objects act -
 GET /api/overview read -
+GET /api/portal read -
 GET /api/presence read -
 GET /api/proposals read -
 POST /api/proposals/accept act signed

@@ -17,7 +17,7 @@ deployment.act_as.her@example.test = ada
 deployment.act_as.phone@example.test = assistant
 deployment.categories = {"home": 0, "work": 1}
 deployment.app_url = https://box.example.test
-instance.settables = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "DATABRICKS_TOKEN", "FCM_SENDER_ID", "FCM_SERVICE_ACCOUNT_B64", "NTFY_TOPIC", "PHALA_API_KEY", "SUZATARY_DATA_PUSH_TOKEN", "SUZATARY_REPOS_TOKEN", "SUZATARY_ROUTINE_TOKEN"]
+instance.settables = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "DATABRICKS_TOKEN", "FCM_SERVICE_ACCOUNT_B64", "NTFY_TOPIC", "PHALA_API_KEY", "SUZATARY_DATA_PUSH_TOKEN", "SUZATARY_REPOS_TOKEN", "SUZATARY_ROUTINE_TOKEN"]
 deployment.coding = Some(Coding { routine: RoutineId("trig_01fake"), repo: RepoName { owner: "bmabsout", name: "Suzatary" }, chain: ChainName("suzatary") })
 serving.host = 100.64.0.1
 serving.port = 443
@@ -48,6 +48,7 @@ mail.junk = ChurnList { domains: {Domain("offers.example.net"): Ours}, keep: Kee
 persona = Persona { name: "Ada", city: "London", zone: Zone(Europe/London), prose: Prose { news_filter: [], email_voice: [], anchors: [] } }
 local = /srv/data/local
 notify = [Fcm, Ntfy]
+portal = Fcm(Sender("100000000000"))
 provider.phala = DeclaredProvider { name: "phala", base_url: "https://inference.phala.com/v1", key: "PHALA_API_KEY", attestation: Required { expect: SourceCommit("8d0a666a2418898a8c823a9af49a634edd122a64") } }
 provider.databricks = DeclaredProvider { name: "databricks", base_url: "https://acme.cloud.databricks.com/serving-endpoints", key: "DATABRICKS_TOKEN", attestation: Unclaimed }
 models.secretary = ["claude-cli/claude-opus-5-5", "phala/deepseek-v4-flash"]
@@ -321,7 +322,15 @@ parsing the instance file <file>: TOML parse error at line 103, column 1
     |
 103 | colour = 1
     | ^^^^^^
-unknown field `colour`, expected `channels`
+unknown field `colour`, expected `channels` or `fcm_sender`
+
+
+## a Firebase sender that is no number
+parsing the instance file <file>: TOML parse error at line 103, column 14
+    |
+103 | fcm_sender = "sender-1"
+    |              ^^^^^^^^^^
+'sender-1' is no Firebase sender: a sender is the project's number, 1 to 20 digits
 
 
 ## a provider named anthropic
@@ -334,25 +343,25 @@ unknown field `colour`, expected `channels`
 <file>: "phala" is declared as a provider more than once
 
 ## attested with no commit
-parsing the instance file <file>: TOML parse error at line 104, column 1
+parsing the instance file <file>: TOML parse error at line 105, column 1
     |
-104 | [[providers]]
+105 | [[providers]]
     | ^^^^^^^^^^^^^
 provider "phala" declares attested = true but names no expect_commit — a claim of attestation with nothing to check a receipt against is refused
 
 
 ## attested with a bad commit
-parsing the instance file <file>: TOML parse error at line 104, column 1
+parsing the instance file <file>: TOML parse error at line 105, column 1
     |
-104 | [[providers]]
+105 | [[providers]]
     | ^^^^^^^^^^^^^
 provider "phala": "nope" is not a commit: 40 lowercase hex characters
 
 
 ## an unknown key in a provider
-parsing the instance file <file>: TOML parse error at line 116, column 1
+parsing the instance file <file>: TOML parse error at line 117, column 1
     |
-116 | colour = 1
+117 | colour = 1
     | ^^^^^^
 unknown field `colour`, expected one of `name`, `base_url`, `key`, `attested`, `expect_commit`
 
@@ -364,17 +373,17 @@ unknown field `colour`, expected one of `name`, `base_url`, `key`, `attested`, `
 <file>: [models].review: "claude" is not "<backend>/<model>"
 
 ## a reserve over one
-parsing the instance file <file>: TOML parse error at line 121, column 11
+parsing the instance file <file>: TOML parse error at line 122, column 11
     |
-121 | reserve = 1.5
+122 | reserve = 1.5
     |           ^^^
 a reserve is a share between 0 and 1, got 1.5
 
 
 ## an unknown key in [models]
-parsing the instance file <file>: TOML parse error at line 122, column 1
+parsing the instance file <file>: TOML parse error at line 123, column 1
     |
-122 | chat = []
+123 | chat = []
     | ^^^^
 unknown field `chat`, expected one of `secretary`, `review`, `title`, `reserve`
 
@@ -383,17 +392,17 @@ unknown field `chat`, expected one of `secretary`, `review`, `title`, `reserve`
 [coding] chain work is not one of this deployment's [[chains]]
 
 ## a coding routine that is not one
-parsing the instance file <file>: TOML parse error at line 124, column 11
+parsing the instance file <file>: TOML parse error at line 125, column 11
     |
-124 | routine = "trig 01"
+125 | routine = "trig 01"
     |           ^^^^^^^^^
 a routine id is letters, digits, '_' and '-', got "trig 01"
 
 
 ## a coding repo that is not one
-parsing the instance file <file>: TOML parse error at line 125, column 8
+parsing the instance file <file>: TOML parse error at line 126, column 8
     |
-125 | repo = "nope"
+126 | repo = "nope"
     |        ^^^^^^
 a repository is owner/name, letters, digits, '-', '_' and '.', got "nope"
 
