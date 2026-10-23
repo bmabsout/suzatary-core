@@ -371,7 +371,8 @@ confirm. Everything below derives from this.
   `candidates`). Evidence that closes a todo rarely names its id (an
   airline's receipt never says `todo:life/flightcheckin`). So once a day after
   `review` the secretary walks the open list: for each todo, mail AFTER its
-  `created` in the same thread, from the same sender, or naming its referents
+  `created` (or its latest trusted reopen, which stands until newer mail
+  arrives) in the same thread, from the same sender, or naming its referents
   (a code, a flight, a person) — never its id, never its age — is laid
   before the model, whose ONLY write is `propose_changes` of
   `complete`/`cancel` with a `why` and the `mail:` that proves it; any other

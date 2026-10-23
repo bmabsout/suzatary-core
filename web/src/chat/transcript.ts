@@ -38,6 +38,7 @@ import time from "../app/time";
 import ui from "../app/ui";
 import registers from "../app/registers";
 import lo from "../algebra/lo";
+import page from "../shell/page";
 
 export interface TranscriptActions {
   /** "Reply" on a turn — quotes it into the compose box. */
@@ -345,6 +346,8 @@ export function mountTranscript(
   // The page's own box is the viewport, whose top is 0; the document element's rectangle moves up as it scrolls.
   const offsetOf = (node: Element): number =>
     node.getBoundingClientRect().top - (onPage ? 0 : scrollBox.getBoundingClientRect().top) + scrollBox.scrollTop;
+  // The page's sticky header covers the top of its box, so a question placed at the top goes below it.
+  const covered = (): number => (onPage ? page.header().getBoundingClientRect().bottom : 0);
   // The room's height now: what `held.room` last answered, and what the reader's place is read without.
   let room = 0;
 
@@ -363,7 +366,7 @@ export function mountTranscript(
         case "ToTurn": {
           // The round's own node: its keyed wrapper is `display: contents`, so it has no box to measure.
           const round = inner.get(String(m.turn))?.round;
-          if (round !== undefined) scrollBox.scrollTop = offsetOf(round);
+          if (round !== undefined) scrollBox.scrollTop = offsetOf(round) - covered();
           newAnswerPill.hidden = true;
           return;
         }

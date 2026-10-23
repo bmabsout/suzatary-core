@@ -7,11 +7,10 @@ import { el } from "../view/dom"
 export namespace page {
   const bar = (id: string, cls: string) => el("div", { id, class: cls, role: "status", "aria-live": "polite", hidden: true })
 
-  // The body's hosts, each filled by the module named beside it.
-  const body = (): Node[] => [
-    // The first thing Tab reaches: nine pages of navigation before the content is a page nobody reaches with a keyboard.
-    el("a", { class: "skip", href: "#view" }, "Skip to the page"),
-    el(
+  // The sticky header, which covers the top of the page's own scroll box.
+  let made: HTMLElement | undefined
+  export const header = (): HTMLElement =>
+    (made ??= el(
       "header",
       null,
       el("a", { class: "brand", href: "#/" }, "Suzatary"),
@@ -19,7 +18,13 @@ export namespace page {
       el("nav", { id: "tabbar", class: "tabbar", "aria-label": "sections" }),
       // Acts this browser has taken and not yet handed over, hidden at zero (`shell/pending.ts`).
       el("span", { id: "live", class: "live", title: "connecting…", "aria-label": "connecting…" }),
-    ),
+    ))
+
+  // The body's hosts, each filled by the module named beside it.
+  const body = (): Node[] => [
+    // The first thing Tab reaches: nine pages of navigation before the content is a page nobody reaches with a keyboard.
+    el("a", { class: "skip", href: "#view" }, "Skip to the page"),
+    header(),
     // A refusal and a chain move are announced, not merely drawn: the only place the app says a write was refused.
     bar("toast", "toast"),
     el("div", { id: "needsyou", class: "needsyouhost", "aria-live": "assertive" }),

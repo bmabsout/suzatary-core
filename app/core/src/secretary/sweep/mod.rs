@@ -256,6 +256,7 @@ fn gather(chain: &Bound<'_>, zone: crate::zone::Zone) -> Result<Bounded, Refusal
     let now = chain.caps.clock.now();
     let nodes = chain.caps.chain.nodes()?;
     let records = crate::decoration::records_of(&nodes);
+    let events = crate::view::events_of(&nodes);
     let mut open = Vec::new();
     for entry in prodrome_core::view::entries(&nodes, now, &chain.policy.untrusted)
         .map_err(|failed| Refusal::internal(failed.to_string()))?
@@ -266,13 +267,14 @@ fn gather(chain: &Bound<'_>, zone: crate::zone::Zone) -> Result<Bounded, Refusal
         let Some(record) = entry.content().first().and_then(|name| records.get(name)) else {
             continue;
         };
+        // `created` is a day; a message counts from when that day began where the owner is.
+        let created = prodrome_core::fpl::datetime_of(
+            zone.start(prodrome_core::fpl::instant_of(record.payload.created).date()),
+        )
+        .map_err(|failed| Refusal::internal(failed.to_string()))?;
         open.push(OpenTodo {
             id: entry.key.clone(),
-            // `created` is a day; a message counts from when that day began where the owner is.
-            created: prodrome_core::fpl::datetime_of(
-                zone.start(prodrome_core::fpl::instant_of(record.payload.created).date()),
-            )
-            .map_err(|failed| Refusal::internal(failed.to_string()))?,
+            since: since(&events, &entry.key, created, &chain.policy.untrusted),
             source: record.payload.source.clone(),
             body: record.payload.body.clone(),
         });
@@ -298,6 +300,26 @@ fn gather(chain: &Bound<'_>, zone: crate::zone::Zone) -> Result<Bounded, Refusal
     Ok(bound(found))
 }
 
+/// The floor a todo's evidence must be after: the start of its `created` day, or its latest
+/// reopen when that is later. Only a trusted actor's reopen counts: an untrusted one binds
+/// nothing, so it cannot hide the mail that closes a todo.
+fn since(
+    events: &[crate::record::TodoEvent],
+    todo: &prodrome_core::event::TodoId,
+    created: crate::capability::Datetime,
+    untrusted: &prodrome_core::policy::Untrusted,
+) -> crate::capability::Datetime {
+    events
+        .iter()
+        .filter(|event| {
+            matches!(event, crate::record::TodoEvent::Reopened(_))
+                && event.todo() == todo
+                && !untrusted.actors().contains(event.actor())
+        })
+        .map(crate::record::TodoEvent::at)
+        .fold(created, std::cmp::max)
+}
+
 /// The round's user turn, loading messages through the `show` verb so there is no second reader.
 fn user_turn(
     deployment: &Deployment,
@@ -313,9 +335,9 @@ fn user_turn(
     for (todo, candidates) in &gathered.todos {
         let _ = write!(
             out,
-            "### todo:{}\ncreated: {}\n\n{}\n\n",
+            "### todo:{}\nopen since: {}\n\n{}\n\n",
             todo.id.as_str(),
-            prodrome_core::fpl::iso(prodrome_core::fpl::instant_of(todo.created)),
+            prodrome_core::fpl::iso(prodrome_core::fpl::instant_of(todo.since)),
             todo.body.as_str(),
         );
         for candidate in candidates {
@@ -411,6 +433,45 @@ mod tests {
         assert!(!offered.contains(&"record"), "{offered:?}");
     }
 
+    /// A trusted reopen moves the floor up to it; an untrusted one, one on another todo, and
+    /// one before the created day never move it.
+    #[test]
+    fn only_a_trusted_reopen_moves_the_floor() {
+        let created = dt(2026, 9, 5, 0, 0, 0);
+        let untrusted =
+            prodrome_core::policy::Untrusted::of([
+                prodrome_core::event::Actor::new("triage").expect("a name")
+            ]);
+        let reopened = |todo: &str, day: u32, who: &str| {
+            prodrome_core::event::mk_reopened(todo, dt(2026, 9, day, 9, 0, 0), who, "")
+                .expect("a reopen")
+        };
+        let todo = todo_id("flightcheckin");
+        for (events, floor) in [
+            (vec![], created),
+            (vec![reopened("flightcheckin", 10, "triage")], created),
+            (vec![reopened("other", 10, "ada")], created),
+            (vec![reopened("flightcheckin", 1, "ada")], created),
+            (
+                vec![reopened("flightcheckin", 8, "ada")],
+                dt(2026, 9, 8, 9, 0, 0),
+            ),
+            (
+                vec![
+                    reopened("flightcheckin", 8, "ada"),
+                    reopened("flightcheckin", 12, "triage"),
+                ],
+                dt(2026, 9, 8, 9, 0, 0),
+            ),
+        ] {
+            assert_eq!(
+                since(&events, &todo, created, &untrusted),
+                floor,
+                "{events:?}"
+            );
+        }
+    }
+
     fn todo_id(id: &str) -> prodrome_core::event::TodoId {
         prodrome_core::event::TodoId::new(id).expect("a valid id")
     }
@@ -430,7 +491,7 @@ mod tests {
     fn open_todo(id: &str) -> OpenTodo {
         OpenTodo {
             id: todo_id(id),
-            created: dt(2026, 1, 1, 0, 0, 0),
+            since: dt(2026, 1, 1, 0, 0, 0),
             source: None,
             body: crate::record::MarkupSource::from_chain("an open todo"),
         }

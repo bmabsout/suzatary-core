@@ -194,26 +194,27 @@ impl Publishing {
             .publish(repo, base, patch, &message, &author, &branch)
         {
             Ok(published) => Performed::Done(Done::Acted {
-                what: match published.pull {
-                    Ok(pull) => format!(
-                        "opened pull request #{} on {repo} from {} ({}): {}",
-                        pull.number,
-                        published.branch,
-                        published.commit.short(),
-                        pull.url
-                    ),
-                    // Settled, not uncertain: the branch is there, and pushing again would push
-                    // a second commit, so the owner opens the request by hand or not at all.
-                    Err(failed) => format!(
-                        "branch {} pushed to {repo} ({}), no pull request: {failed}",
-                        published.branch,
-                        published.commit.short()
-                    ),
-                },
+                what: format!(
+                    "opened pull request #{} on {repo} from {} ({}): {}",
+                    published.pull.number,
+                    published.branch,
+                    published.commit.short(),
+                    published.pull.url
+                ),
             }),
-            // A push that failed may have landed, so it is uncertain rather than not sent.
-            Err(failed) => Performed::Done(Done::MayHaveGone {
-                reason: failed.to_string(),
+            Err(
+                stopped @ (suzatary_io::repos::Stopped::Refused(_)
+                | suzatary_io::repos::Stopped::Taken { .. }),
+            ) => Performed::Tried(Tried::NotSent {
+                reason: stopped.to_string(),
+            }),
+            // A tap again finishes it from where it stopped, never pushing or opening twice.
+            Err(
+                stopped @ (suzatary_io::repos::Stopped::Preparing(_)
+                | suzatary_io::repos::Stopped::Pushing(_)
+                | suzatary_io::repos::Stopped::Opening { .. }),
+            ) => Performed::Tried(Tried::NotSent {
+                reason: format!("{stopped}. Tap again to finish it."),
             }),
         }
     }

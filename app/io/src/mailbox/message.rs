@@ -1,5 +1,6 @@
 //! One message of `notmuch show --format=json`, parsed once at the boundary.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -45,20 +46,74 @@ struct Node(Option<NotmuchMessage>, Vec<Node>);
 /// One message that does not parse (no id, no file) refuses the whole answer rather than that
 /// one row. notmuch mints an id for every message it indexes, so such an answer is not notmuch's
 /// show format at all, and none of its rows is to be believed.
-pub fn matched(raw: &str) -> Result<Vec<NotmuchMessage>, MailError> {
+pub fn matched(raw: &[u8]) -> Result<Vec<NotmuchMessage>, MailError> {
     fn walk(nodes: Vec<Node>, out: &mut Vec<NotmuchMessage>) {
         for Node(message, replies) in nodes {
             out.extend(message.filter(|m| m.matched));
             walk(replies, out);
         }
     }
-    let threads: Vec<Vec<Node>> = serde_json::from_str(raw)
+    let text = Text::of(raw);
+    let threads: Vec<Vec<Node>> = serde_json::from_str(text.as_str())
         .map_err(|e| MailError::Unreachable(format!("notmuch's show output did not parse: {e}")))?;
     let mut out = Vec::new();
     for thread in threads {
         walk(thread, &mut out);
     }
-    Ok(out)
+    match out
+        .iter()
+        .find(|m| text.lost(&m.id) || text.lost(&m.file.to_string_lossy()))
+    {
+        Some(m) => Err(unnamed(&format!("{} in {}", m.id, m.file.display()))),
+        None => Ok(out),
+    }
+}
+
+/// notmuch's answer as text: exactly, when it is UTF-8, or with each byte that is not replaced
+/// by U+FFFD, so a body or a header that is not UTF-8 still reads.
+pub enum Text<'a> {
+    /// It was UTF-8.
+    Exact(&'a str),
+    /// It was not, and lost bytes to the replacement.
+    Replaced(String),
+}
+
+impl<'a> Text<'a> {
+    /// `raw` decoded.
+    #[must_use]
+    pub fn of(raw: &'a [u8]) -> Self {
+        match String::from_utf8_lossy(raw) {
+            Cow::Borrowed(exact) => Text::Exact(exact),
+            Cow::Owned(replaced) => Text::Replaced(replaced),
+        }
+    }
+
+    /// The text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        match self {
+            Text::Exact(text) => text,
+            Text::Replaced(text) => text,
+        }
+    }
+
+    /// Whether `field`, read out of this text, lost a byte: an id or a file name that did names
+    /// nothing, so it is refused rather than looked up.
+    #[must_use]
+    pub fn lost(&self, field: &str) -> bool {
+        match self {
+            Text::Exact(_) => false,
+            Text::Replaced(_) => field.contains(char::REPLACEMENT_CHARACTER),
+        }
+    }
+}
+
+/// The refusal of a message whose id or file name is not UTF-8.
+#[must_use]
+pub fn unnamed(what: &str) -> MailError {
+    MailError::Unreachable(format!(
+        "notmuch names a message by an id or a file name that is not UTF-8, so it cannot be read: {what}"
+    ))
 }
 
 #[cfg(test)]
@@ -78,7 +133,7 @@ mod tests {
             message("root", true),
             [[message("reply", false), [[message("late", true), []]]]]
         ]]]);
-        let ids: Vec<String> = matched(&forest.to_string())
+        let ids: Vec<String> = matched(forest.to_string().as_bytes())
             .expect("parses")
             .into_iter()
             .map(|m| m.id)
@@ -89,7 +144,7 @@ mod tests {
     #[test]
     fn an_elided_message_is_a_null_and_its_replies_are_still_read() {
         let forest = serde_json::json!([[[null, [[message("reply", true), []]]]]]);
-        let found = matched(&forest.to_string()).expect("parses");
+        let found = matched(forest.to_string().as_bytes()).expect("parses");
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].file, PathBuf::from("/mail/reply"));
         assert_eq!(found[0].body, None);
@@ -100,7 +155,7 @@ mod tests {
         let mut nameless = message("x", true);
         nameless.as_object_mut().expect("an object").remove("id");
         let forest = serde_json::json!([[[nameless, []]]]);
-        let refused = matched(&forest.to_string()).expect_err("no id");
+        let refused = matched(forest.to_string().as_bytes()).expect_err("no id");
         assert!(
             refused.to_string().contains("missing field `id`"),
             "{refused}"
@@ -112,14 +167,36 @@ mod tests {
         let mut fileless = message("x", true);
         fileless["filename"] = serde_json::json!([]);
         let forest = serde_json::json!([[[fileless, []]]]);
-        assert!(matched(&forest.to_string()).is_err());
+        assert!(matched(forest.to_string().as_bytes()).is_err());
     }
 
     #[test]
     fn an_answer_of_another_shape_is_refused_not_walked_past() {
         for raw in ["{}", "[[[1, []]]]", "[[[\"x\"]]]", "not json"] {
-            assert!(matched(raw).is_err(), "{raw}");
+            assert!(matched(raw.as_bytes()).is_err(), "{raw}");
         }
-        assert!(matched("[]").expect("no threads").is_empty());
+        assert!(matched(b"[]").expect("no threads").is_empty());
+    }
+
+    /// A body or header that is not UTF-8 reads with the bad bytes replaced; an id or a file name
+    /// that is not names nothing, and is refused by name, never dropped.
+    #[test]
+    fn bytes_that_are_not_utf8_read_in_text_and_refuse_in_a_name() {
+        // `~` stands for the byte 0xff, which is never UTF-8.
+        let shown = |id: &str, file: &str, subject: &str| {
+            format!(
+                r#"[[[{{"id": "{id}", "match": true, "filename": ["{file}"], "tags": [],
+                       "headers": {{"Subject": "{subject}"}}}}, []]]]"#
+            )
+            .bytes()
+            .map(|b| if b == b'~' { 0xff } else { b })
+            .collect::<Vec<u8>>()
+        };
+        let read = matched(&shown("a", "/mail/a", "caf~")).expect("a bad subject reads");
+        assert_eq!(read[0].headers["Subject"], "caf\u{fffd}");
+        for (id, file) in [("a~", "/mail/a"), ("a", "/mail/a~")] {
+            let refused = matched(&shown(id, file, "ok")).expect_err("a bad name");
+            assert!(refused.to_string().contains("not UTF-8"), "{refused}");
+        }
     }
 }

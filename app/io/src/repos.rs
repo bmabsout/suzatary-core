@@ -296,13 +296,65 @@ fn file_stat(line: &str) -> Option<FileStat> {
 /// What a publish pushed, and the pull request it opened.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Published {
-    /// The new commit.
+    /// The commit on the branch.
     pub commit: CommitId,
     /// The branch of its own it landed on.
     pub branch: String,
-    /// The request to merge that branch into the default one, or why none was opened: the
-    /// branch is pushed either way, so the failure is an answer, not a reason to push again.
-    pub pull: Result<PullRequest, RepoFailure>,
+    /// The request to merge that branch into the default one.
+    pub pull: PullRequest,
+}
+
+/// Where a publish stopped. Publishing the same patch to the same branch again finishes it: a
+/// branch that already holds this change is not pushed again, and an open request for it is
+/// answered rather than opened twice.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum Stopped {
+    /// Refused for good: the patch no longer applies, its check fails, its base is gone or the
+    /// repository takes no patch. Publishing again is refused the same way.
+    #[error("refused: {0}")]
+    Refused(RepoFailure),
+    /// The branch already holds another commit, which is never forced.
+    #[error("branch {branch} already holds another commit")]
+    Taken {
+        /// The branch.
+        branch: String,
+    },
+    /// Before anything left the box, for a reason that may pass: the repository or `git`
+    /// could not be reached.
+    #[error("stopped before pushing: {0}")]
+    Preparing(RepoFailure),
+    /// At the push, which may have landed.
+    #[error("stopped at the push, which may have landed: {0}")]
+    Pushing(RepoFailure),
+    /// The branch is on the remote and no pull request was opened.
+    #[error("pushed {branch} ({}), stopped opening the pull request: {failure}", commit.short())]
+    Opening {
+        /// The branch pushed.
+        branch: String,
+        /// Its commit.
+        commit: CommitId,
+        /// Why the request was not opened.
+        failure: RepoFailure,
+    },
+}
+
+impl Stopped {
+    /// A failure before the push, as for good or as one that may pass.
+    fn before(failure: RepoFailure) -> Self {
+        match failure {
+            RepoFailure::Conflict(_)
+            | RepoFailure::Public(_)
+            | RepoFailure::Missing(_)
+            | RepoFailure::TooLarge { .. } => Stopped::Refused(failure),
+            RepoFailure::Unknown(_) | RepoFailure::Unavailable(_) => Stopped::Preparing(failure),
+        }
+    }
+}
+
+/// The publish's commit: one the branch already holds, or one made now and not yet pushed.
+enum Commit {
+    Pushed(CommitId),
+    Made(CommitId),
 }
 
 /// A pull request, by its number and where a person reads it.
@@ -353,14 +405,13 @@ impl Mirrors {
 
     /// Publish `patch` on `base` as a pull request: checked by the repository's declared check,
     /// committed by `author`, pushed to the new `branch` (never forced, so a branch that already
-    /// holds something else is refused by the remote), and opened as a request to merge it into
-    /// the default branch, whose title is the message's first line. Nothing lands on the default
-    /// branch; a person merges it.
+    /// holds something else is refused), and opened as a request to merge it into the default
+    /// branch, whose title is the message's first line. Nothing lands on the default branch; a
+    /// person merges it.
     ///
     /// # Errors
-    /// [`RepoFailure::Conflict`] when it no longer applies or the check
-    /// fails (with its output), [`RepoFailure::Unavailable`] for `git` and
-    /// the network, including a push the remote refused.
+    /// [`Stopped`], naming the step; in [`Stopped::Preparing`], [`RepoFailure::Conflict`] when
+    /// it no longer applies or the check fails (with its output).
     pub fn publish(
         &self,
         repo: &RepoName,
@@ -369,7 +420,81 @@ impl Mirrors {
         message: &str,
         author: &Author,
         branch: &str,
-    ) -> Result<Published, RepoFailure> {
+    ) -> Result<Published, Stopped> {
+        let commit = match self.commit(repo, base, patch, message, author, branch)? {
+            Commit::Pushed(id) => id,
+            Commit::Made(id) => {
+                self.push(repo, &id, branch).map_err(Stopped::Pushing)?;
+                id
+            }
+        };
+        let pull = self
+            .pull(repo, branch, &commit, message)
+            .map_err(|failure| Stopped::Opening {
+                branch: branch.to_owned(),
+                commit: commit.clone(),
+                failure,
+            })?;
+        Ok(Published {
+            commit,
+            branch: branch.to_owned(),
+            pull,
+        })
+    }
+
+    /// The commit of `patch` on `base`: the one `branch` already holds when it is this change (a
+    /// publish that stopped after its push, whose check already passed), or a new one, checked.
+    fn commit(
+        &self,
+        repo: &RepoName,
+        base: &CommitId,
+        patch: &Patch,
+        message: &str,
+        author: &Author,
+        branch: &str,
+    ) -> Result<Commit, Stopped> {
+        let (dir, tree, check) = self
+            .staged_tree(repo, base, patch)
+            .map_err(Stopped::before)?;
+        match Self::held(&dir, branch).map_err(Stopped::before)? {
+            Some((id, held_tree, parent)) if held_tree == tree && parent == base.as_str() => {
+                Ok(Commit::Pushed(id))
+            }
+            Some(_) => Err(Stopped::Taken {
+                branch: branch.to_owned(),
+            }),
+            None => {
+                if let Some(check) = &check {
+                    self.checked_tree(&dir, &tree, check)
+                        .map_err(Stopped::before)?;
+                }
+                let made = succeed(
+                    &Self::git(None)
+                        .env("GIT_AUTHOR_NAME", &author.name)
+                        .env("GIT_AUTHOR_EMAIL", &author.email)
+                        .env("GIT_COMMITTER_NAME", &author.name)
+                        .env("GIT_COMMITTER_EMAIL", &author.email)
+                        .arg("--git-dir")
+                        .arg(&dir)
+                        .args(["commit-tree", &tree, "-p", base.as_str(), "-F", "-"])
+                        .stdin(message),
+                )
+                .map_err(|e| Stopped::before(e.into()))?;
+                CommitId::try_from(made.out().trim().to_owned())
+                    .map(Commit::Made)
+                    .map_err(|e| Stopped::Preparing(RepoFailure::Unavailable(e.to_string())))
+            }
+        }
+    }
+
+    /// The freshly fetched mirror, the tree of `patch` applied to `base` in it, and the check
+    /// the repository declares.
+    fn staged_tree(
+        &self,
+        repo: &RepoName,
+        base: &CommitId,
+        patch: &Patch,
+    ) -> Result<(PathBuf, String, Option<String>), RepoFailure> {
         // Asked again at the tap: the card was drawn from the listing, and the file or the
         // repository may have changed since.
         self.declared.pushable(repo, self.row(repo)?.visibility)?;
@@ -393,46 +518,131 @@ impl Mirrors {
         .out()
         .trim()
         .to_owned();
-        if let Some(check) = &check {
-            self.checked_tree(&dir, &tree, check)?;
-        }
-        let made = succeed(
-            &Self::git(None)
-                .env("GIT_AUTHOR_NAME", &author.name)
-                .env("GIT_AUTHOR_EMAIL", &author.email)
-                .env("GIT_COMMITTER_NAME", &author.name)
-                .env("GIT_COMMITTER_EMAIL", &author.email)
-                .arg("--git-dir")
-                .arg(&dir)
-                .args(["commit-tree", &tree, "-p", base.as_str(), "-F", "-"])
-                .stdin(message),
+        Ok((dir, tree, check))
+    }
+
+    /// The commit `branch` holds, with its tree and its parents: the fetch just made copied the
+    /// remote's branches, so the mirror holds this one if the remote does.
+    fn held(dir: &Path, branch: &str) -> Result<Option<(CommitId, String, String)>, RepoFailure> {
+        let held = Self::asked(
+            dir,
+            &[
+                "show",
+                "-s",
+                "--format=%H %T %P",
+                &format!("refs/heads/{branch}"),
+            ],
         )?;
-        let id = CommitId::try_from(made.out().trim().to_owned())
+        if !held.ok() {
+            return Ok(None);
+        }
+        let out = held.out();
+        let mut fields = out.split_whitespace();
+        let id = CommitId::try_from(fields.next().unwrap_or_default().to_owned())
             .map_err(|e| RepoFailure::Unavailable(e.to_string()))?;
+        let tree = fields.next().unwrap_or_default().to_owned();
+        let parents = fields.collect::<Vec<_>>().join(" ");
+        Ok(Some((id, tree, parents)))
+    }
+
+    /// Push `commit` to the new `branch`, never forced.
+    fn push(&self, repo: &RepoName, commit: &CommitId, branch: &str) -> Result<(), RepoFailure> {
         let (token, url) = self.remote(repo)?;
         succeed(
             &Self::git(token.as_ref())
                 .arg("--git-dir")
-                .arg(&dir)
+                .arg(self.dir(repo))
                 .args([
                     "push",
                     "--quiet",
                     &url,
-                    &format!("{}:refs/heads/{branch}", id.as_str()),
+                    &format!("{}:refs/heads/{branch}", commit.as_str()),
                 ])
                 .timeout(REMOTE),
         )
-        .map_err(RepoFailure::from)
         .map_err(|failed| RepoFailure::Unavailable(format!("the push was refused: {failed}")))?;
         self.fetched
             .lock()
             .map_err(|_| RepoFailure::Unavailable("the fetch table is poisoned".to_owned()))?
             .remove(repo);
-        Ok(Published {
-            commit: id,
-            branch: branch.to_owned(),
-            pull: self.open_pull(repo, branch, message),
-        })
+        Ok(())
+    }
+
+    /// The open request to merge `branch` into the default branch, opened now unless one is.
+    fn pull(
+        &self,
+        repo: &RepoName,
+        branch: &str,
+        commit: &CommitId,
+        message: &str,
+    ) -> Result<PullRequest, RepoFailure> {
+        match self.open_pull_of(repo, branch, commit)? {
+            Some(pull) => Ok(pull),
+            None => self.open_pull(repo, branch, message),
+        }
+    }
+
+    /// The request already open for `branch`: through GitHub's API, or, for a local remote, a
+    /// `refs/pull/<n>/head` at `commit`.
+    fn open_pull_of(
+        &self,
+        repo: &RepoName,
+        branch: &str,
+        commit: &CommitId,
+    ) -> Result<Option<PullRequest>, RepoFailure> {
+        match &self.source {
+            Source::GitHub => {
+                let token = self.token()?;
+                let resp = self
+                    .http
+                    .send(
+                        Req::get(format!(
+                            "https://api.github.com/repos/{repo}/pulls?state=open&head={}:{branch}",
+                            repo.owner()
+                        ))
+                        .header("Authorization", format!("Bearer {}", token.expose()))
+                        .header("Accept", "application/vnd.github+json")
+                        .header("User-Agent", "suzatary-secretary")
+                        .timeout(Duration::from_secs(20)),
+                    )
+                    .map_err(|e| RepoFailure::Unavailable(format!("GitHub: {e}")))?;
+                if resp.status != 200 {
+                    return Err(RepoFailure::Unavailable(format!(
+                        "GitHub answered {} to the pull request listing",
+                        resp.status
+                    )));
+                }
+                let answer: serde_json::Value = serde_json::from_slice(&resp.body)
+                    .map_err(|e| RepoFailure::Unavailable(format!("GitHub: {e}")))?;
+                answer
+                    .as_array()
+                    .and_then(|pulls| pulls.first())
+                    .map(pull_of)
+                    .transpose()
+            }
+            Source::Local { .. } => {
+                let (_, url) = self.remote(repo)?;
+                let refs = Self::local(
+                    Path::new(&url),
+                    &[
+                        "for-each-ref",
+                        "--format=%(objectname) %(refname)",
+                        "refs/pull/",
+                    ],
+                )?;
+                Ok(lines(&refs).iter().find_map(|line| {
+                    let (id, name) = line.split_once(' ')?;
+                    let number = name.strip_prefix("refs/pull/")?.strip_suffix("/head")?;
+                    if id != commit.as_str() {
+                        return None;
+                    }
+                    Some(PullRequest {
+                        number: number.parse().ok()?,
+                        url: format!("{url}#pull/{number}"),
+                    })
+                }))
+            }
+        }
     }
 
     /// Open a request to merge `branch` into the default branch: through GitHub's API with the
@@ -474,18 +684,7 @@ impl Mirrors {
                 }
                 let answer: serde_json::Value = serde_json::from_slice(&resp.body)
                     .map_err(|e| RepoFailure::Unavailable(format!("GitHub: {e}")))?;
-                match (
-                    answer.get("number").and_then(serde_json::Value::as_u64),
-                    answer.get("html_url").and_then(serde_json::Value::as_str),
-                ) {
-                    (Some(number), Some(url)) => Ok(PullRequest {
-                        number,
-                        url: url.to_owned(),
-                    }),
-                    _ => Err(RepoFailure::Unavailable(
-                        "GitHub's pull request names no number and page".to_owned(),
-                    )),
-                }
+                pull_of(&answer)
             }
             Source::Local { .. } => {
                 let (_, url) = self.remote(repo)?;
@@ -596,6 +795,22 @@ fn refused_as_missing(what: impl FnOnce() -> String) -> impl FnOnce(RunError) ->
     move |failed| match failed {
         RunError::Exited { .. } => RepoFailure::Missing(what()),
         failed => RepoFailure::from(failed),
+    }
+}
+
+/// One pull request as GitHub answers it, parsed rather than trusted.
+fn pull_of(answer: &serde_json::Value) -> Result<PullRequest, RepoFailure> {
+    match (
+        answer.get("number").and_then(serde_json::Value::as_u64),
+        answer.get("html_url").and_then(serde_json::Value::as_str),
+    ) {
+        (Some(number), Some(url)) => Ok(PullRequest {
+            number,
+            url: url.to_owned(),
+        }),
+        _ => Err(RepoFailure::Unavailable(
+            "GitHub's pull request names no number and page".to_owned(),
+        )),
     }
 }
 
@@ -1242,7 +1457,7 @@ mod tests {
             )
             .expect("published");
         assert_eq!(published.branch, "secretary/2026-10-05-1-0");
-        assert_eq!(published.pull.as_ref().expect("opened").number, 1);
+        assert_eq!(published.pull.number, 1);
         assert!(
             on_remote(&temp, "pub", &["show", "secretary/2026-10-05-1-0:cv.typ"])
                 .contains("Principal investigator")
@@ -1267,21 +1482,35 @@ mod tests {
                 "secretary/other",
             )
             .expect("a second");
-        assert_eq!(second.pull.expect("opened").number, 2);
+        assert_eq!(second.pull.number, 2);
+        let again = mirrors
+            .publish(
+                &repo,
+                &base,
+                &retitle(),
+                "Retitle the CV\n\nHe is a PI now.\n",
+                &author(),
+                "secretary/2026-10-05-1-0",
+            )
+            .expect("published again");
+        assert_eq!(
+            again, published,
+            "a publish again answers what it published"
+        );
     }
 
-    /// A branch pushed whose request could not be opened is published, saying why there is no
-    /// request, so nothing is pushed again.
+    /// A branch pushed whose request could not be opened stops there, and a publish again opens
+    /// the request on the commit pushed, pushing nothing again.
     #[test]
-    fn a_pushed_branch_without_a_pull_request_says_so() {
+    fn a_pushed_branch_without_a_pull_request_is_finished_by_a_retry() {
         let (temp, mirrors, repo) = fixture("nopull");
         // A stale lock on the request's ref: the branch pushes, the request cannot be made.
         let pulls = temp.path().join("remotes/bmabsout/nopull.git/refs/pull/1");
         std::fs::create_dir_all(&pulls).expect("the pull refs");
         std::fs::write(pulls.join("head.lock"), "").expect("a stale lock");
         let base = mirrors.resolve(&repo, None).expect("a head");
-        let published = mirrors
-            .publish(
+        let publish = || {
+            mirrors.publish(
                 &repo,
                 &base,
                 &retitle(),
@@ -1289,11 +1518,23 @@ mod tests {
                 &author(),
                 "secretary/x",
             )
-            .expect("the branch is pushed");
-        assert!(published.pull.is_err(), "{published:?}");
+        };
+        let Err(Stopped::Opening { commit, .. }) = publish() else {
+            panic!("the branch is pushed and no request is opened");
+        };
         assert_eq!(
             on_remote(&temp, "nopull", &["rev-parse", "secretary/x"]),
-            published.commit.as_str()
+            commit.as_str()
+        );
+        std::fs::remove_file(pulls.join("head.lock")).expect("the lock goes");
+        let published = publish().expect("finished");
+        assert_eq!(
+            published.commit, commit,
+            "the commit pushed, not a second one"
+        );
+        assert_eq!(
+            on_remote(&temp, "nopull", &["rev-parse", "refs/pull/1/head"]),
+            commit.as_str()
         );
     }
 
@@ -1303,7 +1544,7 @@ mod tests {
         let base = mirrors.resolve(&repo, None).expect("a head");
         let refused = mirrors.publish(&repo, &base, &retitle(), "x", &author(), "secretary/x");
         assert!(
-            matches!(&refused, Err(RepoFailure::Conflict(said)) if said.contains("broken")),
+            matches!(&refused, Err(Stopped::Refused(RepoFailure::Conflict(said))) if said.contains("broken")),
             "{refused:?}"
         );
         assert_eq!(
@@ -1355,10 +1596,7 @@ mod tests {
         )
         .expect("a patch");
         let stale = mirrors.publish(&repo, &base, &other, "second", &author(), "secretary/one");
-        assert!(
-            matches!(stale, Err(RepoFailure::Unavailable(_))),
-            "{stale:?}"
-        );
+        assert!(matches!(stale, Err(Stopped::Taken { .. })), "{stale:?}");
         assert_eq!(
             on_remote(&temp, "moved", &["rev-parse", "secretary/one"]),
             first.commit.as_str()

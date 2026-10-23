@@ -739,8 +739,8 @@ app.scene("streaming never scrolls a drifted-up box", async () => {
   );
 });
 
-/** The last question asked, its round at the top of the box: held there by its send (`anchor.ts`, `ToTurn`). */
-const QUESTION_AT_TOP = `Math.round([...document.querySelectorAll(".round")].findLast((r) => r.querySelector(".turn-person") !== null).getBoundingClientRect().top) === 0`;
+/** The last question asked, its round at the top of the box just below the sticky header: held there by its send (`anchor.ts`, `ToTurn`). */
+const QUESTION_AT_TOP = `Math.abs([...document.querySelectorAll(".round")].findLast((r) => r.querySelector(".turn-person") !== null).getBoundingClientRect().top - document.querySelector("body > header").getBoundingClientRect().bottom) <= 1`;
 
 /**
  * THE PAGE MOVING THE BOX SETTLES NOTHING; THE READER'S SCROLL DOES. A question just sent is held at the top with

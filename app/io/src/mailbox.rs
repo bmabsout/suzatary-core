@@ -111,11 +111,12 @@ impl Notmuch {
             .env("NOTMUCH_CONFIG", config))
     }
 
-    fn run(&self, args: &[&str]) -> Result<String, MailError> {
-        let ran =
-            succeed(&self.command(args)?).map_err(|e| MailError::Unreachable(e.to_string()))?;
-        String::from_utf8(ran.stdout)
-            .map_err(|e| MailError::Unreachable(format!("notmuch's output was not utf-8: {e}")))
+    /// notmuch's answer as it wrote it: it copies a message's bytes into its JSON unchanged, so
+    /// the answer need not be UTF-8, and each reader decodes it (`message::Text`).
+    fn run(&self, args: &[&str]) -> Result<Vec<u8>, MailError> {
+        Ok(succeed(&self.command(args)?)
+            .map_err(|e| MailError::Unreachable(e.to_string()))?
+            .stdout)
     }
 
     /// The `limit` newest message ids matching `query`, from the index alone.
@@ -600,10 +601,15 @@ fn is_hex_prefix(id: &str) -> bool {
 }
 
 /// `notmuch search`'s flat array of ids; any other shape is refused.
-fn parse_id_array(json: &str) -> Result<Vec<String>, MailError> {
-    serde_json::from_str(json).map_err(|e| {
+fn parse_id_array(raw: &[u8]) -> Result<Vec<String>, MailError> {
+    let text = message::Text::of(raw);
+    let ids: Vec<String> = serde_json::from_str(text.as_str()).map_err(|e| {
         MailError::Unreachable(format!("notmuch's id list was not an array of ids: {e}"))
-    })
+    })?;
+    match ids.iter().find(|id| text.lost(id)) {
+        Some(id) => Err(message::unnamed(id)),
+        None => Ok(ids),
+    }
 }
 
 /// One `notmuch show` message, shared by the message and thread paths so a thread costs one
@@ -1100,12 +1106,16 @@ mod tests {
     #[test]
     fn newest_ids_json_is_a_flat_string_array() {
         assert_eq!(
-            parse_id_array(r#"["a","b","c"]"#).expect("parses"),
+            parse_id_array(br#"["a","b","c"]"#).expect("parses"),
             vec!["a", "b", "c"]
         );
-        assert!(parse_id_array("[]").expect("parses").is_empty());
-        for refused in [r#"["a", 1]"#, "{}", "not json"] {
-            assert!(parse_id_array(refused).is_err(), "{refused}");
+        assert!(parse_id_array(b"[]").expect("parses").is_empty());
+        for refused in [&br#"["a", 1]"#[..], b"{}", b"not json", b"[\"a\xff\"]"] {
+            assert!(
+                parse_id_array(refused).is_err(),
+                "{}",
+                String::from_utf8_lossy(refused)
+            );
         }
     }
 

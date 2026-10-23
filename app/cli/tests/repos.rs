@@ -430,10 +430,10 @@ fn an_lfs_pointer_is_not_attached() {
     );
 }
 
-/// A branch that was pushed while its pull request could not be opened says exactly that on the
-/// card, never "may have been pushed".
+/// A branch that was pushed while its pull request could not be opened says so on the card,
+/// never "may have been pushed", and a tap again opens the request on the commit pushed.
 #[test]
-fn a_pushed_branch_without_a_pull_request_is_its_own_outcome() {
+fn a_pushed_branch_without_a_pull_request_is_finished_by_a_tap_again() {
     let root = common::scratch("repos-nopull");
     let repos = common::local_repos(&root);
     // A stale lock on the request's ref: the branch pushes, the request cannot be made.
@@ -448,6 +448,7 @@ fn a_pushed_branch_without_a_pull_request_is_its_own_outcome() {
                 propose(RETITLE).leak(),
                 r#"{"say": "Proposed."}"#,
                 r#"{"say": "Pushed, no request."}"#,
+                r#"{"say": "Opened."}"#,
             ])),
     );
     let base = common::Server::new(Arc::clone(&fakes), deployment(), Vec::new())
@@ -462,17 +463,28 @@ fn a_pushed_branch_without_a_pull_request_is_its_own_outcome() {
         .base;
     let payload = exchange(&base, "update my title");
     let id = payload["id"].as_str().expect("an id").to_owned();
-    let mut tapped = common::act(
-        &format!("{base}/api/secretary/conversations/{id}/proposals/0/tap"),
-        &serde_json::json!({}),
-    );
-    let after = common::body_json(&mut tapped);
-    assert_eq!(common::status(&tapped), 200, "{after}");
-    let said = after.to_string();
+    let tap = || {
+        let mut tapped = common::act(
+            &format!("{base}/api/secretary/conversations/{id}/proposals/0/tap"),
+            &serde_json::json!({}),
+        );
+        let after = common::body_json(&mut tapped);
+        assert_eq!(common::status(&tapped), 200, "{after}");
+        after
+    };
+    let stopped = tap();
+    let said = stopped.to_string();
     assert!(
-        said.contains(&format!("branch secretary/{id}-0 pushed"))
-            && said.contains("no pull request"),
-        "{after}"
+        said.contains(&format!("pushed secretary/{id}-0 ("))
+            && said.contains("stopped opening the pull request"),
+        "{stopped}"
     );
-    assert_ne!(after["proposals"][0]["state"], "unknown", "{after}");
+    assert_eq!(stopped["proposals"][0]["state"], "failed", "{stopped}");
+    std::fs::remove_file(pulls.join("head.lock")).expect("the lock goes");
+    let finished = tap();
+    assert_eq!(finished["proposals"][0]["state"], "acted", "{finished}");
+    assert!(
+        finished.to_string().contains("opened pull request #1"),
+        "{finished}"
+    );
 }

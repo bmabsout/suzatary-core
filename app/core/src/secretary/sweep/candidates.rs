@@ -22,8 +22,10 @@ pub type MessageHash = MailHash;
 pub struct OpenTodo {
     /// The todo's id.
     pub id: TodoId,
-    /// When it was authored, the floor every candidate's message must be strictly after.
-    pub created: Datetime,
+    /// The floor every candidate's message must be strictly after: the start of the day it was
+    /// created, or its latest trusted reopen when that is later, so a reopen stands until mail
+    /// newer than it arrives.
+    pub since: Datetime,
     /// The message it came from; `None` for a todo typed by hand, which then searches only its
     /// referents.
     pub source: Option<Source>,
@@ -71,7 +73,7 @@ pub struct Candidate {
     pub todo: TodoId,
     /// The message it rests on.
     pub message: MessageHash,
-    /// When that message arrived, always strictly after the todo's `created`.
+    /// When that message arrived, always strictly after the todo's `since`.
     pub at: Datetime,
     /// Why it was found.
     pub matched: Match,
@@ -256,7 +258,7 @@ pub fn candidates(
                 };
                 // Never after `now` either: a message a skewed clock dates in the future is not
                 // evidence yet.
-                if at <= todo.created || at > now {
+                if at <= todo.since || at > now {
                     continue;
                 }
                 let Ok(message) = MessageHash::new(row.hash) else {
@@ -305,7 +307,7 @@ mod tests {
     fn open(id: &str, created: Datetime, src: Option<Source>, body: &str) -> OpenTodo {
         OpenTodo {
             id: TodoId::new(id).expect("a valid id"),
-            created,
+            since: created,
             source: src,
             body: MarkupSource::from_chain(body),
         }
@@ -415,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn law2_a_candidates_message_is_named_and_dated_strictly_after_created() {
+    fn law2_a_candidates_message_is_named_and_dated_strictly_after_since() {
         let corpus = FakeCorpus {
             messages: vec![(
                 "bbbbbbbb".into(),
@@ -439,7 +441,7 @@ mod tests {
         assert_eq!(found[0].matched, Match::SameThread);
         assert!(
             found[0].at > created,
-            "a candidate's message must be dated strictly after the todo's `created`"
+            "a candidate's message must be dated strictly after the todo's `since`"
         );
     }
 
