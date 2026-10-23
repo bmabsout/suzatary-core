@@ -40,7 +40,8 @@
 #   scripts/web-e2e.sh list       only web/e2e/list.test.ts
 #   scripts/web-e2e.sh bootbench  only web/e2e/bootbench.bench.ts, a measurement
 #   scripts/web-e2e.sh pagebench  only web/e2e/pagebench.bench.ts, every page measured
-#                                 no gate runs either (`*.bench.ts` is outside every glob)
+#   scripts/web-e2e.sh typstmeasure  only web/e2e/typstmeasure.bench.ts, the Typst list's draw timed
+#                                 no gate runs any of them (`*.bench.ts` is outside every glob)
 #
 # Screenshots of failures land in $SUZATARY_E2E_SHOTS (a temp dir by default);
 # the path is in the failure message. $SUZATARY_SHOTS is the other one — where

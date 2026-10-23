@@ -262,30 +262,23 @@ mod tests {
         }
     }
 
+    /// A local time the zone skips is read with the offset before the jump (2:30 on 2026-03-08
+    /// does not exist in New York; read at -05:00 it is 7:30 UTC), and one it repeats is its first
+    /// reading (1:30 on 2026-11-01 happens twice; the first is at -04:00, 5:30 UTC), in a defined
+    /// zone as in the IANA one.
     #[test]
-    fn a_skipped_hour_is_read_with_the_offset_before_the_jump() {
-        // 2:30 on 2026-03-08 does not exist in New York; read at -05:00 it is 7:30 UTC.
-        assert_eq!(
-            eastern().to_utc(at("2026-03-08 02:30")),
-            at("2026-03-08 07:30")
-        );
-        assert_eq!(
-            Zone::Iana(chrono_tz::America::New_York).to_utc(at("2026-03-08 02:30")),
-            at("2026-03-08 07:30")
-        );
-    }
-
-    #[test]
-    fn a_repeated_hour_is_its_first_reading() {
-        // 1:30 on 2026-11-01 happens twice in New York; the first is at -04:00, 5:30 UTC.
-        assert_eq!(
-            eastern().to_utc(at("2026-11-01 01:30")),
-            at("2026-11-01 05:30")
-        );
-        assert_eq!(
-            Zone::Iana(chrono_tz::America::New_York).to_utc(at("2026-11-01 01:30")),
-            at("2026-11-01 05:30")
-        );
+    fn a_skipped_hour_reads_before_the_jump_and_a_repeated_one_is_its_first() {
+        for (local, utc) in [
+            ("2026-03-08 02:30", "2026-03-08 07:30"),
+            ("2026-11-01 01:30", "2026-11-01 05:30"),
+        ] {
+            assert_eq!(eastern().to_utc(at(local)), at(utc), "{local}");
+            assert_eq!(
+                Zone::Iana(chrono_tz::America::New_York).to_utc(at(local)),
+                at(utc),
+                "{local}"
+            );
+        }
     }
 
     #[test]

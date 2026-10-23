@@ -67,6 +67,7 @@ pub mod tier;
 pub mod tokens;
 pub mod tool;
 pub mod typeset;
+pub mod upload_index;
 pub mod usage;
 pub mod weather;
 pub mod web;

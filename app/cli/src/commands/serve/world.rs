@@ -101,6 +101,7 @@ impl World {
             sync,
             older,
             uploads,
+            upload_index,
             kept,
             configuration,
         } = self.opened.secretary(stores, &self.brain);
@@ -129,6 +130,7 @@ impl World {
             sync,
             older,
             uploads,
+            upload_index,
             kept,
             configuration,
             whois: &self.peers,

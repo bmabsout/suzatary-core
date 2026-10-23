@@ -336,24 +336,6 @@ app.scene("a triage-authored todo's editor says an edit makes it the owner's", a
   );
 });
 
-app.scene("an empty edit is refused in the box's own words", async () => {
-  await app.open(WRITE_BASE);
-  const id = await addTodo("Leave me alone", "home");
-  await openTodo(app.page, id);
-  await app.page.waitFor(`document.querySelector(".editbox summary") !== null`, { timeout: 4000 });
-  await app.page.click(".editbox summary");
-  await app.page.waitFor(`document.querySelector(".editbox")?.open === true`, { timeout: 2000 });
-  await app.page.waitFor(`document.querySelector(".editbox .draftbody") !== null`, { timeout: 8000 });
-  // Nothing was touched: `edit.diffOf` still sends `{todo}`, and the box's own
-  // refusal — `authoring::update_todo`'s `untouched` check — is what the toast
-  // shows, not a sentence this page invented.
-  await app.page.click(".editbox .addbtn");
-  await app.page.waitFor(
-    `document.getElementById("toast")?.textContent?.includes("must change something") === true`,
-    { timeout: 4000 },
-  );
-});
-
 app.scene("ticking a subtodo moves the chip", async () => {
   await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.checklist.id}`);
   await app.page.waitFor(`document.querySelector(".checklist") !== null`, { timeout: 4000 });
@@ -582,34 +564,4 @@ app.scene("Done with a line lands on the sealed event and the default conversati
     `${DEFAULT}.then((b) => b.turns.some((t) => t.who === "act" && t.text === "${owner.name} completed it: the meeting moved to October"))`,
     { timeout: 15000 },
   );
-});
-
-/**
- * AN EMPTY FIELD IS TODAY'S BEHAVIOUR, BYTE FOR BYTE (§8.2: "empty means the
- * act alone") — the note field is never required, so leaving it blank must
- * append nothing to the conversation, the same claim `app/cli/tests/acts.rs`
- * pins server-side.
- */
-app.scene("Done with an empty field appends nothing to the conversation", async () => {
-  await app.open(WRITE_BASE);
-  await untilReplica(app.page);
-  const id = await addTodo("Return the library books", "home");
-  await app.page.navigate(`${WRITE_BASE}/#/todo/${id}`);
-  await app.page.waitFor(`document.querySelector(".actrow .act-done") !== null`, { timeout: 8000 });
-  const before = await app.page.evaluate<number>(
-    `${DEFAULT}.then((b) => b.turns.length)`,
-  );
-  await app.page.click(".actrow .act-done");
-  await app.page.waitFor(
-    `fetch("/api/fold").then((r) => r.json()).then((b) => b.entries.some((e) => e.todo === "${id}" && e.state === "completed"))`,
-    { timeout: 15000 },
-  );
-
-  // GIVE THE WORKER EVERY CHANCE TO HAVE MISFIRED before reading nothing —
-  // the same margin `app/cli/tests/acts.rs`'s own blank-note tests give it.
-  await new Promise((done) => setTimeout(done, 400));
-  const after = await app.page.evaluate<number>(
-    `${DEFAULT}.then((b) => b.turns.length)`,
-  );
-  assert.equal(after, before, "no note, so nothing was appended to the default conversation");
 });

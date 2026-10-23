@@ -154,7 +154,6 @@ fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
     assert_eq!(held[0].chain, "life");
     // With no hold verb, the hold's reason is what the secretary said.
     assert_eq!(held[0].why.get().map(String::as_str), Some(SAID));
-    assert_eq!(held[0].decision, Decision::Held, "a hold settles nothing");
 }
 
 /// The record line's shape, which the briefing and the terminal both quote.

@@ -60,16 +60,26 @@ const openPackBags = async (): Promise<void> => {
   await app.page.waitFor(`document.querySelectorAll(".todoview .rich a").length >= 2`, { timeout: 20000 });
 };
 
-app.scene("a todo: link becomes a hash into this app, and carries no target", async () => {
+app.scene("a todo: link becomes a hash into this app, and an outbound one leaves with noopener noreferrer", async () => {
   await app.resize(DESKTOP);
   await openPackBags();
-  const link = await anchorBy("the flight");
-  assert.ok(link !== null, "the rendered detail should carry the todo: anchor");
-  assert.equal(link.href, `#/todo/${todos.flat.id}`, "a todo: link must be rewritten to the in-app hash");
+  const inward = await anchorBy("the flight");
+  assert.ok(inward !== null, "the rendered detail should carry the todo: anchor");
+  assert.equal(inward.href, `#/todo/${todos.flat.id}`, "a todo: link must be rewritten to the in-app hash");
   // A new tab for a link INTO this app would leave the reader with two copies
   // of the same tab and a Back button that does nothing.
-  assert.equal(link.target, "", "an in-app link must not open a new tab");
-  assert.ok(link.cls.split(/\s+/).includes("todolink"), "the rewritten anchor is marked, so the stylesheet can say so");
+  assert.equal(inward.target, "", "an in-app link must not open a new tab");
+  assert.ok(inward.cls.split(/\s+/).includes("todolink"), "the rewritten anchor is marked, so the stylesheet can say so");
+
+  const outward = await anchorBy("airline");
+  assert.ok(outward !== null, "the rendered detail should carry the outbound anchor");
+  assert.equal(outward.href, "https://example.invalid/baggage", "an outbound href is left exactly as typst wrote it");
+  // `noopener` is the one that matters: without it the opened page holds a
+  // `window.opener` handle onto this one and can navigate it. `noreferrer`
+  // rides along because every string on this page came out of mail.
+  assert.equal(outward.rel, "noopener noreferrer");
+  assert.equal(outward.target, "_blank");
+  assert.ok(!outward.cls.split(/\s+/).includes("todolink"), "an outbound link is not an in-app one");
 });
 
 app.scene("that hash is real: following it opens the todo it names", async () => {
@@ -80,18 +90,4 @@ app.scene("that hash is real: following it opens the todo it names", async () =>
   );
   await app.page.waitFor(`window.location.hash === "#/todo/${todos.flat.id}"`);
   await app.page.waitFor(`document.querySelector(".todoview .todoid")?.textContent === "${todos.flat.id}"`);
-});
-
-app.scene("an outbound link leaves with noopener noreferrer, in a new tab", async () => {
-  await app.resize(DESKTOP);
-  await openPackBags();
-  const link = await anchorBy("airline");
-  assert.ok(link !== null, "the rendered detail should carry the outbound anchor");
-  assert.equal(link.href, "https://example.invalid/baggage", "an outbound href is left exactly as typst wrote it");
-  // `noopener` is the one that matters: without it the opened page holds a
-  // `window.opener` handle onto this one and can navigate it. `noreferrer`
-  // rides along because every string on this page came out of mail.
-  assert.equal(link.rel, "noopener noreferrer");
-  assert.equal(link.target, "_blank");
-  assert.ok(!link.cls.split(/\s+/).includes("todolink"), "an outbound link is not an in-app one");
 });

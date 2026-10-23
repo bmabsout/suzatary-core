@@ -264,6 +264,19 @@ pub fn erase(
         .with_cards(|caps, cards| {
             secretary_routes::erase(caps, cards, &call.guard, &call.params, &call.body)
         })
+        .inspect(|_| {
+            // The erased turns' uploads leave the index now, not at the next search.
+            let caps = call.chain.caps;
+            if let Err(failed) = suzatary_core::secretary::file_search::reindex(
+                caps.conversations,
+                caps.upload_index,
+            ) {
+                tracing::warn!(
+                    "secretary: reindexing the uploads after an erasure: {}",
+                    failed.message()
+                );
+            }
+        })
         .map(Json)
 }
 

@@ -1216,7 +1216,7 @@ pub fn releases(
             .map(|release| wire::ReleaseRow {
                 todo: release.todo.as_str().to_owned(),
                 held: held_todo(&release.todo),
-                major: release.major,
+                version: release.version.to_string(),
                 lot: release.lot,
                 place: release.place,
                 items: release
@@ -1225,7 +1225,7 @@ pub fn releases(
                     .map(|item| wire::ReleaseItem {
                         todo: item.todo.as_str().to_owned(),
                         held: held_todo(&item.todo),
-                        standing: item.standing(release.place),
+                        lot: item.lot,
                         named: item.named,
                     })
                     .collect(),

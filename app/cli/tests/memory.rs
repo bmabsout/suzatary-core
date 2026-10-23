@@ -77,7 +77,7 @@ fn his_clean_round_remembers_at_once() {
     );
     let (id, payload) = said(&base, "I moved to Oslo, remember that");
     let turn = verb_turn(&payload, "remember");
-    assert_eq!(turn["refused"], false, "{turn}");
+    assert_eq!(turn["outcome"]["is"], "remembered", "{turn}");
     assert!(
         turn["text"]
             .as_str()
@@ -97,7 +97,7 @@ fn his_clean_round_remembers_at_once() {
         "a clean round writes, it does not ask"
     );
     assert_eq!(
-        turn["remembered"],
+        turn["outcome"]["receipt"],
         serde_json::json!({"state": "standing", "fact": 1, "text": "Ada moved to Oslo in September"}),
         "the receipt line rides on the verb's own turn"
     );
@@ -136,7 +136,7 @@ fn his_clean_round_remembers_at_once() {
     );
     let after = settled(&base, &id);
     assert_eq!(
-        verb_turn(&after, "remember")["remembered"],
+        verb_turn(&after, "remember")["outcome"]["receipt"],
         serde_json::json!({"state": "forgotten", "fact": 1}),
         "a forgotten fact's receipt says so, never what it said"
     );
@@ -267,7 +267,7 @@ fn a_forgotten_facts_words_are_left_nowhere() {
         .base;
     let (id, payload) = said(&base, "remember where I parked");
     assert_eq!(
-        verb_turn(&payload, "remember")["remembered"],
+        verb_turn(&payload, "remember")["outcome"]["receipt"],
         serde_json::json!({"state": "standing", "fact": 1, "text": words}),
     );
     let answer = verb_turn(&payload, "remember")["text"]
@@ -292,7 +292,7 @@ fn a_forgotten_facts_words_are_left_nowhere() {
     erased_by_forgetting(&fakes, &id, words);
     let drawn = settled(&base, &id);
     assert_eq!(
-        verb_turn(&drawn, "remember")["remembered"],
+        verb_turn(&drawn, "remember")["outcome"]["receipt"],
         serde_json::json!({"state": "forgotten", "fact": 1}),
     );
     assert!(!drawn.to_string().contains(words), "{drawn}");

@@ -42,10 +42,12 @@ mod repo_grep;
 mod repo_read;
 mod repo_tree;
 mod repos_list;
+mod search;
 mod search_older;
 mod sync_mail;
 mod todo_add;
 mod todo_update;
+mod upload_read;
 mod weather;
 mod web;
 mod withdraw_proposal;
@@ -61,8 +63,6 @@ pub type History = verbs::History<SecretarySurface, verbs::HistoryArgs>;
 pub type ListOpenTodos = verbs::ListOpenTodos<SecretarySurface>;
 /// A todo's lifecycle event, as the trusted assistant.
 pub type Record = verbs::Record<SecretarySurface, verbs::RecordArgsNullNote>;
-/// Search the mail.
-pub type Search = verbs::Search<SecretarySurface>;
 /// One message in full, never paged.
 pub type Show = verbs::Show<SecretarySurface, verbs::WholeArgs>;
 /// One todo as the chain holds it.
@@ -93,10 +93,12 @@ pub use repo_grep::RepoGrep;
 pub use repo_read::RepoRead;
 pub use repo_tree::RepoTree;
 pub use repos_list::ReposList;
+pub use search::Search;
 pub use search_older::SearchOlder;
 pub use sync_mail::SyncMail;
 pub use todo_add::TodoAdd;
 pub use todo_update::TodoUpdate;
+pub use upload_read::UploadRead;
 pub use weather::Weather;
 pub use web::Web;
 pub use withdraw_proposal::WithdrawProposal;

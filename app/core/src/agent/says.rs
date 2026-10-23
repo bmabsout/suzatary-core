@@ -13,8 +13,6 @@ pub struct Says {
     pub todo_show: &'static str,
     /// `show`.
     pub show: &'static str,
-    /// `search`.
-    pub search: &'static str,
     /// `record`.
     pub record: &'static str,
 }

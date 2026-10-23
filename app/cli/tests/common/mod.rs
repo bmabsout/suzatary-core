@@ -2161,6 +2161,8 @@ pub struct Fakes {
     pub junk: FakeJunk,
     /// The owner's uploads.
     pub files: FakeFiles,
+    /// The upload index, over the upload store the server's upload route writes.
+    pub upload_index: suzatary_io::upload_index::UploadIndexFiles,
     /// The secretary's conversation store.
     pub conversations: Conversations,
     /// Every answer block an erasure emptied from the render cache, by source.
@@ -2259,6 +2261,10 @@ impl Fakes {
             drive: FakeDriveAccess::default(),
             junk: FakeJunk::default(),
             files: FakeFiles::default(),
+            upload_index: suzatary_io::upload_index::UploadIndexFiles::new(
+                root.join("secretary/upload-index"),
+                upload_store(&root),
+            ),
             conversations: Conversations::open(
                 root.join("secretary-lines"),
                 root.join("secretary-lines-keys"),
@@ -2451,6 +2457,7 @@ impl Fakes {
             sync: &suzatary_core::capability::Nothing,
             older: &suzatary_core::capability::Nothing,
             uploads: &self.files,
+            upload_index: &self.upload_index,
             kept: &self.files,
             configuration: self.configuration.as_ref(),
             whois: &self.whois,
@@ -3180,14 +3187,8 @@ impl Server {
         .with_pairings(pairings.clone())
         .with_requests(requests.clone())
         .with_wall(stamped)
-        // A scratch store per server, named by its port so two never share one.
-        .with_uploads(
-            suzatary_io::attachments::AttachmentStore::new(
-                std::env::temp_dir().join(format!("suzatary-test-uploads-{}", address.port())),
-                suzatary_io::pdftotext::Pdftotext::new("."),
-            ),
-            vault.clone(),
-        );
+        // The store the fakes' upload index reads, under their scratch root.
+        .with_uploads(upload_store(&held.root), vault.clone());
         let state = match grants {
             Some(tokens) => state.with_grants(tokens),
             None => state,
@@ -3264,6 +3265,14 @@ fn stamped() -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::parse_from_rfc3339(STAMPED)
         .expect("an instant")
         .with_timezone(&chrono::Utc)
+}
+
+/// The owner's uploads under a scratch root, as the instance lays them out.
+fn upload_store(root: &std::path::Path) -> suzatary_io::attachments::AttachmentStore {
+    suzatary_io::attachments::AttachmentStore::new(
+        root.join("secretary/attachments"),
+        suzatary_io::pdftotext::Pdftotext::new("."),
+    )
 }
 
 /// Where a tapped document is kept for the model, under the scene's own root.
@@ -4183,12 +4192,12 @@ pub fn searching(
         .map(|found| serde_json::to_value(found).expect("a payload prints"))
 }
 
-/// No file under `root` holds `value`, but the device token a phone registers, which is that
-/// route's datum and not a secret's value.
+/// No file under `root` holds `value`, but the device token a phone registers and the bytes of
+/// a file the owner uploads, each that route's datum and not a secret's value.
 pub fn never_stored(root: &std::path::Path, value: &str) {
     for entry in std::fs::read_dir(root).expect("the store's root") {
         let path = entry.expect("an entry").path();
-        if path.ends_with("devices") {
+        if path.ends_with("devices") || path.ends_with("secretary/attachments") {
             continue;
         }
         if path.is_dir() {

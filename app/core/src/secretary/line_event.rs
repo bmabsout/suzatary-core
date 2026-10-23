@@ -4,7 +4,7 @@
 //! A line is `Kind(conversation, at, actor, held, carried, <shape fields>, words)`: the head every
 //! line has, the shape of its kind ([`LineShape`]), and `words`, one `Locked(key, box)` per slot,
 //! the key's name and the ciphertext in base64. Each slot's associated data is the line's own
-//! print without its words and with the slot's number ([`LineSlot`]), so a ciphertext moved to
+//! print without its words and with the slot's number (`LineSlot`), so a ciphertext moved to
 //! another slot, line or store does not open. Every line writes its conversation's one register,
 //! the transcript, so a line rests on the lines its writer held and the lines are causally
 //! ordered. Nothing in an object is words: the redaction door is applied to the words before they
@@ -49,7 +49,7 @@ pub struct LineEvent {
 /// One slot of one line, as its words are bound: the line's print without its words, and the
 /// slot's number.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LineSlot(Vec<u8>);
+struct LineSlot(Vec<u8>);
 
 impl Shape for LineSlot {
     type Words = LineWords;
@@ -57,15 +57,6 @@ impl Shape for LineSlot {
     fn print(&self) -> Vec<u8> {
         self.0.clone()
     }
-}
-
-/// How [`LineEvent::carried_as`] carries one slot of words.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Carry {
-    /// Its words, opened: locked again under a fresh key.
-    Words(LineWords),
-    /// Its words as stored, whose key is gone or is named by an erasure: no key is drawn for them.
-    Sealed,
 }
 
 /// An entry that cannot be a stored line.
@@ -142,42 +133,6 @@ impl LineEvent {
         }
     }
 
-    /// This line as a migration carries it: from `carried`, each slot as `slot` says, its words
-    /// locked again under a key drawn from `entropy` and bound to the carried line, or kept as
-    /// stored, which that binding no longer opens. The keys that open the new locks are the only
-    /// thing to keep.
-    ///
-    /// # Errors
-    /// [`NotALine`] for words the door refuses, or no key.
-    pub fn carried_as(
-        &self,
-        carried: Carried,
-        slot: impl Fn(usize, &Locked<LineSlot>) -> Carry,
-        entropy: &dyn Entropy,
-    ) -> Result<(Self, Vec<TextKey>), NotALine> {
-        let mut line = Self {
-            carried,
-            words: Vec::new(),
-            ..self.clone()
-        };
-        let mut keys = Vec::new();
-        for (index, stored) in self.words.iter().enumerate() {
-            line.words.push(match slot(index, stored) {
-                Carry::Sealed => stored.clone(),
-                Carry::Words(words) => {
-                    let words = words
-                        .scrubbed()
-                        .map_err(|failed| NotALine::Unscrubbable(failed.to_string()))?;
-                    let key = FreshKey::draw(entropy).map_err(NotALine::NoKey)?;
-                    let (locked, opens) = Locked::lock(&line.slot(index), &words, key);
-                    keys.push(opens);
-                    locked
-                }
-            });
-        }
-        Ok((line, keys))
-    }
-
     /// The conversation.
     #[must_use]
     pub fn conversation(&self) -> &ConversationId {
@@ -211,12 +166,6 @@ impl LineEvent {
     /// The name of each slot's key, in slot order.
     pub fn keys(&self) -> impl Iterator<Item = &KeyName> {
         self.words.iter().map(Locked::key)
-    }
-
-    /// Slot `slot`'s words as locked.
-    #[must_use]
-    pub fn locked(&self, slot: usize) -> Option<&Locked<LineSlot>> {
-        self.words.get(slot)
     }
 
     /// Slot `slot`'s words, opened by `key`; `None` for a slot the line does not hold or a key
@@ -651,33 +600,15 @@ const LINES: &[Signature] = &[
     ERASED,
 ];
 
-/// The lines' whitelist: every line's constructor, and `Locked`.
-const SIGNATURES: &[Signature] = &[
-    OPENED,
-    TITLED,
-    SAID,
-    PROPOSED,
-    REVIEWED,
-    REVIEW_FAILED,
-    STOPPED,
-    REWOUND,
-    MEMORY_SEEN,
-    SESSION,
-    UNHEARD,
-    KEPT,
-    SCOPED,
-    CODING,
-    ERASED,
-    LOCKED,
-];
-
 /// The lines' whitelist: their constructors and `Locked`, nothing else.
 #[derive(Debug, Clone, Default)]
 pub struct LineVocabulary;
 
 impl Vocabulary for LineVocabulary {
     fn signature(&self, name: &str) -> Option<prodrome_core::literal::Signature<'_>> {
-        Table(SIGNATURES).find(name)
+        Table(LINES)
+            .find(name)
+            .or_else(|| Table(&[LOCKED]).find(name))
     }
 }
 
@@ -842,38 +773,6 @@ mod tests {
         assert_eq!(read.entry(&opened_by(&keys)), model());
     }
 
-    /// A carried line names the object it replaced; a slot that opened is locked again under a
-    /// fresh key and bound to the carried line, and a sealed slot is kept byte for byte, which
-    /// the new binding no longer opens.
-    #[test]
-    fn a_carried_line_relocks_what_opened_and_keeps_what_was_sealed() {
-        let (line, keys) = written(&model());
-        let from = prodrome_core::event::Hash::new("ab".repeat(32)).expect("a name");
-        let prose = line.open(0, &keys[0]).expect("the prose opens");
-        let (carried, fresh) = line
-            .carried_as(
-                Carried::From(from.clone()),
-                |slot, _| match slot {
-                    0 => Carry::Words(prose.clone()),
-                    _ => Carry::Sealed,
-                },
-                &Counting(AtomicU8::new(100)),
-            )
-            .expect("carried");
-        assert_eq!(carried.carried(), &Carried::From(from));
-        assert_eq!(fresh.len(), 1, "a key drawn for the slot that opened alone");
-        assert_ne!(
-            carried.locked(0).map(Locked::key),
-            line.locked(0).map(Locked::key)
-        );
-        assert_eq!(carried.open(0, &fresh[0]), Some(prose));
-        assert_eq!(line.open(0, &fresh[0]), None);
-        assert_eq!(carried.locked(1), line.locked(1));
-        assert_eq!(carried.open(1, &keys[1]), None, "bound to the line it was");
-        let read: LineEvent = parse_event(&LineVocabulary, &canonical(&carried)).expect("parses");
-        assert_eq!(read, carried);
-    }
-
     /// A line's instant is the entry's, to the microsecond: nothing about an instant is
     /// refused on the way in, and it reads back as the same value.
     #[test]
@@ -919,7 +818,7 @@ mod tests {
             &Counting::default(),
         )
         .expect("a line");
-        let moved = line.locked(0).expect("a slot");
+        let moved = &line.words[0];
         assert!(
             moved.open(&other.slot(0), &keys[0]).is_none(),
             "another line"
@@ -1009,6 +908,7 @@ mod tests {
 
     #[test]
     fn no_constructor_is_a_term_or_an_envelope() {
-        crate::literal::assert_own(SIGNATURES);
+        crate::literal::assert_own(LINES);
+        crate::literal::assert_own(&[LOCKED]);
     }
 }

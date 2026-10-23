@@ -56,6 +56,16 @@ fn say(base: &str, id: &str, text: &str) -> ureq::http::Response<ureq::Body> {
     )
 }
 
+/// Whether `say`'s own answer shows the person turn `text` as queued: the answer is built before
+/// the worker is nudged, so this reads no race.
+fn queued(answer: &mut ureq::http::Response<ureq::Body>, text: &str) -> bool {
+    common::body_json(answer)["conversation"]["turns"]
+        .as_array()
+        .expect("turns")
+        .iter()
+        .any(|turn| turn["who"] == "person" && turn["text"] == text && turn["queued"] == true)
+}
+
 /// The conversation once the box says nobody is answering.
 fn settled(base: &str, id: &str) -> serde_json::Value {
     for _ in 0..400 {
@@ -81,15 +91,23 @@ fn two_says_in_one_turn_are_one_exchange() {
     );
     let id = open(&base);
 
-    let first = say(&base, &id, "first");
+    let mut first = say(&base, &id, "first");
     assert_eq!(common::status(&first), 202);
+    assert!(
+        queued(&mut first, "first"),
+        "the turn just appended is queued in its own answer"
+    );
     gate.wait_until_entered();
 
-    let second = say(&base, &id, "second");
+    let mut second = say(&base, &id, "second");
     assert_eq!(
         common::status(&second),
         202,
         "the worker is nudged, not raced"
+    );
+    assert!(
+        queued(&mut second, "second"),
+        "sent before the first settles, and queued too"
     );
     gate.release();
 

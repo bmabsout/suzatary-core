@@ -57,8 +57,6 @@ impl Holds for TriageSurface {
         — pass `part` (2, 3, …) for the rest. Never guess at what a cut part left \
         out; ask for the next one. `links` and every header travel whole on every \
         part.",
-        search: "Any notmuch query, newest first. Use to check for prior \
-        related threads before deciding a disposition (e.g. `from:sender@example.com`).",
         record: "Record a lifecycle event for a todo onto the append-only chain. This is \
         your ONLY write to history. kind is 'completed', 'cancelled', \
         'reopened', or 'tended' (no 'created' — todo authoring lives in the \

@@ -430,16 +430,16 @@ secretary history [todo mistyped] refused 400: todo must be a string
 secretary history [todo garbled] answered "(no events for todo '?')"
 secretary history [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary history [chain mistyped] refused 400: chain must be a string or null
-secretary search [valid] answered []
-secretary search [limit given] answered []
-secretary search [limit null] answered []
+secretary search [valid] answered {"files":{"not_searched":"`from:` is a field of mail, which a file does not have"},"mail":[]}
+secretary search [limit given] answered {"files":{"not_searched":"`from:` is a field of mail, which a file does not have"},"mail":[]}
+secretary search [limit null] answered {"files":{"not_searched":"`from:` is a field of mail, which a file does not have"},"mail":[]}
 secretary search [limit mistyped] refused 400: limit must be a whole number or null
 secretary search [limit negative] refused 400: limit must be a whole number that is not negative
 secretary search [limit fractional] refused 400: limit must be a whole number that is not negative
 secretary search [query missing] refused 400: query is required
 secretary search [query null] refused 400: query is required
 secretary search [query mistyped] refused 400: query must be a string
-secretary search [query garbled] answered []
+secretary search [query garbled] answered {"files":{"not_searched":"the query holds no word a file could match"},"mail":[]}
 secretary search [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary search [chain mistyped] refused 400: chain must be a string or null
 secretary show [valid] answered {"gone":"this email is no longer stored","id":"abcdef123456"}
@@ -460,6 +460,13 @@ secretary attachments [name mistyped] refused 400: name must be a string or null
 secretary attachments [name garbled] refused 404: the local corpus holds no attachment "?"
 secretary attachments [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary attachments [chain mistyped] refused 400: chain must be a string or null
+secretary upload_read [valid] refused 404: no live turn sent file 0000000000000000000000000000000000000000000000000000000000000000: it was erased, or never sent in a chat
+secretary upload_read [file missing] refused 400: file is required
+secretary upload_read [file null] refused 400: file is required
+secretary upload_read [file mistyped] refused 400: file must be a string
+secretary upload_read [file garbled] refused 400: file is a `files` row's id: 64 hex digits
+secretary upload_read [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
+secretary upload_read [chain mistyped] refused 400: chain must be a string or null
 secretary sync_mail [valid] answered {"accounts":[{"account":"a@b.test","outcome":"succeeded","tail":"Sent: 1 new"}],"at":"2026-09-06T23:59:30","notmuch":"Added 1 new message.","sync":"fresh"}
 secretary sync_mail [account given] answered {"accounts":[{"account":"a@b.test","outcome":"succeeded","tail":"Sent: 1 new"}],"at":"2026-09-06T23:59:30","notmuch":"Added 1 new message.","sync":"fresh"}
 secretary sync_mail [account null] answered {"accounts":[{"account":"a@b.test","outcome":"succeeded","tail":"Sent: 1 new"}],"at":"2026-09-06T23:59:30","notmuch":"Added 1 new message.","sync":"fresh"}
@@ -1203,4 +1210,4 @@ secretary proposals_reject [why mistyped] refused 400: why must be a string
 secretary proposals_reject [why garbled] refused 404: no proposal named '0000000000000000000000000000000000000000000000000000000000000000'
 secretary proposals_reject [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary proposals_reject [chain mistyped] refused 400: chain must be a string or null
-secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, sync_mail, search_older, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, proposals_list, proposals_accept, proposals_reject
+secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, upload_read, sync_mail, search_older, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, proposals_list, proposals_accept, proposals_reject

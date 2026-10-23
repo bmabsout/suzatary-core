@@ -1242,7 +1242,7 @@ fn the_secretary_files_a_connect_card_and_the_tap_adds_the_calendar() {
     // A round of its own, since a round holding an earlier proposal's answer proposes none.
     let again = said(&served.base, &topic(&served), "add my Work calendar again");
     let refused = proposing(&again);
-    assert_eq!(refused["refused"], true, "{refused}");
+    assert_eq!(refused["outcome"]["is"], "refused", "{refused}");
     assert!(
         refused["text"]
             .as_str()
@@ -1282,7 +1282,7 @@ fn a_round_that_read_mail_proposes_no_connect_card() {
         "{payload}"
     );
     let refused = proposing(&payload);
-    assert_eq!(refused["refused"], true, "{refused}");
+    assert_eq!(refused["outcome"]["is"], "refused", "{refused}");
     let text = refused["text"].as_str().expect("text");
     assert!(text.contains("not the owner's own words"), "{refused}");
     assert!(

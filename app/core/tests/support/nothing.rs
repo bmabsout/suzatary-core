@@ -92,6 +92,7 @@ impl Nothing {
             sync: &Nothing,
             older: &Nothing,
             uploads: &Nothing,
+            upload_index: &Nothing,
             kept: &Nothing,
             configuration: &Nothing,
         }
@@ -137,6 +138,7 @@ impl Nothing {
             sync: &Nothing,
             older: &Nothing,
             uploads: &Nothing,
+            upload_index: &Nothing,
             kept: &Nothing,
             configuration: &Nothing,
             whois: &Nothing,
@@ -612,6 +614,35 @@ impl crate::capability::OlderMail for Nothing {
                 ),
             })
             .collect()
+    }
+}
+
+impl crate::capability::UploadIndex for Nothing {
+    fn refresh(
+        &self,
+        named: &std::collections::BTreeSet<crate::attachment::AttachmentId>,
+    ) -> Result<
+        std::collections::BTreeMap<
+            crate::attachment::AttachmentId,
+            crate::secretary::upload_standing::UploadStanding,
+        >,
+        crate::capability::IndexError,
+    > {
+        Ok(named
+            .iter()
+            .map(|id| {
+                (
+                    id.clone(),
+                    crate::secretary::upload_standing::UploadStanding::Erased,
+                )
+            })
+            .collect())
+    }
+    fn open(
+        &self,
+        _id: &crate::attachment::AttachmentId,
+    ) -> Result<Option<crate::file_read::FileRead>, crate::capability::IndexError> {
+        Ok(None)
     }
 }
 

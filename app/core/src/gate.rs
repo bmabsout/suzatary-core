@@ -341,23 +341,14 @@ mod tests {
         assert_eq!(refused.message(), "not a viewer of this app");
     }
 
-    /// An unresolved peer and an unreachable daemon are both refused.
+    /// A peer whois names no one at is refused: an unresolved peer, an unreachable daemon, and
+    /// loopback, which is an address and not an identity, so a proxy on this box (`tailscale
+    /// serve`, a funnel) reads nothing.
     #[test]
-    fn an_unresolved_peer_and_a_dead_daemon_are_both_refusals() {
+    fn a_peer_whois_names_no_one_at_is_refused() {
         let deployed = deployment();
-        for address in ["100.64.0.3", "203.0.113.9"] {
+        for address in ["100.64.0.3", "203.0.113.9", "127.0.0.1", "::1"] {
             let refused = admit(&Daemon, &deployed, address).expect_err("nameless is refused");
-            assert_eq!(refused.status().code(), 403);
-        }
-    }
-
-    /// Loopback is an address, not an identity: a daemon that names no one there refuses it, so a
-    /// proxy on this box (`tailscale serve`, a funnel) reads nothing.
-    #[test]
-    fn loopback_is_refused_unless_whois_names_it() {
-        let deployed = deployment();
-        for address in ["127.0.0.1", "::1"] {
-            let refused = admit(&Daemon, &deployed, address).expect_err("nameless");
             assert_eq!(refused.status().code(), 403, "{address}");
         }
     }

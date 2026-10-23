@@ -1,6 +1,6 @@
-//! The version as a reading of the project chain (`suzatary_core::release`): a function of the
-//! set of objects, monotone in the objects and in the instant, moved to a new major by a
-//! release's completion; and the step from one release to the next always climbs.
+//! The version as a reading of the project chain (`suzatary_core::release`): the last completed
+//! release's `major.minor`, a function of the set of objects, monotone in the objects and in the
+//! instant, and moved by releases alone; and the step from one release to the next always climbs.
 
 use prodrome_core::event::{Actor, TodoId};
 use prodrome_core::event::{Hash, mk_cancelled, mk_completed, mk_reopened, mk_spec_revised};
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use suzatary_core::record::TodoEvent;
 use suzatary_core::release::{
     Completed, Completes, Counted, Lot, Named, Place, Plan, PlanError, Reading, Release, Released,
-    Standing, Version,
+    Version,
 };
 
 const OWNER: &str = "owner";
@@ -33,24 +33,22 @@ fn todo(id: &str) -> TodoId {
     TodoId::new(id).expect("a todo id")
 }
 
+fn release(id: &str, major: u32, minor: u32) -> Release {
+    Release {
+        todo: todo(id),
+        version: Counted { major, minor },
+    }
+}
+
 /// 2.0, 2.1 and 3.0, on the chain `suzatary`, from 1.
 fn plan() -> Plan {
     Plan::new(
         "suzatary",
         1,
         vec![
-            Release {
-                todo: todo("two"),
-                major: 2,
-            },
-            Release {
-                todo: todo("twoone"),
-                major: 2,
-            },
-            Release {
-                todo: todo("three"),
-                major: 3,
-            },
+            release("two", 2, 0),
+            release("twoone", 2, 1),
+            release("three", 3, 0),
         ],
     )
     .expect("a plan")
@@ -202,20 +200,25 @@ proptest! {
         prop_assert!(read(&objects, day(early)).counted <= read(&objects, day(late)).counted);
     }
 
-    /// Completing a release moves MAJOR to at least its major.
+    /// The version is the greatest version of a completed release, `1.0` before any: a
+    /// release's completion moves it, and an item's never does.
     #[test]
-    fn completing_a_release_moves_the_major(objects in history(), r in 0..3usize) {
-        let before = read(&objects, day(40)).counted;
-        let mut after = objects.clone();
-        after.push((Hash::new(format!("{:064x}", 999)).expect("a name"),
-            mk_completed(RELEASES[r], day(31), OWNER, "").expect("an event")));
-        let read_after = read(&after, day(40)).counted;
-        let major = plan().releases()[r].major;
-        prop_assert!(read_after.major >= major);
-        prop_assert!(read_after >= before);
-        if major > before.major {
-            prop_assert!(read_after.major > before.major);
-        }
+    fn the_version_is_the_last_completed_release(objects in history()) {
+        let reading = read(&objects, day(40));
+        let completed = reading
+            .releases
+            .iter()
+            .filter(|r| r.lot == Lot::Completed)
+            .map(|r| r.version)
+            .max()
+            .unwrap_or(Counted { major: 1, minor: 0 });
+        prop_assert_eq!(reading.counted, completed);
+        let releases_only: Vec<_> = objects
+            .iter()
+            .filter(|(_, e)| RELEASES.contains(&e.todo().as_str()))
+            .cloned()
+            .collect();
+        prop_assert_eq!(reading.counted, read(&releases_only, day(40)).counted);
     }
 
     /// What the agent writes binds nothing until the owner confirms it, so it moves no version.
@@ -250,170 +253,47 @@ proptest! {
     }
 }
 
-/// The items `suzatarytwo` composed on 2026-09-28.
-const TWO: [&str; 15] = [
-    "prodromemain",
-    "changeidentity",
-    "stagingoverlay",
-    "prodromesets",
-    "durablestore",
-    "scheduletype",
-    "typedverbs",
-    "wireonce",
-    "teststrust",
-    "portsuites",
-    "instancesplit",
-    "onboarding",
-    "decisionitems",
-    "cleanuppasses",
-    "finalizepublic",
-];
-
-/// Its items still open on 2026-10-12.
-const OPEN: [&str; 4] = [
-    "portsuites",
-    "onboarding",
-    "cleanuppasses",
-    "finalizepublic",
-];
-
-/// `objects`, each named by its place, read for the project's plan.
-fn project(objects: &[TodoEvent]) -> Reading {
-    let plan = Plan::new(
-        "suzatary",
-        1,
-        vec![
-            Release {
-                todo: todo("suzatarytwo"),
-                major: 2,
-            },
-            Release {
-                todo: todo("suzatarytwoone"),
-                major: 2,
-            },
-        ],
-    )
-    .expect("a plan");
-    let named: Vec<(Hash, TodoEvent)> = objects
-        .iter()
-        .enumerate()
-        .map(|(n, e)| (Hash::new(format!("{n:064x}")).expect("a name"), e.clone()))
-        .collect();
-    let events = bound(&named);
-    Reading::of(
-        &plan,
-        events.iter().copied(),
-        day(60),
-        &current(&events, day(60)),
-    )
-}
-
-/// The project chain as the operator described it on 2026-10-12: `suzatarytwo` composing
-/// fifteen items from 2026-09-28, ten completed, `instancesplit` cancelled, four open.
+/// The project's own plan: the tags end at 2.1.2, read before 2.1 completed while items moved
+/// the minor. The train that completes `suzatarytwoone` reads 2.1, so it is 2.1.3, whatever its
+/// items; completing 2.2 then reads 2.2.0.
 #[test]
-fn the_project_chain_reads_one_ten() {
-    let items = TWO;
-    let reading = project;
+fn completing_two_one_after_two_one_two_is_two_one_three() {
+    let plan = Plan::declared().expect("app/core/releases.toml reads");
+    let reading =
+        |objects: &[TodoEvent]| Reading::of(&plan, objects, day(60), &BTreeMap::new()).counted;
+    let last = Version {
+        major: 2,
+        minor: 1,
+        patch: 2,
+    };
     let mut objects = vec![
-        mk_spec_revised("suzatarytwo", day(27), OWNER, composes(&items), "").expect("an event"),
-    ];
-    for item in items {
-        if item == "instancesplit" {
-            objects.push(mk_cancelled(item, day(32), OWNER, "superseded").expect("an event"));
-        } else if !OPEN.contains(&item) {
-            objects.push(mk_completed(item, day(33), OWNER, "").expect("an event"));
-        }
-    }
-
-    let now = reading(&objects);
-    assert_eq!(
-        now.counted,
-        Counted {
-            major: 1,
-            minor: 10
-        }
-    );
-    let two = &now.releases[0];
-    assert_eq!(two.place, Place::Next);
-    assert_eq!(
-        two.items
-            .iter()
-            .find(|i| i.todo.as_str() == "instancesplit")
-            .map(|i| i.standing(two.place)),
-        Some(Standing::Cancelled)
-    );
-
-    // The operator narrows 2.0: onboarding moves to a later release. A dropped item stays an
-    // item, so nothing counted can stop counting.
-    let narrowed: Vec<&str> = items
-        .iter()
-        .copied()
-        .filter(|i| *i != "onboarding")
-        .collect();
-    objects.push(
         mk_spec_revised(
-            "suzatarytwo",
-            day(41),
+            "suzatarytwoone",
+            day(1),
             OWNER,
-            composes(&narrowed),
-            "onboarding is 2.2",
+            composes(&["alpha", "bravo"]),
+            "",
         )
         .expect("an event"),
-    );
+        mk_completed("suzatarytwo", day(2), OWNER, "").expect("an event"),
+        mk_completed("alpha", day(3), OWNER, "").expect("an event"),
+    ];
+    assert_eq!(reading(&objects), Counted { major: 2, minor: 0 });
+    objects.push(mk_completed("suzatarytwoone", day(4), OWNER, "").expect("an event"));
     assert_eq!(
-        reading(&objects).counted,
-        Counted {
-            major: 1,
-            minor: 10
-        }
-    );
-
-    let narrowed_two = &reading(&objects).releases[0];
-    let onboarding = narrowed_two
-        .items
-        .iter()
-        .find(|i| i.todo.as_str() == "onboarding")
-        .expect("still an item");
-    assert_eq!(onboarding.named, Named::Dropped);
-
-    // A reopened item stays counted: what shipped stays shipped.
-    objects.push(mk_reopened("wireonce", day(42), OWNER, "").expect("an event"));
-    assert_eq!(
-        reading(&objects).counted,
-        Counted {
-            major: 1,
-            minor: 10
-        }
-    );
-
-    // A train closes portsuites: 1.11.
-    objects.push(mk_completed("portsuites", day(43), OWNER, "PR #160").expect("an event"));
-    assert_eq!(
-        reading(&objects).counted,
-        Counted {
-            major: 1,
-            minor: 11
-        }
-    );
-
-    // The release completes: 2.0, and 2.1 is next.
-    objects.push(mk_completed("suzatarytwo", day(44), OWNER, "").expect("an event"));
-    let shipped = reading(&objects);
-    assert_eq!(shipped.counted, Counted { major: 2, minor: 0 });
-    assert_eq!(
-        (shipped.releases[0].place, shipped.releases[1].place),
-        (Place::Earlier, Place::Next)
-    );
-    assert_eq!(
-        Version {
-            major: 1,
-            minor: 11,
-            patch: 3
-        }
-        .next(shipped.counted),
+        last.next(reading(&objects)),
         Ok(Version {
             major: 2,
-            minor: 0,
+            minor: 1,
+            patch: 3
+        })
+    );
+    objects.push(mk_completed("suzatarytwotwo", day(5), OWNER, "").expect("an event"));
+    assert_eq!(
+        last.next(reading(&objects)),
+        Ok(Version {
+            major: 2,
+            minor: 2,
             patch: 0
         })
     );
@@ -430,24 +310,32 @@ fn the_declared_plan_reads() {
     );
 }
 
-/// A plan whose majors go down, or stay at the base, or that names a release twice, is not one.
+/// A plan whose versions do not strictly increase from `base.0`, or that names a release twice,
+/// is not one.
 #[test]
-fn a_plan_refuses_what_would_let_the_version_fall() {
-    let r = |id: &str, major| Release {
-        todo: todo(id),
-        major,
-    };
+fn a_plan_refuses_versions_that_do_not_climb() {
+    for releases in [
+        vec![release("a", 2, 1), release("b", 2, 0)],
+        vec![release("a", 2, 1), release("b", 2, 1)],
+        vec![release("a", 3, 0), release("b", 2, 5)],
+        vec![release("a", 1, 0)],
+    ] {
+        assert!(
+            matches!(
+                Plan::new("c", 1, releases.clone()),
+                Err(PlanError::NotAbove { .. })
+            ),
+            "{releases:?}"
+        );
+    }
     assert!(matches!(
-        Plan::new("c", 1, vec![r("a", 3), r("b", 2)]),
-        Err(PlanError::Backwards { .. })
-    ));
-    assert!(matches!(
-        Plan::new("c", 1, vec![r("a", 1)]),
-        Err(PlanError::Backwards { .. })
-    ));
-    assert!(matches!(
-        Plan::new("c", 1, vec![r("a", 2), r("a", 3)]),
+        Plan::new("c", 1, vec![release("a", 2, 0), release("a", 2, 1)]),
         Err(PlanError::Twice(_))
+    ));
+    assert!(Plan::new("c", 1, vec![release("a", 1, 1), release("b", 2, 0)]).is_ok());
+    assert!(matches!(
+        Plan::parse("chain = \"c\"\nbase = 1\n[[release]]\ntodo = \"a\"\nmajor = 2\n"),
+        Err(PlanError::Unread(_))
     ));
 }
 
@@ -510,7 +398,7 @@ fn a_version_is_three_plain_numbers() {
 }
 
 /// `GET /api/releases` over a set holding the plan's chain: each release priced as its row,
-/// titled by its action line, its items with what counts; and nothing where the set holds no
+/// titled by its action line, its items with what became of them; and nothing where the set holds no
 /// such chain.
 #[test]
 fn the_release_route_reads_the_plans_chain() {
@@ -553,7 +441,7 @@ fn the_release_route_reads_the_plans_chain() {
     let read =
         suzatary_core::chain_set::Read::of_stores([(&policy, &store as &dyn Prodrome<TodoEvent>)]);
     let payload = suzatary_core::routes::releases(&plan(), &read.set(day(5))).expect("answers");
-    assert_eq!(payload.reads, "1.1");
+    assert_eq!(payload.reads, "1.0");
     let two = &payload.releases[0];
     let held = two.held.as_ref().expect("the release is on the chain");
     assert_eq!(
@@ -562,14 +450,14 @@ fn the_release_route_reads_the_plans_chain() {
     );
     assert_eq!((two.lot, two.place), (Lot::Open, Place::Next));
     assert!(held.row.value.is_some());
-    let items: Vec<(&str, Option<&str>, Standing, Named)> = two
+    let items: Vec<(&str, Option<&str>, Lot, Named)> = two
         .items
         .iter()
         .map(|i| {
             (
                 i.todo.as_str(),
                 i.held.as_ref().map(|h| h.title.as_str()),
-                i.standing,
+                i.lot,
                 i.named,
             )
         })
@@ -580,15 +468,10 @@ fn the_release_route_reads_the_plans_chain() {
             (
                 "alpha",
                 Some("the alpha item"),
-                Standing::Counted,
+                Lot::Completed,
                 Named::Current
             ),
-            (
-                "bravo",
-                Some("the bravo item"),
-                Standing::Open,
-                Named::Current
-            ),
+            ("bravo", Some("the bravo item"), Lot::Open, Named::Current),
         ]
     );
     // 2.1 is declared and not on the chain yet: no row is made up for it.

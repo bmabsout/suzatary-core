@@ -2028,15 +2028,15 @@ fn the_answers_vector_holds_every_answer() {
             },
         ],
     }]);
-    let item = |todo: &str, title: &str, state, value, standing, named| wire::ReleaseItem {
+    let item = |todo: &str, title: &str, state, value, lot, named| wire::ReleaseItem {
         todo: todo.to_owned(),
         held: held(todo, title, state, value),
-        standing,
+        lot,
         named,
     };
     samples.add([wire::ReleasesPayload {
         chain: "suzatary".to_owned(),
-        reads: "1.14".to_owned(),
+        reads: "1.0".to_owned(),
         releases: vec![
             wire::ReleaseRow {
                 todo: "suzatarytwo".to_owned(),
@@ -2046,7 +2046,7 @@ fn the_answers_vector_holds_every_answer() {
                     wire::EntryState::Open,
                     Some(0.42),
                 ),
-                major: 2,
+                version: "2.0".to_owned(),
                 lot: suzatary_core::release::Lot::Open,
                 place: suzatary_core::release::Place::Next,
                 items: vec![
@@ -2055,7 +2055,7 @@ fn the_answers_vector_holds_every_answer() {
                         "ports as suites",
                         wire::EntryState::Open,
                         Some(0.55),
-                        suzatary_core::release::Standing::Open,
+                        suzatary_core::release::Lot::Open,
                         suzatary_core::release::Named::Current,
                     ),
                     item(
@@ -2063,7 +2063,7 @@ fn the_answers_vector_holds_every_answer() {
                         "calendar links",
                         wire::EntryState::Completed,
                         Some(1.0),
-                        suzatary_core::release::Standing::Counted,
+                        suzatary_core::release::Lot::Completed,
                         suzatary_core::release::Named::Current,
                     ),
                     item(
@@ -2071,7 +2071,7 @@ fn the_answers_vector_holds_every_answer() {
                         "the wire once",
                         wire::EntryState::Open,
                         Some(0.6),
-                        suzatary_core::release::Standing::Counted,
+                        suzatary_core::release::Lot::Completed,
                         suzatary_core::release::Named::Current,
                     ),
                     item(
@@ -2079,7 +2079,7 @@ fn the_answers_vector_holds_every_answer() {
                         "split the instance",
                         wire::EntryState::Cancelled,
                         Some(1.0),
-                        suzatary_core::release::Standing::Cancelled,
+                        suzatary_core::release::Lot::Cancelled,
                         suzatary_core::release::Named::Current,
                     ),
                     item(
@@ -2087,7 +2087,7 @@ fn the_answers_vector_holds_every_answer() {
                         "onboarding",
                         wire::EntryState::Open,
                         Some(0.5),
-                        suzatary_core::release::Standing::Open,
+                        suzatary_core::release::Lot::Open,
                         suzatary_core::release::Named::Dropped,
                     ),
                 ],
@@ -2095,7 +2095,7 @@ fn the_answers_vector_holds_every_answer() {
             wire::ReleaseRow {
                 todo: "suzatarytwoone".to_owned(),
                 held: None,
-                major: 2,
+                version: "2.1".to_owned(),
                 lot: suzatary_core::release::Lot::Open,
                 place: suzatary_core::release::Place::Later,
                 items: Vec::new(),

@@ -100,18 +100,6 @@ app.scene("Project is the OTHER chain, not the same list under a new name", asyn
   assert.equal(said.includes("filter"), false, "nobody narrowed a filter; do not tell them to widen one");
 });
 
-app.scene("and Todos comes back to the first chain", async () => {
-  await app.page.navigate(`${BASE}/#/project`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Project"`);
-  await app.page.navigate(`${BASE}/#/`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Todos"`);
-  await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`);
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector('.tabbar .tab.active .tablabel')?.textContent ?? ""`),
-    "Todos",
-  );
-});
-
 /** Open the More sheet on whatever hash the reader is standing on. */
 const openMore = async (): Promise<void> => {
   await app.page.evaluate(
@@ -140,23 +128,16 @@ app.scene("on Project the More sheet has no chain switcher", async () => {
   await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === true`);
 });
 
-app.scene("on Todos the switcher is there and reads the chain in view", async () => {
-  await app.page.navigate(`${BASE}/#/`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Todos"`);
-  await openMore();
-  const active = await app.page.evaluate<string>(
-    `document.querySelector(".moresheet .chainpick.active")?.textContent ?? ""`,
-  );
-  assert.equal(active, "My todos", "Todos is the first chain, and the switcher says so in the owner's words");
-  await app.page.evaluate(`document.body.click()`);
-  await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === true`);
-});
-
-app.scene("leaving Project for Todos, the switcher shows the chain actually in view", async () => {
+app.scene("leaving Project, Todos is the first chain again: its list, its lit word and the switcher", async () => {
   await app.page.navigate(`${BASE}/#/project`);
   await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Project"`);
   await app.page.navigate(`${BASE}/#/`);
   await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Todos"`);
+  await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`);
+  assert.equal(
+    await app.page.evaluate<string>(`document.querySelector('.tabbar .tab.active .tablabel')?.textContent ?? ""`),
+    "Todos",
+  );
   await openMore();
   const active = await app.page.evaluate<string>(
     `document.querySelector(".moresheet .chainpick.active")?.textContent ?? ""`,
@@ -350,23 +331,4 @@ app.scene("the theme override wins over the machine, in both directions", async 
   assert.equal(await ground(), onDarkMachine);
 
   await app.page.colorScheme(null);
-});
-
-/**
- * `#/secretary` LISTS THE CONVERSATIONS, THE DEFAULT PINNED
- * (`docs/CHAT-PLAN-2026-09-25.md` §4.2), over the read-only fixture so the
- * default may never have been opened: listing opens nothing, so the page pins
- * it anyway, and following it opens it lazily, titled "Secretary".
- */
-app.scene("#/secretary lists the default first, and it opens titled Secretary", async () => {
-  await app.page.navigate(`${BASE}/#/secretary`);
-  await app.page.waitFor(`document.querySelector(".chats .chatrow .chattitle")?.textContent === "Secretary"`, {
-    timeout: 15000,
-  });
-  await app.page.click(".chats .chatrow");
-  await app.page.waitFor(`location.hash === "#/secretary/default"`, { timeout: 15000 });
-  await app.page.waitFor(
-    `document.querySelector(".pagetitle")?.textContent === "Secretary"`,
-    { timeout: 15000 },
-  );
 });

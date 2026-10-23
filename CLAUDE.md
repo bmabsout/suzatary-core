@@ -1371,19 +1371,20 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
 ## Versioning, changelog, roadmap
 
 **THE VERSION IS A READING OF THE PROJECT CHAIN** (the owner, 2026-10-12;
-`suzatary_core::release`). A release is a todo on the `suzatary` chain whose
-spec composes its items (`Ref`s): `suzatarytwo` is 2.0, `suzatarytwoone` 2.1,
-`suzatarytwotwo` 2.2, declared in order in `app/core/releases.toml` with the
-major each moves to. MAJOR is the greatest major of a completed release (1
-before 2.0); MINOR counts the distinct completed items of the releases from
-the one after that major's first to the one after the last settled, so
-releases sharing a major (2.1, 2.2) count on from each other and never reset
-MINOR; PATCH counts the trains since MINOR moved, from the newest tag. `Reading::of` is the one rule, a join
-over the SET of objects: an item is every todo a release's spec has EVER
-named and completed once is completed, so a spec revision that drops an item
-or a reopening never lowers it, and a cancelled item counts for nothing
-(`app/core/tests/release.rs` pins it monotone, a function of the set, and
-moved by a release's completion). A PR names what it completes on
+plain feature releases since 2026-10-23; `suzatary_core::release`). A release
+is a todo on the `suzatary` chain whose spec composes its items (`Ref`s),
+declared in order in `app/core/releases.toml` with its own `major` and
+`minor`: `suzatarytwo` is 2.0, `suzatarytwoone` 2.1, `suzatarytwotwo` 2.2,
+`suzatarytwothree` 2.3. A plan whose versions do not strictly increase is
+refused (`Plan::new`). MAJOR.MINOR is the last completed release's (`base`.0
+before any); PATCH counts the trains since that MAJOR.MINOR was first tagged,
+from origin/master's newest `Release:` trailer. Items show a release's
+progress and move no version; `release read` lists them with what became of
+each. `Reading::of` is the one rule, a join over the SET of objects: completed
+once is completed, so a reopened release stays shipped
+(`app/core/tests/release.rs` pins it the last completed release's, monotone
+and a function of the set). The tags up to 2.1.2 were read while items
+counted toward MINOR. A PR names what it completes on
 `Completes:` lines of its description (AGENTS.md); `scripts/train.sh` checks
 each id at `build` and cuts the release there (so the gate judges it), and at
 `land` asks `suzatary release check` whether the chain with those todos done
@@ -1397,8 +1398,8 @@ binary that writes the chain is built from a named commit (origin/master,
 or the train at land; `SUZATARY_APP_REV` to `scripts/app-bin.sh`), never the
 checkout as it is; and `train.sh record <rev>` refuses a rev off
 origin/master's first-parent chain. `suzatary release
-items <release> --add|--remove` rescopes a release in one revision; a done
-item moved out stays counted. So the tag, the changelog,
+items <release> --add|--remove` rescopes a release in one revision; an item
+moved out stays listed, as dropped. So the tag, the changelog,
 `app/release.toml` (the version and the IDS of what it completed, never a
 title, since the file is public; `/api/about` and Settings read titles off
 the chain) and the chain say one thing, and a refused push writes nothing. THE VERSION IS NO COMPILED

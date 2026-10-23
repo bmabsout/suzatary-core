@@ -45,8 +45,8 @@ import { found } from "../src/prodrome/verify";
 import signer from "../src/prodrome/signer";
 import {
   entriesOf,
-  fulfillmentOf,
-  knotsOf,
+  linked,
+  linkedKnots,
   appendTo,
   keyAdded,
   lifecycleEvent,
@@ -176,7 +176,7 @@ test("every fulfillment sample agrees with the reference to 1e-9", () => {
     const term = termJson(core, vector.term);
     assert.deepEqual(term, vector.json, `to_json(parse(${vector.term})) drifted`);
     for (const sample of vector.samples) {
-      const mine = fulfillmentOf(core, term, sample.now, { outcomes: vector.env, tended: {} });
+      const mine = linked(core, JSON.stringify, { outcomes: vector.env, tended: {} }, sample.now)(term);
       if (mine === null) throw new Error(`${vector.term} at ${sample.now} read ∅, the vector says ${sample.value}`);
       const off = Math.abs(mine - sample.value);
       worst = Math.max(worst, off);
@@ -201,7 +201,7 @@ test("every series has the reference's knots, at the reference's instants", () =
   for (const vector of series) {
     // No `history`: these vectors have no environment, and an empty one is the
     // honest argument rather than a stand-in for one.
-    const mine = knotsOf(core, termJson(core, vector.term), vector.from, vector.to, { bindings: {}, tended: {} });
+    const mine = linkedKnots(core, JSON.stringify, { bindings: {}, tended: {} }, vector.from, vector.to)(termJson(core, vector.term));
     assert.equal(mine.exact, vector.exact, `${vector.term}: exactness`);
     assert.equal(mine.knots.length, vector.knots.length, `${vector.term}: knot count`);
     for (const [i, knot] of mine.knots.entries()) {
@@ -327,9 +327,9 @@ test("the live view vector is the composition this browser computes", pinned, ()
 
 test("a refusal from the core arrives as a value, not as a dead module", () => {
   assert.throws(() => termJson(core, "Flat(value=2.0)"), /value/);
-  assert.throws(() => fulfillmentOf(core, { kind: "flat", value: 0.5 }, "not-an-instant", { outcomes: {}, tended: {} }), /now/);
+  assert.throws(() => linked(core, JSON.stringify, { outcomes: {}, tended: {} }, "not-an-instant")({ kind: "flat", value: 0.5 }), /now/);
   // And the module still answers afterwards: a refusal must not poison it.
-  assert.equal(fulfillmentOf(core, { kind: "flat", value: 0.5 }, "2026-09-06T12:00:00", { outcomes: {}, tended: {} }), 0.5);
+  assert.equal(linked(core, JSON.stringify, { outcomes: {}, tended: {} }, "2026-09-06T12:00:00")({ kind: "flat", value: 0.5 }), 0.5);
 });
 
 // --- §3/§4: appending, which is how a replica acts ---------------------------

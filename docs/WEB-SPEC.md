@@ -1190,7 +1190,7 @@ compiled by the tab's own typst-wasm under node), over `gen.ts`:
 - **What markup makes still meets the tripwire:** a page whose confirmed
   markup makes a script, a handler or a `javascript:` link is refused whole.
   — "confirmed markup that makes a script, a handler or a javascript: link is
-  refused by the box's tripwire", and the browser scene of the same name.
+  refused by the box's tripwire", over the tab's own typst-wasm under node.
 - **Every page compiles and passes the box's tripwire,** and a hostile title
   is printed as its text with no element made of it. — "every generated state
   compiles, and the box's tripwire passes the page", "a hostile title is

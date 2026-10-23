@@ -35,15 +35,38 @@ fn a_bare_path_and_the_first_chains_path_are_one_answer() {
             "{bare} and {named} must be one answer about one store"
         );
     }
+    // A fold carries the instant it was read at, so its two answers are compared by their todos.
+    let todos = |path: &str| -> Vec<String> {
+        let mut fold = common::get(&format!("{base}{path}"));
+        assert_eq!(common::status(&fold), 200, "{path}");
+        let mut todos: Vec<String> = common::body_json(&mut fold)["entries"]
+            .as_array()
+            .expect("a list")
+            .iter()
+            .map(|entry| entry["todo"].as_str().unwrap_or_default().to_owned())
+            .collect();
+        todos.sort();
+        todos
+    };
+    assert_eq!(todos("/api/fold"), todos("/api/life/fold"));
 }
 
-/// An unserved chain is a 404 that names the chains this deployment serves.
+/// An unserved chain is a 404 that names every chain this deployment declares.
 #[test]
 fn a_chain_nothing_is_bound_to_is_refused_with_the_list() {
     let fakes = Fakes::new("routes-chain-unknown");
+    let project = suzatary_core::chains::ChainPolicy {
+        name: suzatary_core::chains::ChainName::new("suzatary").expect("a slug"),
+        ..common::chain()
+    };
+    let deploying = suzatary_core::deployment::Deployment {
+        chains: suzatary_core::chains::Chains::of(vec![common::chain(), project])
+            .expect("two chains"),
+        ..deployment([], [])
+    };
     let base = common::start(
         std::sync::Arc::new(fakes),
-        deployment([], []),
+        deploying,
         common::loopback_is_this_box(),
     );
     for path in [
@@ -61,6 +84,7 @@ fn a_chain_nothing_is_bound_to_is_refused_with_the_list() {
             .to_owned();
         assert!(said.contains("no chain named"), "{path}: {said}");
         assert!(said.contains("life"), "{path}: {said}");
+        assert!(said.contains("suzatary"), "{path}: {said}");
     }
 }
 

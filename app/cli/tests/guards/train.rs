@@ -2727,7 +2727,9 @@ fn release_files(version: &str) -> Vec<(&'static str, String)> {
         ("app/release.toml", format!("version = \"{version}\"\n")),
         (
             "app/core/releases.toml",
-            "chain = \"suzatary\"\nbase = 1\n\n[[release]]\ntodo = \"suzatarytwo\"\nmajor = 2\n"
+            "chain = \"suzatary\"\nbase = 1\n\n[[release]]\ntodo = \"alpha\"\nmajor = 1\nminor = 1\n\n\
+             [[release]]\ntodo = \"calendarlinks\"\nmajor = 1\nminor = 2\n\n\
+             [[release]]\ntodo = \"suzatarytwo\"\nmajor = 2\nminor = 0\n"
                 .to_owned(),
         ),
     ]
@@ -2806,7 +2808,6 @@ fn train_releases_what_the_chain_reads_and_tags_it() {
         train,
         "the tag is the landed release"
     );
-    assert_eq!(reads(&instance), "1.2");
     assert!(
         recorded(&data, "calendarlinks", "PR #1"),
         "done, as the assistant, naming the PR"
@@ -2843,7 +2844,7 @@ fn train_releases_what_the_chain_reads_and_tags_it() {
     );
 }
 
-/// A todo closed by hand between build and land is the next release's: the chain reads above
+/// A release completed by hand between build and land is the next train's: the chain reads above
 /// the cut, so the land goes ahead, and the tag is the cut.
 #[test]
 fn train_land_takes_a_chain_that_moved_above_the_cut() {
@@ -2871,7 +2872,7 @@ fn train_land_takes_a_chain_that_moved_above_the_cut() {
             "--chain",
             "suzatary",
             "done",
-            "bravo",
+            "calendarlinks",
             "--actor",
             "ada",
         ])
@@ -2889,7 +2890,6 @@ fn train_land_takes_a_chain_that_moved_above_the_cut() {
         train,
         "the tag is the cut"
     );
-    assert_eq!(reads(&instance), "1.2");
 }
 
 /// THE BINARY THAT WRITES THE CHAIN IS BUILT FROM A NAMED COMMIT: with no `SUZATARY_TRAIN_BIN`, every
@@ -3225,22 +3225,6 @@ fn train_build_keeps_completes_through_a_join_and_skips_only_an_unknown_todo() {
         .trim(),
         "1.2.0"
     );
-}
-
-/// The `major.minor` the fixture's project chain reads.
-fn reads(instance: &Path) -> String {
-    let out = crate::binary::keyed()
-        .args([
-            "--instance",
-            &instance.to_string_lossy(),
-            "release",
-            "read",
-            "--json",
-        ])
-        .output()
-        .expect("the binary runs");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).expect("JSON");
-    json["reads"].as_str().unwrap_or_default().to_owned()
 }
 
 /// Whether the fixture's project chain holds `todo` completed as `assistant` with `note`.

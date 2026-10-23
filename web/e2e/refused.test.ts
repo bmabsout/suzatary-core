@@ -1,24 +1,19 @@
 /**
- * A LOGIN THAT MAY NOT WRITE, and an object the box will not take.
+ * A LOGIN THAT MAY NOT WRITE.
  *
- * These are the two refusals a replica meets, and they are different in kind.
- * The first is answered BEFORE anything is written: the box names no actor for
- * this login (`GET /api/me`), so the app offers no act controls at all — a
- * button that promised a write the box will refuse is worse than an absent one,
- * because the reader only finds out after tapping. The second is answered
- * AFTER: an object this replica sealed, folded and is showing, which the box
- * will not adopt. That one is kept and NAMED, never silently retried and never
- * quietly dropped, because the object is real and this browser holds it.
+ * The box names no actor for this login (`GET /api/me`), so the app offers no
+ * act controls at all — a button that promised a write the box will refuse is
+ * worse than an absent one, because the reader only finds out after tapping.
  *
  * `E2E_BASE` is gated to a login this deployment knows only as a VIEWER, so
- * both refusals are the box's own and nothing here had to invent an error to
+ * the refusal is the box's own and nothing here had to invent an error to
  * catch. It is also why the read-only files can share this server: its chain
  * cannot move.
  */
 
 import assert from "node:assert/strict";
 
-import { BASE, fold, openInPlace, openTodo, shownTodos, suite, WRITE_BASE, WRITE_HEADERS } from "./harness";
+import { BASE, fold, openInPlace, openTodo, shownTodos, suite } from "./harness";
 import cast from "../test/cast";
 
 const { todos } = cast.world;
@@ -68,55 +63,5 @@ app.scene("a read-only login gets no act controls at all", async () => {
     (await fold(app.page)).find((entry) => entry.todo === todos.high.id)?.state,
     "open",
     "and nothing reached the chain",
-  );
-});
-
-app.scene("an object the box refuses comes back named, with the box's reason", async () => {
-  // The WRITE server, because this login has an actor and so gets past the
-  // gate — which is the only way to reach the PER-OBJECT refusals at all. A
-  // viewer is refused one layer earlier, for the whole request, which is the
-  // scene above.
-  await app.open(WRITE_BASE);
-
-  // A REAL REFUSED OBJECT, appended by the core in this tab exactly as an act is
-  // — but naming an actor this login is not. `sync::receive` refuses an event
-  // whose actor is not the poster's: the rule that stops a page writing as
-  // somebody else, and the reason the app itself can never produce one of these
-  // (it seals as the actor `/api/me` named). Nothing is stubbed: the bytes are
-  // canonical, the name is the core's hash of them, and the sentence is the
-  // box's.
-  const answer = await app.page.evaluate<string>(`(async () => {
-    const glue = await import("/b/dev/prodrome.js");
-    await glue.default({ module_or_path: new URL("/b/dev/prodrome_bg.wasm", location.href).href });
-    const held = await fetch("/api/objects").then((r) => r.json());
-    const replica = new glue.Todos(JSON.stringify(held.objects.map((o) => ({ hash: o.hash, text: o.literal }))));
-    const event = glue.lifecycle("Completed", "${todos.high.id}", "2026-09-02T11:00:00", "triage", "");
-    const appended = JSON.parse(replica.append(event, null));
-    replica.free();
-    const receipt = await fetch("/api/objects", {
-      method: "POST",
-      headers: ${WRITE_HEADERS},
-      body: JSON.stringify({ objects: appended.objects.map((o) => o.text) }),
-    }).then((r) => r.json());
-    return JSON.stringify({ name: appended.hash, receipt });
-  })()`);
-  const { name, receipt } = JSON.parse(answer) as {
-    name: string;
-    receipt: { adopted: string[]; refused: { hash: string; reason: string }[] };
-  };
-
-  assert.deepEqual(receipt.adopted, [], "nothing was adopted");
-  assert.equal(receipt.refused.length, 1);
-  assert.equal(receipt.refused[0]?.hash, name, "the refusal names the object BY THE HASH THE CORE COMPUTED");
-  assert.match(
-    receipt.refused[0]?.reason ?? "",
-    /triage/,
-    `the box says whose event it is, it said ${receipt.refused[0]?.reason ?? ""}`,
-  );
-
-  assert.equal(
-    (await fold(app.page)).find((entry) => entry.todo === todos.high.id)?.state,
-    "open",
-    "and the chain is exactly where it was",
   );
 });

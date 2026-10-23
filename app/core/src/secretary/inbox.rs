@@ -37,17 +37,6 @@ use crate::secretary::store::{Proposal, Reasons};
 use crate::secretary::tapped::Tapped;
 use crate::store::Prodrome;
 
-/// The spec an unpriced proposal carries: the Prodrome's empty term, whose value is `∅`.
-#[must_use]
-pub fn unpriced() -> Term {
-    mk_absent()
-}
-
-/// Whether `spec` is the empty term itself — the one spec stored as `None`.
-fn is_unpriced(spec: &Term) -> bool {
-    matches!(spec.out(), TermF::Absent)
-}
-
 /// Its fulfillment at the set's instant, its price linked in `set`: what it serves, read as that
 /// todo's chain reads it, and `∅` for a chain or a todo the set does not hold; `None` where its
 /// own spec names something nothing links, or its askings do not price ([`Fold::findings`] says
@@ -83,7 +72,7 @@ pub struct Asked {
 pub enum Price {
     /// It serves this todo, so it is priced as that todo is: stored `serves=<todo>, spec=None`.
     Serves(TodoRef),
-    /// It serves no todo and carries its own spec, [`unpriced`] while nothing prices it: stored
+    /// It serves no todo and carries its own spec, the empty term while nothing prices it: stored
     /// `serves=None, spec=<term>`, the empty term as `spec=None`.
     Own(Term),
 }
@@ -92,7 +81,7 @@ impl Price {
     /// No todo and no spec of its own: the empty term, whose value is `∅`.
     #[must_use]
     pub fn unpriced() -> Self {
-        Price::Own(unpriced())
+        Price::Own(mk_absent())
     }
 
     /// The todo it serves, if it serves one.
@@ -124,7 +113,7 @@ impl Price {
     fn fields(&self) -> [Value; 2] {
         match self {
             Price::Serves(todo) => [todo.to_value(), Value::None],
-            Price::Own(spec) if is_unpriced(spec) => [Value::None, Value::None],
+            Price::Own(spec) if matches!(spec.out(), TermF::Absent) => [Value::None, Value::None],
             Price::Own(spec) => [Value::None, spec.to_value()],
         }
     }
@@ -136,7 +125,7 @@ impl Price {
             spec_field(fields.call(), "spec")?,
         ) {
             (Some(todo), None) => Ok(Price::Serves(todo)),
-            (None, spec) => Ok(Price::Own(spec.unwrap_or_else(unpriced))),
+            (None, spec) => Ok(spec.map_or_else(Price::unpriced, Price::Own)),
             (Some(todo), Some(_)) => Err(ProdromeError::invalid(format!(
                 "{}: it serves {todo}, which prices it, so it carries no spec of its own",
                 fields.name()

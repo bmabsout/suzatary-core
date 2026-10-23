@@ -665,6 +665,16 @@ pub fn upload_store(instance: &Instance) -> suzatary_io::attachments::Attachment
     )
 }
 
+/// The upload index: `upload-index/` inside the conversations directory, beside the uploads it
+/// is read from, so it is box-local and git-ignored with them and never pushed.
+#[must_use]
+pub fn upload_index(instance: &Instance) -> suzatary_io::upload_index::UploadIndexFiles {
+    suzatary_io::upload_index::UploadIndexFiles::new(
+        instance.secretary.conversations.join("upload-index"),
+        upload_store(instance),
+    )
+}
+
 /// The files verbs hand the model: `files/` inside the conversations directory, beside the
 /// uploads and git-ignored with them.
 #[must_use]
@@ -1192,44 +1202,24 @@ mod pick_entry_tests {
         assert_eq!(usable_by(&order, &allowance, share(0.30), |_| false), None);
     }
 
+    /// The subscription is usable unless a reading says its allowance is past the line: a rate
+    /// limit with no remembered reading, one remembered under the line and an unknown allowance
+    /// all leave it usable, and one remembered over the line does not.
     #[test]
-    fn rate_limited_with_no_remembered_reading_is_usable() {
+    fn the_subscription_is_usable_unless_a_reading_puts_it_over_the_line() {
         let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        assert_eq!(
-            usable_by(&order, &rate_limited(), share(0.30), |_| false),
-            Some(&order[0])
-        );
-    }
-
-    #[test]
-    fn rate_limited_with_a_remembered_reading_under_the_line_is_usable() {
-        let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        let allowance = rate_limited_with(0.2);
-        assert_eq!(
-            usable_by(&order, &allowance, share(0.30), |_| false),
-            Some(&order[0])
-        );
-    }
-
-    #[test]
-    fn rate_limited_with_a_remembered_reading_over_the_line_is_not_usable() {
-        let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        let allowance = rate_limited_with(0.9);
-        assert!(usable_by(&order, &allowance, share(0.30), |_| false).is_none());
-    }
-
-    #[test]
-    fn unknown_allowance_is_usable() {
-        let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        assert_eq!(
-            usable_by(
-                &order,
-                &suzatary_core::usage::Allowance::Unknown,
-                share(0.30),
-                |_| false
-            ),
-            Some(&order[0])
-        );
+        for (allowance, usable) in [
+            (rate_limited(), true),
+            (rate_limited_with(0.2), true),
+            (suzatary_core::usage::Allowance::Unknown, true),
+            (rate_limited_with(0.9), false),
+        ] {
+            assert_eq!(
+                usable_by(&order, &allowance, share(0.30), |_| false),
+                usable.then_some(&order[0]),
+                "{allowance:?}"
+            );
+        }
     }
 
     #[test]

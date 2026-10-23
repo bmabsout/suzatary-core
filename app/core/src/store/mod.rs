@@ -6,7 +6,6 @@
 mod database;
 mod doc;
 mod error;
-mod image;
 #[cfg(any(test, feature = "nothing"))]
 mod in_memory;
 #[cfg(any(test, feature = "nothing"))]
@@ -25,7 +24,6 @@ mod signing;
 pub use database::{Area, Database};
 pub use doc::Doc;
 pub use error::StoreError;
-pub use image::{Image, NotAnImage, image};
 #[cfg(any(test, feature = "nothing"))]
 pub use in_memory::InMemory;
 #[cfg(any(test, feature = "nothing"))]

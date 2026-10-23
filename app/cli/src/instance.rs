@@ -1128,25 +1128,70 @@ sent_folder = "Sent Items"
         assert_eq!(instance.serving.dist, expected_code.join("web/dist"));
     }
 
+    /// An instance file the server would misread stops it starting, naming why: a writer who is
+    /// not a viewer (dead config), a writer's actor the roster does not know, a chain name that is
+    /// not a slug, an attested provider with no `expect_commit`, a provider under a reserved name
+    /// (`anthropic`, `claude-cli`), an order naming an undeclared provider, and a reserve outside
+    /// zero to one.
     #[test]
-    fn a_writer_who_is_not_a_viewer_stops_the_server_starting() {
-        let text = GOOD.replace(
-            r#""her@example.test" = "ada""#,
-            "\"her@example.test\" = \"ada\"\n\"ghost@example.test\" = \"assistant\"",
-        );
-        let path = write(&text, "ghost");
-        let refused = Instance::read(&path, &env()).expect_err("dead config is refused");
-        assert!(format!("{refused:#}").contains("dead config"), "{refused}");
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_writers_actor_the_roster_does_not_know_stops_it_too() {
-        let text = GOOD.replace(r#"= "ada""#, r#"= "nobody""#);
-        let path = write(&text, "unrostered");
-        let refused = Instance::read(&path, &env()).expect_err("an unknown actor is refused");
-        assert!(format!("{refused:#}").contains("roster"), "{refused}");
-        let _ = std::fs::remove_file(&path);
+    fn a_file_the_server_would_misread_stops_it_starting_and_says_why() {
+        let provider = |name: &str, rest: &str| {
+            format!(
+                "{GOOD}\n[[providers]]\nname = {name:?}\nbase_url = \"https://example.test/v1\"\nkey = \"X\"\n{rest}"
+            )
+        };
+        for (tag, text, said) in [
+            (
+                "ghost",
+                GOOD.replace(
+                    r#""her@example.test" = "ada""#,
+                    "\"her@example.test\" = \"ada\"\n\"ghost@example.test\" = \"assistant\"",
+                ),
+                &["dead config"][..],
+            ),
+            (
+                "unrostered",
+                GOOD.replace(r#"= "ada""#, r#"= "nobody""#),
+                &["roster"],
+            ),
+            (
+                "slug",
+                GOOD.replacen(r#"name = "suzatary""#, r#"name = "../etc""#, 1),
+                &["chain name"],
+            ),
+            (
+                "attested-no-expectation",
+                provider("phala", "attested = true\n"),
+                &["expect_commit"],
+            ),
+            (
+                "reserved-provider",
+                provider("anthropic", "attested = false\n"),
+                &["reserved"],
+            ),
+            (
+                "reserved-cli-provider",
+                provider("claude-cli", "attested = false\n"),
+                &["claude-cli"],
+            ),
+            (
+                "undeclared-provider",
+                format!("{GOOD}\n[models]\nreview = [\"phala/deepseek-v4-flash\"]\n"),
+                &["phala", "not a backend"],
+            ),
+            (
+                "bad-reserve",
+                format!("{GOOD}\n[models]\nreserve = 1.5\n"),
+                &["reserve"],
+            ),
+        ] {
+            let path = write(&text, tag);
+            let refused = format!("{:#}", Instance::read(&path, &env()).expect_err(tag));
+            for word in said {
+                assert!(refused.contains(word), "{tag}: {refused}");
+            }
+            let _ = std::fs::remove_file(&path);
+        }
     }
 
     #[test]
@@ -1196,15 +1241,6 @@ sent_folder = "Sent Items"
             );
             let _ = std::fs::remove_file(&path);
         }
-    }
-
-    #[test]
-    fn a_chain_name_that_is_not_a_slug_stops_the_server_starting() {
-        let text = GOOD.replacen(r#"name = "suzatary""#, r#"name = "../etc""#, 1);
-        let path = write(&text, "slug");
-        let refused = Instance::read(&path, &env()).expect_err("a bad name is refused");
-        assert!(format!("{refused:#}").contains("chain name"), "{refused}");
-        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
@@ -1270,67 +1306,6 @@ sent_folder = "Sent Items"
         );
         assert_eq!(order[1].to_string(), "phala/deepseek-v4-flash");
         assert!((instance.models.reserve().get() - 0.4).abs() < 1e-9);
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn attested_with_no_expect_commit_is_refused() {
-        let text = format!(
-            "{GOOD}\n[[providers]]\nname = \"phala\"\nbase_url = \"https://inference.phala.com/v1\"\nkey = \"PHALA_API_KEY\"\nattested = true\n"
-        );
-        let path = write(&text, "attested-no-expectation");
-        let refused =
-            Instance::read(&path, &env()).expect_err("attested with no expect_commit refuses");
-        assert!(
-            format!("{refused:#}").contains("expect_commit"),
-            "{refused}"
-        );
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_provider_named_anthropic_is_refused() {
-        let text = format!(
-            "{GOOD}\n[[providers]]\nname = \"anthropic\"\nbase_url = \"https://example.test/v1\"\nkey = \"X\"\nattested = false\n"
-        );
-        let path = write(&text, "reserved-provider");
-        let refused =
-            Instance::read(&path, &env()).expect_err("anthropic is a reserved provider name");
-        assert!(format!("{refused:#}").contains("reserved"), "{refused}");
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn an_order_naming_an_undeclared_provider_stops_the_server_starting() {
-        let text = format!("{GOOD}\n[models]\nreview = [\"phala/deepseek-v4-flash\"]\n");
-        let path = write(&text, "undeclared-provider");
-        let refused = Instance::read(&path, &env()).expect_err("phala is not declared");
-        assert!(format!("{refused:#}").contains("phala"), "{refused}");
-        assert!(
-            format!("{refused:#}").contains("not a backend"),
-            "{refused}"
-        );
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_reserve_outside_zero_to_one_is_refused() {
-        let text = format!("{GOOD}\n[models]\nreserve = 1.5\n");
-        let path = write(&text, "bad-reserve");
-        let refused = Instance::read(&path, &env()).expect_err("a reserve over 1 is refused");
-        assert!(format!("{refused:#}").contains("reserve"), "{refused}");
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_provider_named_claude_cli_is_refused() {
-        let text = format!(
-            "{GOOD}\n[[providers]]\nname = \"claude-cli\"\nbase_url = \"https://x.test\"\n\
-             key = \"X\"\nattested = false\n"
-        );
-        let path = write(&text, "reserved-cli-provider");
-        let refused = Instance::read(&path, &env()).expect_err("claude-cli is reserved");
-        assert!(format!("{refused:#}").contains("claude-cli"), "{refused}");
         let _ = std::fs::remove_file(&path);
     }
 

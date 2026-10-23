@@ -347,18 +347,21 @@ mod tests {
         assert!(answer["note"].as_str().unwrap().contains("never"));
     }
 
-    /// A pass three days old reads as a number close to 72, not as silence.
+    /// A recorded pass reads as its age in hours: three days old is 72, not silence, and moments
+    /// ago is a small positive number, a positive claim and not an absence.
     #[test]
-    fn a_three_day_old_pass_reads_as_about_72_hours() {
-        let answer = freshness(at("2026-09-20T07:00:14"), Some("2026-09-17T07:00:14"));
-        assert_eq!(answer["hours_ago"].as_f64(), Some(72.0));
-    }
-
-    /// A pass moments ago is a small positive number: a positive claim, not an absence.
-    #[test]
-    fn a_recent_pass_reads_as_a_small_number() {
-        let answer = freshness(at("2026-09-20T07:05:00"), Some("2026-09-20T07:00:00"));
-        assert_eq!(answer["hours_ago"].as_f64(), Some(0.1));
+    fn a_recorded_pass_reads_as_its_age_in_hours() {
+        for (now, recorded, hours) in [
+            ("2026-09-20T07:00:14", "2026-09-17T07:00:14", 72.0),
+            ("2026-09-20T07:05:00", "2026-09-20T07:00:00", 0.1),
+        ] {
+            let answer = freshness(at(now), Some(recorded));
+            assert_eq!(
+                answer["hours_ago"].as_f64(),
+                Some(hours),
+                "{recorded} at {now}"
+            );
+        }
     }
 
     /// Corrupt content never invents an age: it is unparseable, never absent ("never run") or zero
@@ -373,18 +376,25 @@ mod tests {
 
     // --- alarm: all four heartbeat arms ------------------------------------
 
-    /// Fresh is the only silent heartbeat arm, with an outcome that defers.
+    /// Fresh is the only silent heartbeat arm, with an outcome that defers: an absent one, so a
+    /// wrapper that never writes `triage-outcome` does not page, or an ok one; and a pass exactly
+    /// at the threshold is not yet stale (`>`, not `>=`).
     #[test]
-    fn a_fresh_pass_appends_nothing() {
-        assert_eq!(
-            alarm(
-                at("2026-09-20T07:05:00"),
-                Some("2026-09-20T07:00:00"),
-                1.0,
-                &PassOutcome::Absent,
-            ),
-            None
-        );
+    fn a_fresh_pass_with_an_outcome_that_defers_appends_nothing() {
+        let ok = PassOutcome::Recorded(Recorded::Ok {
+            at: "2026-09-20T07:00:00".to_owned(),
+        });
+        for (now, outcome) in [
+            ("2026-09-20T07:05:00", &PassOutcome::Absent),
+            ("2026-09-20T08:00:00", &PassOutcome::Absent),
+            ("2026-09-20T07:05:00", &ok),
+        ] {
+            assert_eq!(
+                alarm(at(now), Some("2026-09-20T07:00:00"), 1.0, outcome),
+                None,
+                "{outcome:?} at {now}"
+            );
+        }
     }
 
     /// Stale says the age and the last recording.
@@ -399,20 +409,6 @@ mod tests {
         .expect("past the threshold, this arm must say something");
         assert!(line.contains("72.0 hours"), "{line}");
         assert!(line.contains("2026-09-17T07:00:14"), "{line}");
-    }
-
-    /// A pass exactly at the threshold is not yet stale (`>`, not `>=`).
-    #[test]
-    fn exactly_at_the_threshold_is_not_yet_stale() {
-        assert_eq!(
-            alarm(
-                at("2026-09-20T08:00:00"),
-                Some("2026-09-20T07:00:00"),
-                1.0,
-                &PassOutcome::Absent,
-            ),
-            None
-        );
     }
 
     /// Never run speaks here, unlike `freshness`'s note: a wiped state directory or a wrong
@@ -480,40 +476,23 @@ mod tests {
         );
     }
 
+    /// An unknown stage, a trailing field, a zero count and a line starting with neither word
+    /// are each unparseable.
     #[test]
-    fn an_unknown_stage_word_is_unparseable() {
-        assert_eq!(
-            PassOutcome::parse(Some("failed 2026-09-20T07:00:00 wobble")),
-            PassOutcome::Unparseable
-        );
-    }
-
-    #[test]
-    fn a_line_with_a_trailing_extra_field_is_unparseable() {
-        assert_eq!(
-            PassOutcome::parse(Some("failed 2026-09-20T07:00:00 push 12 extra")),
-            PassOutcome::Unparseable
-        );
-        assert_eq!(
-            PassOutcome::parse(Some("ok 2026-09-20T07:00:00 extra")),
-            PassOutcome::Unparseable
-        );
-    }
-
-    #[test]
-    fn a_zero_count_is_unparseable() {
-        assert_eq!(
-            PassOutcome::parse(Some("failed 2026-09-20T07:00:00 push 0")),
-            PassOutcome::Unparseable
-        );
-    }
-
-    #[test]
-    fn a_line_starting_with_neither_word_is_unparseable() {
-        assert_eq!(
-            PassOutcome::parse(Some("garbage")),
-            PassOutcome::Unparseable
-        );
+    fn a_line_outside_the_two_shapes_is_unparseable() {
+        for line in [
+            "failed 2026-09-20T07:00:00 wobble",
+            "failed 2026-09-20T07:00:00 push 12 extra",
+            "ok 2026-09-20T07:00:00 extra",
+            "failed 2026-09-20T07:00:00 push 0",
+            "garbage",
+        ] {
+            assert_eq!(
+                PassOutcome::parse(Some(line)),
+                PassOutcome::Unparseable,
+                "{line}"
+            );
+        }
     }
 
     // --- alarm's outcome arms ----------------------------------------------
@@ -535,22 +514,6 @@ mod tests {
         .expect("a failed outcome must speak even with a fresh heartbeat");
         assert!(line.contains("verify"), "{line}");
         assert!(line.contains("FAILED"), "{line}");
-    }
-
-    /// Ok and fresh is silent.
-    #[test]
-    fn ok_and_fresh_is_silent() {
-        assert_eq!(
-            alarm(
-                at("2026-09-20T07:05:00"),
-                Some("2026-09-20T07:00:00"),
-                1.0,
-                &PassOutcome::Recorded(Recorded::Ok {
-                    at: "2026-09-20T07:00:00".to_owned()
-                }),
-            ),
-            None
-        );
     }
 
     /// A recorded streak is named, so the owner reads "this has been failing".
@@ -581,21 +544,6 @@ mod tests {
         )
         .expect("an outcome file that will not parse must not read as healthy");
         assert!(line.contains("outcome file"), "{line}");
-    }
-
-    /// Absent with a fresh heartbeat is silent, so a wrapper that never writes `triage-outcome`
-    /// does not page.
-    #[test]
-    fn absent_outcome_with_a_fresh_heartbeat_is_silent() {
-        assert_eq!(
-            alarm(
-                at("2026-09-20T07:05:00"),
-                Some("2026-09-20T07:00:00"),
-                1.0,
-                &PassOutcome::Absent,
-            ),
-            None
-        );
     }
 
     // --- the line and the fold: laws ---------------------------------------

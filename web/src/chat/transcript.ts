@@ -73,7 +73,7 @@ function speaker(turn: TurnRow): string {
     case "box":
       return "The box";
     case "verb":
-      return turn.refused ? `${turn.verb} — refused` : turn.verb;
+      return turn.outcome.is === "refused" ? `${turn.verb} — refused` : turn.verb;
   }
 }
 

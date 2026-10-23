@@ -11,6 +11,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import type { Authored, Entry, SpecNode } from "../src/wire/generated/wire";
 import {
@@ -413,4 +414,24 @@ test("the listing leaves decisions to the Inbox", () => {
   );
   assert.equal(isDecision(rows[1]!), true);
   assert.equal(isDecision(rows[0]!), false);
+});
+
+// --- the fixture the browser scenes read --------------------------------------
+
+/** The box's fold of the six-todo fixture chain (`web_vectors.rs`), at the instant it was folded. */
+const fixture = JSON.parse(readFileSync("app/core/tests/web/fold.json", "utf8")) as { at: string; entries: Entry[] };
+
+test("on the fixture, each filter narrows the open list to its own todos, most urgent first", () => {
+  const { todos } = cast.world;
+  const shown = (filter: typeof DEFAULT_FILTER): string[] =>
+    fixture.entries.filter((e) => matches(e, filter, fixture.at)).sort(byUrgency).map((e) => e.todo);
+  const open = shown(DEFAULT_FILTER);
+  assert.equal(open[0], todos.urgent.id, "the deadline two days out sorts first: low means urgent");
+  assert.ok(!open.includes(todos.resolved.id), "the resolved todo is not on the open list");
+  for (const [filter, only] of [
+    [{ ...DEFAULT_FILTER, attention: true }, [todos.agents.id]],
+    [{ ...DEFAULT_FILTER, dated: true }, [todos.urgent.id]],
+  ] as const) {
+    assert.deepEqual(shown(filter), only, JSON.stringify(filter));
+  }
 });

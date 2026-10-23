@@ -189,7 +189,7 @@ fn a_round_that_read_mail_proposes_no_session() {
         .iter()
         .find(|turn| turn["who"] == "verb" && turn["verb"] == "propose_coding_session")
         .expect("the verb's turn");
-    assert_eq!(refused["refused"], true, "{refused}");
+    assert_eq!(refused["outcome"]["is"], "refused", "{refused}");
     assert!(
         refused["text"]
             .as_str()

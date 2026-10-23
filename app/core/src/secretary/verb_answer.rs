@@ -116,29 +116,33 @@ impl VerbAnswer {
     /// so the model can correct itself.
     #[must_use]
     pub fn turn(verb: impl Into<ToolName>, result: Result<Self, Refusal>) -> Turn {
-        let (answer, outcome, files) = match result {
-            Ok(Self {
-                value: Value::String(text),
-                files,
-                remembered,
-            }) => (text, Outcome::answered(remembered), files),
-            Ok(Self {
-                value,
-                files,
-                remembered,
-            }) => (
-                serde_json::to_string_pretty(&value)
-                    .unwrap_or_else(|failed| format!("(the answer did not serialise: {failed})")),
-                Outcome::answered(remembered),
-                files,
-            ),
-            Err(refusal) => (refusal.message().to_owned(), Outcome::Refused, Vec::new()),
-        };
+        let (answer, outcome, files) = Self::said(result);
         Turn::Tool {
             verb: verb.into(),
             answer,
             outcome,
             files,
+        }
+    }
+
+    /// What a call that came to `result` says, how it ended, and the files it hands the model.
+    pub(crate) fn said(result: Result<Self, Refusal>) -> (String, Outcome, Vec<Enclosed>) {
+        match result {
+            Ok(Self {
+                value,
+                files,
+                remembered,
+            }) => (
+                match value {
+                    Value::String(text) => text,
+                    value => serde_json::to_string_pretty(&value).unwrap_or_else(|failed| {
+                        format!("(the answer did not serialise: {failed})")
+                    }),
+                },
+                remembered.map_or(Outcome::Answered, |fact| Outcome::Remembered { fact }),
+                files,
+            ),
+            Err(refusal) => (refusal.message().to_owned(), Outcome::Refused, Vec::new()),
         }
     }
 }

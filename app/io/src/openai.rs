@@ -884,27 +884,18 @@ mod tests {
         );
     }
 
+    /// Unclaimed attestation with no receipt is an ordinary reply, through `turn` as through
+    /// `turn_with_receipt` beneath it.
     #[test]
-    fn turn_reports_no_receipt_when_unclaimed_and_none_came() {
+    fn unclaimed_attestation_with_no_receipt_is_ordinary() {
         let body = ok_body(r#"{"say": "hi", "calls": []}"#);
         let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
         let model = model_over(transport, Attestation::Unclaimed);
         let reply = model
             .turn(&conversation(), &serde_json::json!([]))
             .expect("no receipt under Unclaimed is not a failure");
-        assert!(reply.receipt.is_none());
-    }
-
-    #[test]
-    fn unclaimed_attestation_with_no_receipt_is_ordinary() {
-        let body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let (reply, receipt) = model
-            .turn_with_receipt(&conversation(), &serde_json::json!([]))
-            .expect("no receipt under Unclaimed is not a failure");
         assert_eq!(reply.say, "hi");
-        assert!(receipt.is_none());
+        assert!(reply.receipt.is_none());
     }
 
     #[test]

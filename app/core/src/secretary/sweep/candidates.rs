@@ -554,52 +554,35 @@ mod tests {
         );
     }
 
+    /// Each kind of referent a receipt carries is read off its label: a confirmation code, a
+    /// booking reference, an order number, a record locator, a flight and a person.
     #[test]
-    fn extracts_a_confirmation_code() {
-        assert_eq!(
-            referents_in("Your confirmation code: AB12CD is ready"),
-            vec![Referent::Code("AB12CD".to_owned())]
-        );
-    }
-
-    #[test]
-    fn extracts_a_booking_code() {
-        assert_eq!(
-            referents_in("Booking reference XZ99Q1"),
-            vec![Referent::Code("XZ99Q1".to_owned())]
-        );
-    }
-
-    #[test]
-    fn extracts_an_order_number() {
-        assert_eq!(
-            referents_in("Order #: 4471A9"),
-            vec![Referent::Code("4471A9".to_owned())]
-        );
-    }
-
-    #[test]
-    fn extracts_a_record_locator() {
-        assert_eq!(
-            referents_in("Record locator: 7KQ2M1"),
-            vec![Referent::Code("7KQ2M1".to_owned())]
-        );
-    }
-
-    #[test]
-    fn extracts_a_flight_number() {
-        assert_eq!(
-            referents_in("Flight UA 523 departs at 6am"),
-            vec![Referent::Flight("UA523".to_owned())]
-        );
-    }
-
-    #[test]
-    fn extracts_a_person_after_a_label() {
-        assert_eq!(
-            referents_in("Dear Jane Doe, your reservation is confirmed"),
-            vec![Referent::Person("Jane Doe".to_owned())]
-        );
+    fn extracts_each_referent_after_its_label() {
+        for (text, referent) in [
+            (
+                "Your confirmation code: AB12CD is ready",
+                Referent::Code("AB12CD".to_owned()),
+            ),
+            (
+                "Booking reference XZ99Q1",
+                Referent::Code("XZ99Q1".to_owned()),
+            ),
+            ("Order #: 4471A9", Referent::Code("4471A9".to_owned())),
+            (
+                "Record locator: 7KQ2M1",
+                Referent::Code("7KQ2M1".to_owned()),
+            ),
+            (
+                "Flight UA 523 departs at 6am",
+                Referent::Flight("UA523".to_owned()),
+            ),
+            (
+                "Dear Jane Doe, your reservation is confirmed",
+                Referent::Person("Jane Doe".to_owned()),
+            ),
+        ] {
+            assert_eq!(referents_in(text), vec![referent], "{text}");
+        }
     }
 
     #[test]

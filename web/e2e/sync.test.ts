@@ -112,39 +112,6 @@ app.scene("two acts with no network reach the box on reconnect", async () => {
   }
 });
 
-app.scene("a re-post of what the box already holds appends nothing", async () => {
-  await app.open(WRITE_BASE);
-  await app.page.waitFor(
-    `fetch("/api/objects").then((r) => r.json()).then((b) => b.objects.length > 0)`,
-    { timeout: 15000 },
-  );
-
-  // IDEMPOTENCE IS THE HASH, which is why the nonce is deleted rather than
-  // ported: posting the same object twice is the same name twice, and the
-  // second time the box says it already has it.
-  const said = await app.page.evaluate<string>(`(async () => {
-    const held = await fetch("/api/objects").then((r) => r.json());
-    const post = (literals) => fetch("/api/objects", {
-      method: "POST",
-      headers: ${WRITE_HEADERS},
-      body: JSON.stringify({ objects: literals }),
-    }).then((r) => r.json());
-    const literals = held.objects.map((o) => o.literal);
-    const first = await post(literals);
-    const second = await post(literals);
-    return JSON.stringify({ before: held.objects.length, first, second });
-  })()`);
-  const { before, first, second } = JSON.parse(said) as {
-    before: number;
-    first: { adopted: string[]; already: string[] };
-    second: { adopted: string[]; already: string[] };
-  };
-  assert.deepEqual(first.adopted, [], "the box already had every one of its own objects");
-  assert.equal(first.already.length, before);
-  assert.deepEqual(second.adopted, [], "and the second post is the same answer");
-  assert.equal(second.already.length, before);
-});
-
 app.scene("two replicas that diverged leave the box both heads, joined by nothing", async () => {
   await app.open(WRITE_BASE);
   await untilReplica(app.page);

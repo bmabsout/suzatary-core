@@ -1,5 +1,5 @@
-//! The version a chain reads: which releases and items are done, and the `major.minor` that says
-//! so.
+//! The version a chain reads: which releases are done, the `major.minor` that says so, and
+//! each release's items.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -21,39 +21,26 @@ use crate::record;
 pub enum Lot {
     /// No completion and no cancellation.
     Open,
-    /// Cancelled and never completed: moot, so it counts toward no version.
+    /// Cancelled and never completed: a cancelled release moves no version.
     Cancelled,
     /// Completed at least once.
     Completed,
 }
 
-/// Where a release stands in the count.
+/// Where a release stands in the plan, by the releases settled before it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum Place {
-    /// Before the current major's count: its items counted toward an earlier version.
+    /// At or before the last settled release: shipped, cancelled or passed over.
     Earlier,
-    /// Counting toward the minor, and settled or passed over.
-    Counting,
-    /// The release the next completed item counts toward: the one after the last settled.
+    /// The one after the last settled: the release in progress.
     Next,
-    /// Not counting yet.
+    /// After that.
     Later,
 }
 
-impl Place {
-    /// Whether its completed items count toward the minor.
-    #[must_use]
-    pub fn counts(self) -> bool {
-        match self {
-            Place::Counting | Place::Next => true,
-            Place::Earlier | Place::Later => false,
-        }
-    }
-}
-
 /// Whether an item is named by its release's spec now, or only by an earlier one. A dropped
-/// item stays an item: the count never goes down.
+/// item stays an item, so the page can say it moved out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
 pub enum Named {
@@ -63,24 +50,10 @@ pub enum Named {
     Dropped,
 }
 
-/// An item as the count reads it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, TS)]
-#[serde(rename_all = "snake_case")]
-pub enum Standing {
-    /// Completed, and one of the minor's.
-    Counted,
-    /// Completed, in a release that does not count now.
-    Done,
-    /// Cancelled: counts for nothing.
-    Cancelled,
-    /// Neither.
-    Open,
-}
-
 /// The chain read for its version at one instant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reading {
-    /// The `major.minor` it reads.
+    /// The `major.minor` it reads: the last completed release's.
     pub counted: Counted,
     /// Each declared release, in the plan's order.
     pub releases: Vec<ReleaseReading>,
@@ -91,17 +64,17 @@ pub struct Reading {
 pub struct ReleaseReading {
     /// Its todo.
     pub todo: TodoId,
-    /// The major its completion moves to.
-    pub major: u32,
+    /// The `major.minor` its completion moves to.
+    pub version: Counted,
     /// What became of it.
     pub lot: Lot,
-    /// Where it stands in the count.
+    /// Where it stands in the plan.
     pub place: Place,
     /// Every todo its spec has named, in id order.
     pub items: Vec<Item>,
 }
 
-/// One item of a release.
+/// One item of a release: it shows the release's progress and moves no version.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item {
     /// The todo.
@@ -110,19 +83,6 @@ pub struct Item {
     pub lot: Lot,
     /// Whether the release's spec names it now.
     pub named: Named,
-}
-
-impl Item {
-    /// How the count reads it in a release standing at `place`.
-    #[must_use]
-    pub fn standing(&self, place: Place) -> Standing {
-        match self.lot {
-            Lot::Completed if place.counts() => Standing::Counted,
-            Lot::Completed => Standing::Done,
-            Lot::Cancelled => Standing::Cancelled,
-            Lot::Open => Standing::Open,
-        }
-    }
 }
 
 /// The events of `nodes` that bind under `policy`: what a reading counts. An agent's write is
@@ -142,18 +102,14 @@ impl Reading {
     /// each todo's spec in force (its candidates, as the fold reads them):
     ///
     /// - an event counts when it is stamped at or before `at`;
+    /// - the `major.minor` is the last completed release's, `plan.base()`.0 before any; the
+    ///   plan's versions strictly increase, so that is the greatest completed one;
     /// - a release's items are every todo its spec has named (`Ref`, or `RefIn` its own chain),
-    ///   in any record or revision, and never a release itself;
-    /// - MAJOR is the greatest major of a completed release, `plan.base()` before any;
-    /// - the releases that count run from the one after the first completed release of that
-    ///   major (the first release, before any) to the one after the last settled release, so
-    ///   releases sharing a major (2.1, 2.2) count on from each other and never reset MINOR;
-    /// - MINOR is how many distinct items of those are completed.
+    ///   in any record or revision, and never a release itself; they move no version.
     ///
-    /// Every part is a join over the events, so the reading is a function of the SET (no
+    /// A todo's lot is a join over its events, so the reading is a function of the SET (no
     /// order, no clock but `at`) and MONOTONE: more events, or a later `at`, read a
-    /// `major.minor` no lower. A spec revision that drops an item keeps it (as [`Named::Dropped`]),
-    /// and a reopened item stays counted, which is what monotone costs.
+    /// `major.minor` no lower. A reopened release stays shipped, which is what monotone costs.
     #[must_use]
     pub fn of<'a>(
         plan: &Plan,
@@ -169,27 +125,30 @@ impl Reading {
             .iter()
             .map(|r| lot(r.todo.as_str()))
             .collect();
-        let completed = |i: &usize| lots_of[*i] == Lot::Completed;
-        let major = (0..lots_of.len())
-            .filter(completed)
-            .map(|i| plan.releases()[i].major)
-            .fold(plan.base(), u32::max);
-        let start = (0..lots_of.len())
-            .filter(completed)
-            .find(|i| plan.releases()[*i].major == major)
-            .map_or(0, |i| i + 1);
+        let counted = plan
+            .releases()
+            .iter()
+            .zip(&lots_of)
+            .filter(|(_, lot)| **lot == Lot::Completed)
+            .map(|(release, _)| release.version)
+            .fold(
+                Counted {
+                    major: plan.base(),
+                    minor: 0,
+                },
+                Counted::max,
+            );
         let next = lots_of
             .iter()
             .rposition(|lot| *lot != Lot::Open)
             .map_or(0, |i| i + 1);
-        let place = |i: usize| match (i < start, i.cmp(&next)) {
-            (true, _) => Place::Earlier,
-            (false, std::cmp::Ordering::Less) => Place::Counting,
-            (false, std::cmp::Ordering::Equal) => Place::Next,
-            (false, std::cmp::Ordering::Greater) => Place::Later,
+        let place = |i: usize| match i.cmp(&next) {
+            std::cmp::Ordering::Less => Place::Earlier,
+            std::cmp::Ordering::Equal => Place::Next,
+            std::cmp::Ordering::Greater => Place::Later,
         };
 
-        let releases: Vec<ReleaseReading> = plan
+        let releases = plan
             .releases()
             .iter()
             .enumerate()
@@ -217,28 +176,14 @@ impl Reading {
                     .collect();
                 ReleaseReading {
                     todo: release.todo.clone(),
-                    major: release.major,
+                    version: release.version,
                     lot: lots_of[i],
                     place: place(i),
                     items,
                 }
             })
             .collect();
-        let done: BTreeSet<&str> = releases
-            .iter()
-            .flat_map(|release| {
-                release
-                    .items
-                    .iter()
-                    .filter(|item| item.standing(release.place) == Standing::Counted)
-                    .map(|item| item.todo.as_str())
-            })
-            .collect();
-        let minor = u32::try_from(done.len()).unwrap_or(u32::MAX);
-        Reading {
-            counted: Counted { major, minor },
-            releases,
-        }
+        Reading { counted, releases }
     }
 
     /// [`Reading::of`] with `assumed` completed at `at` by `actor` as well: what the chain will

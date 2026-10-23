@@ -355,7 +355,9 @@ fn valid(verb: &str, name: &str) -> Value {
         ("drive_read", "path") => json!("/my-files/a.pdf"),
         ("drive_list", "path") => json!("/my-files"),
         ("repo_tree" | "repo_read", "path") => json!("src/main.rs"),
-        ("proposals_accept" | "proposals_reject", "objects") => json!("0".repeat(64)),
+        ("proposals_accept" | "proposals_reject", "objects") | ("upload_read", "file") => {
+            json!("0".repeat(64))
+        }
         ("forget", "id")
         | (_, "uid" | "index" | "revises" | "recur_every_days" | "periodic_every_days") => {
             json!(3)

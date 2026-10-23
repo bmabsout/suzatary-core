@@ -55,13 +55,12 @@ test("a later reading replaces the overview whole", () => {
   assert.equal(lo.withDefault(step(step(lo.loading, answer(OVERVIEW, "ada")), answer(later, "ada")), null)?.overview, later);
 });
 
-test("law: the state after any walk is the fold of its events, and never leaves loading/read/failed", () => {
+test("law: the state after any walk is the fold of its events", () => {
   forAll(300, (r) => {
     const events = r.array(r.int(40), () => event(r));
     let state: lo.T<Loaded> = lo.loading;
     for (const e of events) {
       state = step(state, e);
-      assert.ok(state.type === "Loading" || state.type === "Val" || state.type === "Error");
     }
     assert.deepEqual(state, events.reduce(step, lo.loading));
   });

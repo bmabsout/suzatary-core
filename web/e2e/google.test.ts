@@ -95,12 +95,15 @@ app.scene("a Google account is signed in from its cards, and the box keeps its g
   assert.ok(href.startsWith(`${GOOGLE}/api/oauth/google/consent/`), `the button is the box's own path: ${href}`);
 
   // The fake consents at once and sends the browser back to the box's callback, which keeps the
-  // grant and lands on the Inbox.
-  const back = await app.page.captureNetwork(["/api/oauth/google/", "/api/"]);
-  await app.page.evaluate(`(() => { location.href = ${JSON.stringify(href)}; return true; })()`);
-  await app.page.waitFor(`location.origin === ${JSON.stringify(GOOGLE)} && location.hash === "#/inbox" && document.readyState === "complete"`, {
-    timeout: 20000,
-  });
+  // grant and lands on the Inbox. Only the box's two Google routes are captured: the Inbox it
+  // lands on opens its event streams under /api/, and a stream never ends for the capture to stop.
+  // The page leaving is already at the Inbox, complete, so the wait asks for a document without its mark.
+  const back = await app.page.captureNetwork(["/api/oauth/google/"]);
+  await app.page.evaluate(`(() => { window.__e2eLeaving = true; location.href = ${JSON.stringify(href)}; return true; })()`);
+  await app.page.waitFor(
+    `window.__e2eLeaving === undefined && location.origin === ${JSON.stringify(GOOGLE)} && location.hash === "#/inbox" && document.readyState === "complete"`,
+    { timeout: 20000 },
+  );
   const followed = await back();
   for (const exchange of followed) assert.equal(exchange.responseBody.includes(REFRESH), false, `an answer carried the grant: ${exchange.url}`);
   assert.ok(stored().includes(`GOOGLE_GRANT_ADA_AT_EXAMPLE_TEST=mail,calendar ${REFRESH}`), "the grant is kept under the account's name, with the parts Google granted");

@@ -50,7 +50,7 @@ impl Caused {
         if let Some(model) = model {
             let call = lines[model + 1..answer]
                 .iter()
-                .filter(|written| is_tool(&written.line))
+                .filter(|written| matches!(said(&written.line), Some(TurnShape::Tool { .. })))
                 .count();
             let calls = model_calls(&lines[model].line).unwrap_or_default();
             if calls
@@ -74,7 +74,9 @@ impl Caused {
             let prose = lines[from..]
                 .iter()
                 .enumerate()
-                .take_while(|(at, written)| *at == 0 || !is_person(&written.line))
+                .take_while(|(at, written)| {
+                    *at == 0 || !matches!(said(&written.line), Some(TurnShape::Person { .. }))
+                })
                 .filter(|(_, written)| model_calls(&written.line).is_some())
                 .filter_map(|(_, written)| written.line.keys().next().cloned());
             caused.offered.extend(prose);
@@ -108,7 +110,7 @@ fn receipt(entry: &Entry, fact: FactId, origin: &Origin) -> bool {
         return false;
     };
     match origin {
-        Origin::Turn { .. } => outcome.remembered() == Some(fact),
+        Origin::Turn { .. } => *outcome == Outcome::Remembered { fact },
         Origin::Tapped { proposal, .. } => {
             verb.verb() == Some(SecretaryVerb::Remember)
                 && *outcome == Outcome::Answered
@@ -120,35 +122,22 @@ fn receipt(entry: &Entry, fact: FactId, origin: &Origin) -> bool {
     }
 }
 
-/// A model turn's calls, by verb; `None` for any other line.
-fn model_calls(
-    line: &crate::secretary::line_event::LineEvent,
-) -> Option<Vec<crate::secretary::tool_name::ToolName>> {
-    match line.shape() {
-        LineShape::Said {
-            turn: TurnShape::Model { calls },
-            ..
-        } => Some(calls.clone()),
-        _ => None,
+/// The turn a said line holds; `None` for any other line.
+fn said(line: &crate::secretary::line_event::LineEvent) -> Option<&TurnShape> {
+    if let LineShape::Said { turn, .. } = line.shape() {
+        Some(turn)
+    } else {
+        None
     }
 }
 
-fn is_tool(line: &crate::secretary::line_event::LineEvent) -> bool {
-    matches!(
-        line.shape(),
-        LineShape::Said {
-            turn: TurnShape::Tool { .. },
-            ..
-        }
-    )
-}
-
-fn is_person(line: &crate::secretary::line_event::LineEvent) -> bool {
-    matches!(
-        line.shape(),
-        LineShape::Said {
-            turn: TurnShape::Person { .. },
-            ..
-        }
-    )
+/// A model turn's calls, by verb; `None` for any other line.
+fn model_calls(
+    line: &crate::secretary::line_event::LineEvent,
+) -> Option<&[crate::secretary::tool_name::ToolName]> {
+    if let Some(TurnShape::Model { calls }) = said(line) {
+        Some(calls)
+    } else {
+        None
+    }
 }

@@ -79,21 +79,21 @@
 #
 # WHAT A RELEASE MEANS. A tree that declares a release plan (app/core/releases.toml) is
 # released by every train, and its version is a reading of the project chain
-# (`suzatary_core::release`): MAJOR the last completed release's, MINOR the items of the
-# releases counting toward the next that are done, PATCH the trains since MINOR moved. A
-# PR names the todos it completes on `Completes:` lines of its description; build keeps
-# them as its merge's `Completes:` trailer and ends the train with the release `suzatary
-# release cut` writes (app/release.toml, the version and the ids of what it completed, and
-# the changelog's Unreleased section closed under it with those todos first), read as the
-# chain will be once they are done, so the gate judges the release's own tree. The count
-# starts from origin/master's newest release (its `Release:` trailer, the one reader of
-# it); a version the tree declares that no release names folds into the release. Land asks
-# `suzatary release check` whether the chain with those todos done reads at least that
-# version, pushes master and the tag `v<version>` in one atomic push, and only then records
-# each done as `assistant`, its note naming the PR (`record`, safe to run again): the tag,
-# the changelog and the chain say one thing, and a refused push writes nothing. The binary
-# is SUZATARY_TRAIN_BIN, else scripts/app-bin.sh's build of a named commit (resolve_app), and
-# the chain is SUZATARY_INSTANCE's.
+# (`suzatary_core::release`): MAJOR.MINOR the last completed release's, as the plan declares
+# it, and PATCH the trains since that MAJOR.MINOR was first tagged; a release's items move
+# no version. A PR names the todos it completes on `Completes:` lines of its description;
+# build keeps them as its merge's `Completes:` trailer and ends the train with the release
+# `suzatary release cut` writes (app/release.toml, the version and the ids of what it
+# completed, and the changelog's Unreleased section closed under it with those todos first),
+# read as the chain will be once they are done, so the gate judges the release's own tree.
+# The patch counts on from origin/master's newest release (its `Release:` trailer, the one
+# reader of it); a version the tree declares that no release names folds into the release.
+# Land asks `suzatary release check` whether the chain with those todos done reads at least
+# that version, pushes master and the tag `v<version>` in one atomic push, and only then
+# records each done as `assistant`, its note naming the PR (`record`, safe to run again): the
+# tag, the changelog and the chain say one thing, and a refused push writes nothing. The
+# binary is SUZATARY_TRAIN_BIN, else scripts/app-bin.sh's build of a named commit
+# (resolve_app), and the chain is SUZATARY_INSTANCE's.
 #
 # WHAT A GATE MEANS. The gate judges a TREE (the gate script itself is in
 # it), in two halves: `tree`, a function of the tree alone, and `live`, the
@@ -341,7 +341,7 @@ train_completes() {
 }
 
 # The version of origin/master's newest release, read off its `Release:` trailer: the one
-# reader of the last release, so the count, the record and the tag cannot disagree; nothing
+# reader of the last release, so the patch, the record and the tag cannot disagree; nothing
 # before the first.
 last_release() {
   local rev

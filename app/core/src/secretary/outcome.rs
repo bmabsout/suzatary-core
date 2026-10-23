@@ -24,30 +24,12 @@ pub enum Outcome {
 }
 
 impl Outcome {
-    /// What an answer that was not refused came to: the fact it wrote, if it wrote one.
-    #[must_use]
-    pub fn answered(remembered: Option<FactId>) -> Self {
-        match remembered {
-            Some(fact) => Outcome::Remembered { fact },
-            None => Outcome::Answered,
-        }
-    }
-
     /// Whether the call was refused.
     #[must_use]
     pub fn refused(self) -> bool {
         match self {
             Outcome::Refused => true,
             Outcome::Answered | Outcome::Remembered { .. } => false,
-        }
-    }
-
-    /// The fact the call wrote, if it wrote one.
-    #[must_use]
-    pub fn remembered(self) -> Option<FactId> {
-        match self {
-            Outcome::Remembered { fact } => Some(fact),
-            Outcome::Answered | Outcome::Refused => None,
         }
     }
 }

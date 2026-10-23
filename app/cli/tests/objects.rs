@@ -936,23 +936,6 @@ fn update_hands_back_an_event_and_writes_nothing() {
     assert_eq!(events(&caps).len(), before + 1);
 }
 
-/// An edit that names nothing is refused in the box's own words.
-#[test]
-fn an_empty_update_is_refused_in_the_boxs_own_words() {
-    let (base, _caps) = writer("sync-update-empty");
-    let mut response = common::act(
-        &format!("{base}/api/author"),
-        &serde_json::json!({"update": {"todo": "book-flight"}}),
-    );
-    assert_eq!(common::status(&response), 400);
-    assert!(
-        common::body_json(&mut response)["error"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("must change something")
-    );
-}
-
 /// Ticking a subtodo sends the whole checklist back with one line flipped.
 #[test]
 fn ticking_a_subtodo_sends_the_whole_checklist_back() {
@@ -1050,65 +1033,45 @@ fn deferring_wraps_the_current_term_and_supplies_its_own_rationale() {
     );
 }
 
-/// A deferral to a date not after today is refused.
+/// An update the box refuses is a 400 in its own words: one that names nothing, a deferral to a
+/// date not after today, a deferral past a `Decay`'s deadline (a reprice, not a deferral), and a
+/// deferral with a priority beside it.
 #[test]
-fn a_deferral_not_after_today_is_refused_over_the_route() {
-    let (base, _caps) = writer("sync-defer-past");
-    let mut response = common::act(
-        &format!("{base}/api/author"),
-        &serde_json::json!({"update": {
-            "todo": "book-flight",
-            "defer_to": "2026-09-02",
-        }}),
-    );
-    assert_eq!(common::status(&response), 400);
-    assert!(
-        common::body_json(&mut response)["error"]
+fn an_update_the_box_refuses_says_why_in_its_own_words() {
+    let (base, _caps) = writer("sync-update-refused");
+    for (update, said) in [
+        (
+            serde_json::json!({"todo": "book-flight"}),
+            "must change something",
+        ),
+        (
+            serde_json::json!({"todo": "book-flight", "defer_to": "2026-09-02"}),
+            "defer to a date after today",
+        ),
+        (
+            serde_json::json!({"todo": "file-permit", "defer_to": "2026-09-10"}),
+            "a reprice, not a deferral",
+        ),
+        (
+            serde_json::json!({
+                "todo": "book-flight",
+                "defer_to": "2026-09-20",
+                "priority": {"how": "flat", "percent": 40},
+            }),
+            "at most one of priority or defer_to",
+        ),
+    ] {
+        let mut response = common::act(
+            &format!("{base}/api/author"),
+            &serde_json::json!({ "update": update }),
+        );
+        assert_eq!(common::status(&response), 400, "{update}");
+        let error = common::body_json(&mut response)["error"]
             .as_str()
             .unwrap_or_default()
-            .contains("defer to a date after today")
-    );
-}
-
-/// A deferral past a `Decay`'s deadline is a reprice, not a deferral.
-#[test]
-fn a_deferral_past_the_deadline_is_refused_as_a_reprice_over_the_route() {
-    let (base, _caps) = writer("sync-defer-deadline");
-    let mut response = common::act(
-        &format!("{base}/api/author"),
-        &serde_json::json!({"update": {
-            "todo": "file-permit",
-            "defer_to": "2026-09-10",
-        }}),
-    );
-    assert_eq!(common::status(&response), 400);
-    assert!(
-        common::body_json(&mut response)["error"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("a reprice, not a deferral")
-    );
-}
-
-/// `defer_to` and `priority` are exclusive.
-#[test]
-fn defer_to_and_priority_together_is_refused() {
-    let (base, _caps) = writer("sync-defer-exclusive");
-    let mut response = common::act(
-        &format!("{base}/api/author"),
-        &serde_json::json!({"update": {
-            "todo": "book-flight",
-            "defer_to": "2026-09-20",
-            "priority": {"how": "flat", "percent": 40},
-        }}),
-    );
-    assert_eq!(common::status(&response), 400);
-    assert!(
-        common::body_json(&mut response)["error"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("at most one of priority or defer_to")
-    );
+            .to_owned();
+        assert!(error.contains(said), "{update}: {error}");
+    }
 }
 
 /// A body carrying `update` alongside `add`, `confirm` or `act` is refused.

@@ -159,7 +159,7 @@ fn a_checkout(root: &Path) -> PathBuf {
     .expect("a changelog");
     std::fs::write(
         tree.join("app/core/releases.toml"),
-        "chain = \"suzatary\"\nbase = 1\n\n[[release]]\ntodo = \"suzatarytwo\"\nmajor = 2\n",
+        "chain = \"suzatary\"\nbase = 1\n\n[[release]]\ntodo = \"suzatarytwo\"\nmajor = 2\nminor = 0\n",
     )
     .expect("a plan");
     tree
@@ -191,8 +191,9 @@ fn a_release_is_cut_from_the_chain_and_checked_against_it() {
     let tree_arg = tree.to_string_lossy().into_owned();
 
     let read = ok(&suzatary(&instance, &["release", "read", "--json"]));
-    assert_eq!(read["reads"], "1.3", "three done, the cancelled one not");
+    assert_eq!(read["reads"], "1.0", "no release is completed");
     assert_eq!(read["releases"][0]["todo"], "suzatarytwo");
+    assert_eq!(read["releases"][0]["version"], "2.0");
     assert_eq!(read["releases"][0]["place"], "next");
 
     let cut = ok(&suzatary(
@@ -201,17 +202,19 @@ fn a_release_is_cut_from_the_chain_and_checked_against_it() {
             "release",
             "cut",
             "--completes",
+            "suzatarytwo",
+            "--completes",
             "calendarlinks",
             "--tree",
             &tree_arg,
         ],
     ));
-    assert_eq!(cut["version"], "1.4.0");
-    assert_eq!(cut["completes"][0]["title"], "the calendarlinks item");
+    assert_eq!(cut["version"], "2.0.0");
+    assert_eq!(cut["completes"][1]["title"], "the calendarlinks item");
     let changelog = std::fs::read_to_string(tree.join("CHANGELOG.md")).expect("a changelog");
     assert!(
         changelog.contains(
-            "## [Unreleased]\n\n## [1.4.0] - 20"
+            "## [Unreleased]\n\n## [2.0.0] - 20"
         ) && changelog.contains(
             "\n- Completes `todo:suzatary/calendarlinks`: the calendarlinks item\n\n### Added\n- a calendar link\n"
         ),
@@ -220,18 +223,18 @@ fn a_release_is_cut_from_the_chain_and_checked_against_it() {
     let released =
         std::fs::read_to_string(tree.join("app/release.toml")).expect("the release file");
     assert!(
-        released.contains("version = \"1.4.0\"\n")
-            && released.contains("completes = [\"calendarlinks\"]")
+        released.contains("version = \"2.0.0\"\n")
+            && released.contains("completes = [\"suzatarytwo\", \"calendarlinks\"]")
             && !released.contains("the calendarlinks item"),
         "{released}"
     );
 
-    // Land checks before it records: the chain with the tree's completions done reads 1.4.
+    // Land checks before it records: the chain with the tree's completions done reads 2.0.
     let before = ok(&suzatary(
         &instance,
         &["release", "check", "--tree", &tree_arg],
     ));
-    assert_eq!(before["version"], "1.4.0");
+    assert_eq!(before["version"], "2.0.0");
 
     ok_status(&suzatary(
         &instance,
@@ -240,7 +243,7 @@ fn a_release_is_cut_from_the_chain_and_checked_against_it() {
             "--chain",
             "suzatary",
             "done",
-            "calendarlinks",
+            "suzatarytwo",
             "--actor",
             "assistant",
             "--note",
@@ -251,15 +254,15 @@ fn a_release_is_cut_from_the_chain_and_checked_against_it() {
         &instance,
         &["release", "check", "--tree", &tree_arg],
     ));
-    assert_eq!(checked["version"], "1.4.0");
+    assert_eq!(checked["version"], "2.0.0");
 
-    // The next train closes nothing: the next patch after the last release, which the train
-    // reads off origin's newest `Release:` trailer.
+    // The next train completes no release: the next patch after the last release, which the
+    // train reads off origin's newest `Release:` trailer.
     let again = ok(&suzatary(
         &instance,
-        &["release", "cut", "--last", "1.4.0", "--tree", &tree_arg],
+        &["release", "cut", "--last", "2.0.0", "--tree", &tree_arg],
     ));
-    assert_eq!(again["version"], "1.4.1");
+    assert_eq!(again["version"], "2.0.1");
 }
 
 #[test]
@@ -381,15 +384,15 @@ fn a_cut_from_the_tag_folds_an_untagged_version() {
             &tree.to_string_lossy(),
         ],
     ));
-    assert_eq!(cut["version"], "1.3.0");
+    assert_eq!(cut["version"], "1.0.0");
     let changelog = std::fs::read_to_string(tree.join("CHANGELOG.md")).expect("a changelog");
     assert!(!changelog.contains("## [1.9.0]"), "{changelog}");
-    assert!(changelog.contains("## [1.3.0] - "), "{changelog}");
+    assert!(changelog.contains("## [1.0.0] - "), "{changelog}");
     assert!(changelog.contains("- hand-set"), "{changelog}");
 }
 
-/// A todo closed by hand since the cut is the next release's: the chain reads above the cut,
-/// and the check passes. A tree that claims more than the chain holds is refused.
+/// A release completed by hand since the cut is the next train's: the chain reads above the
+/// cut, and the check passes. A tree that claims more than the chain holds is refused.
 #[test]
 fn a_check_wants_the_chain_at_least_at_the_cut() {
     let root = common::scratch("release-at-least");
@@ -415,7 +418,7 @@ fn a_check_wants_the_chain_at_least_at_the_cut() {
             "--chain",
             "suzatary",
             "done",
-            "portsuites",
+            "suzatarytwo",
             "--actor",
             "ada",
         ],
@@ -424,22 +427,22 @@ fn a_check_wants_the_chain_at_least_at_the_cut() {
         &instance,
         &["release", "check", "--tree", &tree_arg],
     ));
-    assert_eq!(above["version"], "1.4.0", "the tag is the cut");
+    assert_eq!(above["version"], "1.0.0", "the tag is the cut");
 
-    std::fs::write(tree.join("app/release.toml"), "version = \"1.9.0\"\n").expect("a release");
+    std::fs::write(tree.join("app/release.toml"), "version = \"2.1.0\"\n").expect("a release");
     let below = suzatary(&instance, &["release", "check", "--tree", &tree_arg]);
     assert!(!below.status.success(), "a tree above the chain passed");
     assert!(
-        String::from_utf8_lossy(&below.stderr).contains("below the tree's 1.9.0"),
+        String::from_utf8_lossy(&below.stderr).contains("below the tree's 2.1.0"),
         "stderr: {}",
         String::from_utf8_lossy(&below.stderr)
     );
 }
 
 /// `release items` attaches and detaches a release's todos in one trusted revision; a detached
-/// item that was completed still counts, and reads as dropped.
+/// item reads as dropped.
 #[test]
-fn items_rescope_a_release_and_what_was_done_stays_counted() {
+fn items_rescope_a_release() {
     let root = common::scratch("release-items");
     a_project_chain(&root);
     let instance = an_instance(&root);
@@ -457,10 +460,6 @@ fn items_rescope_a_release_and_what_was_done_stays_counted() {
             "ada",
         ],
     ));
-    assert_eq!(
-        rescoped["reads"], "1.3",
-        "wireonce was done and still counts"
-    );
     let named = |items: &serde_json::Value, todo: &str| {
         items
             .as_array()

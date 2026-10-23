@@ -36,29 +36,6 @@ const openOn = async (chain: string): Promise<string[]> =>
        .then((b) => b.entries.filter((e) => e.state === "open").map((e) => e.todo).sort())`,
   );
 
-app.scene("the bare paths are the first chain", async () => {
-  await app.open(WRITE_BASE);
-  // THE PROMISE THE PHONE APP AND THE BRIEFING'S LINKS REST ON: `/api/fold`
-  // still means `life`, so nothing written before §10.2 had to learn a segment.
-  const bare = await app.page.evaluate<string>(
-    `fetch("/api/fold").then((r) => r.json()).then((b) => JSON.stringify(b.entries.map((e) => e.todo).sort()))`,
-  );
-  const named = await app.page.evaluate<string>(
-    `fetch("/api/life/fold").then((r) => r.json()).then((b) => JSON.stringify(b.entries.map((e) => e.todo).sort()))`,
-  );
-  assert.equal(bare, named, "/api/fold and /api/life/fold are the same fold");
-});
-
-app.scene("a chain this deployment does not serve is a 404 that names the ones it does", async () => {
-  await app.open(WRITE_BASE);
-  const said = await app.page.evaluate<string>(
-    `fetch("/api/nowhere/fold").then((r) => r.text())`,
-  );
-  assert.match(said, /no chain named/, said);
-  assert.match(said, /life/, "the refusal lists the chains there are");
-  assert.match(said, /suzatary/, "the refusal lists the chains there are");
-});
-
 app.scene("switching to suzatary shows an empty list", async () => {
   await app.open(WRITE_BASE);
   assert.ok((await shownTodos(app.page)).length >= 5, "the life chain opens with its own todos");

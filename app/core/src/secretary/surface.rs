@@ -15,7 +15,7 @@ use super::verbs::{
     ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
     ProposeCodingSession, ProposeDecision, ProposeEmail, ProposePatch, Recall, Record, Remember,
     RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail, TodoAdd,
-    TodoShow, TodoUpdate, Weather, Web, WithdrawProposal, Zoom,
+    TodoShow, TodoUpdate, UploadRead, Weather, Web, WithdrawProposal, Zoom,
 };
 use crate::agent::{Holds, Says};
 use crate::authoring::Writer;
@@ -53,9 +53,6 @@ impl Holds for SecretarySurface {
         show: "One message in full: headers, plain-text body, and every link with its \
         anchor label. Takes the `id` from a `search` row, or a canonical hash \
         (full, or the prefix a todo's `source.hash` carries).",
-        search: "Any notmuch query over the mail corpus, newest first \
-        (e.g. `from:counsel@example.com`). Use it to find the thread a question \
-        is about before you answer it.",
         record: "Close, cancel, reopen or tend a todo: kind is 'completed', \
         'cancelled', 'reopened' or 'tended'. 'tended' is a pass at a RECURRING \
         todo (its price holds a Recur): done again, still open, its price \
@@ -129,6 +126,7 @@ verbs! {
     Search: powers(Reads, Tainted),
     Show: powers(Reads, Tainted),
     Attachments: powers(Reads, Tainted),
+    UploadRead: powers(Reads, Tainted),
     SyncMail: powers(Syncs, Tainted),
     SearchOlder: powers(Pulls, Tainted),
     BriefingDelta: powers(Reads, Tainted),

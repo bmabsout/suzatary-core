@@ -5,9 +5,12 @@ use std::collections::BTreeSet;
 use prodrome_core::event::TodoId;
 use serde::Deserialize;
 
+use super::Counted;
+
 /// The releases the version counts toward, in the order they ship, on one chain.
 ///
-/// Only [`Plan::new`] makes one, so every plan has distinct todos and majors that never go down.
+/// Only [`Plan::new`] makes one, so every plan has distinct todos whose versions strictly
+/// increase, the first above `base.0`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
     chain: String,
@@ -15,14 +18,14 @@ pub struct Plan {
     releases: Vec<Release>,
 }
 
-/// One release: the todo whose spec composes its items, and the major its completion moves the
-/// version to (`2` for 2.0, and for 2.1, whose completion moves no major).
+/// One release: the todo whose spec composes its items, and the `major.minor` its completion
+/// moves the version to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Release {
     /// The release's own todo.
     pub todo: TodoId,
-    /// The version's major once it is completed.
-    pub major: u32,
+    /// The version's `major.minor` once it is completed.
+    pub version: Counted,
 }
 
 /// Why a declaration is not a plan.
@@ -37,15 +40,15 @@ pub enum PlanError {
     /// Two releases name one todo.
     #[error("releases.toml: {0} is declared twice")]
     Twice(String),
-    /// A release's major is below the one before it, or not above the base.
-    #[error("releases.toml: {todo} moves to major {major}, below {floor}")]
-    Backwards {
+    /// A release's version is not above the one before it, or the first not above `base.0`.
+    #[error("releases.toml: {todo} is {version}, not above {floor}")]
+    NotAbove {
         /// The release.
         todo: String,
-        /// Its major.
-        major: u32,
-        /// What it may not go below.
-        floor: u32,
+        /// Its version.
+        version: Counted,
+        /// What it must be above.
+        floor: Counted,
     },
 }
 
@@ -64,39 +67,42 @@ struct Declared {
 struct DeclaredRelease {
     todo: String,
     major: u32,
+    minor: u32,
 }
 
 /// The declaration this build carries.
 const DECLARED: &str = include_str!("../../releases.toml");
 
 impl Plan {
-    /// The plan of `releases` on `chain`, the version's major being `base` until one completes.
+    /// The plan of `releases` on `chain`, the version being `base.0` until one completes.
     ///
-    /// Every release moves past `base`, so while the major is `base` no release has completed
-    /// and every release from the first counts toward the next; that is what keeps
-    /// [`super::Reading`] monotone.
+    /// The versions strictly increase, so the last completed release in the plan's order is
+    /// also the greatest, and completing any release never lowers what the chain reads.
     ///
     /// # Errors
-    /// A todo twice, or a major below the one before it or not above `base`.
+    /// A todo twice, or a version not above the one before it (`base.0` for the first).
     pub fn new(
         chain: impl Into<String>,
         base: u32,
         releases: Vec<Release>,
     ) -> Result<Plan, PlanError> {
         let mut seen = BTreeSet::new();
-        let mut floor = base.saturating_add(1);
+        let mut floor = Counted {
+            major: base,
+            minor: 0,
+        };
         for release in &releases {
             if !seen.insert(release.todo.as_str()) {
                 return Err(PlanError::Twice(release.todo.as_str().to_owned()));
             }
-            if release.major < floor {
-                return Err(PlanError::Backwards {
+            if release.version <= floor {
+                return Err(PlanError::NotAbove {
                     todo: release.todo.as_str().to_owned(),
-                    major: release.major,
+                    version: release.version,
                     floor,
                 });
             }
-            floor = release.major;
+            floor = release.version;
         }
         Ok(Plan {
             chain: chain.into(),
@@ -119,7 +125,10 @@ impl Plan {
                 TodoId::new(r.todo.clone())
                     .map(|todo| Release {
                         todo,
-                        major: r.major,
+                        version: Counted {
+                            major: r.major,
+                            minor: r.minor,
+                        },
                     })
                     .map_err(|_| PlanError::NotATodo(r.todo))
             })
@@ -141,7 +150,7 @@ impl Plan {
         &self.chain
     }
 
-    /// The major before any release completes.
+    /// The major before any release completes, whose minor is 0.
     #[must_use]
     pub fn base(&self) -> u32 {
         self.base

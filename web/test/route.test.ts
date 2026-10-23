@@ -33,22 +33,16 @@ test("a todo id is decoded", () => {
   assert.deepEqual(parseRoute(`#/todo/${encodeURIComponent("a b/c")}`), { type: "todo", id: "a b/c" });
 });
 
-test("a todo route with no id is not a todo", () => {
-  assert.deepEqual(parseRoute("#/todo/"), { type: "unknown", hash: "#/todo/" });
-  assert.deepEqual(parseRoute("#/todo"), { type: "unknown", hash: "#/todo" });
-});
-
-test("a malformed escape is a route, not an exception", () => {
-  assert.deepEqual(parseRoute("#/todo/%"), { type: "unknown", hash: "#/todo/%" });
+test("a hash that is no route names itself: a todo with no id, a malformed escape, a page nobody routes", () => {
+  for (const hash of ["#/todo/", "#/todo", "#/todo/%", "#/nowhere"]) {
+    assert.deepEqual(parseRoute(hash), { type: "unknown", hash });
+  }
+  // A malformed escape is a route, not an exception: a chain with no focus.
   assert.deepEqual(parseRoute("#/chain/%E0%A4%A"), { type: "chain", focus: "" });
 });
 
 test("#/chain/<hash> focuses an object", () => {
   assert.deepEqual(parseRoute("#/chain/cc324f2c"), { type: "chain", focus: "cc324f2c" });
-});
-
-test("an unrouted hash names itself", () => {
-  assert.deepEqual(parseRoute("#/nowhere"), { type: "unknown", hash: "#/nowhere" });
 });
 
 test("#/mail is the inbox, and its query lives in the hash", () => {
@@ -238,22 +232,18 @@ test("a shared text and title ride the hash, and round-trip", () => {
   }
 });
 
-test("settings is one destination, and its hash round-trips", () => {
-  assert.deepEqual(parseRoute("#/settings"), { type: "settings" });
-  assert.equal(hrefOf({ type: "settings" }), "#/settings");
-  assert.deepEqual(parseRoute(hrefOf({ type: "settings" })), { type: "settings" });
-  // Like every other argumentless page, the head decides and a trailing
-  // segment is ignored rather than being a second rule for one route.
-  assert.deepEqual(parseRoute("#/settings/anything"), { type: "unknown", hash: "#/settings/anything" });
-});
-
-test("the inbox is one destination, and its hash round-trips", () => {
-  assert.deepEqual(parseRoute("#/inbox"), { type: "inbox" });
-  assert.equal(hrefOf({ type: "inbox" }), "#/inbox");
-  assert.deepEqual(parseRoute(hrefOf({ type: "inbox" })), { type: "inbox" });
-  // Which batch is open is page-local state, so a trailing segment is ignored
-  // rather than being a second rule for one route.
-  assert.deepEqual(parseRoute("#/inbox/anything"), { type: "inbox" });
+test("settings and the inbox are each one destination, and their hashes round-trip", () => {
+  // Like every other argumentless page, the head decides, and a trailing segment is no second rule for one route:
+  // under settings it is no route at all, and which inbox batch is open is page-local state, so it is ignored.
+  for (const [route, trailing] of [
+    [{ type: "settings" }, { type: "unknown", hash: "#/settings/anything" }],
+    [{ type: "inbox" }, { type: "inbox" }],
+  ] as const) {
+    const hash = `#/${route.type}`;
+    assert.deepEqual(parseRoute(hash), route);
+    assert.equal(hrefOf(route), hash);
+    assert.deepEqual(parseRoute(`${hash}/anything`), trailing);
+  }
 });
 
 test("#/typst is the Typst list, and #/typst/<id> the same list with a todo open", () => {

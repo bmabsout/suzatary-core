@@ -8,18 +8,19 @@ use std::str::FromStr;
 pub struct Version {
     /// The last completed release's major.
     pub major: u32,
-    /// The items of the releases counting toward the next one that are done.
+    /// The last completed release's minor.
     pub minor: u32,
-    /// The trains since `major.minor` last moved.
+    /// The trains since `major.minor` was first tagged.
     pub patch: u32,
 }
 
-/// What the chain decides of a version: its major and its minor, ordered as a version is.
+/// A version's major and minor, ordered as a version is: what a release declares, and what the
+/// chain reads (the last completed release's).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Counted {
-    /// The last completed release's major.
+    /// The major.
     pub major: u32,
-    /// The items done among the releases counting toward the next one.
+    /// The minor.
     pub minor: u32,
 }
 
@@ -34,11 +35,11 @@ impl fmt::Display for Counted {
 #[error("{0:?} is not MAJOR.MINOR.PATCH")]
 pub struct NotAVersion(pub String);
 
-/// The chain reads less done than the last release said: the version would go down.
+/// The chain reads a `major.minor` below the last release's: the version would go down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error(
-    "the chain reads {read} done, below the last release {last}: a version never goes down, so \
-     the chain must say at least what {last} said"
+    "the chain reads {read}, below the last release {last}: a version never goes down, so the \
+     release that made {last} must be completed on the chain"
 )]
 pub struct Behind {
     /// The last release.

@@ -48,6 +48,7 @@ mod secretary;
 mod secrets;
 mod server;
 mod typeset;
+mod upload_index;
 mod usage;
 mod weather;
 mod web;
@@ -87,6 +88,7 @@ pub use secretary::Secretary;
 pub use secrets::{Answer, Locked, MailCredential, MailGrants, SecretState, Secrets, Snapshot};
 pub use server::Server;
 pub use typeset::{Diagnostic, Rejected, Typeset, parsed};
+pub use upload_index::{IndexError, UploadIndex};
 pub use usage::{Usage, UsageError};
 pub use weather::{Weather, WeatherError};
 pub use web::{AllowRule, Web, WebAnswer, WebFailure, WebRequest};
@@ -292,6 +294,7 @@ mod tests {
             sync: _,
             older: _,
             uploads: _,
+            upload_index: _,
             kept: _,
             configuration: _,
         } = Nothing::secretary();
@@ -320,6 +323,7 @@ mod tests {
             sync: _,
             older: _,
             uploads: _,
+            upload_index: _,
             kept: _,
             configuration: _,
             whois: _,

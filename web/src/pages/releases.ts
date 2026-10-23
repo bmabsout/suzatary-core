@@ -1,4 +1,4 @@
-// The releases the project chain reads: how far each is, and where each of its items stands in the count.
+// The releases the project chain reads: how far each is, and what became of each of its items.
 
 import type { Fulfillment, ReleaseItem, ReleaseRow, ReleasesPayload } from "../wire/generated/wire"
 import type { Child } from "../view/dom"
@@ -7,7 +7,7 @@ import { chip, worded } from "../view/format"
 import fulfillment from "../todo/fulfillment"
 
 export namespace releases {
-  // An item as the page draws it: the count's own standing, and an open item a revision dropped apart from what is owed.
+  // An item as the page draws it: what became of it, and an open item a revision dropped apart from what is owed.
   export type Mark =
     | { readonly type: "Owed" }
     | { readonly type: "Done" }
@@ -19,12 +19,11 @@ export namespace releases {
   const cancelled: Mark = { type: "Cancelled" }
   const dropped: Mark = { type: "Dropped" }
 
-  // A done item is done by the count's rule (counted, or done in a release that does not count now), whatever its state
-  // reads today: a reopened item stays counted.
+  // An item completed once is done, whatever its state reads today: a reopened item stays done.
   export const mark = (i: ReleaseItem): Mark =>
-    i.standing === "counted" || i.standing === "done"
+    i.lot === "completed"
       ? done
-      : i.standing === "cancelled"
+      : i.lot === "cancelled"
         ? cancelled
         : i.named === "dropped"
           ? dropped
@@ -75,7 +74,7 @@ export namespace releases {
           ? "In progress."
           : r.place === "later"
             ? "Later."
-            : "Counting."
+            : "Passed over."
 
   // What is still owed first, then what is done, then what is moot: stable within each.
   export const ordered = (r: ReleaseRow): readonly ReleaseItem[] => {
@@ -117,7 +116,7 @@ export namespace releases {
         : el(
             "div",
             { class: "releases" },
-            el("p", { class: "settingsmeta" }, `The project chain reads ${r.p.reads}: the next release starts there.`),
+            el("p", { class: "settingsmeta" }, `The project chain reads ${r.p.reads}, the last completed release.`),
             r.p.releases.map(release),
           )
 }

@@ -1132,24 +1132,25 @@ pub struct Shipped {
 pub struct ReleasesPayload {
     /// The chain the releases are todos of.
     pub chain: String,
-    /// The `major.minor` it reads now, which the next train's version starts from.
+    /// The `major.minor` it reads now (the last completed release's), which the next train's
+    /// version starts from.
     pub reads: String,
     /// Each declared release, in the order they ship; none where the chain is not served.
     pub releases: Vec<ReleaseRow>,
 }
 
-/// One release: its todo, where it stands in the count, and its items.
+/// One release: its todo, its version, where it stands in the plan, and its items.
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
 pub struct ReleaseRow {
     /// The release's todo.
     pub todo: String,
     /// Its row and title, or `null` while the plan declares a todo the chain does not hold yet.
     pub held: Option<HeldTodo>,
-    /// The major its completion moves the version to.
-    pub major: u32,
+    /// The `major.minor` its completion moves the version to.
+    pub version: String,
     /// What became of it: completed once is shipped.
     pub lot: crate::release::Lot,
-    /// Where it stands in the count.
+    /// Where it stands in the plan.
     pub place: crate::release::Place,
     /// Every todo its spec has named, in id order.
     pub items: Vec<ReleaseItem>,
@@ -1162,8 +1163,8 @@ pub struct ReleaseItem {
     pub todo: String,
     /// Its row and title, or `null` where the spec names a todo the chain does not hold.
     pub held: Option<HeldTodo>,
-    /// How the count reads it: counted, done, cancelled or open.
-    pub standing: crate::release::Standing,
+    /// What became of it: completed once is done.
+    pub lot: crate::release::Lot,
     /// Whether the release's spec names it now.
     pub named: crate::release::Named,
 }
@@ -1499,10 +1500,8 @@ pub enum Speaker {
     Verb {
         /// The verb's name.
         verb: String,
-        /// The call was declined.
-        refused: bool,
-        /// What a `remember` wrote.
-        remembered: Option<Receipt>,
+        /// How the call ended.
+        outcome: VerbOutcome,
     },
     /// What the owner did rather than said, as the gate stamped it.
     Act {
@@ -1645,6 +1644,21 @@ pub struct BlockRow {
     pub kind: crate::secretary::answer::Kind,
     /// Typst's HTML, computed on read; `null` when it names `html`, fails, or trips the wire.
     pub html: Option<String>,
+}
+
+/// How a verb's call ended, as its turn shows it: the stored outcome, its fact read as a receipt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "is", rename_all = "lowercase")]
+pub enum VerbOutcome {
+    /// The verb answered.
+    Answered,
+    /// The verb refused.
+    Refused,
+    /// `remember` wrote a fact.
+    Remembered {
+        /// The fact, as its receipt shows it.
+        receipt: Receipt,
+    },
 }
 
 /// One fact a round remembered, as its receipt shows it. Its words are read from the memory by

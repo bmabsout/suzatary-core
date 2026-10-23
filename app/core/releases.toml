@@ -1,9 +1,10 @@
-# The releases Suzatary's version counts toward, in the order they ship (CLAUDE.md, "Versioning").
+# The releases Suzatary ships, in order (CLAUDE.md, "Versioning").
 #
-# Each is a todo on `chain` whose spec composes its items (`Ref`s); `major` is the version's
-# major once it is completed. The version is `suzatary_core::release::Reading`'s: MAJOR the
-# last completed release's, MINOR the items done among the releases counting toward the next
-# one, PATCH the trains since. A release is added at the end; one that has shipped is never
+# Each is a todo on `chain` whose spec composes its items (`Ref`s), and declares the
+# `major.minor` it ships as. The version is `suzatary_core::release::Reading`'s: MAJOR.MINOR the
+# last completed release's (`base`.0 before any), PATCH the trains since that MAJOR.MINOR was
+# first tagged. Items show a release's progress and move no version. The versions strictly
+# increase, or the plan is refused. A release is added at the end; one that has shipped is never
 # moved or removed, since every earlier tag was read through it.
 chain = "suzatary"
 base = 1
@@ -11,15 +12,19 @@ base = 1
 [[release]]
 todo = "suzatarytwo"
 major = 2
+minor = 0
 
 [[release]]
 todo = "suzatarytwoone"
 major = 2
+minor = 1
 
 [[release]]
 todo = "suzatarytwotwo"
 major = 2
+minor = 2
 
 [[release]]
 todo = "suzatarytwothree"
 major = 2
+minor = 3

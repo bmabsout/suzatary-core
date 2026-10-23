@@ -385,11 +385,6 @@ function valued(value: number | undefined): number | null {
   return value;
 }
 
-/** `null` for `∅`. */
-export function fulfillmentOf(core: Core, term: SpecNode, now: string, env: CoreEnv): number | null {
-  return valued(core.fulfillment(JSON.stringify(term), now, JSON.stringify(env)));
-}
-
 /** Each link memoised by its term; `bind` links a printed term, and a refusal (unknown todo, loop) throws in the core's words. */
 export function linker(bind: (term: string) => string): (term: SpecNode) => string {
   const kept = new Map<string, string>();
@@ -430,21 +425,6 @@ export function linkedKnots(
 ): (term: SpecNode) => CoreSeries {
   const steps = JSON.stringify(history);
   return (term) => checked("series_knots", core.series_knots(link(term), from, to, steps), CoreSeries);
-}
-
-/** `exact` says whether the knots are the curve or a sampling of it. */
-export function knotsOf(
-  core: Core,
-  term: SpecNode,
-  from: string,
-  to: string,
-  history: CoreHistory,
-): CoreSeries {
-  return checked(
-    "series_knots",
-    core.series_knots(JSON.stringify(term), from, to, JSON.stringify(history)),
-    CoreSeries,
-  );
 }
 
 // --- the fold, as the wire's entries -----------------------------------------
@@ -609,7 +589,6 @@ export interface Secretary {
   free: () => void;
 }
 
-const decided = <T>(what: string, decoder: d.Decoder<T>) => (text: string): T => checked(what, text, decoder);
 const shown = (n: number | undefined): string | undefined => (n === undefined ? undefined : String(n));
 
 /** What a replica of the lines forgets: every key an erasure names, with the answer keys of the blocks its words fed. */
@@ -650,12 +629,11 @@ export function secretaryOf(
   const read = opened;
   return {
     inbox: (at, memory, chains) =>
-      decided("inbox", payload.InboxProposalsPayload)(
-        proposals.inbox(at, chains, memory === null ? undefined : JSON.stringify(memory)),
-      ),
-    list: () => decided("list", payload.ConversationsPayload)(read.list(proposals)),
+      checked("inbox", proposals.inbox(at, chains, memory === null ? undefined : JSON.stringify(memory)), payload.InboxProposalsPayload),
+    list: () => checked("list", read.list(proposals), payload.ConversationsPayload),
     conversation: (id, window, memory) =>
-      decided("conversation", payload.ConversationPayload)(
+      checked(
+        "conversation",
         read.conversation(
           id,
           proposals,
@@ -664,8 +642,9 @@ export function secretaryOf(
           window.about,
           memory === null ? undefined : JSON.stringify(memory),
         ),
+        payload.ConversationPayload,
       ),
-    search: (q) => decided("search", payload.SearchPayload)(read.search(q)),
+    search: (q) => checked("search", read.search(q), payload.SearchPayload),
     excluded: left,
     free: () => {
       read.free();

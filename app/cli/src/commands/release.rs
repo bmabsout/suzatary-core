@@ -34,14 +34,15 @@ pub struct Args {
 /// Every `release` reading and act.
 #[derive(Debug, Subcommand)]
 pub enum Action {
-    /// The `major.minor` the chain reads now, and each release with its items.
+    /// The `major.minor` the chain reads now (the last completed release's), and each release
+    /// with its items.
     Read {
         /// Print the reading as JSON instead of as a list.
         #[arg(long)]
         json: bool,
     },
     /// Attach todos to a release, or detach them, as one revision of its spec, written trusted.
-    /// A detached item that was completed still counts: the version never goes down.
+    /// A detached item stays listed, as dropped.
     Items {
         /// The release's todo, one the plan declares.
         release: String,
@@ -235,12 +236,12 @@ fn read(plan: &Plan, chain: &Chain<'_>, json: bool) -> anyhow::Result<()> {
                 serde_json::json!({
                     "todo": r.todo.as_str(),
                     "title": chain.title(&r.todo),
-                    "major": r.major,
+                    "version": r.version.to_string(),
                     "lot": r.lot,
                     "place": r.place,
                     "items": r.items.iter().map(|i| serde_json::json!({
                         "todo": i.todo.as_str(),
-                        "standing": i.standing(r.place),
+                        "lot": i.lot,
                         "named": i.named,
                     })).collect::<Vec<_>>(),
                 })
@@ -255,19 +256,14 @@ fn read(plan: &Plan, chain: &Chain<'_>, json: bool) -> anyhow::Result<()> {
     println!("the chain reads {}", reading.counted);
     for r in &reading.releases {
         println!(
-            "{} (major {}): {:?}, {:?}",
+            "{} ({}): {:?}, {:?}",
             r.todo.as_str(),
-            r.major,
+            r.version,
             r.lot,
             r.place
         );
         for i in &r.items {
-            println!(
-                "  {} {:?}, {:?}",
-                i.todo.as_str(),
-                i.standing(r.place),
-                i.named
-            );
+            println!("  {} {:?}, {:?}", i.todo.as_str(), i.lot, i.named);
         }
     }
     Ok(())
@@ -527,8 +523,8 @@ fn check(plan: &Plan, chain: &Chain<'_>, tree: &Path) -> anyhow::Result<()> {
         &chain.current()?,
     )
     .map_err(|e| anyhow::anyhow!("{e}"))?;
-    // At least, not exactly: a todo closed since the cut is the next release's to count, and
-    // the tag stays the cut. Below it, the tree claims more than the chain holds.
+    // At least, not exactly: a release completed since the cut is the next train's, and the
+    // tag stays the cut. Below it, the tree claims more than the chain holds.
     if reading.counted < version.counted() {
         bail!(
             "the {} chain, with {} done, reads {}, below the tree's {version}: the tree claims \

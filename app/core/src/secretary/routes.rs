@@ -2617,8 +2617,7 @@ mod tests {
             row.who,
             wire::Speaker::Verb {
                 verb: "propose_email".to_owned(),
-                refused: true,
-                remembered: None,
+                outcome: wire::VerbOutcome::Refused,
             },
             "a verb's row carries no person's fields, so it cannot be queued"
         );
@@ -2662,7 +2661,7 @@ mod tests {
         )
         .who
         {
-            wire::Speaker::Verb { remembered, .. } => remembered,
+            wire::Speaker::Verb { outcome, .. } => outcome,
             other => panic!("a verb's turn reads as {other:?}"),
         };
         // The answer names another fact than the shape, so a reading of the answer would show.
@@ -2678,33 +2677,35 @@ mod tests {
             )
         };
         let remembered = |fact: u64| Outcome::Remembered { fact: FactId(fact) };
-        assert_eq!(
-            drawn(remembered(1), Some(&memory)),
-            Some(wire::Receipt::Standing {
-                fact: FactId(1),
-                text: "He takes the 7:40 train".to_owned()
-            })
-        );
+        let receipt = |receipt| wire::VerbOutcome::Remembered { receipt };
+        let standing = receipt(wire::Receipt::Standing {
+            fact: FactId(1),
+            text: "He takes the 7:40 train".to_owned(),
+        });
+        assert_eq!(drawn(remembered(1), Some(&memory)), standing);
         assert_eq!(
             drawn(remembered(2), Some(&memory)),
-            Some(wire::Receipt::Forgotten { fact: FactId(2) })
+            receipt(wire::Receipt::Forgotten { fact: FactId(2) })
         );
         assert_eq!(
             drawn(remembered(9), Some(&memory)),
-            Some(wire::Receipt::Unread { fact: FactId(9) }),
+            receipt(wire::Receipt::Unread { fact: FactId(9) }),
             "a fact whose words are lost"
         );
         assert_eq!(
             drawn(remembered(2), None),
-            Some(wire::Receipt::Unread { fact: FactId(2) }),
+            receipt(wire::Receipt::Unread { fact: FactId(2) }),
             "a memory that will not read"
         );
         assert_eq!(
             drawn(Outcome::Answered, Some(&memory)),
-            None,
+            wire::VerbOutcome::Answered,
             "an answer that wrote no fact, such as a card filed, has no receipt"
         );
-        assert_eq!(drawn(Outcome::Refused, Some(&memory)), None);
+        assert_eq!(
+            drawn(Outcome::Refused, Some(&memory)),
+            wire::VerbOutcome::Refused
+        );
         // Erased by the owner, not by a forget: the shape still names the fact.
         let erased = crate::secretary::turn_shape::join(
             crate::secretary::turn_shape::TurnShape::Tool {
@@ -2724,10 +2725,7 @@ mod tests {
         assert!(matches!(erased, crate::capability::Turn::Erased { .. }));
         assert_eq!(
             row(erased, Some(&memory)),
-            Some(wire::Receipt::Standing {
-                fact: FactId(1),
-                text: "He takes the 7:40 train".to_owned()
-            }),
+            standing,
             "a receipt outlives its turn's words"
         );
     }

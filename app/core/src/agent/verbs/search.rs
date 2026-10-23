@@ -9,7 +9,7 @@ use crate::capability::Query;
 use crate::refusal::Refusal;
 use crate::verb::Verb;
 
-/// Search the mail.
+/// Search the mail: the triage agent's verb, which the secretary's own `search` widens to files.
 pub struct Search<S>(PhantomData<S>);
 
 #[derive(Deserialize, JsonSchema)]
@@ -23,7 +23,8 @@ impl<S: Holds> Verb for Search<S> {
     type Args = SearchArgs;
     type Answer = Value;
     const NAME: &'static str = "search";
-    const DESCRIPTION: &'static str = S::SAYS.search;
+    const DESCRIPTION: &'static str = "Any notmuch query, newest first. Use to check for prior \
+        related threads before deciding a disposition (e.g. `from:sender@example.com`).";
 
     fn run(call: &S::Call<'_>, args: SearchArgs) -> Result<Value, Refusal> {
         let query = Query::new(&args.query).map_err(|e| Refusal::bad_request(e.to_string()))?;

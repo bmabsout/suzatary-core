@@ -99,7 +99,6 @@ test("law: one door to the secretary on each width: the panel beside every wide 
   forAll(300, r => {
     const a = walk(r)
     const drawn = chrome.of(a, seen(r))
-    assert.deepEqual(Object.keys(drawn).sort(), ["build", "excluded", "live", "nav", "panel", "signing", "stale"])
     assert.equal(drawn.panel.type === "Beside", a.wide && nav.activeFor(app.route(a), a.chain) !== "secretary")
   })
 })

@@ -1196,23 +1196,6 @@ enum Action {
         #[arg(long)]
         actor: Option<String>,
     },
-    /// Carry the inbox's stored withdrawals into `Superseded` and `NoLongerNeeded`, and drop the
-    /// unread spec of an asking that serves a todo: once, with the server and the timers
-    /// stopped. A server of this build refuses to start until it has run.
-    MigrateInbox {
-        /// Write nothing: say what a run would carry, write and remove.
-        #[arg(long)]
-        dry: bool,
-    },
-    /// Carry every tool line of the conversations into the shape that says how its call ended,
-    /// a `remember` answer's fact included, locking each carried line's words again: once, with
-    /// the server and the timers stopped. A server of this build refuses to start until it has
-    /// run.
-    MigrateReceipts {
-        /// Write nothing: say what a run would carry, write and remove.
-        #[arg(long)]
-        dry: bool,
-    },
 }
 
 /// The morning brief's question, which lives in core so transcripts can be read for answers.
@@ -1260,8 +1243,6 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
             reason,
             actor,
         } => dismiss(&instance, conversation, *n, reason, actor.as_deref()),
-        Action::MigrateInbox { dry } => super::migrate_inbox::run(&instance, *dry),
-        Action::MigrateReceipts { dry } => super::migrate_receipts::run(&instance, *dry),
     }
 }
 

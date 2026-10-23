@@ -1214,45 +1214,36 @@ mod tests {
         assert_eq!(heard[0].at, now());
     }
 
+    /// Only the poster's own lifecycle acts with a note are heard: an empty note, an event naming a
+    /// different actor and a non-lifecycle event are each skipped.
     #[test]
-    fn heard_from_objects_skips_an_empty_note() {
+    fn heard_from_objects_skips_what_carries_no_note_of_the_posters() {
         let actor = prodrome_core::event::Actor::new("ada").expect("an actor");
         let chain = crate::chains::ChainName::new("life").expect("a slug");
-        let event =
+        for event in [
             prodrome_core::event::mk_cancelled::<crate::record::Record>("x", now(), "ada", "")
-                .expect("a cancelled event");
-        assert!(heard_from_objects(std::slice::from_ref(&event), &actor, &chain).is_empty());
-    }
-
-    /// An event naming a different actor is not heard.
-    #[test]
-    fn heard_from_objects_skips_an_event_naming_a_different_actor() {
-        let actor = prodrome_core::event::Actor::new("ada").expect("an actor");
-        let chain = crate::chains::ChainName::new("life").expect("a slug");
-        let event = prodrome_core::event::mk_reopened::<crate::record::Record>(
-            "x",
-            now(),
-            "triage",
-            "wrong call",
-        )
-        .expect("a reopened event");
-        assert!(heard_from_objects(std::slice::from_ref(&event), &actor, &chain).is_empty());
-    }
-
-    /// Non-lifecycle events are not heard here.
-    #[test]
-    fn heard_from_objects_ignores_non_lifecycle_events() {
-        let actor = prodrome_core::event::Actor::new("ada").expect("an actor");
-        let chain = crate::chains::ChainName::new("life").expect("a slug");
-        let event = prodrome_core::event::mk_created::<crate::record::Record>(
-            "x",
-            now(),
-            "ada",
-            "text",
-            "a note",
-        )
-        .expect("a created event");
-        assert!(heard_from_objects(std::slice::from_ref(&event), &actor, &chain).is_empty());
+                .expect("a cancelled event"),
+            prodrome_core::event::mk_reopened::<crate::record::Record>(
+                "x",
+                now(),
+                "triage",
+                "wrong call",
+            )
+            .expect("a reopened event"),
+            prodrome_core::event::mk_created::<crate::record::Record>(
+                "x",
+                now(),
+                "ada",
+                "text",
+                "a note",
+            )
+            .expect("a created event"),
+        ] {
+            assert!(
+                heard_from_objects(std::slice::from_ref(&event), &actor, &chain).is_empty(),
+                "{event:?}"
+            );
+        }
     }
 
     /// The fold keeps order and drops only what it should.

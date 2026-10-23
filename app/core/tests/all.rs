@@ -22,8 +22,6 @@ mod drive_port;
 mod held;
 #[path = "held_values.rs"]
 mod held_values;
-#[path = "image.rs"]
-mod image;
 #[path = "inbox.rs"]
 mod inbox;
 #[path = "inbox_prices.rs"]
@@ -44,6 +42,8 @@ mod pieces;
 mod release;
 #[path = "surface.rs"]
 mod surface;
+#[path = "tags.rs"]
+mod tags;
 #[path = "transcript.rs"]
 mod transcript;
 #[path = "transport_port.rs"]

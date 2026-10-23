@@ -196,7 +196,7 @@ fn a_private_url_is_refused_before_anything_is_asked() {
         .as_array()
         .expect("turns")
         .iter()
-        .any(|turn| turn["verb"] == "web" && turn["refused"] == serde_json::Value::Bool(true));
+        .any(|turn| turn["verb"] == "web" && turn["outcome"]["is"] == "refused");
     assert!(refused, "the verb refused it: {payload:?}");
 }
 

@@ -106,6 +106,7 @@ pub struct Opened {
     pub(crate) sync: suzatary_io::mail_sync::Timer,
     pub(crate) older: crate::commands::serve::interpreters::Older,
     pub(crate) uploads: suzatary_io::attachments::AttachmentStore,
+    pub(crate) upload_index: suzatary_io::upload_index::UploadIndexFiles,
     pub(crate) kept: suzatary_io::blobs::Blobs,
     /// The model settings the instance file declares, read as a card is filed.
     pub(crate) configuration: crate::instance::InstanceEdits,
@@ -151,6 +152,7 @@ impl Opened {
             sync: chosen::mail_sync(instance),
             older: chosen::older(instance),
             uploads: chosen::upload_store(instance),
+            upload_index: chosen::upload_index(instance),
             kept: chosen::file_store(instance),
             configuration: crate::instance::InstanceEdits::new(instance.path.clone()),
             repos: chosen::mirrors(instance),
@@ -212,6 +214,7 @@ impl Opened {
             sync: &self.sync,
             older: &self.older,
             uploads: &self.uploads,
+            upload_index: &self.upload_index,
             kept: &self.kept,
             configuration: &self.configuration,
         }

@@ -125,7 +125,7 @@ export function foldOf(round: Round): Fold | null {
   let refused = false;
   for (const placed of round.trace) {
     if (placed.turn.who !== "verb") continue;
-    if (placed.turn.refused) refused = true;
+    if (placed.turn.outcome.is === "refused") refused = true;
     const family = verbFamily(placed.turn.verb);
     counts.set(family, (counts.get(family) ?? 0) + 1);
   }

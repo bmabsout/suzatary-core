@@ -11,9 +11,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { MailRow } from "../src/wire/generated/wire";
-import { whenOf } from "../src/view/format";
-import time from "../src/app/time";
-import { everywhere } from "./zones";
 import { badgeOf, cursorOf, senderOf, subjectOf, todoOf } from "../src/pages/mailrow";
 import cast from "./cast";
 
@@ -58,16 +55,6 @@ test("a sender is shortened to its local part, never emptied", () => {
   assert.equal(senderOf({ ...row, sender: "@example.com" }), "@example.com");
   assert.equal(senderOf({ ...row, sender: "postmaster" }), "postmaster");
   assert.equal(senderOf({ ...row, sender: "" }), "");
-});
-
-test("an instant is shown to the minute, and a date it cannot read is passed through", () => {
-  // An instant on the owner's clock, the same string in every zone a device is set to.
-  everywhere(() => {
-    assert.equal(whenOf("2026-09-03T09:05:00", time.UTC), "2026-09-03 09:05");
-    assert.equal(whenOf("2026-09-03T09:05:00+03:00", { name: "America/New_York" }), "2026-09-03 02:05");
-    assert.equal(whenOf("", time.UTC), "");
-    assert.equal(whenOf("not a date", time.UTC), "not a date");
-  });
 });
 
 test("the page cursor is the oldest row's instant, and nothing when there are none", () => {

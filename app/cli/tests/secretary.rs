@@ -330,7 +330,7 @@ fn an_exchange_stores_a_proposal_with_the_exact_message() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_email"
-            && turn["refused"] == serde_json::Value::Bool(false)),
+            && turn["outcome"]["is"] == "answered"),
         "the verb ran and its answer is a turn: {turns:?}"
     );
 
@@ -414,7 +414,7 @@ fn a_proposal_without_a_why_or_a_source_is_refused_to_the_model() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_email"
-            && turn["refused"] == serde_json::Value::Bool(true)
+            && turn["outcome"]["is"] == "refused"
             && turn["text"]
                 .as_str()
                 .unwrap_or_default()
@@ -455,7 +455,7 @@ fn a_good_act_proposal_appends_and_answers() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_act"
-            && turn["refused"] == serde_json::Value::Bool(false)),
+            && turn["outcome"]["is"] == "answered"),
         "the verb ran and its answer is a turn: {turns:?}"
     );
 
@@ -521,7 +521,7 @@ fn an_unknown_account_is_refused_naming_the_roster() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_act"
-            && turn["refused"] == serde_json::Value::Bool(true)
+            && turn["outcome"]["is"] == "refused"
             && turn["text"]
                 .as_str()
                 .unwrap_or_default()
@@ -578,7 +578,7 @@ fn a_bad_address_is_refused() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_act"
-            && turn["refused"] == serde_json::Value::Bool(true)
+            && turn["outcome"]["is"] == "refused"
             && turn["text"]
                 .as_str()
                 .unwrap_or_default()
@@ -793,7 +793,7 @@ fn an_undeclared_secret_name_is_refused_and_nothing_is_stored() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_act"
-            && turn["refused"] == serde_json::Value::Bool(true)
+            && turn["outcome"]["is"] == "refused"
             && turn["text"]
                 .as_str()
                 .unwrap_or_default()
@@ -1168,7 +1168,7 @@ fn a_changeset_with_one_bad_act_stores_and_appends_nothing() {
     assert!(
         turns.iter().any(|turn| turn["who"] == "verb"
             && turn["verb"] == "propose_changes"
-            && turn["refused"] == serde_json::Value::Bool(true)
+            && turn["outcome"]["is"] == "refused"
             && turn["text"].as_str().unwrap_or_default().contains("act 2")
             && turn["text"]
                 .as_str()
@@ -2588,6 +2588,322 @@ fn a_pdf_naming_an_ssn_is_held_then_kept_privately_in_the_drive() {
     let on_turn = &turns.last().expect("the turn")["attachments"][0];
     assert_eq!(on_turn["name"], "w2.pdf", "named when it was kept");
     assert_eq!(on_turn["private"], file["private"]);
+}
+
+/// Upload one file, answering its id: kept on the box, or in the owner's Drive when `private`.
+fn uploaded(base: &str, bytes: &[u8], name: &str, private: bool) -> serde_json::Value {
+    use base64::Engine as _;
+    let mut answered = common::act(
+        &format!("{base}/api/secretary/attachments"),
+        &serde_json::json!({
+            "file": base64::engine::general_purpose::STANDARD.encode(bytes),
+            "name": name,
+            "private": private,
+        }),
+    );
+    assert_eq!(common::status(&answered), 200);
+    common::body_json(&mut answered)
+}
+
+/// Say `say` in conversation `id` with these uploads, and wait for the round to settle.
+fn sending(base: &str, id: &str, say: &str, files: &[(&str, &str)]) -> serde_json::Value {
+    let said = common::act(
+        &format!("{base}/api/secretary/conversations/{id}/say"),
+        &serde_json::json!({
+            "say": say,
+            "attachments": files
+                .iter()
+                .map(|(id, name)| serde_json::json!({"id": id, "name": name}))
+                .collect::<Vec<_>>(),
+        }),
+    );
+    assert_eq!(common::status(&said), 202);
+    settled(base, id)
+}
+
+/// A new conversation's id.
+fn opened(base: &str, title: &str) -> String {
+    let mut opened = common::act(
+        &format!("{base}/api/secretary/conversations"),
+        &serde_json::json!({ "title": title }),
+    );
+    common::body_json(&mut opened)["id"]
+        .as_str()
+        .expect("an id")
+        .to_owned()
+}
+
+/// Every answer `verb` gave in this conversation, as JSON, in the order given.
+fn verb_answers(payload: &serde_json::Value, verb: &str) -> Vec<serde_json::Value> {
+    payload["turns"]
+        .as_array()
+        .expect("turns")
+        .iter()
+        .filter(|turn| turn["who"] == "verb" && turn["verb"] == verb)
+        .map(|turn| {
+            let text = turn["text"].as_str().expect("an answer");
+            serde_json::from_str(text).unwrap_or_else(|_| serde_json::Value::from(text))
+        })
+        .collect()
+}
+
+/// A PDF sent in one conversation is found from another by `search`, with its file id, its
+/// conversation and its turn, beside the mail; `upload_read` hands it over as itself. A PDF
+/// naming an SSN is found by nothing while the box holds it back, and by its redacted text once
+/// the owner keeps it private and sends it; the number itself is never found.
+#[test]
+fn a_file_sent_in_a_chat_is_found_by_search_and_a_held_one_only_once_released() {
+    let whois = common::FakeWhois::new().naming(common::v4(), ada());
+    let model = FakeModel::saying([
+        r#"{"say": "Kept the lease."}"#,
+        r#"{"say": "Looking.", "calls": [
+            {"verb": "search", "args": {"query": "SSN"}},
+            {"verb": "search", "args": {"query": "lease unit"}},
+            {"verb": "search", "args": {"query": "from:landlord@example.test lease"}}
+        ]}"#,
+        r#"{"say": "The lease is in A lease."}"#,
+        r#"{"say": "Kept the form."}"#,
+        r#"{"say": "Looking again.", "calls": [
+            {"verb": "search", "args": {"query": "SSN"}},
+            {"verb": "search", "args": {"query": "6789"}}
+        ]}"#,
+        r#"{"say": "The form is in A lease."}"#,
+    ]);
+    let fakes = Fakes::new("upload-search").whois(whois).model(model);
+    let deployment = common::deployment([ada()], [(ada(), common::actor("ada"))]);
+    let common::Running { base, .. } =
+        common::Server::new(Arc::new(fakes), deployment, Vec::new()).start();
+
+    let lease = uploaded(&base, &pdf_saying("Lease for unit 4"), "lease.pdf", false);
+    let lease = lease["file"]["id"].as_str().expect("an id").to_owned();
+    let w2 = pdf_saying("SSN 123-45-6789");
+    assert_eq!(uploaded(&base, &w2, "w2.pdf", false)["kind"], "sensitive");
+
+    let sent_in = opened(&base, "A lease");
+    sending(
+        &base,
+        &sent_in,
+        "here is the lease",
+        &[(&lease, "lease.pdf")],
+    );
+    let asking = opened(&base, "Where is it");
+    let first = verb_answers(&sending(&base, &asking, "find my papers", &[]), "search");
+    assert_eq!(first.len(), 3, "{first:?}");
+    assert_eq!(
+        first[0]["files"]["found"],
+        serde_json::json!([]),
+        "a held-back file is found by nothing"
+    );
+    let found = &first[1]["files"]["found"];
+    assert_eq!(found.as_array().map(Vec::len), Some(1), "{found}");
+    assert_eq!(found[0]["file"], lease);
+    assert_eq!(found[0]["name"], "lease.pdf");
+    assert_eq!(found[0]["conversation"], sent_in);
+    assert_eq!(found[0]["turn"], 0);
+    assert_eq!(found[0]["said"], "here is the lease");
+    assert!(
+        found[0]["excerpt"]
+            .as_str()
+            .is_some_and(|excerpt| excerpt.contains("unit 4")),
+        "{found}"
+    );
+    assert!(
+        first[1]["mail"].is_array(),
+        "the mail is answered beside it"
+    );
+    assert!(
+        first[2]["files"]["not_searched"]
+            .as_str()
+            .is_some_and(|why| why.contains("from:")),
+        "a mail field is not a question for a file: {}",
+        first[2]
+    );
+
+    let w2 = uploaded(&base, &w2, "w2.pdf", true);
+    let w2 = w2["file"]["id"].as_str().expect("an id").to_owned();
+    sending(&base, &sent_in, "and my tax form", &[(&w2, "w2.pdf")]);
+    let again = verb_answers(&sending(&base, &asking, "and now?", &[]), "search");
+    assert_eq!(
+        again.len(),
+        5,
+        "the first round's three, then this round's two"
+    );
+    let found = &again[3]["files"]["found"];
+    assert_eq!(found.as_array().map(Vec::len), Some(1), "{found}");
+    assert_eq!(found[0]["file"], w2);
+    assert_eq!(found[0]["conversation"], sent_in);
+    assert!(
+        found[0]["private"]
+            .as_str()
+            .is_some_and(|path| path.starts_with("/my-files/Suzatary/Private/")),
+        "{found}"
+    );
+    assert_eq!(
+        again[4]["files"]["found"],
+        serde_json::json!([]),
+        "the number itself is never indexed"
+    );
+}
+
+/// Erasing the turn that sent a file takes its words out of the index at once, and a search
+/// finds it no more.
+#[test]
+fn erasing_the_turn_that_sent_a_file_takes_it_out_of_the_index() {
+    let model = FakeModel::saying([
+        r#"{"say": "Kept the lease."}"#,
+        r#"{"say": "Looking.", "calls": [
+            {"verb": "search", "args": {"query": "lease unit"}}
+        ]}"#,
+        r#"{"say": "The lease is in A lease."}"#,
+        r#"{"say": "Looking again.", "calls": [
+            {"verb": "search", "args": {"query": "lease unit"}}
+        ]}"#,
+        r#"{"say": "The lease is gone."}"#,
+    ]);
+    let fakes = Arc::new(
+        Fakes::new("upload-erase")
+            .whois(common::FakeWhois::new().naming(common::v4(), ada()))
+            .model(model),
+    );
+    let deployment = common::deployment([ada()], [(ada(), common::actor("ada"))]);
+    let common::Running { base, .. } =
+        common::Server::new(Arc::clone(&fakes), deployment, Vec::new()).start();
+    let lease = uploaded(&base, &pdf_saying("Lease for unit 4"), "lease.pdf", false);
+    let lease = lease["file"]["id"].as_str().expect("an id").to_owned();
+    let sent_in = opened(&base, "A lease");
+    sending(
+        &base,
+        &sent_in,
+        "here is the lease",
+        &[(&lease, "lease.pdf")],
+    );
+    let asking = opened(&base, "Where is it");
+    let first = verb_answers(&sending(&base, &asking, "the lease?", &[]), "search");
+    assert_eq!(first[0]["files"]["found"][0]["file"], lease);
+    let entry = fakes
+        .root
+        .join("secretary/upload-index")
+        .join(format!("{lease}.json"));
+    assert!(entry.exists(), "the lease's words are in the index");
+    let erased = common::act(
+        &format!("{base}/api/secretary/conversations/{sent_in}/erase"),
+        &serde_json::json!({"turns": [0]}),
+    );
+    assert_eq!(common::status(&erased), 200);
+    assert!(
+        !entry.exists(),
+        "erasing its turn takes its words out of the index"
+    );
+    let last = verb_answers(&sending(&base, &asking, "and now?", &[]), "search");
+    assert_eq!(
+        last.last().expect("this round's search")["files"]["found"],
+        serde_json::json!([]),
+        "an erased upload is found by nothing"
+    );
+}
+
+/// A search answer is stored at most 64 KiB like every verb's answer, and the files lead it, so
+/// an answer cut for a flood of mail rows still stores the file it found.
+#[test]
+fn a_search_answer_is_stored_within_the_cap_and_keeps_its_files() {
+    let corpus = (0..2000).fold(common::FakeCorpus::new(), |corpus, n| {
+        corpus.with(common::FakeMessage {
+            hash: format!("{n:064x}"),
+            thread: format!("thread-{n}"),
+            sender: "clerk@example.test".to_owned(),
+            subject: format!("Lease renewal notice {n}"),
+            body: String::new(),
+            timestamp: "2026-09-25 09:00".to_owned(),
+        })
+    });
+    let model = FakeModel::saying([
+        r#"{"say": "Kept."}"#,
+        r#"{"say": "Looking.", "calls": [{"verb": "search", "args": {"query": "lease"}}]}"#,
+        r#"{"say": "Found it."}"#,
+    ]);
+    let fakes = Fakes::new("upload-search-cap")
+        .whois(common::FakeWhois::new().naming(common::v4(), ada()))
+        .corpus(corpus)
+        .model(model);
+    let deployment = common::deployment([ada()], [(ada(), common::actor("ada"))]);
+    let common::Running { base, .. } =
+        common::Server::new(Arc::new(fakes), deployment, Vec::new()).start();
+    let lease = uploaded(&base, &pdf_saying("Lease for unit 4"), "lease.pdf", false);
+    let lease = lease["file"]["id"].as_str().expect("an id").to_owned();
+    let id = opened(&base, "A lease");
+    sending(&base, &id, "here is the lease", &[(&lease, "lease.pdf")]);
+    let payload = sending(&base, &id, "find the lease", &[]);
+    let stored = payload["turns"]
+        .as_array()
+        .expect("turns")
+        .iter()
+        .find(|turn| turn["who"] == "verb" && turn["verb"] == "search")
+        .and_then(|turn| turn["text"].as_str())
+        .expect("the search's answer")
+        .to_owned();
+    assert!(
+        stored.len() <= suzatary_core::secretary::line_words::STORED_ANSWER_BYTES,
+        "{} bytes stored",
+        stored.len()
+    );
+    assert!(
+        stored.ends_with("of this answer were not stored]"),
+        "the cut is said"
+    );
+    assert!(
+        stored.contains(&lease),
+        "the file leads, so the cut keeps it"
+    );
+}
+
+/// `upload_read` hands a file found by `search` to the model as itself, and refuses a file no
+/// turn sent.
+#[test]
+fn upload_read_opens_a_file_a_turn_sent_and_no_other() {
+    let lease_pdf = pdf_saying("Lease for unit 4");
+    let never = suzatary_core::attachment::AttachmentId::of(b"never sent");
+    let model = FakeModel::saying_owned([
+        r#"{"say": "Kept."}"#.to_owned(),
+        format!(
+            r#"{{"say": "Opening.", "calls": [
+                {{"verb": "upload_read", "args": {{"file": "{}"}}}},
+                {{"verb": "upload_read", "args": {{"file": "{never}"}}}}
+            ]}}"#,
+            suzatary_core::attachment::AttachmentId::of(&lease_pdf)
+        ),
+        r#"{"say": "Read it."}"#.to_owned(),
+    ]);
+    let fakes = Fakes::new("upload-read")
+        .whois(common::FakeWhois::new().naming(common::v4(), ada()))
+        .model(model);
+    let deployment = common::deployment([ada()], [(ada(), common::actor("ada"))]);
+    let common::Running { base, .. } =
+        common::Server::new(Arc::new(fakes), deployment, Vec::new()).start();
+    let lease = uploaded(&base, &lease_pdf, "lease.pdf", false);
+    let lease = lease["file"]["id"].as_str().expect("an id").to_owned();
+    let id = opened(&base, "A lease");
+    sending(&base, &id, "here is the lease", &[(&lease, "lease.pdf")]);
+    let payload = sending(&base, &id, "read it back", &[]);
+    let turns: Vec<&serde_json::Value> = payload["turns"]
+        .as_array()
+        .expect("turns")
+        .iter()
+        .filter(|turn| turn["who"] == "verb" && turn["verb"] == "upload_read")
+        .collect();
+    assert_eq!(turns.len(), 2, "{payload}");
+    assert_eq!(turns[0]["outcome"]["is"], "answered", "{}", turns[0]);
+    let read: serde_json::Value =
+        serde_json::from_str(turns[0]["text"].as_str().expect("an answer")).expect("JSON");
+    assert_eq!(read["file"], lease);
+    assert_eq!(read["media"], "application/pdf");
+    assert_eq!(turns[1]["outcome"]["is"], "refused", "{}", turns[1]);
+    assert!(
+        turns[1]["text"]
+            .as_str()
+            .is_some_and(|why| why.contains("never sent")),
+        "{}",
+        turns[1]
+    );
 }
 
 /// Bytes that are not an image, an unstored photo, and a malformed id are refused by name.

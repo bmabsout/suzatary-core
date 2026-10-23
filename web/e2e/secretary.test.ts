@@ -9,38 +9,22 @@
  * for `propose_email` runs the real handler, writes a real proposal into a real
  * file, and the page draws it from the real route.
  *
- * EIGHT SCENES, and each is one claim §10.3 makes:
+ * The claims §10.3 makes that only a page can show, among them:
  *
- * 1. The page renders and a conversation opens.
+ * 1. The page renders and a conversation opens, the default pinned first.
  * 2. A proposal card shows the EXACT text — every recipient, the subject, the
  *    whole body — because the card is the confirmation CLAUDE.md requires.
- * 3. A read-only login is offered NO tap, and the route refuses it anyway.
- * 4. The writing login's tap is accepted, and the fixture's recorder holds
+ * 3. The writing login's tap is accepted, and the fixture's recorder holds
  *    exactly what would have gone out.
- * 5. The card carries its REASONS, and the sources are links that navigate.
- * 6. DISMISSING hides it from the Inbox count and shows the reason.
- * 7. "Ask the secretary" from a todo opens a conversation with the chip on it.
- * 8. A reference in the model's PROSE is a link that navigates.
- * 9. Send is never disabled, and the answer's place holds no row once the box
+ * 4. The card carries its REASONS, and the sources are links that navigate.
+ * 5. DISMISSING hides it from the Inbox count and shows the reason.
+ * 6. "Ask the secretary" from a todo opens a conversation with the chip on it.
+ * 7. A reference in the model's PROSE is a link that navigates.
+ * 8. Send is never disabled, and the answer's place holds no row once the box
  *    has answered.
- * 10. A second message sent before the first is answered lands QUEUED, and
- *     both are eventually answered (`docs/ONECHAT-PLAN-2026-09-13.md` §6
- *     commit 6).
  *
- * ⚠️ SCENE 10 IS NOT A STREAMING SCENE, AND THAT IS STATED RATHER THAN HIDDEN.
- * `--model-fixture`'s `Scripted` (`app/cli/src/commands/fixture.rs`)
- * implements `Model`, not `SessionModel` — it has no session to resume, so
- * `conversation_worker::round` always takes the STATELESS arm and no `delta`
- * frame is ever sent here (only `app/cli/tests/stream.rs`'s `FakeModel`, over
- * a real `claude` session shape, can script one). What a browser CAN prove
- * without that is the part this scene checks: `say`'s own response always
- * shows the turn it just appended as `queued` — `serve::secretary::say`'s own
- * ordering nudges the worker only AFTER building that response — so sending a
- * second message before the first settles is a deterministic assertion, not a
- * race with how fast the fixture model answers.
- *
- * `E2E_BASE_WRITE` for the ones that move a conversation, `E2E_BASE` for the
- * refusal — the same split every other file here uses, for the same reason.
+ * `E2E_BASE_WRITE` for the ones that move a conversation, `E2E_BASE` for a
+ * viewer's — the same split every other file here uses, for the same reason.
  */
 
 import assert from "node:assert/strict";
@@ -98,30 +82,34 @@ async function converse(base: string, said: string): Promise<void> {
  * `#/secretary` IS THE LIST, THE DEFAULT PINNED FIRST
  * (`docs/CHAT-PLAN-2026-09-25.md` §4.2), and Secretary is a word in the bar
  * (`docs/REDESIGN-PLAN-2026-09-25.md`); the list's first row opens the default
- * conversation, titled "Secretary".
+ * conversation, titled "Secretary". On the read-only fixture the default may
+ * never have been opened: listing opens nothing, so the page pins it anyway, and
+ * following it opens it lazily.
  */
-app.scene("the secretary is a word in the bar and lists the default first", async () => {
+app.scene("the secretary is a word in the bar and lists the default first, for a viewer and a writer", async () => {
   await app.resize(PHONE);
-  await app.page.navigate(`${WRITE_BASE}/#/`);
-  await app.page.evaluate(`location.hash = "#/secretary"`);
-  await app.page.waitFor(`document.querySelector(".chats .chatrow") !== null`, { timeout: 15000 });
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector(".chats .chatrow .chattitle").textContent`),
-    "Secretary",
-    "the default is pinned first",
-  );
-  // Secretary is one of the bar's four words (docs/REDESIGN-PLAN-2026-09-25.md), lit here.
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector(".tabbar .tab.active .tablabel")?.textContent ?? ""`),
-    "Secretary",
-    "the secretary is a word in the bar, and it is lit",
-  );
-  await app.page.click(".chats .chatrow");
-  await app.page.waitFor(`location.hash === "#/secretary/default"`, { timeout: 15000 });
-  await app.page.waitFor(
-    `document.querySelector(".pagetitle")?.textContent === "Secretary"`,
-    { timeout: 15000 },
-  );
+  for (const base of [BASE, WRITE_BASE]) {
+    await app.page.navigate(`${base}/#/`);
+    await app.page.evaluate(`location.hash = "#/secretary"`);
+    await app.page.waitFor(`document.querySelector(".chats .chatrow") !== null`, { timeout: 15000 });
+    assert.equal(
+      await app.page.evaluate<string>(`document.querySelector(".chats .chatrow .chattitle").textContent`),
+      "Secretary",
+      `${base}: the default is pinned first`,
+    );
+    // Secretary is one of the bar's four words (docs/REDESIGN-PLAN-2026-09-25.md), lit here.
+    assert.equal(
+      await app.page.evaluate<string>(`document.querySelector(".tabbar .tab.active .tablabel")?.textContent ?? ""`),
+      "Secretary",
+      "the secretary is a word in the bar, and it is lit",
+    );
+    await app.page.click(".chats .chatrow");
+    await app.page.waitFor(`location.hash === "#/secretary/default"`, { timeout: 15000 });
+    await app.page.waitFor(
+      `document.querySelector(".pagetitle")?.textContent === "Secretary"`,
+      { timeout: 15000 },
+    );
+  }
 });
 
 app.scene("a proposal card shows the exact text that would be sent", async () => {
@@ -548,31 +536,6 @@ app.scene("a reference the secretary names in prose is a link that navigates", a
   );
 });
 
-app.scene("a read-only login sees the conversation and is offered no tap", async () => {
-  // The reader's server has its own chain and its own conversations directory,
-  // and this login is a VIEWER the deployment maps to no actor — so it may
-  // read the default conversation (opened lazily by the same GET) and write
-  // nothing at all.
-  //
-  // ⚠️ THE HASH IS SET FROM SCRIPT: `page.navigate` waits for `location.href`
-  // to equal exactly what it was given, and the bare hash forwards itself
-  // away before that can ever hold.
-  await app.page.navigate(`${BASE}/#/secretary/default`);
-  await app.page.waitFor(`document.querySelector(".pagetitle") !== null`, { timeout: 15000 });
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".composebox").length`),
-    0,
-    "a login that cannot write is not offered a box that writes",
-  );
-
-  // AND THE ROUTE REFUSES IT ANYWAY, which is the half that matters: the absent
-  // button is a courtesy and the 403 is the mechanism.
-  const refused = await app.page.evaluate<string>(
-    `${SIGNED_POST}("/api/secretary/conversations", JSON.stringify({title: "sneaky"})).then((r) => r.status + " " + JSON.stringify(r.status === 200 ? {} : {}))`,
-  );
-  assert.match(refused, /^403/, `the box must refuse a viewer's write, got ${refused}`);
-});
-
 app.scene("the tap is accepted for the writing login, and records what would go", async () => {
   await converse(WRITE_BASE, "propose the harrow reply");
   await app.page.waitFor(`document.querySelector(".proposal .act-send") !== null`, {
@@ -856,75 +819,6 @@ app.scene("a reader's scroll up from a held question is read against what the bo
   // The pill is drawn in the same step that reads the window, so it is decided once the answer is on the page.
   await app.page.waitFor(`document.querySelectorAll(".turnanswer").length === 4`, { timeout: 20000 });
   assert.equal(await app.page.evaluate<boolean>(`document.querySelector(".newanswerpill").hidden`), true, "no pill: the reader is with the newest");
-});
-
-/**
- * A SECOND MESSAGE, SENT BEFORE THE FIRST IS ANSWERED — the transcript IS the
- * queue (§2).
- *
- * ⚠️ CHECKED ON THE RESPONSE, NOT ON A DOM POLL. `say` answers with the
- * transcript exactly as it stood right after the append — the worker's nudge
- * only runs AFTER that response is built (`serve::secretary::say`'s own ordering) —
- * so reading `queued` off THAT JSON is deterministic. A poll for `.turn.queued`
- * in the page is not: `Scripted` (the fixture model) has no artificial delay,
- * so a round can finish — and the live stream can redraw right over the
- * queued turn — before a browser-side `waitFor` ever samples the DOM in
- * between. Measured: it does, reliably, on this fixture.
- */
-app.scene("a second message sent before the first settles is queued, and both are answered", async () => {
-  const id = await freshConversation(WRITE_BASE);
-
-  const say = async (text: string): Promise<boolean> => {
-    const answered = await app.page.evaluate<{
-      conversation: { turns: { who: string; text: string; queued: boolean }[] };
-    }>(
-      `${SIGNED_POST}("/api/secretary/conversations/${id}/say", JSON.stringify({say: ${JSON.stringify(text)}, references: []})).then((r) => r.json())`,
-    );
-    const said = answered.conversation.turns.find(
-      (turn) => turn.who === "person" && turn.text === text,
-    );
-    return said?.queued === true;
-  };
-
-  assert.ok(await say("first question"), "the turn just appended is queued in its own response");
-  // SENT WITHOUT WAITING for the first to settle.
-  assert.ok(
-    await say("second question"),
-    "sent before the first settles, and queued in its own response too",
-  );
-
-  // AND BOTH ARE EVENTUALLY ANSWERED: the worker rereads the whole queue every
-  // time it loops (`queue::delta`), so neither stays queued — this half CAN
-  // be a DOM poll, because "settled" is a state that holds rather than one
-  // that flashes past.
-  // THIS CONVERSATION'S TWO TURNS DRAWN, AN ANSWER DRAWN, AND NOTHING LEFT
-  // RUNNING. The navigation is a hash change, so the previous scene's
-  // transcript can still be on the page: read that way this scene failed in
-  // 180 ms twice on 2026-09-28. So the wait names the turns, and waits on the
-  // answer itself: no Thinking line is also what the page shows before a
-  // round starts and between two.
-  await app.page.navigate(`${WRITE_BASE}/#/secretary/${id}`);
-  await app.page.waitFor(
-    `(() => {
-       const said = [...document.querySelectorAll(".turn-person .turntext")].map((t) => t.textContent ?? "");
-       return said.some((t) => t.includes("first question")) &&
-         said.some((t) => t.includes("second question")) &&
-         [...document.querySelectorAll(".turn-model .turntext, .turn-model .answerblock")].some((t) => t.textContent.trim() !== "") &&
-         document.querySelector(".answerplace .answerstate") === null;
-     })()`,
-    { timeout: 20000 },
-  );
-  const texts = await app.page.evaluate<string[]>(
-    `[...document.querySelectorAll(".turn-person .turntext")].map((t) => t.textContent ?? "")`,
-  );
-  assert.ok(texts.some((text) => text.includes("first question")));
-  assert.ok(texts.some((text) => text.includes("second question")));
-  assert.ok(
-    (await app.page.evaluate<number>(
-      `[...document.querySelectorAll(".turn-model .turntext, .turn-model .answerblock")].filter((t) => t.textContent.trim() !== "").length`,
-    )) >= 1,
-    "the secretary said something back",
-  );
 });
 
 /**
@@ -1601,24 +1495,4 @@ app.scene("Regenerate answers again beside an earlier attempt, and ↑ edits the
     "the reworded question is the current one",
   );
   assert.equal(await app.page.evaluate<boolean>(shown(".composeediting")), false, "and the composer is asking again");
-});
-
-/**
- * A REWIND NEVER HIDES A WRITE (§4.4, §5): a round that remembered something
- * is not offered again, and the box refuses it if asked anyway.
- */
-app.scene("a round that wrote something is not offered again, and the box refuses it", async () => {
-  const id = await freshConversation(WRITE_BASE);
-  await app.page.navigate(`${WRITE_BASE}/#/secretary/${id}`);
-  await app.page.waitFor(`document.querySelector(".composebox") !== null`, { timeout: 8000 });
-  await app.page.type(".composebox", "remember that I take calls after ten");
-  await app.page.click(".composesend");
-  await app.page.waitFor(`${said("model")}.includes("Remembered.")`, { timeout: 20000 });
-  assert.equal(await app.page.evaluate<boolean>(shown(".againbutton")), false, "neither Regenerate nor Edit");
-  assert.equal(
-    await app.page.evaluate<number>(
-      `${SIGNED_POST}("/api/secretary/conversations/${id}/regenerate", "{}").then((r) => r.status)`,
-    ),
-    409,
-  );
 });

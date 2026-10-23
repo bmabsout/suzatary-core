@@ -415,27 +415,19 @@ mod tests {
         assert_eq!(found.call.callee, "todo");
     }
 
-    /// Anything beside the block is the escape the check looks for.
+    /// Anything beside the block is the escape the check looks for, and so are another
+    /// constructor and what typst's parser recovers from as malformed: a recovery is not the text.
     #[test]
-    fn only_block_refuses_anything_beside_the_block() {
+    fn only_block_refuses_anything_but_the_one_block() {
         for text in [
             "#todo(id: \"a\")[B] and then prose",
             "#todo(id: \"a\")[B]\n#todo(id: \"b\")[C]",
             "= A heading\n#todo(id: \"a\")[B]",
             "",
+            "#ekaTodo(id: \"a\")[B]",
+            "#todo(id: \"a\"[B]",
         ] {
             assert!(only_block(text, "todo").is_err(), "{text:?}");
         }
-    }
-
-    #[test]
-    fn only_block_refuses_another_constructor() {
-        assert!(only_block("#ekaTodo(id: \"a\")[B]", "todo").is_err());
-    }
-
-    /// typst's parser recovers from a malformed source; a recovery is not the text.
-    #[test]
-    fn only_block_refuses_what_typst_calls_malformed() {
-        assert!(only_block("#todo(id: \"a\"[B]", "todo").is_err());
     }
 }

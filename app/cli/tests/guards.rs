@@ -210,20 +210,6 @@ fn tool_guard_suzatary_verbs_are_allowed() {
     }
 }
 
-#[test]
-fn tool_guard_bash_is_denied() {
-    let payload = call("Bash", &serde_json::json!({ "command": "id" }));
-    assert_eq!(code(&run_tool_guard(&payload)), BLOCK);
-}
-
-/// `Monitor` runs a `command` in the same shell as `Bash`, so denying `Bash` by name never
-/// touched it.
-#[test]
-fn tool_guard_monitor_is_denied() {
-    let payload = call("Monitor", &serde_json::json!({ "command": "id" }));
-    assert_eq!(code(&run_tool_guard(&payload)), BLOCK);
-}
-
 /// The property a deny list cannot have: a tool the next release ships under a new name is
 /// denied by default rather than by update.
 #[test]
@@ -238,9 +224,13 @@ fn tool_guard_a_tool_that_did_not_exist_when_this_was_written_is_denied() {
     }
 }
 
+/// Every tool outside the verbs is denied, the shells among them: `Monitor` runs a `command` in
+/// the same shell as `Bash`, so denying `Bash` by name never touched it.
 #[test]
-fn tool_guard_read_and_write_and_network_tools_are_denied() {
+fn tool_guard_shell_read_and_write_and_network_tools_are_denied() {
     for tool in [
+        "Bash",
+        "Monitor",
         "Read",
         "Write",
         "Edit",
@@ -255,7 +245,7 @@ fn tool_guard_read_and_write_and_network_tools_are_denied() {
         "PushNotification",
         "DesignSync",
     ] {
-        let payload = call(tool, &serde_json::json!({}));
+        let payload = call(tool, &serde_json::json!({ "command": "id" }));
         assert_eq!(code(&run_tool_guard(&payload)), BLOCK, "tool: {tool}");
     }
 }
@@ -1122,34 +1112,26 @@ fn commit_msg_an_ambiguous_basename_is_not_guessed() {
     assert!(r.status.success(), "{}", stderr(&r));
 }
 
+/// What a message names that is no tracked file of the diff is no claim: a path a `Mentions:`
+/// trailer declares, paths that do not exist (a URL among them), and a directory.
 #[test]
-fn commit_msg_a_mentions_trailer_declares_a_reference() {
-    let root = hooked_repo("mentions-trailer");
-    touch(&root, "suzatary/todos.py");
-    let r = commit(
-        &root,
-        "Match what scripts/safe-push.sh does\n\nMentions: scripts/safe-push.sh",
-    );
-    assert!(r.status.success(), "{}", stderr(&r));
-}
-
-#[test]
-fn commit_msg_paths_that_do_not_exist_are_not_claims() {
-    let root = hooked_repo("nonexistent-paths");
-    touch(&root, "suzatary/todos.py");
-    let r = commit(
-        &root,
-        "See https://example.test/a/b and docs/nothing.md and foo/bar.py",
-    );
-    assert!(r.status.success(), "{}", stderr(&r));
-}
-
-#[test]
-fn commit_msg_directories_are_context_not_claims() {
-    let root = hooked_repo("directories");
-    touch(&root, "suzatary/todos.py");
-    let r = commit(&root, "Nothing in scripts/ moves");
-    assert!(r.status.success(), "{}", stderr(&r));
+fn commit_msg_words_naming_no_staged_file_are_not_claims() {
+    for (tag, message) in [
+        (
+            "mentions-trailer",
+            "Match what scripts/safe-push.sh does\n\nMentions: scripts/safe-push.sh",
+        ),
+        (
+            "nonexistent-paths",
+            "See https://example.test/a/b and docs/nothing.md and foo/bar.py",
+        ),
+        ("directories", "Nothing in scripts/ moves"),
+    ] {
+        let root = hooked_repo(tag);
+        touch(&root, "suzatary/todos.py");
+        let r = commit(&root, message);
+        assert!(r.status.success(), "{message}: {}", stderr(&r));
+    }
 }
 
 #[test]

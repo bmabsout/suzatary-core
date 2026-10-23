@@ -145,34 +145,26 @@ mod tests {
         assert_eq!(round_spans(&turns), vec![(0, 0)]);
     }
 
+    /// A round touches a reference its opening carries or a model turn names in prose, and only
+    /// that round; a reference no round was asked about touches none.
     #[test]
-    fn a_round_touches_when_its_opening_carries_the_reference() {
+    fn a_round_touches_what_its_opening_carries_or_its_prose_names() {
         let turns = fixture();
         let spans = round_spans(&turns);
-        let reference: Reference = "todo:life/x".parse().expect("a reference");
-        assert!(round_touches(&turns, spans[0], &reference));
-        assert!(!round_touches(&turns, spans[1], &reference));
-        assert!(!round_touches(&turns, spans[2], &reference));
-    }
-
-    #[test]
-    fn a_round_touches_when_a_model_turn_names_it_in_prose() {
-        let turns = fixture();
-        let spans = round_spans(&turns);
-        let reference: Reference = "mail:a1b2c3d4e5f6".parse().expect("a reference");
-        assert!(!round_touches(&turns, spans[0], &reference));
-        assert!(round_touches(&turns, spans[1], &reference));
-        assert!(!round_touches(&turns, spans[2], &reference));
-    }
-
-    #[test]
-    fn an_untouched_round_touches_nothing_it_was_not_asked_about() {
-        let turns = fixture();
-        let spans = round_spans(&turns);
-        let reference: Reference = "todo:life/somethingelse".parse().expect("a reference");
-        assert!(!round_touches(&turns, spans[0], &reference));
-        assert!(!round_touches(&turns, spans[1], &reference));
-        assert!(!round_touches(&turns, spans[2], &reference));
+        for (reference, touched) in [
+            ("todo:life/x", [true, false, false]),
+            ("mail:a1b2c3d4e5f6", [false, true, false]),
+            ("todo:life/somethingelse", [false, false, false]),
+        ] {
+            let parsed: Reference = reference.parse().expect("a reference");
+            for (span, touches) in spans.iter().zip(touched) {
+                assert_eq!(
+                    round_touches(&turns, *span, &parsed),
+                    touches,
+                    "{reference} in {span:?}"
+                );
+            }
+        }
     }
 
     #[test]

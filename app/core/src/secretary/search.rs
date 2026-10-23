@@ -131,7 +131,7 @@ pub fn search(conversations: &[Stored], needle: &Needle, context: usize, limit: 
 
 /// One character, case-folded to one character, so a match's position in the folded text is its
 /// position in the original (`str::to_lowercase` can lengthen a string).
-fn fold(c: char) -> char {
+pub(crate) fn fold(c: char) -> char {
     c.to_lowercase().next().unwrap_or(c)
 }
 
@@ -146,6 +146,12 @@ fn excerpt(text: &str, needle: &Needle, context: usize) -> Option<String> {
             .zip(&needle.0)
             .all(|(&c, &n)| fold(c) == n)
     })?;
+    Some(around(&chars, at, width, context))
+}
+
+/// The `width` characters at `at` with `context` characters either side, every run of whitespace
+/// one space, and an ellipsis where the text was cut.
+pub(crate) fn around(chars: &[char], at: usize, width: usize, context: usize) -> String {
     let from = at.saturating_sub(context);
     let to = (at + width + context).min(chars.len());
     let body = chars[from..to]
@@ -154,11 +160,11 @@ fn excerpt(text: &str, needle: &Needle, context: usize) -> Option<String> {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    Some(format!(
+    format!(
         "{}{body}{}",
         if from > 0 { "…" } else { "" },
         if to < chars.len() { "…" } else { "" }
-    ))
+    )
 }
 
 #[cfg(test)]

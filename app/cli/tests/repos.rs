@@ -48,7 +48,7 @@ fn answer(payload: &serde_json::Value, verb: &str) -> (String, bool) {
         .unwrap_or_else(|| panic!("no {verb} turn: {payload}"));
     (
         turn["text"].as_str().unwrap_or_default().to_owned(),
-        turn["refused"].as_bool().unwrap_or_default(),
+        turn["outcome"]["is"] == "refused",
     )
 }
 

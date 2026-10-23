@@ -31,8 +31,9 @@ export namespace turns {
   export const blocks = (t: TurnRow): readonly BlockRow[] =>
     fold(t, { person: none<BlockRow>, model: m => m.blocks, verb: none<BlockRow>, act: none<BlockRow>, box: none<BlockRow> })
   export const queued = (t: TurnRow): boolean => isQuestion(t) && t.queued
-  export const refused = (t: TurnRow): boolean => t.who === "verb" && t.refused
+  export const refused = (t: TurnRow): boolean => t.who === "verb" && t.outcome.is === "refused"
   export const verb = (t: TurnRow): string | null => (t.who === "verb" ? t.verb : null)
-  export const remembered = (t: TurnRow): Receipt | null => (t.who === "verb" ? t.remembered : null)
+  export const remembered = (t: TurnRow): Receipt | null =>
+    t.who === "verb" && t.outcome.is === "remembered" ? t.outcome.receipt : null
 }
 export default turns

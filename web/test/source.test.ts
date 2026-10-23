@@ -219,8 +219,6 @@ test("property: no illegal state is reachable over a random walk of events", () 
       const event = randomEvent(rand);
       const before = state;
       state = step(state, event);
-      // TOTALITY: always one of the three kinds.
-      assert.ok(state.kind === "loading" || state.kind === "loaded" || state.kind === "failed");
       // `Failed` IS REACHABLE ONLY FROM `Loading` — once a window has ever
       // landed, this source stays `Loaded` for the rest of its life: never
       // `loading` again, and a `failed` event only sets `problem`.

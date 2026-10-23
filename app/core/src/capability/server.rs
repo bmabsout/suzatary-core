@@ -59,6 +59,8 @@ pub struct Server<'a> {
     pub older: &'a dyn OlderMail,
     /// The owner's uploaded photos and PDFs, read-only.
     pub uploads: &'a dyn crate::store::Doc<crate::attachment::AttachmentId, crate::upload::Upload>,
+    /// The words of the uploads, for the secretary's search.
+    pub upload_index: &'a dyn super::UploadIndex,
     /// The files a verb keeps for the model.
     pub kept: &'a dyn crate::store::Doc<crate::attachment::AttachmentId, Vec<u8>>,
     /// The model settings the instance file declares, read-only.
@@ -106,6 +108,7 @@ impl<'a> Server<'a> {
             sync: self.sync,
             older: self.older,
             uploads: self.uploads,
+            upload_index: self.upload_index,
             kept: self.kept,
             configuration: self.configuration,
         }

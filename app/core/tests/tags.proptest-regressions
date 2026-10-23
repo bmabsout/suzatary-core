@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b348c349c7a1be29b0b30a4cc2558b3b68b1ba6706c4406fcb42d24664f4db7c # shrinks to base = [], mine = [Tag(1, 1), Untag(1, 1)], theirs = [Tag(1, 1)]
+cc f19451bcc9148707bf17721487a3d93f008082dc165542d6771559f399f4d53c # shrinks to script = [Rename(2, 1), Tag(1, 1), Rename(0, 2)], n = 1, name = 0
+cc 6fb731260c54a60734dba454d9f5f443a974cb6ae2ebd1780cf480a9142b9115 # shrinks to script = [Rename(0, 1)], from = 2, to = 0

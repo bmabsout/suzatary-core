@@ -38,7 +38,6 @@ test("law: screenFor is total, and a todo is a pane at 62rem and a page below it
     const at = route(r);
     const px = width(r);
     const screen = screenFor(at, isWide(px));
-    assert.ok(typeof screen.type === "string", hrefOf(at));
     if (at.type === "todo") {
       if (isWide(px)) {
         assert.equal(screen.type, "todos", `${hrefOf(at)} at ${px}px`);

@@ -3,11 +3,9 @@
 //! from a migrated act: a proposal carried into the literal form keeps the id its act's JSON
 //! hashed to, since a conversation's lines name it.
 //!
-//! `fixtures/inbox-proposals` was written once and carried into the literal form by the
-//! migration, its readings unmoved, then by `secretary migrate-inbox`, which dropped the unread
-//! spec of its one serving asking and kept its one dismissal in a supersession's words, written
-//! by a person, as that person's no. `SUZATARY_INBOX_ROUND_TRIP` names a live inbox directory
-//! to check the same way.
+//! `fixtures/inbox-proposals` was written once and carried by two migrations since, its
+//! readings unmoved: its one serving asking holds no spec, and its one dismissal is a person's
+//! no. `SUZATARY_INBOX_ROUND_TRIP` names a live inbox directory to check the same way.
 
 use std::path::Path;
 

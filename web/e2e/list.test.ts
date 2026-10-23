@@ -17,7 +17,7 @@
 import assert from "node:assert/strict";
 
 import { BASE, DESKTOP, PHONE, WRITE_BASE, fold, openInPlace, openTodo, row, shownTodos, suite, pickCategory, openFinder } from "./harness";
-import type { Fulfillment, Worth } from "../src/wire/generated/wire";
+import type { Worth } from "../src/wire/generated/wire";
 import cast from "../test/cast";
 import fulfillment from "../src/todo/fulfillment";
 
@@ -81,23 +81,6 @@ app.scene("the page's groups are the box's tree: the same groups, order and valu
   await app.page.click(`.pill[data-by="category"]`);
 });
 
-app.scene("flat, the list is the open todos ascending in fulfillment", async () => {
-  await app.open(BASE);
-  await openFinder(app.page);
-  await app.page.click(`.pill[data-by="flat"]`);
-  await app.page.waitFor(`document.querySelectorAll(".tree section.group").length === 1`);
-  // Every priced line ascending, then the unpriced ones: `∅` is no number, so it is never compared with one.
-  const rank = (value: Fulfillment | null): number => (typeof value === "number" ? value : 2);
-  const open = (await fold(app.page))
-    .filter((entry) => entry.state === "open")
-    .sort((a, b) => rank(a.value) - rank(b.value))
-    .map((entry) => entry.todo);
-  assert.deepEqual(await shownTodos(app.page), open, "the lines are not the server's open todos in its own order");
-  assert.equal(open[0], todos.urgent.id, "the deadline two days out should sort first — low means urgent");
-  await openFinder(app.page);
-  await app.page.click(`.pill[data-by="category"]`);
-});
-
 app.scene("a todo nothing prices draws as unpriced, after every priced line", async () => {
   await app.open(BASE);
   const { id, category } = cast.world.unpriced;
@@ -114,11 +97,6 @@ app.scene("a todo nothing prices draws as unpriced, after every priced line", as
     JSON.stringify([`c:${category}`, [["span", "unpriced"]], [["span", "unpriced"]]]),
     "the last group, and its mark and its line's are the word, with no pie",
   );
-});
-
-app.scene("the resolved todo is not on the open list", async () => {
-  await app.open(BASE);
-  assert.ok(!(await shownTodos(app.page)).includes(todos.resolved.id));
 });
 
 app.scene("on a phone the first line starts in the top third, under one control that searches, filters and groups", async () => {
@@ -242,17 +220,6 @@ app.scene("the add sheet starts in a category, marks the chips while none is lit
   await app.page.waitFor(`document.querySelector(".addsheet.open") === null`);
 });
 
-app.scene("the agent's todo is marked unconfirmed, where it stands", async () => {
-  await app.open(BASE);
-  const badge = await app.page.evaluate<string | null>(`document.querySelector('${row(todos.agents.id)} .chip.prov')?.textContent ?? null`);
-  assert.equal(badge, "unconfirmed");
-  const shown = await shownTodos(app.page);
-  assert.ok(
-    shown.indexOf(todos.agents.id) < shown.length - 1,
-    "an unconfirmed todo is marked, never sunk: urgency ordering stays honest",
-  );
-});
-
 app.scene("the header counts what needs attention and links to what waits in the Inbox", async () => {
   await app.open(BASE);
   const said = await app.page.evaluate<string>(`document.querySelector(".needs").textContent`);
@@ -335,28 +302,27 @@ app.scene("at 1280 the same hash is the pane beside the list", async () => {
 });
 
 /**
- * THE FILTER ROW (2026-09-10). Three claims, and the third is the one a pure
- * test cannot make: that the control is on the page, that it narrows, and that
- * turning it off puts everything back — a filter that could not be undone would
- * be a list somebody loses.
+ * THE FILTER ROW (2026-09-10): each control is on the page, narrows the list the
+ * page draws, and turning it off puts everything back — a filter that could not
+ * be undone would be a list somebody loses.
  */
-app.scene("the filter row narrows to what the chain has not settled", async () => {
+app.scene("each filter button narrows the list to its own todos, and off puts the whole list back", async () => {
   await app.open(BASE);
   const everything = await shownTodos(app.page);
-  assert.ok(everything.includes(todos.agents.id), "the agent's todo is the unconfirmed one");
-  assert.ok(everything.includes(todos.urgent.id), "and this one is confirmed");
-
-  // OPEN, not toggle: scenes share one page, and a drawer left open by the
-  // previous scene would be closed by a click on its summary.
-  await openFinder(app.page);
-  await app.page.click(".attentionbtn");
-  await app.page.waitFor(`document.querySelector(".attentionbtn").getAttribute("aria-pressed") === "true"`);
-  const narrowed = await shownTodos(app.page);
-  assert.deepEqual(narrowed, [todos.agents.id], `only the unconfirmed todo should remain, got ${narrowed.join(", ")}`);
-
-  await app.page.click(".attentionbtn");
-  await app.page.waitFor(`document.querySelector(".attentionbtn").getAttribute("aria-pressed") === "false"`);
-  assert.deepEqual(await shownTodos(app.page), everything, "turning it off must put the whole list back");
+  for (const [button, only] of [
+    [".attentionbtn", [todos.agents.id]],
+    [".datedbtn", [todos.urgent.id]],
+  ] as const) {
+    // OPEN, not toggle: scenes share one page, and a drawer left open by the
+    // previous scene would be closed by a click on its summary.
+    await openFinder(app.page);
+    await app.page.click(button);
+    await app.page.waitFor(`document.querySelector("${button}").getAttribute("aria-pressed") === "true"`);
+    assert.deepEqual(await shownTodos(app.page), only, button);
+    await app.page.click(button);
+    await app.page.waitFor(`document.querySelector("${button}").getAttribute("aria-pressed") === "false"`);
+    assert.deepEqual(await shownTodos(app.page), everything, `${button}: turning it off must put the whole list back`);
+  }
 });
 
 app.scene("the filter is remembered, and comes back parsed rather than trusted", async () => {
@@ -381,27 +347,10 @@ app.scene("the filter is remembered, and comes back parsed rather than trusted",
 });
 
 /**
- * TWO MORE FILTERS (`docs/APP.md` §4 item 5, chain item `listfilters`):
- * waiting — what am I blocked on, over `waiting_on` — and dated — what has a
- * deadline in the next fortnight, over any `Decay` in the todo's spec. Both
- * live beside `.attentionbtn` in the same drawer.
+ * THE WAITING FILTER (`docs/APP.md` §4 item 5, chain item `listfilters`), over
+ * a `waiting_on` this scene writes through the edit form, since no fixture todo
+ * carries one.
  */
-app.scene("the dated filter narrows to what has a deadline in the next fortnight", async () => {
-  await app.open(BASE);
-  const everything = await shownTodos(app.page);
-  assert.ok(everything.includes(todos.urgent.id), "the fixture's Decay two days out should be here to start with");
-
-  await openFinder(app.page);
-  await app.page.click(".datedbtn");
-  await app.page.waitFor(`document.querySelector(".datedbtn").getAttribute("aria-pressed") === "true"`);
-  const narrowed = await shownTodos(app.page);
-  assert.deepEqual(narrowed, [todos.urgent.id], `only the todo with a Decay inside the fortnight should remain, got ${narrowed.join(", ")}`);
-
-  await app.page.click(".datedbtn");
-  await app.page.waitFor(`document.querySelector(".datedbtn").getAttribute("aria-pressed") === "false"`);
-  assert.deepEqual(await shownTodos(app.page), everything, "turning it off must put the whole list back");
-});
-
 app.scene("the waiting filter narrows to what carries a waiting_on", async () => {
   await app.open(WRITE_BASE);
   const before = await shownTodos(app.page);

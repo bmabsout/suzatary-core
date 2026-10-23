@@ -520,16 +520,10 @@ pub fn join(
                 CodingShape::Reported { id, branch } => Session::Reported {
                     id,
                     branch,
-                    report: slot.next().map_or_else(
-                        || Gone::Missing.into(),
-                        |words| match words {
-                            Words::Kept {
-                                kept: LineWords::Report { report },
-                            } => Words::kept(report),
-                            Words::Kept { .. } => Gone::Missing.into(),
-                            Words::Gone { gone } => gone.into(),
-                        },
-                    ),
+                    report: take(&mut slot, |words| match words {
+                        LineWords::Report { report } => Some(report),
+                        _ => None,
+                    }),
                 },
                 CodingShape::Merged { id, sha } => Session::Merged { id, sha },
                 CodingShape::Dropped { id } => Session::Dropped {
@@ -546,10 +540,10 @@ pub fn join(
 }
 
 /// The next slot's words, when they are of the kind `fits` reads.
-fn take(
+fn take<T>(
     slot: &mut std::vec::IntoIter<Words<LineWords>>,
-    fits: fn(LineWords) -> Option<String>,
-) -> Words<String> {
+    fits: fn(LineWords) -> Option<T>,
+) -> Words<T> {
     match slot.next().unwrap_or_else(|| Gone::Missing.into()) {
         Words::Kept { kept } => fits(kept).map_or_else(|| Gone::Missing.into(), Words::kept),
         Words::Gone { gone } => gone.into(),

@@ -131,21 +131,21 @@ impl Draw for Undrawn {
 /// what the page asks the box to render, by name and never by text.
 #[must_use]
 pub fn block_named(stored: &Stored, sha: &str) -> Option<String> {
-    stored.turns.iter().find_map(|said| match &said.turn {
-        Turn::Model { text, .. } => crate::secretary::answer::blocks(text)
+    stored.turns.iter().find_map(|said| {
+        let text = match &said.turn {
+            Turn::Model { text, .. } => text,
+            Turn::Erased { words, .. } => match words.first() {
+                Some(crate::secretary::words::Words::Kept {
+                    kept: crate::secretary::line_words::LineWords::Model { text },
+                }) => text,
+                _ => return None,
+            },
+            Turn::Person { .. } | Turn::Tool { .. } | Turn::Act { .. } => return None,
+        };
+        crate::secretary::answer::blocks(text)
             .into_iter()
             .find(|block| crate::secretary::answer::sha(&block.source) == sha)
-            .map(|block| block.source),
-        Turn::Erased { words, .. } => match words.first() {
-            Some(crate::secretary::words::Words::Kept {
-                kept: crate::secretary::line_words::LineWords::Model { text },
-            }) => crate::secretary::answer::blocks(text)
-                .into_iter()
-                .find(|block| crate::secretary::answer::sha(&block.source) == sha)
-                .map(|block| block.source),
-            _ => None,
-        },
-        Turn::Person { .. } | Turn::Tool { .. } | Turn::Act { .. } => None,
+            .map(|block| block.source)
     })
 }
 
@@ -551,14 +551,7 @@ pub(crate) fn turn<A: Answers + ?Sized>(
             answer,
             outcome,
             files: _,
-        } => row(
-            answer,
-            wire::Speaker::Verb {
-                verb: verb.to_string(),
-                refused: outcome.refused(),
-                remembered: outcome.remembered().map(|fact| receipt(fact, memory)),
-            },
-        ),
+        } => row(answer, verb_turn(verb, *outcome, memory)),
         crate::capability::Turn::Erased { shape, words } => wire::TurnRow {
             text: crate::secretary::turn_shape::prose(words),
             gone: words
@@ -566,6 +559,25 @@ pub(crate) fn turn<A: Answers + ?Sized>(
                 .and_then(crate::secretary::words::Words::gone)
                 .map(wire::TurnGone::from),
             ..row("", erased(shape, said.by.as_ref(), memory))
+        },
+    }
+}
+
+/// A verb's turn: its name, and how its call ended, a fact it wrote read from `memory`.
+fn verb_turn(
+    verb: &crate::secretary::tool_name::ToolName,
+    outcome: crate::secretary::outcome::Outcome,
+    memory: Option<&wire::MemoryPayload>,
+) -> wire::Speaker {
+    use crate::secretary::outcome::Outcome;
+    wire::Speaker::Verb {
+        verb: verb.to_string(),
+        outcome: match outcome {
+            Outcome::Answered => wire::VerbOutcome::Answered,
+            Outcome::Refused => wire::VerbOutcome::Refused,
+            Outcome::Remembered { fact } => wire::VerbOutcome::Remembered {
+                receipt: receipt(fact, memory),
+            },
         },
     }
 }
@@ -595,13 +607,9 @@ fn erased(
             queued: false,
         },
         TurnShape::Model { .. } => wire::Speaker::Model { blocks: Vec::new() },
-        TurnShape::Tool { verb, outcome, .. } => wire::Speaker::Verb {
-            verb: verb.to_string(),
-            refused: outcome.refused(),
-            // The receipt is the shape's, so a remember answer whose words are gone, by a forget
-            // or by the owner's erasure, still names its fact.
-            remembered: outcome.remembered().map(|fact| receipt(fact, memory)),
-        },
+        // The receipt is the shape's, so a remember answer whose words are gone, by a forget or
+        // by the owner's erasure, still names its fact.
+        TurnShape::Tool { verb, outcome, .. } => verb_turn(verb, *outcome, memory),
         TurnShape::Act { references } => acted_by(by, references.clone()),
     }
 }
@@ -704,17 +712,12 @@ fn disconnect_on_wire(
     }
 }
 
-/// The card an act is drawn on: its proposal, and whether its act is running now.
-struct Card<'a> {
-    id: &'a crate::secretary::inbox::ProposalId,
-    running: bool,
-}
-
-/// An act, as the wire carries it, its sentence on every arm.
+/// An act, as the wire carries it, its sentence on every arm; `consent` is the box's path to the
+/// consent a running sign-in opened.
 #[expect(clippy::too_many_lines, reason = "one arm per kind of act")]
 fn act_on_wire(
     act: &crate::secretary::acts::Act,
-    card: &Card<'_>,
+    consent: Option<String>,
     draws: &dyn Draw,
 ) -> wire::ProposedAct {
     let routine = draws.routine();
@@ -819,10 +822,7 @@ fn act_on_wire(
                     .iter()
                     .map(|part| part.sentence().to_owned())
                     .collect(),
-                // The box's own path, which sends the browser on to the consent the tap opened.
-                consent: card
-                    .running
-                    .then(|| format!("{}{}", crate::google::CONSENT, card.id.as_str())),
+                consent,
                 sentence: act.sentence(),
             }
         }
@@ -943,12 +943,14 @@ pub(crate) fn proposal(
             }
         }
         // `Act::sentence` is the one place that knows the imperative.
+        // The box's own path, which sends the browser on to the consent the tap opened.
         Proposal::Act(act) => act_on_wire(
             act,
-            &Card {
-                id: &standing.object.id,
-                running: standing.object.reading.running(),
-            },
+            standing
+                .object
+                .reading
+                .running()
+                .then(|| format!("{}{}", crate::google::CONSENT, standing.object.id.as_str())),
             draws,
         ),
         Proposal::Remember { text, kind } => {

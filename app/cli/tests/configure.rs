@@ -669,7 +669,7 @@ fn a_round_that_read_mail_proposes_no_configure_card() {
         .iter()
         .find(|turn| turn["who"] == "verb" && turn["verb"] == "propose_act")
         .expect("the verb's turn");
-    assert_eq!(refused["refused"], true, "{refused}");
+    assert_eq!(refused["outcome"]["is"], "refused", "{refused}");
     assert!(
         refused["text"]
             .as_str()

@@ -54,14 +54,14 @@ tagged on `type` in TypeScript.
 - Rust: `secretary::phase::Phase` has one case for each stage of a proposal, such as
   `Trying`, `Sent`, `MayHaveGone` and `Dismissed`. `capability::Turn` has an `Erased` case for
   a turn whose words were deleted. It does not use an `Option` that can be `None`.
+- Rust: `secretary::outcome::Outcome` says how a verb's call ended: `Answered`, `Refused`, or
+  `Remembered` with the fact it wrote. The turn row on the wire carries the same sum
+  (`wire::VerbOutcome`), not a `refused` flag beside an optional receipt.
 - TypeScript: `lo.T<V>` (`web/src/algebra/lo.ts`) is `Loading`, `Error` or `Val`. It is not a
   record with a `loading: boolean` field. `app.Reach` (`web/src/app/app.ts`) is `Writes`,
   `Waits` or `Reads`.
 - A plain `bool` is correct for a fact that does not change which other fields have meaning,
   such as `truncated` on a mail body.
-
-Known debt: `capability::Turn::Tool` has `refused: bool` beside `answer`. A sum of `Answered`
-and `Refused` would state the same fact.
 
 ### 2. Parse, do not validate
 

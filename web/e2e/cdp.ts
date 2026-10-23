@@ -251,8 +251,9 @@ type Stage = "Request" | "Response";
 
 /** A response's body as `captureNetwork` read it at its headers, or why it could not be read. */
 type Answer = { type: "Read"; body: string } | { type: "Unread"; why: string };
-/** A running `captureNetwork`: what it matches, and each answer it read, by the request's `Network` id. */
-type Capture = { fragments: readonly string[]; answers: Map<string, Answer> };
+/** A running `captureNetwork`: what it matches, each answer it read by the request's `Network` id, and how it hears of
+ * an answer it cannot read, which fails it whether or not the request ever ends. */
+type Capture = { fragments: readonly string[]; answers: Map<string, Answer>; unread: (networkId: string) => void };
 // Answers that carry no body, so none is asked for.
 const NO_BODY = [204, 304];
 
@@ -715,7 +716,10 @@ export class Page {
               (e: unknown): Answer => ({ type: "Unread", why: String(e) }),
             );
     const networkId = String(params["networkId"] ?? id);
-    for (const c of taking) c.answers.set(networkId, answer);
+    for (const c of taking) {
+      c.answers.set(networkId, answer);
+      if (answer.type === "Unread") c.unread(networkId);
+    }
   }
 
   /** What `intercept`'s verdict does with a paused request it names; anything else goes on. */
@@ -825,8 +829,9 @@ export class Page {
    * response the page has read whole can still end as `net::ERR_ABORTED`, its
    * body then gone ("No data found for resource"), and an answer read as
    * nothing passes a scene that asserts no answer carried a secret. A body
-   * that cannot be read fails the capture by its URL; a request that got no
-   * answer has none. `stop` waits for every request to end and returns them.
+   * that cannot be read fails the capture by its URL, and `stop` waits for
+   * no more of that request than its headers; a request that got no answer
+   * has none. `stop` waits for every other request to end and returns them.
    *
    * This is the "not only the DOM" half of a scene like settings' secret
    * write: the DOM only ever shows what the page CHOSE to render, and a
@@ -844,7 +849,7 @@ export class Page {
       resolve: () => void;
     }
     const byId = new Map<string, Entry>();
-    const capture: Capture = { fragments, answers: new Map() };
+    const capture: Capture = { fragments, answers: new Map(), unread: (networkId) => byId.get(networkId)?.resolve() };
     const matches = (url: string): boolean => fragments.some((fragment) => url.includes(fragment));
     let running = true;
     const onRequest = (params: Record<string, unknown>, session?: string): void => {
@@ -854,6 +859,13 @@ export class Page {
         | undefined;
       const url = request?.url ?? "";
       if (!running || session !== this.session || typeof requestId !== "string" || !matches(url)) return;
+      // A redirect's next hop comes under the same id, and the request still ends once: the entry `stop` may already
+      // be waiting on is the one that hears it.
+      const held = byId.get(requestId);
+      if (held !== undefined) {
+        held.url = url;
+        return;
+      }
       let resolve = (): void => {};
       const finished = new Promise<void>((done) => {
         resolve = done;

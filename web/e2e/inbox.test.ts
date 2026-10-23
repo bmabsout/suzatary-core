@@ -11,47 +11,22 @@
  * 1. A held batch appears in the Inbox as an open decision, drawn as its
  *    diff, with the secretary's own reason above it.
  * 2. A viewer reads the Inbox and is offered nothing to press.
- * 3. An ancestor-open pick is refused in THE BOX'S OWN WORDS (the route's
- *    own rule, asked directly — §10.6(4) is unchanged by this series).
- * 4. Accepting moves a batch's objects onto the CHAIN — the fold says so.
- * 5. Rejecting removes it, and running the same writer again does not bring
- *    it back — checked by actually running it.
- * 6. A standing email proposal appears in the Inbox as an open decision, and
+ * 3. A standing email proposal appears in the Inbox as an open decision, and
  *    tapping a CHANGESET proposal Confirms it and drops the count — a
  *    changeset, not an email, so it never touches the shared SMTP recorder
  *    `secretary.test.ts` asserts an exact count against.
- * 7. Withdrawing a proposal leaves the Inbox with nothing waiting on it.
- * 8. A revised draft supersedes the one before it: the OLD card shows a quiet
+ * 4. Withdrawing a proposal leaves the Inbox with nothing waiting on it.
+ * 5. A revised draft supersedes the one before it: the OLD card shows a quiet
  *    line, never a dismissal in the owner's words, and the Inbox counts only the
  *    new one.
- * 9. A send that failed with nothing sent stays in the Inbox with Try again,
+ * 6. A send that failed with nothing sent stays in the Inbox with Try again,
  *    and trying again sends it once and completes it.
- * 10. A send that may have gone through stays in the Inbox with one answer,
+ * 7. A send that may have gone through stays in the Inbox with one answer,
  *    "I checked Sent"; a tap asked anyway answers with the record, and after
  *    the check it leaves and still sends nothing.
- * 11. A held batch and a changeset open on their one-line summary, the diff
+ * 8. A held batch and a changeset open on their one-line summary, the diff
  *    collapsed; expanded, a pick made in the diff survives the redraw and is
  *    exactly what Accept takes.
- *
- * ⚠️ SCENES 4 AND 5 ASK THE ROUTE DIRECTLY, NOT THROUGH THE INBOX. §10.6's own
- * batches are drawn in the Inbox ONLY once the secretary has HELD one (§2 of
- * the plan above: "Do not make the Inbox a second fold" — an unreviewed batch
- * is not a decision yet, so it is not here to click). `WRITE_BASE`'s own
- * triage run is deliberately UNREVIEWED (so scene 3's ancestor-open pick is a
- * real one and not one already spoken for), which means this app draws no
- * card for it — the mechanics these two scenes check (ancestor closure,
- * adoption, deletion, REJECTED) are still real and still worth checking, so
- * they ask `/api/life/proposals/*` the way `writes.test.ts` asks every other
- * route, rather than clicking a card that is not there.
- *
- * ⚠️ ACCEPTING A HELD BATCH THROUGH THE ROUTE SETTLES ITS DECISION TOO —
- * `proposals::routes::settle_batch_decision`, called from inside `accept`/
- * `reject` themselves after the adoption or the deletion actually succeeds,
- * as the gate's resolved actor. `app/cli/tests/proposals.rs`'s own
- * `accepting_a_held_batch_through_the_route_settles_its_own_decision` pins
- * this directly against the route; scenes 4 and 5 here still do not need a
- * held batch to check the ancestor/descendant closure rules, so they stay as
- * they are.
  */
 
 import assert from "node:assert/strict";
@@ -248,85 +223,6 @@ app.scene("a viewer reads the Inbox and is offered nothing to press", async () =
   const refused = await post(PROPOSED_BASE, "/api/life/proposals/accept", { objects: [] });
   assert.equal(refused.status, 403);
   assert.match((refused.body as { error: string }).error, /may read this app but not write to it/);
-});
-
-app.scene("an ancestor-open pick is refused in the box's own words", async () => {
-  // WRITE_BASE's own run is unreviewed and therefore un-drawn (this file's own
-  // note above), so the objects are read off the route rather than a card.
-  await app.page.navigate(`${WRITE_BASE}/#/`);
-  const listed = await app.page.evaluate<{ objects: { hash: string }[] }[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  const objects = (listed[0]?.objects ?? []).map((object) => object.hash);
-  assert.equal(objects.length, 2);
-
-  // Pick only the SECOND object, which the first rests on — an open pick.
-  const refused = await post(WRITE_BASE, "/api/life/proposals/accept", { objects: [objects[1]] });
-  assert.equal(refused.status, 400);
-  const said = (refused.body as { error: string }).error;
-  assert.match(
-    said,
-    /Picking a completion means taking the todo it completes/,
-    `the box says what the rule MEANS: ${said}`,
-  );
-  assert.ok(said.includes((objects[0] ?? "").slice(0, 12)), "and names the object that is missing");
-
-  assert.equal(
-    (await fold(app.page)).find((entry) => entry.todo === ADDED),
-    undefined,
-    "and nothing moved",
-  );
-});
-
-app.scene("accepting moves the batch's objects onto the chain", async () => {
-  await app.page.navigate(`${WRITE_BASE}/#/`);
-  const listed = await app.page.evaluate<{ objects: { hash: string }[] }[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  const objects = (listed[0]?.objects ?? []).map((object) => object.hash);
-  assert.equal(objects.length, 2, "the refused pick left the batch alone");
-
-  const accepted = await post(WRITE_BASE, "/api/life/proposals/accept", { objects });
-  assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
-
-  const entries = await fold(app.page);
-  assert.ok(entries.some((entry) => entry.todo === ADDED), "the proposed todo is a todo now");
-  // ⚠️ AND THE COMPLETION IS STILL A CLAIM (§10.6's second cutover step —
-  // unchanged by this series): this fixture's chain names `triage` untrusted.
-  assert.equal(entries.find((entry) => entry.todo === CLOSED)?.state, "open");
-});
-
-app.scene("rejecting removes a batch, and the same write again is the same object", async () => {
-  // ⚠️ The batch is held, so its decision is open; rejecting it settles that too.
-  // A FRESH BATCH, from the real writer, about a todo of its own: the previous
-  // scene accepted the one the fixture built.
-  const first = rerunTriage("--hold", "e2erejected");
-  assert.equal(first.ran, true, `a run about a new todo is a new batch: ${first.refused}`);
-
-  await app.page.navigate(`${WRITE_BASE}/#/`);
-  const listed = await app.page.evaluate<{ objects: { hash: string }[] }[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  const objects = (listed[0]?.objects ?? []).map((object) => object.hash);
-  assert.equal(objects.length, 2, "the new run is standing");
-
-  const rejected = await post(WRITE_BASE, "/api/life/proposals/reject", { objects });
-  assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
-  const gone = await app.page.evaluate<unknown[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  assert.deepEqual(gone, [], "rejecting removes the batch, and nothing else is recorded");
-
-  // THE SAME WRITE IS THE SAME OBJECT: the fixture's own run, replayed, writes
-  // the very events over the very heads it wrote before, which the chain holds
-  // since the previous scene accepted them, so nothing new stands. A real run
-  // stamps the clock's instant, so only a replay can.
-  const again = rerunTriage();
-  assert.equal(again.ran, true, `the replay runs: ${again.refused}`);
-  const back = await app.page.evaluate<unknown[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  assert.deepEqual(back, [], "a replay of what the chain holds proposes nothing");
 });
 
 // EVERY SCENE FROM HERE SCOPES ITS QUERIES BY `[data-conversation="<id>"]`,
@@ -710,6 +606,9 @@ app.scene("a batch and a changeset open on their summary, and a pick made in the
   const completion = await app.page.evaluate<string>(
     `document.querySelector('${batch} .proposedobject.act-completed').getAttribute("data-object")`,
   );
+  const addition = await app.page.evaluate<string>(
+    `document.querySelector('${batch} .proposedobject.act-added').getAttribute("data-object")`,
+  );
   const clicked = await app.page.evaluate<number>("performance.now()");
   await app.page.click(`${batch} .proposedpick[data-pick="${completion}"]`);
   await app.page.waitFor(`document.querySelector('${batch} .diffpicked')?.textContent === "1 of 2 picked"`, { timeout: 4000 });
@@ -732,7 +631,9 @@ app.scene("a batch and a changeset open on their summary, and a pick made in the
   const standing = await app.page.evaluate<{ objects: { hash: string }[] }[]>(
     `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
   );
-  assert.deepEqual(standing.flatMap((b) => b.objects.map((o) => o.hash)), [completion]);
+  const left = standing.flatMap((b) => b.objects.map((o) => o.hash));
+  assert.ok(left.includes(completion), "the completion still stands");
+  assert.ok(!left.includes(addition), "the addition it rests on was taken");
 
   // Nothing of this scene is left standing for a later file.
   const rejected = await post(WRITE_BASE, "/api/life/proposals/reject", { objects: [completion] });

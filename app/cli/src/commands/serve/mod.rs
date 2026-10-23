@@ -1843,8 +1843,10 @@ fn tls_config(cert: &Path, key: &Path) -> anyhow::Result<rustls::ServerConfig> {
 }
 
 /// Owe what was erased: every forgotten fact's erasures appended, then every key an erasure
-/// names destroyed. Both are functions of what is stored, so a restart finishes what a failure
-/// left; a failure is logged, never fatal.
+/// names destroyed, then the upload index rebuilt to the uploads a live turn names, which takes
+/// out an erased upload's words and indexes uploads stored before the index existed. Each is a
+/// function of what is stored, so a restart finishes what a failure left; a failure is logged,
+/// never fatal.
 async fn erase_at_startup(chain: &Chained) {
     let caps = chain.caps;
     let done = tokio::task::spawn_blocking(move || {
@@ -1854,10 +1856,13 @@ async fn erase_at_startup(chain: &Chained) {
         let lines = suzatary_core::secretary::transcript::sweep(caps.conversations)
             .map_err(suzatary_core::refusal::Refusal::from);
         let texts = caps.memories.sweep();
+        let indexed =
+            suzatary_core::secretary::file_search::reindex(caps.conversations, caps.upload_index);
         [
             ("erased by forgetting", erased),
             ("keys destroyed", lines),
             ("texts deleted", texts),
+            ("uploads in the search index", indexed),
         ]
     })
     .await;
@@ -1883,30 +1888,21 @@ async fn erase_at_startup(chain: &Chained) {
 }
 
 /// `suzatary serve`: resolve the flags and run the router.
-pub fn run(path: &Path, args: Args) -> anyhow::Result<()> {
-    serve(&Instance::open(path)?, args)
-}
-
-/// [`run`] over an instance already read; public so the CLI's tests drive the refusal.
 ///
 /// # Errors
-/// An inbox or conversations still in the old forms, flags that do not resolve, and the
-/// server's own.
-pub fn serve(instance: &Instance, args: Args) -> anyhow::Result<()> {
-    // Until the inbox and the conversations are carried this build would read them wrong, so
-    // it does not start.
-    super::migrate_inbox::uncarried(instance)?;
-    super::migrate_receipts::uncarried(instance)?;
+/// Flags that do not resolve, and the server's own.
+pub fn run(path: &Path, args: Args) -> anyhow::Result<()> {
+    let instance = Instance::open(path)?;
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
-    let serving = serving(instance, args)?;
+    let serving = serving(&instance, args)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(listen(instance, serving))
+        .block_on(listen(&instance, serving))
 }
 
 #[cfg(test)]

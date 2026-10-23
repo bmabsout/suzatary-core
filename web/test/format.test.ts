@@ -62,6 +62,7 @@ test("a mail row's date is to the minute, on the owner's clock and never the dev
     assert.equal(whenOf("2026-09-03T09:05:00", time.UTC), "2026-09-03 09:05");
     assert.equal(whenOf("2026-09-03T01:05:00", { name: "America/New_York" }), "2026-09-02 21:05");
     assert.equal(whenOf("2026-09-03T01:05:00-04:00", { name: "Europe/Berlin" }), "2026-09-03 07:05");
+    assert.equal(whenOf("2026-09-03T09:05:00+03:00", { name: "America/New_York" }), "2026-09-03 02:05");
   }));
 
 test("a Date header that would not parse is shown, not invented", () => {

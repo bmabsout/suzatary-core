@@ -65,23 +65,28 @@ app.scene("l opens a line in place and then the todo; h closes it and climbs to 
   await app.page.waitFor(`window.location.hash === "#/todo/${todos.urgent.id}"`);
 });
 
+// `a` opens the secretary from Todos, and only a writer's page draws a compose box to land in, so its case is
+// pressed on the writer's server.
 app.scene("slash puts the caret in the search field, and the field then owns the keyboard", async () => {
-  await app.open(BASE);
-  await app.page.press("/");
-  assert.equal(await app.page.evaluate<string | null>(`document.activeElement?.className ?? null`), "search");
-  // The negative property, live: `j` in a field is the letter j, not a move.
-  await app.page.press("j");
-  assert.equal(await app.page.evaluate<string>(`document.querySelector(".search").value`), "j");
-  await app.page.waitFor(`document.querySelectorAll(".tree .row").length === 0`);
-  await app.page.press("Escape");
-  // AND PUT IT BACK: the search is part of the remembered filter, and the
-  // scenes below share this browser profile.
-  await app.page.evaluate(`(() => {
-    const field = document.querySelector(".search");
-    field.value = "";
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-  })()`);
-  await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`);
+  for (const [base, key] of [[BASE, "j"], [WRITE_BASE, "a"]] as const) {
+    await app.open(base);
+    const before = await app.page.evaluate<string>(`window.location.hash`);
+    await app.page.press("/");
+    assert.equal(await app.page.evaluate<string | null>(`document.activeElement?.className ?? null`), "search");
+    // The negative property, live: a key in a field is its letter, not a move or a verb.
+    await app.page.press(key);
+    assert.equal(await app.page.evaluate<string>(`document.querySelector(".search").value`), key);
+    assert.equal(await app.page.evaluate<string>(`window.location.hash`), before, key);
+    await app.page.press("Escape");
+    // AND PUT IT BACK: the search is part of the remembered filter, and the
+    // scenes below share this browser profile.
+    await app.page.evaluate(`(() => {
+      const field = document.querySelector(".search");
+      field.value = "";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    })()`);
+    await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`);
+  }
 });
 
 app.scene("Ctrl-K opens the palette and typing filters it", async () => {
@@ -295,15 +300,4 @@ app.scene("a opens the secretary with the compose box focused, from Todos", asyn
   await app.page.waitFor(
     `document.activeElement !== null && document.activeElement.classList.contains("composebox")`,
   );
-});
-
-app.scene("a inside the search field does nothing — the field keeps the keyboard", async () => {
-  await app.open(WRITE_BASE);
-  const before = await app.page.evaluate<string>(`window.location.hash`);
-  await app.page.press("/");
-  assert.equal(await app.page.evaluate<string | null>(`document.activeElement?.className ?? null`), "search");
-  await app.page.press("a");
-  // The negative property, live: `a` in a field is the letter a, not the verb.
-  assert.equal(await app.page.evaluate<string>(`document.querySelector(".search").value`), "a");
-  assert.equal(await app.page.evaluate<string>(`window.location.hash`), before);
 });

@@ -135,3 +135,10 @@ test("a reprice to a cycle sends exactly the wire shape, and nothing untouched",
     rationale: "rent is due monthly",
   });
 });
+
+test("an edit that moves nothing is sent as the todo alone, so the box's refusal is the one shown", () => {
+  const before = authored();
+  const diffed = diffOf(high.id, before, formOf(before, VOCABULARY));
+  assert.equal(diffed.type, "Ok");
+  if (diffed.type === "Ok") assert.deepEqual(diffed.v, { todo: high.id });
+});

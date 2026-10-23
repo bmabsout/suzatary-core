@@ -182,32 +182,19 @@ mod tests {
         );
     }
 
+    /// A missing profile, an empty login, a missing node, bytes that are not JSON and an array
+    /// each name nobody.
     #[test]
-    fn parse_refuses_a_missing_user_profile() {
-        let body = r#"{"Node":{"Name":"box.tailnet.ts.net."}}"#;
-        assert_eq!(parse(body), None);
-    }
-
-    #[test]
-    fn parse_refuses_an_empty_login_name() {
-        let body = r#"{"UserProfile":{"LoginName":""},"Node":{"Name":"box.tailnet.ts.net."}}"#;
-        assert_eq!(parse(body), None);
-    }
-
-    #[test]
-    fn parse_refuses_a_missing_node() {
-        let body = r#"{"UserProfile":{"LoginName":"ada.login@example.com"}}"#;
-        assert_eq!(parse(body), None);
-    }
-
-    #[test]
-    fn parse_refuses_malformed_json() {
-        assert_eq!(parse("{not json"), None);
-    }
-
-    #[test]
-    fn parse_refuses_a_json_array() {
-        assert_eq!(parse(r#"["UserProfile","Node"]"#), None);
+    fn parse_refuses_what_names_no_login_on_a_node() {
+        for body in [
+            r#"{"Node":{"Name":"box.tailnet.ts.net."}}"#,
+            r#"{"UserProfile":{"LoginName":""},"Node":{"Name":"box.tailnet.ts.net."}}"#,
+            r#"{"UserProfile":{"LoginName":"ada.login@example.com"}}"#,
+            "{not json",
+            r#"["UserProfile","Node"]"#,
+        ] {
+            assert_eq!(parse(body), None, "{body}");
+        }
     }
 
     #[test]

@@ -38,6 +38,8 @@ pub mod digests;
 pub mod erasure;
 pub mod fact_life;
 pub mod failing;
+pub mod file_query;
+pub mod file_search;
 pub mod filed;
 pub mod fixes;
 pub mod found;
@@ -78,6 +80,7 @@ pub mod stamp;
 pub mod store;
 pub mod surface;
 pub mod sweep;
+pub mod tags;
 pub mod taint;
 pub mod tap;
 pub mod tapped;
@@ -89,6 +92,7 @@ pub mod transcript;
 pub mod transcript_registers;
 pub mod turn_shape;
 pub mod two_phase;
+pub mod upload_standing;
 pub mod verb_answer;
 mod verbs;
 pub mod words;
@@ -361,15 +365,9 @@ fn load_references(
         Some(Turn::Model { .. } | Turn::Tool { .. } | Turn::Erased { .. }) | None => return Ok(()),
     };
     for reference in &references {
-        let (answer, outcome) = match load(caps, deployment, settables, chains, id, reference) {
-            Ok(Value::String(text)) => (text, outcome::Outcome::Answered),
-            Ok(other) => (
-                serde_json::to_string_pretty(&other)
-                    .unwrap_or_else(|failed| format!("(the answer did not serialise: {failed})")),
-                outcome::Outcome::Answered,
-            ),
-            Err(refusal) => (refusal.message().to_owned(), outcome::Outcome::Refused),
-        };
+        let (answer, outcome, files) = VerbAnswer::said(
+            load(caps, deployment, settables, chains, id, reference).map(Into::into),
+        );
         append(
             caps.conversations,
             id,
@@ -380,7 +378,7 @@ fn load_references(
                     // The text form first, so the model can name the thing back.
                     answer: format!("{reference}\n\n{answer}"),
                     outcome,
-                    files: Vec::new(),
+                    files,
                 },
                 by: None,
             },

@@ -54,6 +54,16 @@ impl Stored {
     }
 }
 
+/// Where the store keeps an upload, read without reading its bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Place {
+    /// Its bytes are on the box.
+    Here,
+    /// It is in the owner's Drive, and the box holds a note of where.
+    Private,
+}
+
 /// Why an upload was not kept.
 #[derive(Debug, thiserror::Error)]
 pub enum UploadError {
@@ -185,6 +195,35 @@ impl AttachmentStore {
         let attachment = Attachment::accept(&bytes)
             .map_err(|failed| StoreError::unreadable("upload store", format!("{id}: {failed}")))?;
         Ok(Some(Stored::Here { attachment, bytes }))
+    }
+
+    /// Where the store keeps the upload, `None` when it holds none: a private note is read first,
+    /// as [`AttachmentStore::attachment`] reads it.
+    ///
+    /// # Errors
+    /// [`StoreError::Unreadable`].
+    pub fn place(&self, id: &AttachmentId) -> Result<Option<Place>, StoreError> {
+        if self.notes.get(id)?.is_some() {
+            return Ok(Some(Place::Private));
+        }
+        match self.files.size(id) {
+            Ok(_) => Ok(Some(Place::Here)),
+            Err(StoreError::Absent { .. }) => Ok(None),
+            Err(
+                failed @ (StoreError::Taken { .. }
+                | StoreError::Unreadable { .. }
+                | StoreError::NotAppended { .. }
+                | StoreError::Unwritable { .. }),
+            ) => Err(failed),
+        }
+    }
+
+    /// A PDF's text layer, read as the store read it when it kept the PDF.
+    ///
+    /// # Errors
+    /// `pdftotext`'s sentence.
+    pub fn layer(&self, pdf: &[u8]) -> Result<String, String> {
+        self.pdftotext.text(pdf)
     }
 
     /// The file's size, before its bytes are read.

@@ -103,7 +103,7 @@ fn proposal_answers(payload: &serde_json::Value) -> Vec<(String, bool)> {
         .map(|turn| {
             (
                 turn["text"].as_str().unwrap_or_default().to_owned(),
-                turn["refused"].as_bool().unwrap_or_default(),
+                turn["outcome"]["is"] == "refused",
             )
         })
         .collect()
