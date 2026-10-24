@@ -8,7 +8,7 @@ PATCH the releases since MINOR moved.
 
 ## [Unreleased]
 
-## [2.1.5] - 2026-10-23
+## [2.1.6] - 2026-10-24
 
 The first public release. What exists:
 
