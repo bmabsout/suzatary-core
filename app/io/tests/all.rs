@@ -16,5 +16,7 @@ mod inbox_round_trip;
 mod legacy_stores;
 #[path = "model_port.rs"]
 mod model_port;
+#[path = "puller_port.rs"]
+mod puller_port;
 #[path = "stores.rs"]
 mod stores;

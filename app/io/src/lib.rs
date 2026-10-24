@@ -47,6 +47,7 @@ pub mod plugin_store;
 pub mod present;
 pub mod prompt;
 pub mod proposals;
+pub mod pullers;
 pub mod pulse;
 pub mod render;
 pub mod rendered;

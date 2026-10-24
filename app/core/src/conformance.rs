@@ -7,6 +7,7 @@
 
 pub mod drive;
 pub mod model;
+pub mod puller;
 pub mod transport;
 
 use std::fmt;

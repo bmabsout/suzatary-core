@@ -38,6 +38,8 @@ mod memory_schema;
 mod model_port;
 #[path = "pieces.rs"]
 mod pieces;
+#[path = "puller_port.rs"]
+mod puller_port;
 #[path = "release.rs"]
 mod release;
 #[path = "surface.rs"]

@@ -1,23 +1,25 @@
-//! The syncer: pull every account by its strategy, index once, and tag the
-//! leaves whose sync path carries no tags. The one module that writes the
-//! maildir and the index, beside `crate::older`, which writes what a server
-//! search matched into leaves of its own and indexes through [`Syncer::index`].
+//! The syncer: pull every account through its kind's puller (`crate::pullers`), index once,
+//! and tag the leaves whose sync path carries no tags. The one module that writes the maildir
+//! and the index, beside `crate::older`, which writes what a server search matched into leaves
+//! of its own and indexes through [`Syncer::index`].
 //!
-//! One account's failure is an [`AccountSync`] with `ok: false`, and the run
-//! goes on. `mbsync` is pinned to the repository's configuration with `-c`:
-//! which file it reads is a security property.
+//! One account's failure is an [`AccountSync`] with a failed outcome, and the run goes on.
 
 use std::path::{Path, PathBuf};
 
 use suzatary_core::connect::Failure;
 use suzatary_core::mail::account::{MailAccount, Roster, Sync, folder_slug};
+use suzatary_core::mail::address::EmailAddress;
 use suzatary_core::mail::health::Outcome;
 use suzatary_core::mail::imap::{ImapError, Pull, SyncState, window_start};
+use suzatary_core::mail::puller::{Puller, Unpulled};
 use suzatary_core::mail::verbs::{AccountSync, Backfilled, SyncReport};
 
-use crate::imap::{Folder, Outlook};
 use crate::oauth::TokenStore;
 use crate::present::Present as _;
+use crate::pullers::{
+    Google, Granted, LIEER, Lieer, MBSYNC, Mbsync, Microsoft, Open as _, pull_into,
+};
 use crate::run::{Cmd, succeed};
 
 /// The file whose hold a sync and a removed account's mail delete both take, in the sync's own
@@ -121,38 +123,9 @@ impl Syncer {
     }
 
     fn one(&self, account: &MailAccount, since: chrono::NaiveDate) -> AccountSync {
-        let pulled = |said: Result<String, String>| match said {
-            Ok(output) => (Outcome::Succeeded, tail(&output)),
-            Err(failed) => (Outcome::Failed(Failure::Unclassified), tail(&failed)),
-        };
-        let (outcome, tail) = match &account.sync {
-            Sync::Gmail => pulled(said(
-                &Cmd::new("gmi")
-                    .arg("sync")
-                    .cwd(self.mail_root.join(&account.subdir))
-                    .pass(crate::run::NETWORK),
-            )),
-            Sync::Google => match self.google(account) {
-                Ok(()) => pulled(said(
-                    &Cmd::new("gmi")
-                        .arg("sync")
-                        .cwd(self.mail_root.join(&account.subdir))
-                        .pass(crate::run::NETWORK),
-                )),
-                Err(failed) => (Outcome::Failed(failed.class()), failed.to_string()),
-            },
-            // mbsync's `PassCmd` asks the secret store, so it is given what the store reads.
-            Sync::Proton(proton) => pulled(said(
-                &Cmd::new("mbsync")
-                    .arg("-c")
-                    .arg(&self.mbsyncrc)
-                    .arg(&proton.channel)
-                    .pass(crate::secrets::STORE),
-            )),
-            Sync::MsImap(ms) => match self.microsoft(account, &ms.sent_folder, since) {
-                Ok(said) => (Outcome::Succeeded, said),
-                Err(failed) => (Outcome::Failed(failed.class()), failed.to_string()),
-            },
+        let (outcome, tail) = match self.puller(account).and_then(|puller| puller.pull(since)) {
+            Ok(said) => (Outcome::Succeeded, said),
+            Err(Unpulled { class, said }) => (Outcome::Failed(class), said),
         };
         AccountSync {
             account: account.email.to_string(),
@@ -161,91 +134,36 @@ impl Syncer {
         }
     }
 
-    /// Ready a Google account's maildir for lieer: an access token minted from its grant and
-    /// handed to lieer (never the grant), and lieer's repository begun without its own sign-in
-    /// where none is.
-    fn google(&self, account: &MailAccount) -> Result<(), crate::google::NotReady> {
-        let address = suzatary_core::mail::address::EmailAddress::new(account.email.as_str())
-            .map_err(|refused| crate::google::NotReady::Failed(refused.message().to_owned()))?;
+    /// The puller for `account`'s kind.
+    fn puller(&self, account: &MailAccount) -> Result<Box<dyn Puller>, Unpulled> {
         let maildir = self.mail_root.join(&account.subdir);
-        self.grants.ready(&address, &maildir)?;
-        if !maildir.join(".gmailieer.json").exists() {
-            said(
-                &Cmd::new("gmi")
-                    .args(["init", "--no-auth", account.email.as_str()])
-                    .cwd(&maildir)
-                    .pass(crate::run::NETWORK),
-            )
-            .map_err(|failed| crate::google::NotReady::Failed(tail(&failed)))?;
-        }
-        Ok(())
-    }
-
-    /// The account's IMAP token, minted silently; an account that needs a
-    /// sign-in is this sync's failure, in the sentence that names the verb.
-    fn imap_token(
-        &self,
-        account: &MailAccount,
-    ) -> Result<suzatary_core::capability::ImapToken, ImapError> {
-        self.tokens
-            .access::<suzatary_core::mail::oauth::Imap>(account)
-            .map_err(|failed| ImapError::Unauthorised(failed.to_string()))?
-            .required()
-            .map_err(ImapError::NeedsLogin)
-    }
-
-    /// The INBOX window, then Sent, read-only into its own leaf and already
-    /// read, so it is searchable and never queued.
-    fn microsoft(
-        &self,
-        account: &MailAccount,
-        sent_folder: &str,
-        since: chrono::NaiveDate,
-    ) -> Result<String, ImapError> {
-        let token = self.imap_token(account)?;
-        let mut session = Outlook::connect(
-            crate::imap::IMAP_HOST,
-            crate::imap::IMAP_PORT,
-            account.email.as_str(),
-            &token,
-        )?;
-
-        let inbox = self.pull_into(&mut session, account, "Inbox", None, &Pull::Inbox { since })?;
-        let sent = self.pull_into(
-            &mut session,
-            account,
-            "Sent",
-            Some(sent_folder),
-            &Pull::Backfill {
-                folder: sent_folder.to_owned(),
-                limit: None,
-            },
-        )?;
-        session.logout()?;
-        Ok(format!("{inbox} new, {sent} sent"))
-    }
-
-    /// One [`Pull`] into one leaf, with its own state file so a backfill and
-    /// the INBOX sync never share UID sets; `state_key` is `None` for INBOX.
-    fn pull_into(
-        &self,
-        session: &mut Outlook,
-        account: &MailAccount,
-        leaf: &str,
-        state_key: Option<&str>,
-        plan: &Pull,
-    ) -> Result<usize, ImapError> {
-        let folder = Folder::new(self.mail_root.join(&account.subdir).join(leaf));
-        folder.ensure()?;
-        let path = self.state_path(account, state_key);
-        let state = read_sync_state(&path)?;
-        let done = suzatary_core::mail::imap::pull(session, &folder, state, plan)?;
-        write_sync_state(&path, &done.state)?;
-        Ok(done.fetched)
-    }
-
-    fn state_path(&self, account: &MailAccount, key: Option<&str>) -> PathBuf {
-        state_file(&self.state_dir, account, key)
+        let lieer = |maildir: PathBuf| Lieer {
+            program: PathBuf::from(LIEER),
+            maildir,
+        };
+        Ok(match &account.sync {
+            Sync::Gmail => Box::new(lieer(maildir)),
+            Sync::Google => Box::new(Google {
+                account: EmailAddress::new(account.email.as_str()).map_err(|refused| Unpulled {
+                    class: Failure::Unclassified,
+                    said: refused.message().to_owned(),
+                })?,
+                lieer: lieer(maildir),
+                grants: self.grants.clone(),
+            }),
+            Sync::Proton(proton) => Box::new(Mbsync {
+                program: PathBuf::from(MBSYNC),
+                config: self.mbsyncrc.clone(),
+                channel: proton.channel.clone(),
+            }),
+            Sync::MsImap(ms) => Box::new(Microsoft {
+                account: account.clone(),
+                sent_folder: ms.sent_folder.clone(),
+                maildir,
+                state_dir: self.state_dir.clone(),
+                open: Granted::new(self.tokens.clone()),
+            }),
+        })
     }
 
     /// `notmuch new`, as a sync runs it, for files written outside a sync; what it said.
@@ -265,19 +183,12 @@ impl Syncer {
         subdir: Option<&str>,
         limit: Option<usize>,
     ) -> Result<Backfilled, ImapError> {
-        let token = self.imap_token(account)?;
-        let mut session = Outlook::connect(
-            crate::imap::IMAP_HOST,
-            crate::imap::IMAP_PORT,
-            account.email.as_str(),
-            &token,
-        )?;
+        let mut session = Granted::new(self.tokens.clone()).open(account)?;
         let leaf = subdir.map_or_else(|| folder_slug(folder), str::to_owned);
-        let fetched = self.pull_into(
+        let fetched = pull_into(
             &mut session,
-            account,
-            &leaf,
-            Some(folder),
+            &self.mail_root.join(&account.subdir).join(&leaf),
+            &state_file(&self.state_dir, account, Some(folder)),
             &Pull::Backfill {
                 folder: folder.to_owned(),
                 limit,
@@ -336,7 +247,7 @@ pub(crate) fn write_sync_state(path: &Path, state: &SyncState) -> Result<(), Ima
 
 /// What `cmd` said on both streams when it exited zero (`gmi` reports progress on stderr), or
 /// why it did not. A program that is not there is one failed account, not a crashed sweep.
-fn said(cmd: &Cmd) -> Result<String, String> {
+pub(crate) fn said(cmd: &Cmd) -> Result<String, String> {
     succeed(cmd)
         .map(|ran| format!("{}{}", ran.out(), ran.err()))
         .map_err(|failed| failed.to_string())
@@ -354,7 +265,7 @@ fn notmuch_line(indexed: &str, untagged: impl Iterator<Item = String>) -> String
 
 /// The last line of some output, as an [`Excerpt`](suzatary_core::excerpt::Excerpt): it is kept in
 /// the sync report and read by the agent, so it names no address.
-fn tail(text: &str) -> String {
+pub(crate) fn tail(text: &str) -> String {
     suzatary_core::excerpt::Excerpt::of(text.trim().lines().next_back().unwrap_or(""))
         .as_str()
         .to_owned()
