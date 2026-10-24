@@ -2154,6 +2154,8 @@ pub struct Fakes {
     pub briefings: BriefingFiles,
     /// The push-device store.
     pub devices: Devices,
+    /// The watches on expected mail.
+    pub watches: suzatary_io::watches::Watches,
     /// The mail corpus the verbs read.
     pub corpus: FakeCorpus,
     /// The repository's gates.
@@ -2190,6 +2192,8 @@ pub struct Fakes {
     pub owners: std::collections::BTreeSet<prodrome_core::event::Actor>,
     /// The proposal replica, real because a rejection deletes from it.
     pub proposals: suzatary_io::proposals::Replica,
+    /// The tag stores, begun, as a box's server begins them.
+    pub tags: suzatary_io::tags::Tags,
     /// The inbox store, real so a submit holds the server's `flock`.
     pub inbox: suzatary_io::objects::Objects<suzatary_core::secretary::inbox_event::InboxEvent>,
     /// The owner's repositories, none by default.
@@ -2243,7 +2247,13 @@ impl Fakes {
         )
         .expect("the phone is trusted at the terminal");
         let forgot = Arc::new(suzatary_core::secretary::conversations::Forgot::default());
+        let tags = suzatary_io::tags::Tags::open(
+            root.join("secretary-tags"),
+            root.join("secretary-tag-aliases"),
+        );
+        tags.begin().expect("the scene begins its tag stores");
         Self {
+            tags,
             chain,
             whois: FakeWhois::new(),
             notify: FakeNotify::default(),
@@ -2253,6 +2263,7 @@ impl Fakes {
             clock: FakeClock::default(),
             briefings: BriefingFiles::new(root.join("briefings")),
             devices: Devices::open(root.join("devices")),
+            watches: suzatary_io::watches::Watches::open(root.join("watches")),
             corpus: FakeCorpus::new(),
             repository: FakeRepository,
             manuals: FakeManuals,
@@ -2454,6 +2465,7 @@ impl Fakes {
             decisions: suzatary_core::decisions::Decisions {
                 store: &self.decisions,
             },
+            tags: self.tags.stores(),
             briefings: &self.briefings,
             weather: &FakeWeather,
             calendar: &self.calendar,
@@ -2469,6 +2481,7 @@ impl Fakes {
             upload_index: &self.upload_index,
             kept: &self.files,
             configuration: self.configuration.as_ref(),
+            watches: &self.watches,
             whois: &self.whois,
             notify: &self.notify,
             answers: &self.answers,

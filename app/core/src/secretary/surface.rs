@@ -15,7 +15,7 @@ use super::verbs::{
     ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
     ProposeCodingSession, ProposeDecision, ProposeEmail, ProposePatch, Recall, Record, Remember,
     RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail, TodoAdd,
-    TodoShow, TodoUpdate, UploadRead, Weather, Web, WithdrawProposal, Zoom,
+    TodoShow, TodoUpdate, UploadRead, WatchMail, Weather, Web, WithdrawProposal, Zoom,
 };
 use crate::agent::{Holds, Says};
 use crate::authoring::Writer;
@@ -98,13 +98,15 @@ pub enum Effect {
     Pulls,
     /// Writes the secretary's own memory, or in a tainted round stores a card that would.
     Remembers,
+    /// Sets a watch on mail the owner expects, whose only act is a push to the owner's phone.
+    Watches,
 }
 
 const fn powers(effect: Effect, taint: Taint) -> Powers {
     Powers { effect, taint }
 }
 
-use Effect::{Proposes, Pulls, Reads, Remembers, Settles, Syncs, Writes};
+use Effect::{Proposes, Pulls, Reads, Remembers, Settles, Syncs, Watches, Writes};
 use Taint::{Clean, Tainted};
 
 verbs! {
@@ -129,6 +131,7 @@ verbs! {
     UploadRead: powers(Reads, Tainted),
     SyncMail: powers(Syncs, Tainted),
     SearchOlder: powers(Pulls, Tainted),
+    WatchMail: powers(Watches, Tainted),
     BriefingDelta: powers(Reads, Tainted),
     Briefing: powers(Reads, Tainted),
     GitDiffSummary: powers(Reads, Tainted),

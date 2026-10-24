@@ -95,6 +95,7 @@ impl Nothing {
             upload_index: &Nothing,
             kept: &Nothing,
             configuration: &Nothing,
+            watches: &Nothing,
         }
     }
 
@@ -126,6 +127,10 @@ impl Nothing {
                 },
             },
             decisions: crate::decisions::Decisions { store: &Nothing },
+            tags: crate::secretary::tags::stores::TagStores {
+                memberships: &Nothing,
+                aliases: &Nothing,
+            },
             briefings: &Nothing,
             weather: &Nothing,
             calendar: &Nothing,
@@ -141,6 +146,7 @@ impl Nothing {
             upload_index: &Nothing,
             kept: &Nothing,
             configuration: &Nothing,
+            watches: &Nothing,
             whois: &Nothing,
             notify: &Nothing,
             answers: &Nothing,
@@ -403,6 +409,8 @@ kept_nowhere!(crate::secretary::inbox_event::InboxEvent);
 kept_nowhere!(crate::secretary::line_event::LineEvent);
 kept_nowhere!(crate::secretary::memory_event::MemoryEvent);
 kept_nowhere!(crate::secretary::digest_event::DigestEvent);
+kept_nowhere!(crate::secretary::tags::membership_event::MembershipEvent);
+kept_nowhere!(crate::secretary::tags::alias_event::AliasEvent);
 
 /// No owner: nothing here believes a retraction or an erasure.
 static NO_OWNERS: std::collections::BTreeSet<prodrome_core::event::Actor> =
@@ -702,6 +710,40 @@ impl crate::store::Log<String, crate::devices::Device> for Nothing {
         _decide: &mut crate::store::Decide<'_, crate::devices::Device>,
     ) -> Result<crate::store::Edit<crate::devices::Device>, Refusal> {
         Err(StoreError::unwritable("device store", "nothing is registered").into())
+    }
+}
+
+/// No watch is set, and setting one is refused.
+impl crate::store::Log<crate::mail::watch::WatchId, crate::mail::watch::Line> for Nothing {
+    fn keys(&self) -> Result<Vec<crate::mail::watch::WatchId>, StoreError> {
+        Ok(Vec::new())
+    }
+    fn lines(
+        &self,
+        _watch: &crate::mail::watch::WatchId,
+    ) -> Result<Vec<crate::mail::watch::Line>, StoreError> {
+        Ok(Vec::new())
+    }
+    fn start(
+        &self,
+        _watch: &crate::mail::watch::WatchId,
+        _first: &crate::mail::watch::Line,
+    ) -> Result<(), StoreError> {
+        Err(StoreError::unwritable("watch store", "nothing is watched"))
+    }
+    fn push(
+        &self,
+        _watch: &crate::mail::watch::WatchId,
+        _line: &crate::mail::watch::Line,
+    ) -> Result<(), StoreError> {
+        Err(StoreError::unwritable("watch store", "nothing is watched"))
+    }
+    fn edit(
+        &self,
+        _watch: &crate::mail::watch::WatchId,
+        _decide: &mut crate::store::Decide<'_, crate::mail::watch::Line>,
+    ) -> Result<crate::store::Edit<crate::mail::watch::Line>, Refusal> {
+        Err(StoreError::unwritable("watch store", "nothing is watched").into())
     }
 }
 

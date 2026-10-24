@@ -37,6 +37,18 @@ pub struct Layout<K> {
     pub key: fn(&str) -> Option<K>,
     /// A file beside the logs whose `flock` [`Log::edit`] holds, if edits are serialised.
     pub lock: Option<&'static str>,
+    /// Whether a line is on the disk when its write returns.
+    pub durability: Durability,
+}
+
+/// Whether a line is on the disk when its write returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Durability {
+    /// Handed to the kernel, which writes it out later.
+    Written,
+    /// Synced to the disk before the write returns, for a log a decision outside the box rests
+    /// on.
+    Synced,
 }
 
 /// How a line is text, both ways.
@@ -109,6 +121,10 @@ impl<K: 'static, E: 'static> Lines<K, E> {
         let text = self.text(std::slice::from_ref(line))?;
         debug_assert!(text.matches('\n').count() == 1, "a line holds no newline");
         file.write_all(text.as_bytes())
+            .and_then(|()| match self.layout.durability {
+                Durability::Written => Ok(()),
+                Durability::Synced => file.sync_data(),
+            })
             .map_err(|failed| self.unwritable(failed))
     }
 
@@ -198,7 +214,13 @@ where
             }
             Err(failed) => return Err(self.unwritable(failed)),
         };
-        self.write(file, first)
+        self.write(file, first)?;
+        match self.layout.durability {
+            Durability::Written => Ok(()),
+            Durability::Synced => std::fs::File::open(&self.dir)
+                .and_then(|dir| dir.sync_all())
+                .map_err(|failed| self.unwritable(failed)),
+        }
     }
 
     fn push(&self, key: &K, line: &E) -> Result<(), StoreError> {
@@ -225,6 +247,7 @@ where
                 self.write(file, line)?;
             }
             Edit::Replace(lines) => self.replace(key, lines)?,
+            Edit::Keep => {}
         }
         drop(held);
         Ok(edit)

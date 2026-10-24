@@ -27,6 +27,7 @@ pub mod sync_now;
 pub mod transport;
 pub mod triage;
 pub mod verbs;
+pub mod watch;
 
 use serde::Serialize;
 use ts_rs::TS;

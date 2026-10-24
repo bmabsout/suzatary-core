@@ -103,15 +103,47 @@ pub fn operator(instance: &Instance) -> Operator {
         instance.mail.heartbeat.clone(),
         instance.paths.last_sync.clone(),
         instance.persona.zone,
+        suzatary_io::watches::Watches::open(instance.local.watches()),
     )
 }
 
-/// `suzatary sync`: pull every account, reindex, re-tag.
+/// `suzatary sync`: pull every account, reindex, re-tag (which rings each open watch the corpus
+/// now holds a match for), then push each ring not yet delivered.
 ///
 /// The sync keeps its report in the state directory (`Paths::last_sync`) and prints it to stdout,
 /// progress to stderr.
 pub fn sync(path: &Path) -> anyhow::Result<()> {
-    emit(&operator(&Instance::open(path)?).sync()?)
+    let instance = Instance::open(path)?;
+    let synced = operator(&instance).sync();
+    deliver_rings(&instance);
+    emit(&synced?)
+}
+
+/// Push each ring still owed, and record each one the push service accepted, so a ring whose
+/// push failed is pushed again by the next sync.
+fn deliver_rings(instance: &Instance) {
+    use suzatary_core::capability::Clock as _;
+    use suzatary_core::mail::watch;
+    let watches = suzatary_io::watches::Watches::open(instance.local.watches());
+    let now = || prodrome_core::fpl::instant_of(suzatary_io::clock::SystemClock.now());
+    let owed = match watch::owed(&watches, now()) {
+        Ok(owed) => owed,
+        Err(failed) => return eprintln!("sync: the watches did not read: {}", failed.message()),
+    };
+    for (id, message) in owed {
+        let push = suzatary_core::capability::Push::Expected { message };
+        let recorded = super::notify::deliver(instance, &push)
+            .map_err(|failed| failed.to_string())
+            .and_then(|_| {
+                watch::delivered(&watches, &id, now()).map_err(|r| r.message().to_owned())
+            });
+        if let Err(failed) = recorded {
+            eprintln!(
+                "sync: watch {} rang and its push is still owed: {failed}",
+                id.as_str()
+            );
+        }
+    }
 }
 
 /// What `suzatary new` was told.

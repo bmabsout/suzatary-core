@@ -160,6 +160,9 @@ fn input_schema<A: JsonSchema>() -> Value {
         .map(|(name, property)| {
             let mut shown = Map::new();
             shown.insert("type".to_owned(), property["type"].clone());
+            if let Some(names) = property.get("enum") {
+                shown.insert("enum".to_owned(), names.clone());
+            }
             let optional = !required
                 .as_array()
                 .is_some_and(|names| names.iter().any(|named| named == name.as_str()));

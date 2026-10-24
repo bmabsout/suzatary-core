@@ -96,6 +96,8 @@ pub struct Secretary<'a> {
     /// The model settings the instance file declares, read-only: what a Configure card reads as
     /// its `from`.
     pub configuration: &'a dyn crate::settings::configure::Configuration,
+    /// The watches on mail the owner expects; a watch's only act is the sync's push.
+    pub watches: &'a crate::mail::watch::Watches,
 }
 
 impl<'a> Secretary<'a> {

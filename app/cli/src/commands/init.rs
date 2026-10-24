@@ -136,10 +136,11 @@ pub fn run_keyed(
     Ok(())
 }
 
-/// `onboarding`'s instance file written under `root`, its chains begun, and read back.
+/// `onboarding`'s instance file written under `root`, its chains and tag stores begun, and read
+/// back.
 ///
 /// # Errors
-/// The file not written, a chain not begun, or the file not reading back.
+/// The file not written, a chain or a tag store not begun, or the file not reading back.
 fn written(
     path: &Path,
     onboarding: &Onboarding,
@@ -154,7 +155,13 @@ fn written(
     // The box-local tier, begun before anything is written to it, ignoring itself.
     let tier = data.join(crate::instance::Local::DIR);
     suzatary_io::tier::ignored(&tier).with_context(|| format!("beginning {}", tier.display()))?;
-    Instance::read(path, env)
+    let read = Instance::read(path, env)?;
+    read.secretary
+        .tags
+        .open()
+        .begin()
+        .context("beginning the tag stores")?;
+    Ok(read)
 }
 
 /// The onboarding these flags give off a terminal: how a deployment shown in the guide was

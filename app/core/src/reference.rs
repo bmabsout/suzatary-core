@@ -53,8 +53,23 @@ impl NotAReference {
 /// A message's name: the canonical hash, whole or as a prefix of six to sixty-four lowercase
 /// hex. A prefix is deliberate, since todos' `source.hash` already holds prefixes and the
 /// reverse index resolves them.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct MailHash(String);
+
+impl TryFrom<String> for MailHash {
+    type Error = NotAReference;
+
+    fn try_from(text: String) -> Result<Self, NotAReference> {
+        Self::new(text)
+    }
+}
+
+impl From<MailHash> for String {
+    fn from(hash: MailHash) -> Self {
+        hash.0
+    }
+}
 
 impl MailHash {
     /// Parse one.

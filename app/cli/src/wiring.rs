@@ -110,6 +110,7 @@ pub struct Opened {
     pub(crate) kept: suzatary_io::blobs::Blobs,
     /// The model settings the instance file declares, read as a card is filed.
     pub(crate) configuration: crate::instance::InstanceEdits,
+    pub(crate) watches: suzatary_io::watches::Watches,
     pub(crate) repos: Arc<suzatary_io::repos::Mirrors>,
 }
 
@@ -155,6 +156,7 @@ impl Opened {
             upload_index: chosen::upload_index(instance),
             kept: chosen::file_store(instance),
             configuration: crate::instance::InstanceEdits::new(instance.path.clone()),
+            watches: suzatary_io::watches::Watches::open(instance.local.watches()),
             repos: chosen::mirrors(instance),
         }
     }
@@ -217,6 +219,7 @@ impl Opened {
             upload_index: &self.upload_index,
             kept: &self.kept,
             configuration: &self.configuration,
+            watches: &self.watches,
         }
     }
 }

@@ -143,6 +143,13 @@ static KEYS: std::sync::LazyLock<suzatary_core::store::InMemoryKeys> =
     std::sync::LazyLock::new(Default::default);
 static ENTROPY: std::sync::LazyLock<suzatary_core::secretary::conversations::Counting> =
     std::sync::LazyLock::new(Default::default);
+/// The watches `watch_mail` sets.
+static WATCHES: std::sync::LazyLock<
+    suzatary_core::store::InMemoryLog<
+        suzatary_core::mail::watch::WatchId,
+        suzatary_core::mail::watch::Line,
+    >,
+> = std::sync::LazyLock::new(|| suzatary_core::store::InMemoryLog::new("watch"));
 /// The words opened, kept for the calls' conversation.
 static OPENED: std::sync::LazyLock<suzatary_core::secretary::opened::Opened> =
     std::sync::LazyLock::new(suzatary_core::secretary::opened::Opened::default);
@@ -349,6 +356,7 @@ fn valid(verb: &str, name: &str) -> Value {
         ("record", "kind") => json!("completed"),
         ("todo_add", "todo_id") => json!("beta"),
         ("remember", "kind") => json!("person"),
+        ("watch_mail", "on") => json!("sender"),
         ("propose_act", "act") => json!("auth"),
         ("search_older", "query") => json!("subject:invite"),
         ("search_older", "since") => json!("2023-01-01"),
@@ -515,6 +523,7 @@ fn secretary(
             mail: fixed,
             sync: fixed,
             repositories: fixed,
+            watches: &*WATCHES,
             ..Nothing::secretary()
         },
         policy: &policy,
@@ -536,6 +545,16 @@ fn shaped(verb: &str) -> Vec<(String, Map<String, Value>)> {
         "todo_add" => priced("beta"),
         "todo_update" => priced("alpha"),
         "propose_changes" => changesets(),
+        "watch_mail" => vec![
+            named(
+                "a sender",
+                json!({"on": "sender", "text": "desk@library.example.test", "days": 14}),
+            ),
+            named(
+                "too long",
+                json!({"on": "subject", "text": "Your parcel", "days": 61}),
+            ),
+        ],
         _ => Vec::new(),
     }
 }

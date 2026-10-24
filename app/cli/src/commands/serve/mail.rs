@@ -5,6 +5,9 @@ use suzatary_core::capability::Datetime;
 use suzatary_core::refusal::Refusal;
 use suzatary_core::{query, routes, wire};
 
+use suzatary_core::mail::watch::{self, WatchId};
+use suzatary_core::secretary::tap::Tap;
+
 use super::Chained;
 use super::call::Call;
 use super::guard::Reader;
@@ -54,6 +57,17 @@ impl Params for Search {
 impl Params for Message {
     fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
         Ok(Self(asked.segment("id")?.to_owned()))
+    }
+}
+
+/// The watch a path names.
+pub struct Watched(WatchId);
+
+impl Params for Watched {
+    fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
+        WatchId::new(asked.segment("id")?)
+            .map(Self)
+            .map_err(|refused| Refusal::not_found(refused.to_string()))
     }
 }
 
@@ -114,4 +128,20 @@ pub fn thread(call: &Call<Reader, Thread, ()>) -> Result<Json<wire::ThreadPayloa
         call.params.limit,
     )
     .map(Json)
+}
+
+/// `GET /api/mail/watches`: every watch on expected mail that waits.
+pub fn watches(call: &Call<Reader, (), ()>) -> Result<Json<wire::WatchesPayload>, Refusal> {
+    let caps = call.chain.caps;
+    let now = prodrome_core::fpl::instant_of(caps.clock.now());
+    Ok(Json(watch::listed(caps.watches, now)?))
+}
+
+/// `POST /api/mail/watches/<id>/cancel`: the owner's tap closes a watch before it rings, and
+/// the answer is the watches that still wait.
+pub fn cancel_watch(call: &Call<Tap, Watched, ()>) -> Result<Json<wire::WatchesPayload>, Refusal> {
+    let caps = call.chain.caps;
+    let now = prodrome_core::fpl::instant_of(caps.clock.now());
+    watch::cancel(caps.watches, &call.params.0, now)?;
+    Ok(Json(watch::listed(caps.watches, now)?))
 }

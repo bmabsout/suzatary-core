@@ -31,6 +31,7 @@ const LAYOUT: Layout<String> = Layout {
     stem: |actor| safe_actor(actor),
     key: |stem| Some(stem.to_owned()),
     lock: None,
+    durability: crate::lines::Durability::Written,
 };
 
 /// A tab-separated line; a tab or newline inside a field would forge the separators.

@@ -343,3 +343,177 @@ fn every_directory_the_push_stages_is_a_store_verify_reads() {
 fn env_beside(path: &std::path::Path) -> suzatary_cli::paths::Env {
     suzatary_cli::paths::Env::under(path.with_file_name("home"), path.with_file_name("run"))
 }
+
+/// One conversation of `kind` opened under `title`, its turns said in order, a minute apart.
+fn conversation(
+    instance: &Instance,
+    id: &str,
+    title: &str,
+    kind: suzatary_core::secretary::store::Kind,
+    turns: Vec<suzatary_core::capability::Turn>,
+) {
+    use suzatary_core::secretary::store::Entry;
+    let stores = instance.conversation_stores();
+    let id = ConversationId::new(id).expect("a slug");
+    let at = |minute: u32| {
+        prodrome_core::literal::Datetime::new(2026, 10, 20, 9, minute, 0, 0).expect("an instant")
+    };
+    let opened = Entry::Opened {
+        at: at(0),
+        title: suzatary_core::secretary::words::Words::kept(title.to_owned()),
+        model: "scripted".to_owned(),
+        kind,
+    };
+    suzatary_core::secretary::transcript::start(stores.conversations(), &id, &opened)
+        .expect("opened");
+    for (minute, turn) in (1..).zip(turns) {
+        let said = Entry::Said {
+            at: at(minute),
+            turn,
+            by: None,
+        };
+        suzatary_core::secretary::transcript::push(stores.conversations(), &id, &said)
+            .expect("said");
+    }
+}
+
+fn asked(text: &str) -> suzatary_core::capability::Turn {
+    suzatary_core::capability::Turn::Person {
+        text: text.to_owned(),
+        references: Vec::new(),
+        attachments: Vec::new(),
+    }
+}
+
+fn answered(text: &str) -> suzatary_core::capability::Turn {
+    suzatary_core::capability::Turn::Model {
+        text: text.to_owned(),
+        calls: Vec::new(),
+    }
+}
+
+/// A `draft_note` call as the store holds it: the model's call, the note, the verb's answer.
+fn drafted() -> [suzatary_core::capability::Turn; 3] {
+    use suzatary_core::capability::{ToolCall, Turn};
+    use suzatary_core::secretary::SecretaryVerb;
+    let tool = |answer: &str| Turn::Tool {
+        verb: SecretaryVerb::DraftNote.into(),
+        answer: answer.to_owned(),
+        outcome: suzatary_core::secretary::outcome::Outcome::Answered,
+        files: Vec::new(),
+    };
+    [
+        Turn::Model {
+            text: String::new(),
+            calls: vec![ToolCall {
+                verb: SecretaryVerb::DraftNote.into(),
+                args: std::collections::BTreeMap::new(),
+            }],
+        },
+        tool("Packing\n\nPassport, charger."),
+        tool(r#"{"drafted": "Packing"}"#),
+    ]
+}
+
+/// The carry on a fixture: a topic, a topic whose title has no letter, a daily sweep and the
+/// default conversation. The dry run says what each gets and writes nothing; the run tags each
+/// topic's rounds and note with its title, the sweep's with `sweep`, the untitled topic's with
+/// its id, and the default's with nothing; a second run writes nothing.
+#[test]
+fn the_carry_tags_each_conversation_s_rounds_with_its_title_once() {
+    use suzatary_core::secretary::store::Kind;
+    use suzatary_core::secretary::tags::tag::Tag;
+    use suzatary_core::secretary::tags::target::Target;
+    use suzatary_core::store::Prodrome as _;
+    let instance = fresh_instance("carry");
+    let [call, note, answer] = drafted();
+    conversation(
+        &instance,
+        "2026-10-20-1",
+        "Trip to the coast!",
+        Kind::Topic,
+        vec![
+            asked("what should I pack?"),
+            call,
+            note,
+            answer,
+            answered("Noted."),
+            asked("and the hotel?"),
+            answered("Booked."),
+        ],
+    );
+    conversation(
+        &instance,
+        "2026-10-20-2",
+        "!!!",
+        Kind::Topic,
+        vec![asked("hello"), answered("Hello.")],
+    );
+    conversation(
+        &instance,
+        "2026-10-20-sweep",
+        "Sweep",
+        Kind::Review,
+        vec![asked("sweep the open list"), answered("Nothing to close.")],
+    );
+    conversation(
+        &instance,
+        "default",
+        "Secretary",
+        Kind::Default,
+        vec![asked("hi"), answered("Hi."), asked("bye"), answered("Bye.")],
+    );
+    let tags = instance.secretary.tags.open();
+    let held = || tags.memberships.objects().expect("reads").len();
+    let begun = held();
+    let run = |dry_run: bool| {
+        let mut said = Vec::new();
+        let count = suzatary_cli::commands::secretary::carry(&instance, dry_run, &mut said)
+            .expect("the carry runs");
+        let mut lines: Vec<String> = String::from_utf8(said)
+            .expect("utf-8")
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        lines.sort();
+        (count, lines)
+    };
+
+    let (count, said) = run(true);
+    assert_eq!(count, 5);
+    assert_eq!(
+        said,
+        vec![
+            "2026-10-20-1  trip-to-the-coast  2 round(s) and 1 note(s) to tag",
+            "2026-10-20-2  2026-10-20-2  1 round(s) and 0 note(s) to tag",
+            "2026-10-20-sweep  sweep  1 round(s) and 0 note(s) to tag",
+            "default  (no tag)  its 2 round(s) and 0 note(s) stay untagged",
+            "would write 5 membership(s) as assistant; wrote nothing",
+        ]
+    );
+    assert_eq!(held(), begun, "a dry run writes nothing");
+
+    assert_eq!(run(false).0, 5);
+    let reading = tags.stores().reading().expect("reads");
+    let target = |text: &str| text.parse::<Target>().expect("a target");
+    let tag = |text: &str| std::collections::BTreeSet::from([Tag::new(text).expect("a tag")]);
+    for (on, tagged) in [
+        ("round:2026-10-20-1/0", "trip-to-the-coast"),
+        ("note:2026-10-20-1/2", "trip-to-the-coast"),
+        ("round:2026-10-20-1/5", "trip-to-the-coast"),
+        ("round:2026-10-20-2/0", "2026-10-20-2"),
+        ("round:2026-10-20-sweep/0", "sweep"),
+    ] {
+        assert_eq!(reading.tags(&target(on)), tag(tagged), "{on}");
+    }
+    assert_eq!(
+        reading.tagged().len(),
+        5,
+        "the default's rounds carry no tag"
+    );
+    let written = held();
+
+    let (again, said) = run(false);
+    assert_eq!(again, 0, "a second run writes nothing: {said:?}");
+    assert_eq!(held(), written);
+}

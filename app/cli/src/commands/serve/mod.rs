@@ -1158,6 +1158,9 @@ pub async fn listen(instance: &Instance, serving: Serving) -> anyhow::Result<()>
         serving.brain,
         serving.ledger,
     )));
+    if let Err(failed) = world.tags.begin() {
+        tracing::warn!("serve: the tag stores are not begun: {failed}");
+    }
     let mut bound = world.chains.iter().map(|stores| Chained {
         caps: Box::leak(Box::new(world.server(stores))),
         policy: Arc::new(stores.policy.clone()),

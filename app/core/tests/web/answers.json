@@ -4987,6 +4987,24 @@
       ]
     }
   ],
+  "StoreFrame": [
+    {
+      "value": {
+        "heads": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "store": "lines"
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "heads": [],
+        "store": "tag-aliases"
+      },
+      "maps": []
+    }
+  ],
   "StorePayload": [
     {
       "value": {
@@ -5810,6 +5828,29 @@
     {
       "value": {
         "count": 2
+      },
+      "maps": []
+    }
+  ],
+  "WatchesPayload": [
+    {
+      "value": {
+        "watches": [
+          {
+            "id": "0123456789abcdef",
+            "on": "sender",
+            "set": "2026-09-02T12:00:00",
+            "text": "counsel",
+            "until": "2026-09-16T12:00:00"
+          },
+          {
+            "id": "0123456789abcdef",
+            "on": "subject",
+            "set": "2026-09-02T12:00:00",
+            "text": "counsel",
+            "until": "2026-09-16T12:00:00"
+          }
+        ]
       },
       "maps": []
     }

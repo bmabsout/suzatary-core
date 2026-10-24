@@ -28,6 +28,11 @@
 # keys never are, so destroying a key erases its words everywhere.
 /secretary-lines-keys/
 
+# The topic tags and their aliases: a tag's name is words, so both stores stay
+# on the box, and the vault carries them.
+/secretary-tags/
+/secretary-tag-aliases/
+
 # The cache tier: the plugins' stores, rebuilt by syncing again.
 /cache/
 

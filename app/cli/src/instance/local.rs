@@ -16,12 +16,13 @@ impl Local {
     pub const DIR: &str = "local";
 
     /// Every file the tier holds, by name.
-    pub const FILES: [&str; 5] = [
+    pub const FILES: [&str; 6] = [
         "persona.toml",
         "personal-terms.txt",
         "context-terms.txt",
         "mail.json",
         "triage-notes.md",
+        "watches",
     ];
 
     /// The directory.
@@ -53,6 +54,12 @@ impl Local {
     #[must_use]
     pub fn mail(&self) -> PathBuf {
         self.0.join(Self::FILES[3])
+    }
+
+    /// The watches on mail the owner expects ([`suzatary_core::mail::watch`]), a directory.
+    #[must_use]
+    pub fn watches(&self) -> PathBuf {
+        self.0.join(Self::FILES[5])
     }
 
     /// The prose, or none when the file is absent (a deployment that wrote none).

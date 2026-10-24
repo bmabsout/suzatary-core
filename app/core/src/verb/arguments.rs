@@ -215,9 +215,24 @@ impl<'de> de::Deserializer<'de> for Argument<'_> {
         visitor.visit_newtype_struct(self)
     }
 
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Fault> {
+        match self.value {
+            Value::Null => Err(self.missing()),
+            value => value
+                .clone()
+                .deserialize_enum(name, variants, visitor)
+                .map_err(|failed| Fault(Refusal::bad_request(format!("{}: {failed}", self.name)))),
+        }
+    }
+
     serde::forward_to_deserialize_any! {
         i8 i16 i32 i64 i128 u8 u16 u32 u128 f32 f64 char bytes byte_buf unit unit_struct seq
-        tuple tuple_struct map struct enum identifier ignored_any
+        tuple tuple_struct map struct identifier ignored_any
     }
 }
 

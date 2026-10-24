@@ -992,6 +992,25 @@ fn performed_body(
             serde_json::json!({ "title": MARKER })
         }
         "secretary/conversations/{conversation}/erase" => serde_json::json!({ "turns": [0] }),
+        // A tag whose name is the marker, over a prodrome the box does not hold: refused by name,
+        // and still a request performed.
+        "stores/{store}/objects" => {
+            let tagged = suzatary_core::secretary::tags::membership_event::MembershipEvent::tagged(
+                "round:default/0".parse().expect("a target"),
+                suzatary_core::secretary::tags::tag::Tag::new(MARKER).expect("the marker is a tag"),
+                prodrome_core::literal::Datetime::new(2026, 9, 2, 12, 0, 0, 0).expect("an instant"),
+                common::actor("ada"),
+            );
+            let change = prodrome_core::change::mk_change(
+                prodrome_core::event::Hash::new("a".repeat(64)).expect("a name"),
+                Vec::new(),
+                tagged,
+            )
+            .expect("a change");
+            serde_json::json!({ "objects": [prodrome_core::event::canonical_envelope(
+                &prodrome_core::event::Envelope::Change(change)
+            )] })
+        }
         "secretary/conversations/{conversation}/say"
         | "secretary/conversations/{conversation}/edit" => serde_json::json!({ "say": MARKER }),
         "secretary/conversations/{conversation}/proposals/{index}/tap" => {
@@ -1149,7 +1168,8 @@ fn a_pushed_request_record_holds_nothing_said_either_way() {
             .replace("{chain}", "life")
             .replace("{conversation}", conversation)
             .replace("{index}", &index.to_string())
-            .replace("{id}", "1");
+            .replace("{id}", id_in(route))
+            .replace("{store}", "tags");
         let (body, key) = performed_body(route, &mut batches);
         let (status, said) = sent.send(&r, &path, &body, &key);
         // A body the route cannot read is refused before it performs, and leaves no record; every
@@ -1182,6 +1202,16 @@ fn a_pushed_request_record_holds_nothing_said_either_way() {
         assert_ne!(&named(""), name, "{path}: named without its nonce");
     }
     nothing_kept(&r, &sent);
+}
+
+/// The `{id}` in `route`'s path: a watch is named by 16 hex digits, and a path naming none is
+/// refused before the route performs.
+fn id_in(route: &str) -> &'static str {
+    if route.starts_with("/api/mail/watches/") {
+        "0123456789abcdef"
+    } else {
+        "1"
+    }
 }
 
 /// No pushed record holds a byte of anything sent or answered, and no store the box keeps holds

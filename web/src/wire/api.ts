@@ -1,7 +1,7 @@
 // Every route the box answers, named once: its path, its method, and the decoder its answer passes through `http`.
 
 import app from "../app/app";
-import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, Registering, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload } from "./generated/wire";
+import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, Registering, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload, WatchesPayload } from "./generated/wire";
 import { print } from "../chat/refs";
 import type { Reference } from "../chat/refs";
 import heads from "../prodrome/heads";
@@ -124,6 +124,13 @@ export const mailMessage = (id: string): Promise<MailMessage> =>
 
 export const mailThread = (id: string, limit: number): Promise<ThreadPayload> =>
   http.get(`/api/mail/thread/${encodeURIComponent(id)}?limit=${limit}`, payload.ThreadPayload);
+
+/** Every watch on expected mail that waits, the soonest to expire first. */
+export const mailWatches = (): Promise<WatchesPayload> => http.get("/api/mail/watches", payload.WatchesPayload);
+
+/** The owner's cancel, answered by the watches that still wait. */
+export const cancelWatch = (id: string): Promise<WatchesPayload> =>
+  http.act(`/api/mail/watches/${encodeURIComponent(id)}/cancel`, {}, payload.WatchesPayload);
 
 export const briefings = (): Promise<BriefingsPayload> => http.get("/api/briefings", payload.BriefingsPayload);
 

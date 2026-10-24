@@ -1,5 +1,5 @@
-//! The inbox and the conversations as replicas a tab pulls: what a replica lacks, by heads, and
-//! the decorations only the box can give, by content.
+//! The secretary's stores as replicas a tab pulls: what a replica lacks, by heads, and the
+//! decorations only the box can give, by content; and the tag stores, which a tab also writes.
 
 mod common;
 
@@ -111,16 +111,6 @@ fn the_badge_is_counted_without_the_conversations() {
     assert_eq!(count(), 0);
     let _ = answered(&base);
     assert_eq!(count(), 1);
-}
-
-/// A store a tab does not hold is no store.
-#[test]
-fn only_the_two_stores_are_pulled() {
-    let base = writing("stores-unknown");
-    assert_eq!(
-        common::status(&common::get(&format!("{base}/api/stores/memory/objects"))),
-        404
-    );
 }
 
 /// A page from before the lines asks for the store they replaced, and is told to load the new
@@ -269,7 +259,7 @@ fn a_store_s_objects_are_asked_for_by_hash_and_kept_for_good() {
     // Every other answer stays `no-store`, a stream's included, whose own header says less.
     for path in [
         "/api/stores/lines/objects",
-        "/api/stores/lines/events",
+        "/api/stores/events",
         "/api/tip",
     ] {
         let answer = common::get(&format!("{base}{path}"));
@@ -491,4 +481,126 @@ fn the_lines_skeleton_and_their_content_are_the_whole_pull() {
         heads.join(",")
     ));
     assert_eq!(common::body_json(&mut none)["nodes"], serde_json::json!([]));
+}
+
+/// The tag store's one prodrome, as the box began it, and its heads.
+fn tags_begun(base: &str) -> (prodrome_core::event::Hash, Vec<String>) {
+    let all = objects(base, "tags", "");
+    let objects = all["objects"].as_array().expect("objects");
+    assert_eq!(objects.len(), 1, "the box began the store: {all}");
+    let genesis = prodrome_core::event::Hash::new(objects[0]["hash"].as_str().expect("a name"))
+        .expect("a name");
+    let heads = all["heads"]
+        .as_array()
+        .expect("heads")
+        .iter()
+        .map(|head| head.as_str().expect("a name").to_owned())
+        .collect();
+    (genesis, heads)
+}
+
+/// A tab's tag on the first round of `default`, written as `actor` over `genesis`.
+fn tagged(genesis: &prodrome_core::event::Hash, actor: &str) -> String {
+    use suzatary_core::secretary::tags::membership_event::MembershipEvent;
+    let event = MembershipEvent::tagged(
+        "round:default/0".parse().expect("a target"),
+        suzatary_core::secretary::tags::tag::Tag::new("travel").expect("a tag"),
+        prodrome_core::literal::Datetime::new(2026, 9, 2, 12, 0, 0, 0).expect("an instant"),
+        common::actor(actor),
+    );
+    let change =
+        prodrome_core::change::mk_change(genesis.clone(), Vec::new(), event).expect("a change");
+    prodrome_core::event::canonical_envelope(&prodrome_core::event::Envelope::Change(change))
+}
+
+/// A tab posts a tag it wrote offline, and the box takes it as the actor its peer maps to, from
+/// a device the history trusts; a re-post takes nothing, and a change naming another actor is
+/// refused by name.
+#[test]
+fn a_trusted_tab_writes_a_tag_as_its_own_actor() {
+    let base = writing("stores-tag");
+    let (genesis, _) = tags_begun(&base);
+    let url = format!("{base}/api/stores/tags/objects");
+    let print = tagged(&genesis, "ada");
+    let mut taken = common::act(&url, &serde_json::json!({"objects": [print]}));
+    assert_eq!(common::status(&taken), 200);
+    let receipt = common::body_json(&mut taken);
+    assert_eq!(
+        receipt["adopted"].as_array().map(Vec::len),
+        Some(1),
+        "{receipt}"
+    );
+    let heads = &receipt["heads"];
+    assert_eq!(objects(&base, "tags", "")["heads"], *heads);
+    let mut again = common::act(&url, &serde_json::json!({"objects": [print]}));
+    assert_eq!(
+        common::body_json(&mut again)["already"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+    let mut foreign = common::act(
+        &url,
+        &serde_json::json!({"objects": [tagged(&genesis, "triage")]}),
+    );
+    let refused = common::body_json(&mut foreign);
+    assert!(
+        refused["refused"][0]["reason"]
+            .as_str()
+            .is_some_and(|why| why.contains("triage's")),
+        "{refused}"
+    );
+    assert_eq!(objects(&base, "tags", "")["heads"], *heads);
+}
+
+/// Nobody but a trusted device on a peer `web.act_as` maps writes a tag: an untrusted device
+/// key, an unsigned request and a viewer who acts as nobody are refused at the door, and the
+/// store holds only its genesis after each. The box alone writes the inbox and the lines.
+#[test]
+fn only_a_trusted_device_of_a_mapped_peer_writes_a_tag() {
+    let base = writing("stores-tag-refused");
+    let (genesis, heads) = tags_begun(&base);
+    let url = format!("{base}/api/stores/tags/objects");
+    let body = serde_json::json!({"objects": [tagged(&genesis, "ada")]});
+    let stranger = prodrome_core::sign::Secret::new(&"7".repeat(64)).expect("a seed");
+    assert_eq!(
+        common::status(&common::act_signed(&url, &body, &stranger)),
+        403
+    );
+    assert_eq!(common::status(&common::act_unsigned(&url, &body)), 403);
+    let viewer = {
+        let whois = common::FakeWhois::new().naming(common::v4(), ada());
+        let fakes = Fakes::new("stores-tag-viewer").whois(whois);
+        let deployment = common::deployment([ada()], []);
+        common::Server::new(Arc::new(fakes), deployment, Vec::new())
+            .start()
+            .base
+    };
+    let (viewer_genesis, viewer_heads) = tags_begun(&viewer);
+    let asked = serde_json::json!({"objects": [tagged(&viewer_genesis, "ada")]});
+    assert_eq!(
+        common::status(&common::act(
+            &format!("{viewer}/api/stores/tags/objects"),
+            &asked
+        )),
+        403
+    );
+    assert_eq!(
+        objects(&viewer, "tags", "")["heads"],
+        serde_json::json!(viewer_heads)
+    );
+    assert_eq!(
+        objects(&base, "tags", "")["heads"],
+        serde_json::json!(heads)
+    );
+    for store in ["inbox", "lines"] {
+        assert_eq!(
+            common::status(&common::act(
+                &format!("{base}/api/stores/{store}/objects"),
+                &serde_json::json!({"objects": []})
+            )),
+            405,
+            "{store}"
+        );
+    }
 }

@@ -8,6 +8,8 @@ pub enum Edit<E> {
     Push(E),
     /// The whole log replaced by these lines at once; the one write that removes text.
     Replace(Vec<E>),
+    /// Nothing written.
+    Keep,
 }
 
 /// What an [`Log::edit`] asks: the edit to make, given the log's lines.

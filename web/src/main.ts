@@ -277,8 +277,8 @@ restoreTheme();
 restoreFold();
 void restoreReplica().then(() => sync());
 askWhoAndWhere();
-// The inbox and the conversations are replicas too, each told of a move by its own stream; the inbox's first frame and
-// each move after it ask the box for the badge.
+// The secretary's stores are replicas too, told of a move by one stream; the inbox's first frame and each move after it
+// ask the box for the badge.
 const heardStore = (name: stores.Name): void => void (name === "inbox" && refreshWaiting());
 let closeStores = storesync.listen(heardStore);
 // Each move of the replicas retracts the intents it holds; in memory, so it outlives every page.

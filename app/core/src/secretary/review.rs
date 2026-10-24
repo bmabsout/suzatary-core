@@ -524,7 +524,8 @@ mod tests {
         assert_eq!(outage(conversations, day).expect("lists"), before.2);
     }
 
-    /// Each daily round's id is a slug, one a day, and two rounds never share one.
+    /// Each daily round's id is a slug, one a day, two rounds never share one, and the id reads
+    /// back as its round.
     #[test]
     fn a_daily_round_is_named_by_its_day_and_kind() {
         let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 11).expect("a day");
@@ -532,6 +533,11 @@ mod tests {
             let id = ConversationId::daily(daily, day);
             assert_eq!(ConversationId::new(id.as_str()), Ok(id.clone()));
             assert_eq!(id.as_str(), format!("2026-10-11-{}", daily.word()));
+            assert_eq!(id.daily_round(), Some(daily));
+        }
+        for other in ["2026-10-11-1", "default", "x-review", "2026-10-11-reviews"] {
+            let id = ConversationId::new(other).expect("a slug");
+            assert_eq!(id.daily_round(), None, "{other}");
         }
         assert_ne!(
             ConversationId::daily(Daily::Review, day),

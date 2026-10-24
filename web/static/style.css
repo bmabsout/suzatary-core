@@ -6406,3 +6406,28 @@ body:has(> .secretarypanel) .askrow {
     margin-left: 0;
   }
 }
+
+.watchlist {
+  list-style: none;
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.watchrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+  background: var(--tint);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0.45rem 0.75rem;
+  font-size: var(--t-small);
+}
+
+.watchwhat {
+  overflow-wrap: anywhere;
+}

@@ -145,6 +145,8 @@ pub enum Reason {
     /// A genesis, a key object or an epoch, which only the box writes: a prodrome a replica
     /// began would be one no key is registered in, so its first write could never be proven.
     BoxOnly,
+    /// An object of this kind in a store that takes only changes.
+    NotAChange(&'static str),
 }
 
 impl Reason {
@@ -162,7 +164,8 @@ impl Reason {
             | Reason::ForeignActor { .. }
             | Reason::SealedDecision
             | Reason::Unproven(Unproven::Forged | Unproven::Revoked { .. })
-            | Reason::BoxOnly => crate::wire::RefusalKind::Final,
+            | Reason::BoxOnly
+            | Reason::NotAChange(_) => crate::wire::RefusalKind::Final,
         }
     }
 
@@ -185,6 +188,7 @@ impl Reason {
             Reason::BoxOnly => {
                 "prodromes, keys and epochs are the box's to begin and write".to_owned()
             }
+            Reason::NotAChange(kind) => format!("this store takes only changes, not a {kind}"),
         }
     }
 }
@@ -295,43 +299,12 @@ fn placed(held: &Objects, posted: &[String], writer: &Actor) -> Placed {
         }
     }
 
-    // Then place them, by fixpoint over "every parent is held or taken".
-    let mut taken: Vec<(Hash, String)> = Vec::new();
-    let mut taking: BTreeMap<Hash, Envelope> = BTreeMap::new();
-    let mut left = candidates;
-    loop {
-        let mut waiting: Vec<(Hash, String, Envelope)> = Vec::new();
-        let mut moved = false;
-        for (name, canonical, envelope) in left {
-            let ready = rests_on(&envelope)
-                .iter()
-                .all(|parent| held.holds(parent) || taking.contains_key(parent));
-            if ready {
-                // A duplicate inside one post is the same hash twice: the
-                // second is nothing, exactly as a re-post is.
-                if taking.insert(name.clone(), envelope).is_none() {
-                    taken.push((name, canonical));
-                }
-                moved = true;
-            } else {
-                waiting.push((name, canonical, envelope));
-            }
-        }
-        left = waiting;
-        if !moved || left.is_empty() {
-            break;
-        }
-    }
-    for (name, _, envelope) in left {
-        let missing = rests_on(&envelope)
-            .into_iter()
-            .find(|parent| !held.holds(parent) && !taking.contains_key(parent))
-            .unwrap_or_else(|| name.clone());
-        refused.push(Refused {
-            name: Some(name),
-            reason: Reason::MissingParent(missing),
-        });
-    }
+    let Settled {
+        taken,
+        taking,
+        refused: unplaced,
+    } = settled(candidates, &|name| held.holds(name));
+    refused.extend(unplaced);
     Placed {
         taken,
         taking,
@@ -351,6 +324,131 @@ struct Placed {
     already: Vec<Hash>,
     /// What was refused, in the order the literals arrived.
     refused: Vec<Refused>,
+}
+
+/// `candidates` placed by fixpoint over "every parent is held or taken", so a child posted
+/// before its parent is not refused: what is taken, parents first, each taken object by name,
+/// and a refusal naming the first missing parent of each object left over.
+fn settled<E>(
+    candidates: Vec<(Hash, String, prodrome_core::event::Envelope<E>)>,
+    holds: &dyn Fn(&Hash) -> bool,
+) -> Settled<E> {
+    let mut taken: Vec<(Hash, String)> = Vec::new();
+    let mut taking: BTreeMap<Hash, prodrome_core::event::Envelope<E>> = BTreeMap::new();
+    let mut left = candidates;
+    loop {
+        let mut waiting = Vec::new();
+        let mut moved = false;
+        for (name, canonical, envelope) in left {
+            let ready = rests_on(&envelope)
+                .iter()
+                .all(|parent| holds(parent) || taking.contains_key(parent));
+            if ready {
+                // A duplicate inside one post is the same hash twice: the
+                // second is nothing, exactly as a re-post is.
+                if taking.insert(name.clone(), envelope).is_none() {
+                    taken.push((name, canonical));
+                }
+                moved = true;
+            } else {
+                waiting.push((name, canonical, envelope));
+            }
+        }
+        left = waiting;
+        if !moved || left.is_empty() {
+            break;
+        }
+    }
+    let refused = left
+        .into_iter()
+        .map(|(name, _, envelope)| {
+            let missing = rests_on(&envelope)
+                .into_iter()
+                .find(|parent| !holds(parent) && !taking.contains_key(parent))
+                .unwrap_or_else(|| name.clone());
+            Refused {
+                name: Some(name),
+                reason: Reason::MissingParent(missing),
+            }
+        })
+        .collect();
+    Settled {
+        taken,
+        taking,
+        refused,
+    }
+}
+
+/// What [`settled`] placed.
+struct Settled<E> {
+    taken: Vec<(Hash, String)>,
+    taking: BTreeMap<Hash, prodrome_core::event::Envelope<E>>,
+    refused: Vec<Refused>,
+}
+
+/// What a post to a store of schema `E` that the box began and nobody signs means: every
+/// object a `Change` whose event is `writer`'s, resting on what is held or posted. The gate
+/// proved the request's device for `writer`, and the request's signature covers its body, so
+/// no object needs a signature of its own.
+#[must_use]
+pub fn receive_changes<E: prodrome_core::schema::Schema>(
+    held: &BTreeSet<Hash>,
+    posted: &[String],
+    writer: &Actor,
+) -> Outcome
+where
+    E::Vocabulary: Default,
+{
+    let vocabulary = E::Vocabulary::default();
+    let mut candidates = Vec::new();
+    let mut refused: Vec<Refused> = Vec::new();
+    let mut already: Vec<Hash> = Vec::new();
+    for literal in posted {
+        match named_at::<E>(&vocabulary, literal) {
+            Err(reason) => refused.push(Refused { name: None, reason }),
+            Ok((name, _, _)) if held.contains(&name) => already.push(name),
+            Ok((name, canonical, envelope)) => {
+                let reason = match &envelope {
+                    prodrome_core::event::Envelope::Change(change)
+                        if change.event.actor() == writer =>
+                    {
+                        None
+                    }
+                    prodrome_core::event::Envelope::Change(change) => Some(Reason::ForeignActor {
+                        named: change.event.actor().as_str().to_owned(),
+                        poster: writer.as_str().to_owned(),
+                    }),
+                    prodrome_core::event::Envelope::Genesis(_)
+                    | prodrome_core::event::Envelope::KeyAdded(_)
+                    | prodrome_core::event::Envelope::KeyRevoked(_)
+                    | prodrome_core::event::Envelope::Snapshot(_) => Some(Reason::BoxOnly),
+                    other @ (prodrome_core::event::Envelope::Sealed { .. }
+                    | prodrome_core::event::Envelope::Woven { .. }
+                    | prodrome_core::event::Envelope::Signed(_)) => {
+                        Some(Reason::NotAChange(other.name()))
+                    }
+                };
+                match reason {
+                    Some(reason) => refused.push(Refused {
+                        name: Some(name),
+                        reason,
+                    }),
+                    None => candidates.push((name, canonical, envelope)),
+                }
+            }
+        }
+    }
+    let Settled {
+        taken,
+        refused: unplaced,
+        ..
+    } = settled(candidates, &|name| held.contains(name));
+    refused.extend(unplaced);
+    Outcome {
+        taken,
+        already,
+        refused,
+    }
 }
 
 /// `taken` held to its signatures, read with what the box holds (SPEC law 42): a write the
@@ -453,7 +551,7 @@ pub fn missing(held: &Objects, since: &[Hash]) -> Vec<Hash> {
 
 /// What an object cannot be held without: its parents, and the genesis a change names, which a
 /// store's verify-on-receive walks to as it walks to a parent.
-fn rests_on(envelope: &Envelope) -> Vec<Hash> {
+fn rests_on<E>(envelope: &prodrome_core::event::Envelope<E>) -> Vec<Hash> {
     let mut names = parents_of(envelope);
     names.extend(envelope.genesis().cloned());
     names
@@ -461,8 +559,16 @@ fn rests_on(envelope: &Envelope) -> Vec<Hash> {
 
 /// One literal parsed, reprinted and named by the hash of the print, never the client's name.
 fn named(literal: &str) -> Result<(Hash, String, Envelope), Reason> {
-    let envelope = parse_envelope(&crate::record::TodoVocabulary::default(), literal)
-        .map_err(|e| Reason::NotAnObject(e.to_string()))?;
+    named_at(&crate::record::TodoVocabulary::default(), literal)
+}
+
+/// [`named`], at the schema `E`.
+fn named_at<E: prodrome_core::schema::Schema>(
+    vocabulary: &E::Vocabulary,
+    literal: &str,
+) -> Result<(Hash, String, prodrome_core::event::Envelope<E>), Reason> {
+    let envelope =
+        parse_envelope::<E>(vocabulary, literal).map_err(|e| Reason::NotAnObject(e.to_string()))?;
     let canonical = canonical_envelope(&envelope);
     if canonical != literal {
         return Err(Reason::NotAnObject(

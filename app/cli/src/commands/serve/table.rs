@@ -70,15 +70,18 @@ pub fn table() -> Vec<Route> {
         Route::get("/api/mail/search", Scope::Box, mail::search),
         Route::get("/api/mail/message/{id}", Scope::Box, mail::message),
         Route::get("/api/mail/thread/{id}", Scope::Box, mail::thread),
-        // The inbox and the conversations, as replicas a tab pulls; nothing posts to them.
+        Route::get("/api/mail/watches", Scope::Box, mail::watches),
+        Route::post(
+            "/api/mail/watches/{id}/cancel",
+            Scope::Box,
+            mail::cancel_watch,
+        ),
+        // The secretary's stores, as replicas a tab pulls; a tab posts only to the tag stores.
         Route::get("/api/stores/{store}/objects", Scope::Box, stores::objects),
+        Route::post("/api/stores/{store}/objects", Scope::Box, stores::take),
         Route::get("/api/stores/{store}/content", Scope::Box, stores::content),
         Route::get("/api/stores/lines/skeleton", Scope::Box, stores::skeleton),
-        Route::special(
-            "/api/stores/{store}/events",
-            Scope::Box,
-            get(stream::store_events),
-        ),
+        Route::special("/api/stores/events", Scope::Box, get(stream::store_events)),
         // The Inbox badge, counted on the box so a tab need not hold the conversations.
         Route::get("/api/waiting", Scope::Box, stores::waiting),
         Route::post(

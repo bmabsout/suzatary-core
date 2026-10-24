@@ -636,6 +636,17 @@ module's `Conversations.erased`), a forget that fails keeping the key until
 one succeeds. Its plaintext row of the old store is deleted once
 the lines' row holds objects, its rendered blocks cleared first.
 
+*(4b) TOPIC TAGS* (`docs/TOPICTAGS-PLAN-2026-10-21.md`, `secretary::tags`). Two
+stores of their own, named by `[secretary] tags`: `secretary-tags/`, one
+register per (target, tag), `Off < On`, read as an observed-remove set, and
+`secretary-tag-aliases/`, one register per tag name. A tag's name is words, so
+both are box-local, in the daily vault and never pushed; `suzatary init` and
+the server begin them. A tab pulls both as it pulls the lines, and `POST
+/api/stores/{tags,tag-aliases}/objects` takes a replica's changes under the
+act guard, each a `Change` whose event is the poster's actor
+(`sync::receive_changes`). The reading is `tags::Reading::of`, a function of
+the two object sets, in the box and in the browser module alike.
+
 *(5) THE APP IS THE DOOR.* `#/secretary`, in the More sheet by `nav.ts`'s
 slice rule. A person's turn and a verb's answer are text through `refs.ts`
 (model prose read attacker mail); a model's answer is typst's HTML block by
@@ -1512,7 +1523,9 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   from the heads it left (2026-10-13: the whole lines store was 34 MB, which a
   phone never pulled inside its wait), only once something reads a store (the
   "Needs you" popup reads the inbox alone, `storesync.proposals`), told
-  of a move by `GET /api/stores/<store>/events` (2026-10-21: every store's
+  of a move by one stream for every store, `GET /api/stores/events`, each
+  frame naming its store and its heads, so a store the box adds costs a tab
+  no connection (2026-10-21: every store's
   objects are also served by hash, `…/content?hashes=`, kept for good, and
   the lines' skeleton at `GET /api/stores/lines/skeleton?since=`, which no
   page reads yet; `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core once per

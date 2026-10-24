@@ -61,6 +61,18 @@ impl ConversationId {
         Self(format!("{}-{}", day.format("%Y-%m-%d"), daily.word()))
     }
 
+    /// Which daily round this is the conversation of, read back from [`ConversationId::daily`]'s
+    /// spelling; `None` for any other id.
+    #[must_use]
+    pub fn daily_round(&self) -> Option<crate::secretary::daily::Daily> {
+        use crate::secretary::daily::Daily;
+        let (day, word) = self.0.split_at_checked(10)?;
+        chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok()?;
+        [Daily::Review, Daily::Sweep]
+            .into_iter()
+            .find(|daily| word.strip_prefix('-') == Some(daily.word()))
+    }
+
     /// The name, as a path segment and a file stem spell it.
     #[must_use]
     pub fn as_str(&self) -> &str {

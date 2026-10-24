@@ -121,6 +121,8 @@ fn the_template_begins_a_deployment_whose_every_file_is_shipped_staged_or_ignore
         secretary.memory_texts().join(&name),
         secretary.digests.join("digests.lock"),
         secretary.digest_texts().join(&name),
+        secretary.tags.memberships.join("tags.lock"),
+        secretary.tags.aliases.join("tag-aliases.lock"),
         secretary.conversations.join("upload.pdf"),
         secretary.renders.join(format!("{name}.html")),
         instance.decisions().join("decisions.lock"),

@@ -35,6 +35,8 @@ pub struct Server<'a> {
     pub memories: crate::secretary::memories::Memories<'a>,
     /// The recorded decisions, which a tapped proposal writes.
     pub decisions: crate::decisions::Decisions<'a>,
+    /// The topic tags on the secretary's rounds and notes, box-local.
+    pub tags: crate::secretary::tags::stores::TagStores<'a>,
     /// The saved briefings.
     pub briefings: &'a dyn Briefings,
     /// The day's forecast.
@@ -65,6 +67,8 @@ pub struct Server<'a> {
     pub kept: &'a dyn crate::store::Doc<crate::attachment::AttachmentId, Vec<u8>>,
     /// The model settings the instance file declares, read-only.
     pub configuration: &'a dyn crate::settings::configure::Configuration,
+    /// The watches on mail the owner expects.
+    pub watches: &'a crate::mail::watch::Watches,
     /// Who owns a peer address: the only source of a `Login`.
     pub whois: &'a dyn Whois,
     /// Push to the owner's phones.
@@ -111,6 +115,7 @@ impl<'a> Server<'a> {
             upload_index: self.upload_index,
             kept: self.kept,
             configuration: self.configuration,
+            watches: self.watches,
         }
     }
 

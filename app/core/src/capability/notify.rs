@@ -2,6 +2,7 @@
 
 use std::num::NonZeroUsize;
 
+use crate::reference::MailHash;
 use crate::secretary::inbox::ProposalId;
 use crate::secretary::store::ConversationId;
 
@@ -44,6 +45,11 @@ pub enum Push {
         conversations: NonZeroUsize,
         /// Today's review, which names them.
         round: ConversationId,
+    },
+    /// A message a watch waited for synced.
+    Expected {
+        /// The message.
+        message: MailHash,
     },
     /// The secretary's review has failed `passes` passes running.
     ReviewDown {
@@ -146,6 +152,12 @@ impl Push {
                 ),
                 click: format!("{app}/#/secretary/{}", round.as_str()),
                 tag: "warning",
+            },
+            Push::Expected { message } => Printed {
+                title: "The mail you were waiting for",
+                body: "A message you asked to hear about has arrived.".to_owned(),
+                click: format!("{app}/#/mail/{}", message.as_str()),
+                tag: "envelope",
             },
             Push::ReviewDown { standing, passes } => Printed {
                 title: "The secretary's review is down",

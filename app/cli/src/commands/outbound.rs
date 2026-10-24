@@ -55,6 +55,10 @@ fn pushes() -> Vec<String> {
             conversations: one,
             round: ConversationId::new("2026-01-02-review").expect("a slug"),
         },
+        Push::Expected {
+            message: suzatary_core::reference::MailHash::new("0123456789abcdef")
+                .expect("a literal hash"),
+        },
         Push::ReviewDown {
             standing: 1,
             passes: one,

@@ -74,6 +74,13 @@ impl Tag {
         Self::new(out).ok()
     }
 
+    /// A conversation's id slugs to a tag: it is lowercase letters, digits and hyphens, and starts
+    /// with a letter or a digit.
+    #[must_use]
+    pub fn of_conversation(id: &crate::secretary::store::ConversationId) -> Self {
+        Self::slug(id.as_str()).expect("a conversation id starts with a letter or a digit")
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0

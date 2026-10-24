@@ -59,7 +59,7 @@ export namespace storesync {
       seen.insert(at, named)
       return named
     }
-    return { core, lines, dead: { inbox: () => NONE_DEAD, lines: dead } }
+    return { core, lines, dead: { inbox: () => NONE_DEAD, lines: dead, tags: () => NONE_DEAD, "tag-aliases": () => NONE_DEAD } }
   }
   const reader = once.of(() => loadCore().then(readerOf)).get
 
@@ -110,6 +110,8 @@ export namespace storesync {
       return read.type === "Val" || CHAIN.parse(raw).type !== "Val" ? read : lo.val({ type: "Bare" })
     },
     lines: keyed,
+    tags: keyed,
+    "tag-aliases": keyed,
   }
 
   // One read of each row per page.
@@ -131,6 +133,8 @@ export namespace storesync {
   const restored: { readonly [N in stores.Name]: once.T<void> } = {
     inbox: once.of(() => reader().then(rd => restoredOne(rd, "inbox"))),
     lines: once.of(() => reader().then(rd => restoredOne(rd, "lines"))),
+    tags: once.of(() => reader().then(rd => restoredOne(rd, "tags"))),
+    "tag-aliases": once.of(() => reader().then(rd => restoredOne(rd, "tag-aliases"))),
   }
   const restore = (): Promise<void> => Promise.all(stores.NAMES.map(name => restored[name].get())).then(() => undefined)
 
@@ -161,7 +165,7 @@ export namespace storesync {
   type Piece = { readonly asked: Replica; readonly answer: StorePayload; readonly rest: number }
 
   // The pieces of each store's pull that have not landed: held beside its row and asked from, never read by a page.
-  const pending: { [N in stores.Name]: locked.Row } = { inbox: locked.NONE, lines: locked.NONE }
+  const pending: { [N in stores.Name]: locked.Row } = { ...stores.NONE }
 
   // What the tab holds of a store, landed and not: what a pull asks from, and what a stream's heads are compared with.
   const holding = (name: stores.Name): Replica => locked.join(source.state()[name], pending[name]).replica
@@ -217,6 +221,8 @@ export namespace storesync {
   const again: { [N in stores.Name]: { wait: number; timer: ReturnType<typeof setTimeout> | undefined } } = {
     inbox: { wait: AGAIN_MS.first, timer: undefined },
     lines: { wait: AGAIN_MS.first, timer: undefined },
+    tags: { wait: AGAIN_MS.first, timer: undefined },
+    "tag-aliases": { wait: AGAIN_MS.first, timer: undefined },
   }
   const retry = (name: stores.Name): void => {
     const a = again[name]
@@ -294,41 +300,44 @@ export namespace storesync {
   const pulls: { readonly [N in stores.Name]: () => Promise<boolean> } = {
     inbox: serial.of(() => pullNow("inbox")),
     lines: serial.of(() => pullNow("lines")),
+    tags: serial.of(() => pullNow("tags")),
+    "tag-aliases": serial.of(() => pullNow("tag-aliases")),
   }
   export const pull = (name: stores.Name): Promise<boolean> => pulls[name]()
 
   // Which stores a page has asked for so far. A stream's move or reconnect pulls those and nothing else, so before a page
-  // asks it pulls nothing: the boot asks for neither, and a visit that never reads a conversation never pulls the lines.
-  type Wanted = "Neither" | "Inbox" | "Both"
-  let wanted: Wanted = "Neither"
+  // asks it pulls nothing: the boot asks for none, and a visit that never reads a conversation never pulls the lines.
+  type Wanted = "None" | "Inbox" | "All"
+  let wanted: Wanted = "None"
   const heard = (): void => {
     switch (wanted) {
-      case "Neither":
+      case "None":
         return
       case "Inbox":
         return void inboxOnly()
-      case "Both":
-        return void both()
+      case "All":
+        return void all()
     }
   }
 
   // The lines, then the inbox: the box files a proposal before the line that names it, so an inbox pulled after the
-  // lines holds every proposal they name.
-  const both = (): Promise<boolean> => {
-    wanted = "Both"
-    return pull("lines").then(lines => pull("inbox").then(inbox => lines && inbox))
+  // lines holds every proposal they name. The tag stores name rounds, never a proposal, so they are pulled beside them.
+  const all = (): Promise<boolean> => {
+    wanted = "All"
+    const tagged = Promise.all([pull("tags"), pull("tag-aliases")])
+    return pull("lines").then(lines => pull("inbox").then(inbox => tagged.then(([t, a]) => lines && inbox && t && a)))
   }
 
-  // The inbox alone, for a reading of the proposals; a move of the stores pulls the lines too once a page asked for both.
+  // The inbox alone, for a reading of the proposals; a move of the stores pulls the rest too once a page asked for all.
   const inboxOnly = (): Promise<boolean> => {
-    if (wanted === "Neither") wanted = "Inbox"
+    if (wanted === "None") wanted = "Inbox"
     return pull("inbox")
   }
 
-  export const sync = (): Promise<void> => both().then(() => undefined)
+  export const sync = (): Promise<void> => all().then(() => undefined)
 
   // A sync that must have reached the box, or says it did not.
-  export const asked = (): Promise<void> => both().then(ok => (ok ? undefined : Promise.reject(new Error("the box did not answer"))))
+  export const asked = (): Promise<void> => all().then(ok => (ok ? undefined : Promise.reject(new Error("the box did not answer"))))
 
   // Once `name` has landed whole, from this device's rows or a pull the box said was all of it: a store that lands
   // empty moves no row, so the landing itself is what is waited on.
@@ -341,7 +350,7 @@ export namespace storesync {
     return { once, done }
   }
   // Armed again when a later epoch drops the store (`startOver`).
-  const landings: { [N in stores.Name]: Landing } = { inbox: awaited(), lines: awaited() }
+  const landings: { [N in stores.Name]: Landing } = { inbox: awaited(), lines: awaited(), tags: awaited(), "tag-aliases": awaited() }
   const landed = (name: stores.Name): boolean => source.state()[name].replica.box.type === "Heard"
   // A replaced landing is waited on again through the one that replaced it; a landed one ends the wait, even empty.
   const whole = (name: stores.Name): Promise<void> =>
@@ -357,7 +366,7 @@ export namespace storesync {
         return Promise.all(names.filter(name => !landed(name)).map(whole)).then(() => undefined)
       }),
     )
-  const ready = readyOf(stores.NAMES, both)
+  const ready = readyOf(stores.NAMES, all)
   const inboxReady = readyOf(["inbox"], inboxOnly)
 
   let proposalsRead: { readonly inbox: Replica; readonly p: Proposals } | null = null
@@ -410,25 +419,21 @@ export namespace storesync {
   // Wakes on every change of what is held; returns its own removal. A pull changes it once, when it lands.
   export const watch = (listener: () => void): (() => void) => source.subscribe(() => listener())
 
-  const frame = d.json(payload.TipFrame)
+  const frame = d.json(payload.StoreFrame)
 
-  // One stream per store, opened once by the shell; once a page has read the stores, a reconnect pulls, and so does a
-  // frame naming an object the tab does not hold, landed or not, so a pull that was cut is taken up again whatever the
-  // tab last heard of the box's heads. `moved` hears each store's heads from the box, the first frame included,
-  // whether or not a page has read them.
-  export const listen = (moved: (name: stores.Name) => void): (() => void) => {
-    const closes = stores.NAMES.map(name =>
-      stream.open(stream.of(`/api/stores/${name}/events`), {
-        opened: () => heard(),
-        frame: data => {
-          const f = frame(data)
-          if (f.type !== "Val") return
-          moved(name)
-          if (stores.behind(heads.of(f.v.heads), holding(name))) heard()
-        },
-      }),
-    )
-    return () => closes.forEach(close => close())
-  }
+  // One stream for every store, opened once by the shell, so a store the box adds costs no connection; once a page has
+  // read the stores, a reconnect pulls, and so does a frame naming an object the tab does not hold of its store, landed
+  // or not, so a pull that was cut is taken up again whatever the tab last heard of the box's heads. `moved` hears each
+  // store's heads from the box, the first frame of each included, whether or not a page has read them.
+  export const listen = (moved: (name: stores.Name) => void): (() => void) =>
+    stream.open(stream.of("/api/stores/events"), {
+      opened: () => heard(),
+      frame: data => {
+        const f = frame(data)
+        if (f.type !== "Val") return
+        moved(f.v.store)
+        if (stores.behind(heads.of(f.v.heads), holding(f.v.store))) heard()
+      },
+    })
 }
 export default storesync

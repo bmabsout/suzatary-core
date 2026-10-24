@@ -1204,6 +1204,23 @@ enum Action {
         #[arg(long)]
         actor: Option<String>,
     },
+    /// The topic tags on rounds and notes.
+    Tags {
+        /// What to do with them.
+        #[command(subcommand)]
+        action: TagsAction,
+    },
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum TagsAction {
+    /// Tag every round and note of each conversation with its title, once, as the assistant;
+    /// the default conversation's get no tag. A second run writes nothing.
+    Carry {
+        /// Print each conversation's tag and what it would tag, and write nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// The morning brief's question, which lives in core so transcripts can be read for answers.
@@ -1251,7 +1268,74 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
             reason,
             actor,
         } => dismiss(&instance, conversation, *n, reason, actor.as_deref()),
+        Action::Tags {
+            action: TagsAction::Carry { dry_run },
+        } => carry(&instance, *dry_run, &mut std::io::stdout()).map(|_| ()),
     }
+}
+
+/// `suzatary secretary tags carry`: each conversation's tag, and what it tags, said on `out`;
+/// with `dry_run` nothing is written. Answers how many memberships it wrote, or would write.
+///
+/// # Errors
+/// A store that does not read, or a membership not written.
+pub fn carry(
+    instance: &Instance,
+    dry_run: bool,
+    out: &mut impl std::io::Write,
+) -> anyhow::Result<usize> {
+    use suzatary_core::secretary::tags::carry::{self, Carrying};
+    use suzatary_core::store::Prodrome as _;
+    let refused =
+        |refusal: suzatary_core::refusal::Refusal| anyhow::anyhow!("{}", refusal.message());
+    let conversations =
+        suzatary_core::secretary::list(conversations(instance).conversations()).map_err(refused)?;
+    let tags = instance.secretary.tags.open();
+    let _held = if dry_run {
+        None
+    } else {
+        tags.begin()?;
+        Some(tags.memberships.locked()?)
+    };
+    let planned = carry::plan(
+        &conversations,
+        &tags.stores().reading()?,
+        suzatary_core::capability::Clock::now(&suzatary_io::clock::SystemClock),
+    );
+    for carrying in &planned.conversations {
+        match carrying {
+            Carrying::Tagged {
+                conversation,
+                tag,
+                rounds,
+                notes,
+            } => writeln!(
+                out,
+                "{conversation}  {tag}  {rounds} round(s) and {notes} note(s) to tag"
+            )?,
+            Carrying::Default {
+                conversation,
+                rounds,
+                notes,
+            } => writeln!(
+                out,
+                "{conversation}  (no tag)  its {rounds} round(s) and {notes} note(s) stay untagged"
+            )?,
+        }
+    }
+    let count = planned.events.len();
+    if dry_run {
+        writeln!(
+            out,
+            "would write {count} membership(s) as assistant; wrote nothing"
+        )?;
+        return Ok(count);
+    }
+    for event in planned.events {
+        tags.memberships.append(event)?;
+    }
+    writeln!(out, "wrote {count} membership(s) as assistant")?;
+    Ok(count)
 }
 
 /// The conversations' store, beside the instance's `[secretary] conversations`.

@@ -555,6 +555,42 @@ pub struct TipFrame {
     pub heads: Vec<String>,
 }
 
+/// A store a tab holds a replica of, as its path segment spells it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, TS)]
+pub enum StoreName {
+    /// The proposals.
+    #[serde(rename = "inbox")]
+    Inbox,
+    /// The conversations' lines.
+    #[serde(rename = "lines")]
+    Lines,
+    /// The topic tags on rounds and notes.
+    #[serde(rename = "tags")]
+    Tags,
+    /// The tags' aliases.
+    #[serde(rename = "tag-aliases")]
+    TagAliases,
+}
+
+impl StoreName {
+    /// Every store, in the order a stream first names them.
+    pub const ALL: [StoreName; 4] = [
+        StoreName::Inbox,
+        StoreName::Lines,
+        StoreName::Tags,
+        StoreName::TagAliases,
+    ];
+}
+
+/// One frame of `GET /api/stores/events`: one store's heads, each time they move.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct StoreFrame {
+    /// Which store.
+    pub store: StoreName,
+    /// Every head, sorted.
+    pub heads: Vec<String>,
+}
+
 /// One saved briefing file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 pub struct BriefingRow {
@@ -645,6 +681,39 @@ pub struct InboxPayload {
     pub accounts: Vec<String>,
     /// The rows.
     pub messages: Vec<crate::mail::MailRow>,
+}
+
+/// `GET /api/mail/watches`, and what a cancel answers: every watch that waits, the soonest to
+/// expire first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct WatchesPayload {
+    /// The watches.
+    pub watches: Vec<MailWatch>,
+}
+
+/// One watch on mail the owner expects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct MailWatch {
+    /// Its name, which a cancel takes.
+    pub id: String,
+    /// Which part of a message it matches.
+    pub on: WatchOn,
+    /// The text it looks for, lower-cased.
+    pub text: String,
+    /// When it was set, ISO.
+    pub set: String,
+    /// When it expires, ISO.
+    pub until: String,
+}
+
+/// Which part of a message a watch matches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+pub enum WatchOn {
+    /// The sender's address or name.
+    Sender,
+    /// The subject.
+    Subject,
 }
 
 /// `GET /api/mail/search`: a notmuch query, newest first.
@@ -2870,12 +2939,14 @@ fn answers(visit: &mut impl TypeVisitor) {
     visit.visit::<TreePayload>();
     visit.visit::<TipPayload>();
     visit.visit::<TipFrame>();
+    visit.visit::<StoreFrame>();
     visit.visit::<BriefingsPayload>();
     visit.visit::<BriefingPayload>();
     visit.visit::<CalendarPayload>();
     visit.visit::<InboxPayload>();
     visit.visit::<MailSearchPayload>();
     visit.visit::<ThreadPayload>();
+    visit.visit::<WatchesPayload>();
     visit.visit::<ObjectsPayload>();
     visit.visit::<StorePayload>();
     visit.visit::<ContentPayload>();

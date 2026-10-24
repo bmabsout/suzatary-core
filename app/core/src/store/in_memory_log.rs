@@ -92,6 +92,7 @@ where
         match &edit {
             Edit::Push(line) => log.push(line.clone()),
             Edit::Replace(lines) => log.clone_from(lines),
+            Edit::Keep => {}
         }
         Ok(edit)
     }

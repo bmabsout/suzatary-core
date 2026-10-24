@@ -8,6 +8,9 @@
 //!   on, whichever device merges into which.
 //! - A rename keeps every membership: each target that carried the renamed tag carries the new
 //!   name, on the renaming device and on a device that tagged under the old name meanwhile.
+//! - The box's door merges as the union does: a box that takes each device's own objects through
+//!   `sync::receive_changes`, whatever order they are posted in, reads what a device holding the
+//!   union of every device's objects reads.
 //! - Every event, tag and target prints and parses back to itself.
 
 use std::collections::BTreeSet;
@@ -368,6 +371,40 @@ proptest! {
         prop_assert!(!tags_of(&device.read(), n).contains(&device.read().spelling(&tag(NAMES[name]))));
     }
 
+    /// Devices write apart and sync among themselves; then each posts to the box the objects
+    /// it wrote, in any order, and posts again what was refused for a parent not yet there.
+    /// The box takes every object and reads what the union reads, and a second post of
+    /// everything takes nothing.
+    #[test]
+    fn the_box_door_merges_as_the_union_does(script in steps(3), order in Just(()).prop_perturb(|(), mut rng| {
+        let mut order = vec![0usize, 1, 2];
+        for i in (1..order.len()).rev() {
+            order.swap(i, rng.random_range(0..=i));
+        }
+        order
+    })) {
+        let mut all = devices(3);
+        run(&mut all, &script);
+        let the_box = Device::new(8);
+        let mut rounds = 0;
+        loop {
+            let mut took = 0;
+            for &device in &order {
+                took += post(&all[device], &the_box);
+            }
+            rounds += 1;
+            if took == 0 || rounds > 40 {
+                break;
+            }
+        }
+        let union = union(&[&all[0], &all[1], &all[2]]);
+        prop_assert_eq!(the_box.objects(), union.objects());
+        prop_assert_eq!(the_box.read(), union.read());
+        for device in &all {
+            prop_assert_eq!(post(device, &the_box), 0, "a re-post takes nothing");
+        }
+    }
+
     /// Every event a device writes prints and parses back to itself.
     #[test]
     fn every_event_prints_and_parses_back(script in proptest::collection::vec(op(), 0..20)) {
@@ -410,6 +447,48 @@ proptest! {
             prop_assert_eq!(target.to_string().parse::<Target>(), Ok(target.clone()));
         }
     }
+}
+
+/// What the box takes when `device` posts every object it holds of its own actor's, in each
+/// store: how many objects it took.
+fn post(device: &Device, the_box: &Device) -> usize {
+    posted(&device.memberships, &the_box.memberships, &device.actor)
+        + posted(&device.aliases, &the_box.aliases, &device.actor)
+}
+
+fn posted<E: Schema<Vocabulary: Default>>(
+    from: &MemoryStore<E>,
+    to: &MemoryStore<E>,
+    actor: &Actor,
+) -> usize {
+    let mine: Vec<String> = from
+        .held()
+        .expect("held")
+        .dag
+        .objects()
+        .values()
+        .filter(|object| object.event().is_some_and(|event| event.actor() == actor))
+        .map(canonical_envelope)
+        .collect();
+    let held: BTreeSet<prodrome_core::event::Hash> = to
+        .held()
+        .expect("held")
+        .dag
+        .objects()
+        .keys()
+        .cloned()
+        .collect();
+    let outcome = suzatary_core::sync::receive_changes::<E>(&held, &mine, actor);
+    let prints: std::collections::BTreeMap<_, _> = outcome
+        .taken
+        .iter()
+        .map(|(name, print)| (name.clone(), print.clone().into_bytes()))
+        .collect();
+    to.receive(prints.keys().cloned().collect(), &|name| {
+        prints.get(name).cloned()
+    })
+    .expect("the box takes what its door took");
+    outcome.taken.len()
 }
 
 /// The two devices of the concrete cases below, sharing what `shared` writes on the first.
@@ -503,4 +582,87 @@ fn two_renames_of_one_tag_apart_are_a_dispute_every_device_reads_alike() {
         panic!("an alias");
     };
     assert_eq!(tags_of(&reading, 0), BTreeSet::from([spelled.clone()]));
+}
+
+/// The box takes a tab's tag only as a change written as the poster, resting on what it holds:
+/// a change naming another actor, a prodrome, a signature, a legacy object, bytes that are not
+/// one canonical object and a change resting on an unheld object are each refused, and an
+/// object it holds is answered as held whoever posts it.
+#[test]
+fn the_box_door_takes_only_the_posters_changes() {
+    use prodrome_core::change::mk_change;
+    use suzatary_core::sync::{Reason, receive_changes};
+    let ada = Actor::new("ada").expect("an actor");
+    let genesis: Envelope<MembershipEvent> =
+        Envelope::Genesis(mk_genesis("tags", &"0".repeat(32)).expect("a genesis"));
+    let begun = seal_hash(&genesis);
+    let held: BTreeSet<_> = [begun.clone()].into();
+    let change = |actor: &Actor, deps: Vec<prodrome_core::event::Hash>| {
+        Envelope::Change(
+            mk_change(
+                begun.clone(),
+                deps,
+                MembershipEvent::tagged(target(0), tag("travel"), at(1), actor.clone()),
+            )
+            .expect("a change"),
+        )
+    };
+    let mine = change(&ada, Vec::new());
+    let unheld = prodrome_core::event::Hash::new("f".repeat(64)).expect("a name");
+    let child = Envelope::Change(
+        mk_change(
+            begun.clone(),
+            vec![seal_hash(&mine)],
+            MembershipEvent::untagged(target(0), tag("travel"), at(2), ada.clone()),
+        )
+        .expect("a change"),
+    );
+    let refused = |print: String| {
+        let outcome = receive_changes::<MembershipEvent>(&held, &[print], &ada);
+        assert!(outcome.taken.is_empty() && outcome.already.is_empty());
+        outcome
+            .refused
+            .into_iter()
+            .map(|r| r.reason)
+            .collect::<Vec<_>>()
+    };
+    let theirs = change(&Actor::new("triage").expect("an actor"), Vec::new());
+    assert!(matches!(
+        refused(canonical_envelope(&theirs)).as_slice(),
+        [Reason::ForeignActor { .. }]
+    ));
+    let other: Envelope<MembershipEvent> =
+        Envelope::Genesis(mk_genesis("tags", &"1".repeat(32)).expect("a genesis"));
+    assert_eq!(refused(canonical_envelope(&other)), vec![Reason::BoxOnly]);
+    let legacy: Envelope<MembershipEvent> = prodrome_core::event::mk_sealed(
+        None,
+        MembershipEvent::tagged(target(0), tag("travel"), at(1), ada.clone()),
+    );
+    assert_eq!(
+        refused(canonical_envelope(&legacy)),
+        vec![Reason::NotAChange("Sealed")]
+    );
+    assert!(matches!(
+        refused(format!("{} ", canonical_envelope(&mine))).as_slice(),
+        [Reason::NotAnObject(_)]
+    ));
+    let orphan = change(&ada, vec![unheld.clone()]);
+    assert_eq!(
+        refused(canonical_envelope(&orphan)),
+        vec![Reason::MissingParent(unheld)]
+    );
+    // A child posted before its parent is taken with it, parents first.
+    let both = receive_changes::<MembershipEvent>(
+        &held,
+        &[canonical_envelope(&child), canonical_envelope(&mine)],
+        &ada,
+    );
+    let names: Vec<_> = both.taken.iter().map(|(name, _)| name.clone()).collect();
+    assert_eq!(names, vec![seal_hash(&mine), seal_hash(&child)]);
+    let again = receive_changes::<MembershipEvent>(
+        &[begun.clone(), seal_hash(&theirs)].into(),
+        &[canonical_envelope(&theirs)],
+        &ada,
+    );
+    assert_eq!(again.already, vec![seal_hash(&theirs)]);
 }

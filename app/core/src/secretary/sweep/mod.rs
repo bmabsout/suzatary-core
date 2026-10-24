@@ -424,7 +424,8 @@ mod tests {
                 | Effect::Settles
                 | Effect::Remembers
                 | Effect::Syncs
-                | Effect::Pulls => false,
+                | Effect::Pulls
+                | Effect::Watches => false,
             };
             assert_eq!((SURFACE.allows)(verb), expected, "{verb}");
         }

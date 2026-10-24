@@ -274,7 +274,7 @@ parsing the instance file <file>: TOML parse error at line 83, column 1
    |
 83 | colour = 1
    | ^^^^^^
-unknown field `colour`, expected one of `conversations`, `renders`, `inbox`, `memory`, `digests`, `model`, `compact`, `compactor`, `compact_calls_per_hour`, `compact_bytes_per_day`, `settings`, `web_allow`, `drive_allow`, `drive_cli`, `repos`
+unknown field `colour`, expected one of `conversations`, `renders`, `inbox`, `memory`, `digests`, `tags`, `model`, `compact`, `compactor`, `compact_calls_per_hour`, `compact_bytes_per_day`, `settings`, `web_allow`, `drive_allow`, `drive_cli`, `repos`
 
 
 ## an unknown key in [persona]

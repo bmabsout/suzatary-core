@@ -61,11 +61,16 @@ fn every_write_route_refuses_a_bare_post_from_loopback() {
         "/api/act/pair",
         // Loopback reading a held value would hand it to the box's shell or the triage agent.
         "/api/held/reveal",
+        // Loopback cancelling a watch would be the box's shell or the triage agent closing it.
+        "/api/mail/watches/0123456789abcdef/cancel",
         // Loopback settling a batch would be the triage agent settling its own proposals.
         "/api/proposals/accept",
         "/api/proposals/reject",
         // The error report's gate keeps the log to the logins that may write.
         "/api/client-errors",
+        // Loopback writing a tag would be the box's shell or the triage agent writing one.
+        "/api/stores/tags/objects",
+        "/api/stores/tag-aliases/objects",
     ] {
         let response = common::agent()
             .post(format!("{base}{path}"))
@@ -91,14 +96,16 @@ fn nothing_but_the_named_writes_answers_a_post() {
         "/api/briefings",
         "/api/mail/inbox",
         "/api/mail/search",
+        // The watches' read; its one write is `…/watches/<id>/cancel`.
+        "/api/mail/watches",
         "/events",
         "/api/proposals",
         // A read whose sibling writes are separate paths.
         "/api/overview",
         // The memory's read; its one write is `…/memory/<id>/forget`.
         "/api/secretary/memory",
-        // A replica's pull; the box is the stores' only writer.
-        "/api/stores/inbox/objects",
+        // A replica's pull of the lines, which the box alone writes.
+        "/api/stores/lines/skeleton",
     ] {
         let mut response = common::agent()
             .post(format!("{base}{path}"))

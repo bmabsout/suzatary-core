@@ -39,10 +39,12 @@ cp "$1" "$out"
 const BOX: &str = "box";
 const REMOTE: &str = "my-files/Backups/box-vault";
 /// The box-local stores of words and keys, which only the vault backs up.
-const WORDS: [&str; 3] = [
+const WORDS: [&str; 5] = [
     "secretary-memory-texts",
     "secretary-digest-texts",
     "secretary-lines-keys",
+    "secretary-tags",
+    "secretary-tag-aliases",
 ];
 /// Which the owner trashed himself: no vault run may delete it.
 const THEIRS: &str = "an-owners-file.pdf";
@@ -194,8 +196,8 @@ fn vault_keeps_the_newest_seven_and_deletes_the_rest_from_the_trash() {
     );
 }
 
-/// The snapshot holds what nothing else holds: the memory's facts, the digest's summaries and
-/// the keys of locked words, each beside the history that names them.
+/// The snapshot holds what nothing else holds: the memory's facts, the digest's summaries, the
+/// keys of locked words and the topic tags.
 #[test]
 fn vault_snapshot_holds_the_words_and_the_keys_nothing_else_holds() {
     let vault = Vault::new("vault-words", &[]);

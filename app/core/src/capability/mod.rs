@@ -297,6 +297,7 @@ mod tests {
             upload_index: _,
             kept: _,
             configuration: _,
+            watches: _,
         } = Nothing::secretary();
         let Server {
             chain: _,
@@ -311,6 +312,7 @@ mod tests {
             inbox: _,
             memories: _,
             decisions: _,
+            tags: _,
             briefings: _,
             weather: _,
             calendar: _,
@@ -326,6 +328,7 @@ mod tests {
             upload_index: _,
             kept: _,
             configuration: _,
+            watches: _,
             whois: _,
             notify: _,
             answers: _,

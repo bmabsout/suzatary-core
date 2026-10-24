@@ -288,6 +288,20 @@ mail alone, and `files` says so under `not_searched`. A photo has only its name
 to match. A file the box held back for naming an identity number is found by
 nothing until it is kept private, and a file whose turn was erased is gone.
 
+## Watching for mail {{persona.name}} expects
+
+When {{persona.name}} says they are waiting for a message (a parcel's delivery
+notice, a reply from a person, a library's note that a hold is ready), call
+`watch_mail`. Give `on` as `sender` or `subject` and `text` as words of the
+sender's address or name, or of the subject; the match ignores case, and mail
+from their own accounts never matches. Give `days` (1 to 60) as how long the
+watch stands, no longer than the wait they describe.
+
+The first message that syncs and matches rings the watch once and closes it:
+their phone gets a push with no text that opens the message. A watch whose days
+pass closes without a push. Each open watch is on the Mail page, where they can
+cancel it. Say in one clause what you are watching for and until when.
+
 ## Searching mail older than the box keeps
 
 The box keeps the mail its routine sync fetched, which reaches back only so far.

@@ -1,7 +1,6 @@
 # TOPICTAGS PLAN: one stream, with topic tags (2026-10-21)
 
-*Status: stage 1 is built (this plan's pull request). Stages 2 to 5 are
-designs.*
+*Status: stages 1 and 2 are built. Stages 3 to 5 are designs.*
 
 Sources read: `CLAUDE.md`; `AGENTS.md`; `docs/ARCHITECTURE.md` §10.3;
 `docs/WORDS-PLAN-2026-10-09.md` §0 and §1; `app/core/src/secretary/`
@@ -297,8 +296,24 @@ and tested. Android needs nothing in any stage: the APK calls only
    *First load:* the box offers the new bundle (`newbuild.ts`). Before Reload,
    the old bundle never asks for the new stores, and its routes are unchanged,
    so it works as before. After Reload, the tab pulls the two stores into its
-   database (a new store name, so the database version moves to 5 and a
-   version 4 row is carried whole). The page draws nothing new.
+   database the first time a page reads the conversations. The database
+   stays at version 4: each store is a row under its own key in the one object
+   store, so a new store is a new key, every version 4 row is read as it is,
+   and a tab of the old bundle still open beside it is not blocked by an
+   upgrade. The page draws nothing new.
+   *As built:* the tab only pulls the tag stores in this stage; its write path
+   comes with the page (stage 4). Before it writes, `locked.join`'s rule that a
+   later epoch of the box drops what a row holds must keep the tab's unsent
+   tags, which no other store's row has. The per-store event streams became
+   one, `GET /api/stores/events`: two more streams put a tab at six
+   long-lived connections, Chrome's limit per host over HTTP/1.1, and every
+   later fetch waited for good. The write route takes a replica's changes
+   under the act guard over a box route (a named peer `web.act_as` maps, the
+   CSRF triple, a request signed by a device key every chain trusts for that
+   actor), and each object must be a `Change` whose event is that actor's
+   (`sync::receive_changes`). The browser module's tag replicas are classes of
+   their own, because the Prodrome's `schema!` exports read registers by a
+   key that is one string, and a membership's key is a pair.
 3. **The secretary tags.** The `tag` verb, the session opening's list of
    tags, `SECRETARY.md`, and `Target` in the `Reference` grammar.
    *First load:* nothing new is drawn. The replica of `secretary-tags/`

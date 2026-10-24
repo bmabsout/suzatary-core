@@ -17,6 +17,8 @@ pub struct World {
     devices: Devices,
     brain: Brain,
     usage: Metered,
+    /// The topic tags, which only a server serves and takes from a tab.
+    pub tags: suzatary_io::tags::Tags,
     /// Each chain's stores, in the instance file's order.
     pub chains: Vec<Stores>,
     /// What the box signs with: each chain's writer signs with the root, and a tapped device
@@ -63,6 +65,7 @@ impl World {
                 "the usage page: reading the allowance endpoint",
                 &instance.paths.usage_cache,
             )),
+            tags: instance.secretary.tags.open(),
             chains: instance
                 .chains
                 .iter()
@@ -104,6 +107,7 @@ impl World {
             upload_index,
             kept,
             configuration,
+            watches,
         } = self.opened.secretary(stores, &self.brain);
         Server {
             chain,
@@ -118,6 +122,7 @@ impl World {
             inbox,
             memories,
             decisions,
+            tags: self.tags.stores(),
             briefings,
             weather,
             calendar,
@@ -133,6 +138,7 @@ impl World {
             upload_index,
             kept,
             configuration,
+            watches,
             whois: &self.peers,
             notify: &self.push,
             answers: &*self.opened.answers,

@@ -2,7 +2,7 @@
 // The query is in the hash, so a search is a link and a navigation. Every string is attacker-controlled and set as text.
 
 import { inbox as fetchInbox, mailSearch } from "../wire/api";
-import type { MailRow } from "../wire/generated/wire";
+import type { MailRow, MailWatch } from "../wire/generated/wire";
 import empty from "../view/empty";
 import { el } from "../view/dom";
 import { chip, whenOf } from "../view/format";
@@ -16,6 +16,7 @@ import asked from "../app/asked";
 import reading from "../algebra/reading";
 import app from "../app/app";
 import address from "../shell/address";
+import watches from "./watches";
 
 /** The server's own cap (`MAX_MAIL`), so "Load more" asks for a page. */
 const PAGE = 50;
@@ -61,6 +62,7 @@ function accountChips(accounts: readonly string[], active: string, query: string
 }
 
 interface Listing {
+  readonly watches: readonly MailWatch[];
   readonly rows: readonly MailRow[];
   readonly accounts: readonly string[];
   /** The last page came back short, so asking again returns nothing. */
@@ -84,7 +86,7 @@ async function pageOf(arg: Arg, before: string): Promise<Page> {
 }
 
 function appended(listing: Listing, next: Page): Listing {
-  return { rows: [...listing.rows, ...next.rows], accounts: next.accounts, ended: next.rows.length < PAGE };
+  return { ...listing, rows: [...listing.rows, ...next.rows], accounts: next.accounts, ended: next.rows.length < PAGE };
 }
 
 function countLine(arg: Arg, rows: readonly MailRow[]): HTMLElement {
@@ -144,10 +146,14 @@ export function mount(root: HTMLElement, arg: Arg): Promise<Mounted> {
       ),
       searchBox(arg),
     ],
-    reads: () => reading.map(firstPages(arg), (p) => appended({ rows: [], accounts: [], ended: false }, p)),
+    reads: () =>
+      reading.map(reading.both(firstPages(arg), watches.listed), ([p, ws]) =>
+        appended({ watches: ws, rows: [], accounts: [], ended: false }, p),
+      ),
     shape: placeholder.ROWS,
     step: appended,
-    view: (listing, dispatch) => [
+    view: (listing, dispatch, again) => [
+      watches.view(listing.watches, again),
       el("div", { class: "facets" }, accountChips(listing.accounts, arg.account, arg.query)),
       countLine(arg, listing.rows),
       el(

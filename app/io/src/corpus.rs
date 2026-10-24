@@ -31,6 +31,8 @@ pub struct Operator {
     clock: crate::clock::SystemClock,
     /// The owner's zone, whose day the sync window counts back from.
     zone: suzatary_core::zone::Zone,
+    /// The watches every sync rings.
+    watches: crate::watches::Watches,
 }
 
 impl std::fmt::Debug for Operator {
@@ -43,8 +45,8 @@ impl std::fmt::Debug for Operator {
 
 impl Operator {
     /// The corpus, the dedup authority, the syncer, where a triage pass
-    /// marks that it reached its trusted push, where each sync keeps its report, and the
-    /// owner's zone.
+    /// marks that it reached its trusted push, where each sync keeps its report, the
+    /// owner's zone, and the watches each sync rings.
     #[must_use]
     pub fn new(
         mail: Notmuch,
@@ -53,6 +55,7 @@ impl Operator {
         heartbeat: impl Into<PathBuf>,
         sync_status: impl Into<PathBuf>,
         zone: suzatary_core::zone::Zone,
+        watches: crate::watches::Watches,
     ) -> Self {
         let heartbeat = heartbeat.into();
         Self {
@@ -64,6 +67,7 @@ impl Operator {
             syncer,
             clock: crate::clock::SystemClock,
             zone,
+            watches,
         }
     }
 
@@ -109,6 +113,27 @@ impl Operator {
             .map_err(|failed| CorpusError::Refused(failed.to_string()))
     }
 
+    /// Ring each open watch that the corpus now holds a match for. A failure is said on stderr
+    /// and fails nothing: the pull succeeded, and the next sync asks the same question again.
+    fn ring(&self) {
+        let own: Vec<&str> = self
+            .syncer
+            .accounts()
+            .accounts()
+            .iter()
+            .map(|account| account.email.as_str())
+            .collect();
+        let now = prodrome_core::fpl::instant_of(self.clock.now());
+        match suzatary_core::mail::watch::ring(&self.watches, self, &own, now) {
+            Ok(failed) => {
+                for refused in failed {
+                    eprintln!("sync: a watch did not ring: {}", refused.message());
+                }
+            }
+            Err(refused) => eprintln!("sync: no watch rang: {}", refused.message()),
+        }
+    }
+
     /// The syncer, for the CLI's own `sync`.
     #[must_use]
     pub fn syncer(&self) -> &Syncer {
@@ -123,6 +148,7 @@ impl Corpus for Operator {
     /// gate, the briefing and the agent's `last_sync`.
     fn sync(&self) -> Result<verbs::SyncReport, CorpusError> {
         let report = self.syncer.sync(self.today());
+        self.ring();
         suzatary_core::mail::health::record(
             &self.health,
             &report,
@@ -278,6 +304,7 @@ mod tests {
             root.join("triage-heartbeat"),
             root.join("last-sync.json"),
             suzatary_core::zone::Zone::UTC,
+            crate::watches::Watches::open(root.join("local/watches")),
         )
     }
 

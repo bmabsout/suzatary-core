@@ -41,7 +41,7 @@ pub struct Since(Vec<prodrome_core::event::Hash>);
 pub struct Wanted(query::Hashes);
 
 /// A replica's objects, each a canonical literal, refused one by one later.
-pub struct Literals(Vec<String>);
+pub struct Literals(pub(super) Vec<String>);
 
 /// A replica's post is a whole chain segment, not one action line.
 const MAX_OBJECTS_BYTES: usize = 4_194_304;

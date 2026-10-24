@@ -1,76 +1,72 @@
-//! The secretary's two stores as replicas a tab holds: what a replica lacks, and their heads as
-//! they move. The inbox and the conversations' lines are written only by the box, so a tab only
+//! The secretary's stores as replicas a tab holds: what a replica lacks, and their heads as they
+//! move. The inbox and the conversations' lines are written only by the box, so a tab only
 //! pulls, a piece at a time; the lines' pull carries the keys of the words it sends. The lines'
 //! skeleton is that pull without the literals, and every store's literals are asked for by hash
-//! (`docs/LAZYSYNC-PLAN-2026-10-21.md`).
+//! (`docs/LAZYSYNC-PLAN-2026-10-21.md`). The two tag stores are written by a tab too, which
+//! posts its replica's changes.
 
 use axum::Json;
 use suzatary_core::capability::Server;
 use suzatary_core::refusal::Refusal;
 use suzatary_core::store::StoreError;
+use suzatary_core::wire::StoreName;
 use suzatary_core::{query, routes, wire};
 
 use super::Chained;
 use super::call::Call;
+use super::chain::Literals;
 use super::guard::Reader;
 use super::params::{Asked, Params};
 use super::reply::Immutable;
 
-/// A store a tab holds a replica of, named by its path segment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Store {
-    /// The proposals, `inbox`.
-    Inbox,
-    /// The conversations' lines, `lines`.
-    Lines,
+/// The store a segment names; any other is not found.
+///
+/// # Errors
+/// [`Refusal::not_found`] for a name that is no store's.
+pub fn named(segment: &str) -> Result<StoreName, Refusal> {
+    match segment {
+        "inbox" => Ok(StoreName::Inbox),
+        "lines" => Ok(StoreName::Lines),
+        "tags" => Ok(StoreName::Tags),
+        "tag-aliases" => Ok(StoreName::TagAliases),
+        // A page from before the lines asks for the store they replaced: it is told a new version is ready.
+        "conversations" => Err(Refusal::new(
+            suzatary_core::refusal::Status::UpgradeRequired,
+            "the conversations are read from the lines now: a new version of this page is ready, and Reload loads it",
+        )),
+        other => Err(Refusal::not_found(format!(
+            "a tab holds the inbox, the lines, the tags and the tag aliases, not {}",
+            suzatary_core::refusal::shown(other)
+        ))),
+    }
 }
 
-impl Store {
-    /// The store a segment names; any other is not found.
-    ///
-    /// # Errors
-    /// [`Refusal::not_found`] for a name that is no store's.
-    pub fn named(segment: &str) -> Result<Self, Refusal> {
-        match segment {
-            "inbox" => Ok(Self::Inbox),
-            "lines" => Ok(Self::Lines),
-            // A page from before the lines asks for the store they replaced: it is told a new version is ready.
-            "conversations" => Err(Refusal::new(
-                suzatary_core::refusal::Status::UpgradeRequired,
-                "the conversations are read from the lines now: a new version of this page is ready, and Reload loads it",
-            )),
-            other => Err(Refusal::not_found(format!(
-                "a tab holds the inbox and the lines, not {}",
-                suzatary_core::refusal::shown(other)
-            ))),
-        }
-    }
-
-    /// Its heads, sorted.
-    ///
-    /// # Errors
-    /// The store's own.
-    pub fn heads(self, caps: &Server<'_>) -> Result<Vec<String>, StoreError> {
-        let tips = match self {
-            Self::Inbox => caps.inbox.tips()?,
-            Self::Lines => caps.conversations.lines.tips()?,
-        };
-        let mut heads: Vec<String> = tips.iter().map(|h| h.as_str().to_owned()).collect();
-        heads.sort();
-        Ok(heads)
-    }
+/// A store's heads, sorted.
+///
+/// # Errors
+/// The store's own.
+pub fn heads(store: StoreName, caps: &Server<'_>) -> Result<Vec<String>, StoreError> {
+    let tips = match store {
+        StoreName::Inbox => caps.inbox.tips()?,
+        StoreName::Lines => caps.conversations.lines.tips()?,
+        StoreName::Tags => caps.tags.memberships.tips()?,
+        StoreName::TagAliases => caps.tags.aliases.tips()?,
+    };
+    let mut heads: Vec<String> = tips.iter().map(|h| h.as_str().to_owned()).collect();
+    heads.sort();
+    Ok(heads)
 }
 
 /// A store, and the heads a replica of it holds.
 pub struct Since {
-    store: Store,
+    store: StoreName,
     since: Vec<prodrome_core::event::Hash>,
 }
 
 impl Params for Since {
     fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
         Ok(Self {
-            store: Store::named(asked.segment("store")?)?,
+            store: named(asked.segment("store")?)?,
             since: query::since(asked.query("since"))?,
         })
     }
@@ -84,8 +80,50 @@ pub fn objects(call: &Call<Reader, Since, ()>) -> Result<Json<wire::StorePayload
     let (epochs, now) = (call.state.epochs.as_ref(), caps.clock.now());
     let cut = routes::Cut::PIECE;
     match store {
-        Store::Inbox => routes::store_objects_since(caps.inbox, "inbox", since, epochs, now, cut),
-        Store::Lines => routes::lines_since(caps.conversations, since, epochs, now, cut),
+        StoreName::Inbox => {
+            routes::store_objects_since(caps.inbox, "inbox", since, epochs, now, cut)
+        }
+        StoreName::Lines => routes::lines_since(caps.conversations, since, epochs, now, cut),
+        StoreName::Tags => {
+            routes::store_objects_since(caps.tags.memberships, "tags", since, epochs, now, cut)
+        }
+        StoreName::TagAliases => {
+            routes::store_objects_since(caps.tags.aliases, "tag-aliases", since, epochs, now, cut)
+        }
+    }
+    .map(Json)
+}
+
+/// A store a tab writes, named by its path segment: one of the tag stores.
+pub enum Written {
+    /// `tags`.
+    Tags,
+    /// `tag-aliases`.
+    TagAliases,
+}
+
+impl Params for Written {
+    fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
+        match named(asked.segment("store")?)? {
+            StoreName::Tags => Ok(Self::Tags),
+            StoreName::TagAliases => Ok(Self::TagAliases),
+            StoreName::Inbox | StoreName::Lines => Err(Refusal::method_not_allowed(
+                "the box alone writes the inbox and the lines",
+            )),
+        }
+    }
+}
+
+/// `POST /api/stores/<store>/objects`: a replica of a tag store handing its changes over, each
+/// written as the actor the request was proven for.
+pub fn take(
+    call: &Call<prodrome_core::event::Actor, Written, Literals>,
+) -> Result<Json<wire::ReceiptPayload>, Refusal> {
+    let tags = call.state.first.caps.tags;
+    let (posted, actor) = (&call.body.0, &call.guard);
+    match call.params {
+        Written::Tags => routes::receive_changes(tags.memberships, posted, actor),
+        Written::TagAliases => routes::receive_changes(tags.aliases, posted, actor),
     }
     .map(Json)
 }
@@ -117,14 +155,14 @@ pub fn skeleton(
 
 /// A store, and the objects asked of it by hash.
 pub struct Wanted {
-    store: Store,
+    store: StoreName,
     hashes: query::Hashes,
 }
 
 impl Params for Wanted {
     fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
         Ok(Self {
-            store: Store::named(asked.segment("store")?)?,
+            store: named(asked.segment("store")?)?,
             hashes: query::Hashes::parse(asked.query("hashes"))?,
         })
     }
@@ -138,8 +176,10 @@ pub fn content(
     let caps = call.state.first.caps;
     let Wanted { store, hashes } = &call.params;
     match store {
-        Store::Inbox => routes::content(caps.inbox, hashes),
-        Store::Lines => routes::content(caps.conversations.lines, hashes),
+        StoreName::Inbox => routes::content(caps.inbox, hashes),
+        StoreName::Lines => routes::content(caps.conversations.lines, hashes),
+        StoreName::Tags => routes::content(caps.tags.memberships, hashes),
+        StoreName::TagAliases => routes::content(caps.tags.aliases, hashes),
     }
     .map(|answer| Immutable(Json(answer)))
 }

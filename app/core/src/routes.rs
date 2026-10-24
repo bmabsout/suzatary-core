@@ -1065,34 +1065,66 @@ pub fn receive_objects(
         actor,
         &chain.name,
     );
-    Ok((
-        wire::ReceiptPayload {
-            heads: head_set(store)?,
-            adopted: outcome
-                .taken
-                .iter()
-                .map(|(name, _)| name.as_str().to_owned())
-                .collect(),
-            already: outcome
-                .already
-                .iter()
-                .map(|name| name.as_str().to_owned())
-                .collect(),
-            refused: outcome
-                .refused
-                .iter()
-                .map(|refused| wire::RefusedObject {
-                    hash: refused
-                        .name
-                        .as_ref()
-                        .map_or_else(String::new, |name| name.as_str().to_owned()),
-                    reason: refused.reason.said(),
-                    kind: refused.reason.kind(),
-                })
-                .collect(),
-        },
-        heard,
-    ))
+    Ok((receipt(store, &outcome)?, heard))
+}
+
+/// `POST /api/stores/<store>/objects`, for a store a tab writes that the box began and nobody
+/// signs: decided under the write lock, then what the outcome names taken in, through the
+/// store's own verify-on-receive.
+///
+/// # Errors
+/// More than [`MAX_POSTED`] objects, or the store not read or not written.
+pub fn receive_changes<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+    posted: &[String],
+    actor: &prodrome_core::event::Actor,
+) -> Answered<wire::ReceiptPayload>
+where
+    E::Vocabulary: Default,
+{
+    if posted.len() > MAX_POSTED {
+        return Err(Refusal::bad_request(format!(
+            "at most {MAX_POSTED} objects per post, got {}",
+            posted.len()
+        )));
+    }
+    let _held = store.locked()?;
+    let held = store.objects()?.into_iter().map(|(name, _)| name).collect();
+    let outcome = crate::sync::receive_changes::<E>(&held, posted, actor);
+    store.accept(&outcome.taken)?;
+    receipt(store, &outcome)
+}
+
+/// What a post took, already held and refused, beside the store's heads after it.
+fn receipt<E: prodrome_core::schema::Schema>(
+    store: &dyn Prodrome<E>,
+    outcome: &crate::sync::Outcome,
+) -> Answered<wire::ReceiptPayload> {
+    Ok(wire::ReceiptPayload {
+        heads: head_set(store)?,
+        adopted: outcome
+            .taken
+            .iter()
+            .map(|(name, _)| name.as_str().to_owned())
+            .collect(),
+        already: outcome
+            .already
+            .iter()
+            .map(|name| name.as_str().to_owned())
+            .collect(),
+        refused: outcome
+            .refused
+            .iter()
+            .map(|refused| wire::RefusedObject {
+                hash: refused
+                    .name
+                    .as_ref()
+                    .map_or_else(String::new, |name| name.as_str().to_owned()),
+                reason: refused.reason.said(),
+                kind: refused.reason.kind(),
+            })
+            .collect(),
+    })
 }
 
 /// `GET /api/about`: the release this binary was built as and its build, so the page shows what

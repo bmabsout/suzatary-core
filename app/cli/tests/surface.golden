@@ -21,6 +21,8 @@ GET /api/mail/inbox read -
 GET /api/mail/message/{id} read -
 GET /api/mail/search read -
 GET /api/mail/thread/{id} read -
+GET /api/mail/watches read -
+POST /api/mail/watches/{id}/cancel tap signed
 GET /api/me read -
 GET /api/oauth/google/callback read -
 GET /api/oauth/google/consent/{card} read -
@@ -52,10 +54,11 @@ GET /api/secretary/conversations/{conversation}/stream read -
 POST /api/secretary/conversations/{conversation}/title act signed
 GET /api/secretary/memory read -
 POST /api/secretary/memory/{id}/forget act signed
+GET /api/stores/events read -
 GET /api/stores/lines/skeleton read -
 GET /api/stores/{store}/content read -
-GET /api/stores/{store}/events read -
 GET /api/stores/{store}/objects read -
+POST /api/stores/{store}/objects act signed
 GET /api/tip read -
 GET /api/todo/{id} read -
 GET /api/tree read -

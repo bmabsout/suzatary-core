@@ -117,6 +117,9 @@ cd "$DATA"
 # Content-addressed and append-only like a chain, so the rewrite check below
 # walks it too. Each store writes its own `.gitattributes` once, telling git
 # never to rewrite an object's bytes, and it rides with the store.
+# The topic tags (`secretary-tags/`, `secretary-tag-aliases/`) are never
+# staged and the pattern refuses them: a tag's name is words, and a pushed
+# object cannot be erased, so both stores stay on the box and in the vault.
 # `requests/` is each request a device signed and the server performed, kept
 # once under its name as provenance only (who asked, as what actor, when,
 # and the chain objects it wrote; never a body or an answer, which stay on

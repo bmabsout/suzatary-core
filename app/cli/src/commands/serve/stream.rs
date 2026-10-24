@@ -16,7 +16,7 @@ use super::params::Asked;
 use super::reply::refused;
 use super::route::blocking;
 use super::secretary::conversation_named;
-use super::stores::Store;
+use super::stores;
 
 /// How often [`events`] polls.
 const POLL_SECONDS: f64 = 2.0;
@@ -49,26 +49,25 @@ pub async fn events(AxumState(state): AxumState<State>, raw: RawPathParams) -> R
         .into_response()
 }
 
-/// `GET /api/stores/<store>/events`: a store's heads now, and again whenever they change, polled
-/// as [`events`] polls a chain's.
-pub async fn store_events(AxumState(state): AxumState<State>, raw: RawPathParams) -> Response {
-    let store = match Asked::of(&raw, HashMap::new())
-        .segment("store")
-        .and_then(Store::named)
-    {
-        Ok(store) => store,
-        Err(refusal) => return refused(&refusal),
-    };
+/// `GET /api/stores/events`: each store's heads now, and again whenever they change, one frame
+/// per store that moved, polled as [`events`] polls a chain's. One stream for every store, so a
+/// store the box adds costs a tab no connection of its own.
+pub async fn store_events(AxumState(state): AxumState<State>) -> Response {
     let caps = state.first.caps;
     let stream = async_stream::stream! {
-        let mut heads = None;
+        let mut said: HashMap<wire::StoreName, Vec<String>> = HashMap::new();
         loop {
-            if let Ok(now) = store.heads(caps)
-                && heads.as_ref() != Some(&now)
-                && let Ok(data) = frame(&now)
-            {
-                heads = Some(now);
-                yield Ok::<_, std::convert::Infallible>(Event::default().data(data));
+            for store in wire::StoreName::ALL {
+                if let Ok(now) = stores::heads(store, caps)
+                    && said.get(&store) != Some(&now)
+                    && let Ok(data) = serde_json::to_string(&wire::StoreFrame {
+                        store,
+                        heads: now.clone(),
+                    })
+                {
+                    said.insert(store, now);
+                    yield Ok::<_, std::convert::Infallible>(Event::default().data(data));
+                }
             }
             tokio::time::sleep(std::time::Duration::from_secs_f64(POLL_SECONDS)).await;
         }

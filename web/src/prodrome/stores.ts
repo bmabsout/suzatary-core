@@ -1,15 +1,16 @@
-// The secretary's two stores as replicas this tab holds: the box alone writes them, so a replica is a down-set
-// of the box's objects, held beside the keys that open their words, and two of one store join as `locked` joins.
+// The secretary's stores as replicas this tab holds. The box alone writes the inbox and the lines, so a replica is a
+// down-set of the box's objects, held beside the keys that open their words, and two of one store join as `locked`
+// joins. The two tag stores are held the same way, with no keys; the box takes a tab's tags by `POST`.
 
 import heads from "./heads"
 import locked from "./locked"
 import type { Box, Replica } from "./replica"
 import { said } from "./replica"
-import type { ObjectsPayload } from "../wire/generated/wire"
+import type { ObjectsPayload, StoreName } from "../wire/generated/wire"
 
 export namespace stores {
-  export type Name = "inbox" | "lines"
-  export const NAMES: readonly Name[] = ["inbox", "lines"]
+  export type Name = StoreName
+  export const NAMES: readonly Name[] = ["inbox", "lines", "tags", "tag-aliases"]
 
   export type T = { readonly [k in Name]: locked.Row }
   // A row taken in, joined; or keys whose blocks are forgotten, dropped.
@@ -17,7 +18,7 @@ export namespace stores {
     | { readonly type: "Held"; readonly name: Name; readonly row: locked.Row }
     | { readonly type: "Forgot"; readonly name: Name; readonly keys: readonly string[] }
 
-  export const NONE: T = { inbox: locked.NONE, lines: locked.NONE }
+  export const NONE: T = { inbox: locked.NONE, lines: locked.NONE, tags: locked.NONE, "tag-aliases": locked.NONE }
 
   // What a reading or a pull can see: the generation, the objects, the box's heads, the policy they are read under and
   // the keys, never the instant they were heard. A reset of an empty row holds what it held, and is still a step.

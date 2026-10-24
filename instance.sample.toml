@@ -84,6 +84,10 @@ compact_calls_per_hour = 30
 compact_bytes_per_day = 33554432
 settings = ".claude/secretary-settings.json"
 
+[secretary.tags]
+memberships = "secretary-tags"
+aliases = "secretary-tag-aliases"
+
 [persona]
 name = "Ada"
 city = "London"

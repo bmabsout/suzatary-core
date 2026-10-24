@@ -2429,6 +2429,18 @@ fn the_answers_vector_holds_every_answer() {
         accounts: Vec::new(),
         messages: vec![mail_row()],
     }]);
+    samples.add([wire::WatchesPayload {
+        watches: [wire::WatchOn::Sender, wire::WatchOn::Subject]
+            .into_iter()
+            .map(|on| wire::MailWatch {
+                id: "0123456789abcdef".to_owned(),
+                on,
+                text: "counsel".to_owned(),
+                set: "2026-09-02T12:00:00".to_owned(),
+                until: "2026-09-16T12:00:00".to_owned(),
+            })
+            .collect(),
+    }]);
     samples.add([wire::ThreadPayload {
         thread: "000000000000c3fb".to_owned(),
         messages: vec![wire::MailPage {
@@ -2675,6 +2687,16 @@ fn the_answers_vector_holds_every_answer() {
             "c".repeat(64)
         ),
     }]);
+    samples.add([
+        wire::StoreFrame {
+            store: wire::StoreName::Lines,
+            heads: vec![tip.clone()],
+        },
+        wire::StoreFrame {
+            store: wire::StoreName::TagAliases,
+            heads: Vec::new(),
+        },
+    ]);
 
     let names: std::collections::BTreeSet<String> = wire::answer_names().into_iter().collect();
     let covered: std::collections::BTreeSet<String> = samples.0.keys().cloned().collect();

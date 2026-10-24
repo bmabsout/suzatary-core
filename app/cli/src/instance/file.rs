@@ -238,6 +238,8 @@ pub struct Secretary {
     /// The digest's history: which nodes of the conversations' summary tree were summarised, by
     /// the node's name; their words are [`Secretary::digest_texts`].
     pub digests: PathBuf,
+    /// The two tag stores, box-local, vaulted and never pushed.
+    pub tags: Tags,
     /// The model every job falls back to, pinned because a drifting default is
     /// a behaviour change nobody committed.
     pub model: ModelName,
@@ -278,6 +280,7 @@ impl Default for Secretary {
             inbox: PathBuf::from("inbox"),
             memory: PathBuf::from("memory"),
             digests: PathBuf::from("digests"),
+            tags: Tags::default(),
             model: ModelName::parse("claude-opus-5-5").expect("a model name"),
             // Off until the owner turns it on: the first run compacts every line already stored.
             compact: false,
@@ -373,10 +376,42 @@ impl Secretary {
             inbox: data.under(&self.inbox),
             memory: data.under(&self.memory),
             digests: data.under(&self.digests),
+            tags: Tags {
+                memberships: data.under(&self.tags.memberships),
+                aliases: data.under(&self.tags.aliases),
+            },
             settings: code.under(&self.settings),
             drive_cli: self.drive_cli.map(|named| data.under(&named)),
             ..self
         }
+    }
+}
+
+/// `[secretary] tags`: where the topic tags and their aliases are kept. A tag name is words, so
+/// both stores stay on the box: the vault carries them and the data push refuses them.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Tags {
+    /// Which tags each round and note carries.
+    pub memberships: PathBuf,
+    /// Which tag names stand for another.
+    pub aliases: PathBuf,
+}
+
+impl Default for Tags {
+    fn default() -> Self {
+        Self {
+            memberships: PathBuf::from("secretary-tags"),
+            aliases: PathBuf::from("secretary-tag-aliases"),
+        }
+    }
+}
+
+impl Tags {
+    /// Both stores, opened.
+    #[must_use]
+    pub fn open(&self) -> suzatary_io::tags::Tags {
+        suzatary_io::tags::Tags::open(self.memberships.clone(), self.aliases.clone())
     }
 }
 
