@@ -518,8 +518,25 @@ export namespace storesync {
   }
 
   // Each scope's reading, kept while the stores it read stand: a later change frees it.
-  const reads = new Map<string, { readonly t: stores.T; readonly s: Secretary; readonly lines: Conversations }>()
+  const reads = new Map<string, { readonly t: stores.T; readonly s: Secretary }>()
   const scopeKey = (scope: lines.Scope): string => (scope.type === "Whole" ? "" : scope.id)
+
+  // Each scope's lines, kept while the lines' replica stands, however the other stores move: a `Conversations` reads
+  // its lines once (every line verified and folded, seconds on a phone for the whole store) and every reading of it
+  // after that reuses what it read.
+  const linesOf = new Map<string, { readonly at: string; readonly lines: Conversations }>()
+  const conversationsOf = (core: Core, key: string, at: string, objects: readonly StoredObject[]): Conversations => {
+    const kept = linesOf.get(key)
+    if (kept?.at === at) return kept.lines
+    for (const [k, l] of linesOf) {
+      if (l.at === at) continue
+      l.lines.free()
+      linesOf.delete(k)
+    }
+    const made = new core.Conversations(objectsOf(objects))
+    linesOf.set(key, { at, lines: made })
+    return made
+  }
 
   // The reading of `scope` once every line it reads is held, fetching what is not, a conversation's before the whole
   // store's; the question runs while the reading is current, so nothing may keep `s`.
@@ -536,15 +553,14 @@ export namespace storesync {
       const key = scopeKey(scope)
       const was = reads.get(key)
       if (was?.t === t) return ask(was.s)
-      const read = new rd.core.Conversations(objectsOf(need.objects))
-      const s = secretaryOf(rd.core, t.inbox.replica.objects, read, t.lines.keys)
       for (const [k, r] of reads) {
         if (k !== key && r.t === t) continue
         r.s.free()
-        r.lines.free()
         reads.delete(k)
       }
-      reads.set(key, { t, s, lines: read })
+      const read = conversationsOf(rd.core, key, setOf(t.lines.replica), need.objects)
+      const s = secretaryOf(rd.core, t.inbox.replica.objects, read, t.lines.keys)
+      reads.set(key, { t, s })
       if (scope.type === "Whole") readings.told("stores", excluded.left(s.excluded))
       return ask(s)
     }
