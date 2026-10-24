@@ -652,12 +652,12 @@ mod tests {
     }
 
     /// A store that reads as its inner one until told to fail, and then refuses every read.
-    struct Failing<E: prodrome_core::schema::Schema> {
+    struct Failing<E: crate::store::Store> {
         inner: InMemory<E>,
         failing: std::sync::atomic::AtomicBool,
     }
 
-    impl<E: prodrome_core::schema::Schema<Vocabulary: Default>> Failing<E> {
+    impl<E: crate::store::Store<Vocabulary: Default>> Failing<E> {
         fn new() -> Self {
             Self {
                 inner: InMemory::default(),
@@ -666,7 +666,7 @@ mod tests {
         }
     }
 
-    impl<E: prodrome_core::schema::Schema> Prodrome<E> for Failing<E> {
+    impl<E: crate::store::Store> Prodrome<E> for Failing<E> {
         fn objects(
             &self,
         ) -> Result<

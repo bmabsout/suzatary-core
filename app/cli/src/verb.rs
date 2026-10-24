@@ -37,7 +37,7 @@ pub enum Verb {
     Decision(decision::Args),
     /// The version the project chain reads, and the release a train cuts from it.
     Release(release::Args),
-    /// Settle a batch the triage agent proposed: accept it onto the chain, or reject it.
+    /// Carry the triage agent's open batches into the Inbox as its cards: the one migration.
     Proposals(proposals::Args),
     /// Who may write: the box's signing keys, and the device keys trusted or revoked.
     Device(device::Args),

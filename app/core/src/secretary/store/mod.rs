@@ -55,7 +55,7 @@ pub use review_failure::ReviewFailure;
 pub use rewind::Rewind;
 pub use said::Said;
 pub use scope::Scope;
-pub use standing::{Standing, refused};
+pub use standing::{Revised, Standing, refused};
 pub use state::{ConversationState, state};
 pub use stored::{NotAConversation, Stored, stopped_by};
 pub use title::{NotATitle, Title};

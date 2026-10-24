@@ -201,25 +201,5 @@ pub fn waiting(call: &Call<Reader, (), ()>) -> Result<Json<wire::WaitingPayload>
         .values()
         .map(|chained| chained.policy.name.clone())
         .collect();
-    let batches = |name: &suzatary_core::chains::ChainName| {
-        call.state
-            .chains
-            .get(name.as_str())
-            .map_or(Ok(Vec::new()), |chained| {
-                let target = chained.caps.secretary.chain.objects()?;
-                let replica = chained.caps.secretary.proposals.objects()?;
-                Ok(suzatary_core::proposals::batches(
-                    &suzatary_core::sync::Objects::of(&target),
-                    &suzatary_core::sync::Objects::of(&replica),
-                ))
-            })
-    };
-    routes::waiting(
-        &inbox,
-        caps.secretary.conversations.lines,
-        &set,
-        &chains,
-        &batches,
-    )
-    .map(Json)
+    routes::waiting(&inbox, caps.secretary.conversations.lines, &set, &chains).map(Json)
 }

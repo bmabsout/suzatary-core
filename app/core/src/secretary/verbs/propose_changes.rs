@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::refusal::Refusal;
 use crate::secretary::changes::{self, Changeset};
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{propose, reasons_of, serves_of};
+use crate::secretary::verbs::FilingArgs;
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::{Chained, Verb};
 
@@ -16,10 +16,8 @@ pub struct ProposeChanges;
 pub struct ProposeChangesArgs {
     #[schemars(required, with = "Vec<Value>")]
     acts: Option<Value>,
-    why: String,
-    sources: String,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 impl ProposeChangesArgs {
@@ -63,7 +61,7 @@ impl Verb for ProposeChanges {
         takes, and mean the same thing.";
 
     fn run(call: &Call<'_>, Chained(args): Chained<ProposeChangesArgs>) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let changeset = Changeset::new(
             call.chain.name.as_str(),
             changes::acts_of(args.acts.as_ref())?,
@@ -81,21 +79,23 @@ impl Verb for ProposeChanges {
         changes::checked(
             &changeset,
             call.caps.chain,
-            crate::zone::Moment {
-                at: call.caps.clock.now(),
-                zone: call.deployment.zone,
+            &changes::Building {
+                now: crate::zone::Moment {
+                    at: call.caps.clock.now(),
+                    zone: call.deployment.zone,
+                },
+                by: crate::secretary::WRITES_AS,
+                categories: &known,
+                untrusted: &call.chain.untrusted,
+                typeset: call.caps.render,
             },
-            &known,
-            call.caps.render,
         )?;
 
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Changes(changeset.clone()),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         Ok(json!({
             "proposed": index,

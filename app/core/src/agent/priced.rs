@@ -31,16 +31,6 @@ pub(crate) const PRICE_SPELLINGS: &str = "a price is ONE of `priority`, `deadlin
      `recur_every_days` or `periodic_every_days`: they are different prices and a todo \
      holds one";
 
-/// The default of `deadline_start_priority` where a schema prints it.
-pub(crate) fn start_priority() -> Caught<String> {
-    Caught::from("60%".to_owned())
-}
-
-/// The default of `deadline_end_priority` where a schema prints it.
-pub(crate) fn end_priority() -> Caught<String> {
-    Caught::from("5%".to_owned())
-}
-
 impl Priced {
     /// The one price the call names, if any; two are refused, since a todo holds one.
     ///

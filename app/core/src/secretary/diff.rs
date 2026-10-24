@@ -1,7 +1,5 @@
-//! A proposal as a person deciding about it reads it.
-//!
-//! A triage batch (sealed objects) and a secretary changeset (unsealed acts) are both mapped into
-//! [`Proposed`] rows and drawn by one [`shown`], so neither can start eliding a field.
+//! A changeset as a person deciding about it reads it: each event its acts build, as a row with
+//! its before and after.
 //!
 //! Fields are shown as prose, not as `crate::view::authored_diff`'s canonical prints (which are
 //! evidence against the bytes): a person accepting a sentence is shown the sentence, and a price
@@ -15,69 +13,22 @@ use prodrome_core::fpl;
 use prodrome_core::payload::Payload as _;
 
 use crate::believed::records;
-use crate::record::{Authored, Envelope, Node, TodoEvent};
+use crate::record::{Authored, Node, TodoEvent};
 use crate::wire;
 
-use super::Batch;
-
-/// One proposed change, whether carried as a sealed object or an unsealed act.
-#[derive(Debug, Clone)]
-pub struct Proposed<'a> {
-    /// An object's hash in a batch; an act's position in a changeset, its only name.
-    pub name: String,
-    /// The act, or `None` for a merge, which asserts no fact about a todo.
-    pub event: Option<&'a TodoEvent>,
-    /// What in the same proposal must be taken with it; empty for a changeset, confirmed whole.
-    pub needs: Vec<String>,
-}
-
-/// One batch, rendered; `nodes` is the target chain, which the "before" column is read from.
-#[must_use]
-pub fn shown_batch(nodes: &[Node], batch: &Batch) -> wire::ProposedBatch {
-    let inside: std::collections::BTreeSet<prodrome_core::event::Hash> =
-        batch.objects.iter().map(|(name, _)| name.clone()).collect();
-    // A parent the target already holds need not be taken, so `needs` is over this batch only.
-    let rows: Vec<Proposed<'_>> = batch
-        .objects
-        .iter()
-        .map(|(name, envelope)| Proposed {
-            name: name.as_str().to_owned(),
-            event: envelope.event(),
-            needs: needs_of(envelope, &inside),
-        })
-        .collect();
-    wire::ProposedBatch {
-        head: batch.head.as_str().to_owned(),
-        at: batch.at().map(iso).unwrap_or_default(),
-        actor: batch.actor().to_owned(),
-        objects: shown(nodes, &rows),
-    }
-}
-
-fn needs_of(
-    envelope: &Envelope,
-    inside: &std::collections::BTreeSet<prodrome_core::event::Hash>,
-) -> Vec<String> {
-    prodrome_core::event::parents_of(envelope)
-        .into_iter()
-        .filter(|parent| inside.contains(parent))
-        .map(|parent| parent.as_str().to_owned())
-        .collect()
-}
-
-/// Every row of one proposal, with the "before" column advancing through it.
+/// Every row of one changeset, with the "before" column advancing through it.
 ///
 /// Rows are read in order, so a todo added and then edited shows the first row's after as the
 /// second row's before.
 #[must_use]
-pub fn shown(nodes: &[Node], rows: &[Proposed<'_>]) -> Vec<wire::ProposedObject> {
+pub fn shown(nodes: &[Node], rows: &[TodoEvent]) -> Vec<wire::ProposedObject> {
     // Folded at the latest claimed instant, not a clock, so "before" does not depend on when the
     // page was opened.
     let horizon = nodes
         .iter()
         .filter_map(|node| node.event())
         .map(TodoEvent::at)
-        .chain(rows.iter().filter_map(|row| row.event).map(TodoEvent::at))
+        .chain(rows.iter().map(TodoEvent::at))
         .max();
     let mut current: BTreeMap<TodoId, Authored> = horizon
         .map(|at| {
@@ -93,27 +44,21 @@ pub fn shown(nodes: &[Node], rows: &[Proposed<'_>]) -> Vec<wire::ProposedObject>
     // Filled as the walk goes: acting on a todo this same proposal adds is self-contained.
     let mut authored: std::collections::BTreeSet<TodoId> = std::collections::BTreeSet::new();
     rows.iter()
-        .map(|row| shown_object(row, &mut current, &on_chain, &mut authored))
+        .enumerate()
+        .map(|(index, event)| {
+            shown_object(index + 1, event, &mut current, &on_chain, &mut authored)
+        })
         .collect()
 }
 
 /// One row, and the running "before" advanced past it.
 fn shown_object(
-    row: &Proposed<'_>,
+    position: usize,
+    event: &TodoEvent,
     current: &mut BTreeMap<TodoId, Authored>,
     on_chain: &std::collections::BTreeSet<TodoId>,
     authored: &mut std::collections::BTreeSet<TodoId>,
 ) -> wire::ProposedObject {
-    let hash = row.name.clone();
-    let needs = row.needs.clone();
-    let Some(event) = row.event else {
-        // A merge has nothing to diff, but is still a row: it is an object a pick has to take.
-        return wire::ProposedObject {
-            hash,
-            needs,
-            act: wire::ObjectAct::Merge,
-        };
-    };
     let todo = event.todo().clone();
     let about = |current: &BTreeMap<TodoId, Authored>,
                  authored: &std::collections::BTreeSet<TodoId>| {
@@ -126,7 +71,7 @@ fn shown_object(
                 .unwrap_or_default(),
             at: iso(event.at()),
             actor: event.actor().as_str().to_owned(),
-            // True only for a todo that another proposal would put on the chain.
+            // True only for a todo that another card would put on the chain.
             pending_todo: !on_chain.contains(&todo) && !authored.contains(&todo),
         }
     };
@@ -176,7 +121,7 @@ fn shown_object(
             note: e.note.clone(),
         },
     };
-    wire::ProposedObject { hash, needs, act }
+    wire::ProposedObject { position, act }
 }
 
 /// Every changed field a person prices or reads, before and after.

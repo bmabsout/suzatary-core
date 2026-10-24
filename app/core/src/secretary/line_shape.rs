@@ -49,18 +49,18 @@ pub enum LineShape {
         /// The proposal it replaces.
         revises: Option<usize>,
     },
-    /// A batch settled. Words: why.
+    /// A triage card withdrawn or held. Words: why.
     Reviewed {
         /// The chain.
         chain: String,
-        /// The batch.
+        /// What was reviewed: a card's reference, or an older batch's head.
         batch: String,
         /// What was decided, and the objects it settled.
         decision: Decision,
     },
     /// A review that could not run. Words: why.
     ReviewFailed {
-        /// How many batches it left standing.
+        /// How many cards it left open.
         standing: usize,
     },
     /// The round stopped.

@@ -681,6 +681,29 @@ impl crate::literal::Literal for SubTodo {
     }
 }
 
+/// `Source(sender, subject, date, hash, thread_id, message_id)`, the message a stored act names.
+pub const SOURCE: crate::literal::Signature = (
+    "Source",
+    &[
+        "sender",
+        "subject",
+        "date",
+        "hash",
+        "thread_id",
+        "message_id",
+    ],
+);
+
+impl crate::literal::Literal for Source {
+    fn to_value(&self) -> Value {
+        Source::to_value(self)
+    }
+
+    fn from_value(value: &Value) -> Result<Self, ProdromeError> {
+        source_from_value(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

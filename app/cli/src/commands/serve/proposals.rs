@@ -1,9 +1,6 @@
-//! Proposals: the agent's batches against a chain, the inbox of everything proposed, and
-//! the owner's answers to one proposal.
+//! Proposals: the inbox of everything proposed, and the owner's answers to one proposal.
 
 use axum::Json;
-use prodrome_core::event::{Actor, Hash};
-use suzatary_core::proposals::routes as proposal_routes;
 use suzatary_core::reference::ProposalRef;
 use suzatary_core::refusal::Refusal;
 use suzatary_core::secretary::routes::{self as secretary_routes, Effectors, TapAnswer};
@@ -34,18 +31,12 @@ pub fn drawn(call: &Call<Reader, Drawn, ()>) -> Result<Json<wire::DrawnPayload>,
         .map(Json)
 }
 
-/// The objects of a batch a settle names.
-pub struct Picked(Vec<Hash>);
-
 /// The owner's answer to a tap: a line, and at most one of a secret's value, "always allow"
 /// and a device's endorsement.
 pub struct Answer {
     note: String,
     answer: TapAnswer,
 }
-
-/// A pick is a list of names, not a document.
-const MAX_PICK_BYTES: usize = 65_536;
 
 /// One proposal: its conversation and its index there.
 impl Params for ProposalRef {
@@ -78,16 +69,6 @@ impl Params for Drawn {
             })
             .collect::<Result<_, _>>()?;
         Ok(Self { id, indices })
-    }
-}
-
-impl Body for Picked {
-    const CAP: usize = MAX_PICK_BYTES;
-
-    type Wire = wire::PickedObjects;
-
-    fn parse(picked: wire::PickedObjects, _: &State) -> Result<Self, Refusal> {
-        suzatary_core::proposals::names(&picked.objects).map(Picked)
     }
 }
 
@@ -141,51 +122,6 @@ impl Body for wire::Reasoning {
     fn parse(reasoning: Self, _: &State) -> Result<Self, Refusal> {
         Ok(reasoning)
     }
-}
-
-/// `GET …/proposals`: the batches standing against this chain, each object as a diff.
-pub fn batches(call: &Call<Reader, (), ()>) -> Result<Json<wire::ProposalsPayload>, Refusal> {
-    let caps = call.chain.caps;
-    proposal_routes::list(
-        caps.secretary.chain,
-        caps.secretary.proposals,
-        caps.secretary.conversations,
-        caps.secretary.clock,
-        call.state.deployment.zone,
-        &call.chain.policy,
-    )
-    .map(Json)
-}
-
-/// `POST …/proposals/accept`: adopt exactly these objects, settled as the gate's actor;
-/// loopback mints none, so the agent on this box cannot accept its own batch.
-pub fn accept(call: &Call<Actor, (), Picked>) -> Result<Json<wire::AcceptedPayload>, Refusal> {
-    let caps = call.chain.caps;
-    proposal_routes::accept(
-        caps.secretary.chain,
-        caps.secretary.proposals,
-        caps.secretary.render,
-        caps.secretary.clock,
-        &call.chain.policy,
-        &call.body.0,
-        call.guard.as_str(),
-    )
-    .map(Json)
-}
-
-/// `POST …/proposals/reject`: remove exactly these objects from the replica, the one
-/// route that deletes, allowed because they never entered a chain.
-pub fn reject(call: &Call<Actor, (), Picked>) -> Result<Json<wire::RejectedPayload>, Refusal> {
-    let caps = call.chain.caps;
-    proposal_routes::reject(
-        caps.secretary.chain,
-        caps.secretary.proposals,
-        caps.secretary.clock,
-        &call.chain.policy,
-        &call.body.0,
-        call.guard.as_str(),
-    )
-    .map(Json)
 }
 
 /// `POST …/proposals/<n>/tap`: perform one proposal, the one irreversible route.

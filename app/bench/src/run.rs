@@ -20,6 +20,7 @@ use suzatary_core::capability::{
     Agent, Conversation, Model, ModelError, ReceiptId, Reply, TokenUsage, Turn,
 };
 use suzatary_core::deployment::Deployment;
+use suzatary_core::secretary::filed::TriageCards;
 
 use crate::cases::CaseId;
 
@@ -103,8 +104,9 @@ pub struct Answer {
     pub model: String,
     /// Every round, in order.
     pub rounds: Vec<RoundRecord>,
-    /// The objects produced, as the difference of every chain's objects before and after, since
-    /// the verbs' answers differ in shape; empty means the candidate wrote nothing.
+    /// The objects produced, as the difference of every chain's and the inbox's objects before
+    /// and after, since the verbs' answers differ in shape; empty means the candidate wrote
+    /// nothing.
     pub objects: Vec<String>,
     /// Token usage summed across rounds, `None` when no round reported any rather than a zero.
     pub usage: Option<TokenUsage>,
@@ -146,6 +148,7 @@ pub struct RunEntry {
 pub fn replay<M>(
     model: &M,
     chains: &BTreeMap<String, Agent<'_>>,
+    cards: &Filing<'_>,
     deployment: &Deployment,
     system: &str,
     opening: String,
@@ -157,7 +160,7 @@ where
     M: Throttling,
 {
     let tools = agent::tools();
-    let before = objects_of(chains);
+    let before = objects_of(chains, cards);
 
     let mut turns = vec![Turn::Person {
         text: opening,
@@ -191,7 +194,7 @@ where
         for call in &reply.calls {
             let args: serde_json::Map<String, serde_json::Value> =
                 call.args.clone().into_iter().collect();
-            let outcome = dispatch(chains, deployment, call.verb.as_str(), &args);
+            let outcome = dispatch(chains, &cards.cards, deployment, call.verb.as_str(), &args);
             turns.push(Turn::Tool {
                 verb: call.verb.clone(),
                 answer: shown(&outcome),
@@ -223,7 +226,7 @@ where
         }
     }
 
-    let after = objects_of(chains);
+    let after = objects_of(chains, cards);
     let objects = after
         .difference(&before)
         .map(Hash::as_str)
@@ -300,11 +303,12 @@ fn sum_usage<'a>(usages: impl Iterator<Item = &'a Option<TokenUsage>>) -> Option
 /// One call, dispatched to the real handler over the chain the candidate named.
 fn dispatch(
     chains: &BTreeMap<String, Agent<'_>>,
+    cards: &TriageCards<'_>,
     deployment: &Deployment,
     verb: &str,
     args: &serde_json::Map<String, serde_json::Value>,
 ) -> CallOutcome {
-    match agent::call(chains, deployment, verb, args) {
+    match agent::call(chains, cards, deployment, verb, args) {
         Ok(value) => CallOutcome::Answered { value },
         Err(refused) => CallOutcome::Refused {
             message: refused.message().to_owned(),
@@ -326,12 +330,30 @@ fn shown(outcome: &CallOutcome) -> String {
 }
 
 /// Every object every bundle holds; an unreadable chain answers none rather than panicking.
-fn objects_of(chains: &BTreeMap<String, Agent<'_>>) -> BTreeSet<Hash> {
+fn objects_of(chains: &BTreeMap<String, Agent<'_>>, filing: &Filing<'_>) -> BTreeSet<Hash> {
     chains
         .values()
         .flat_map(|caps| caps.chain.objects().unwrap_or_default())
         .map(|(hash, _)| hash)
+        .chain(
+            filing
+                .inbox
+                .objects()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(hash, _)| hash),
+        )
         .collect()
+}
+
+/// Where a candidate's writes go: the triage agent's door into a scratch inbox, and that inbox,
+/// which the replay reads to say what the candidate filed.
+#[derive(Clone, Copy)]
+pub struct Filing<'a> {
+    /// The door the verbs file through.
+    pub cards: TriageCards<'a>,
+    /// The inbox behind it.
+    pub inbox: &'a dyn suzatary_core::store::Prodrome<suzatary_core::secretary::inbox_event::InboxEvent>,
 }
 
 #[cfg(test)]
@@ -364,6 +386,22 @@ mod tests {
             app_url: String::new(),
             coding: None,
             zone: suzatary_core::zone::Zone::UTC,
+        }
+    }
+
+    /// A scratch inbox and conversations a replay files into.
+    #[derive(Default)]
+    struct Scratch {
+        conversations: suzatary_core::secretary::conversations::InMemory,
+        inbox: suzatary_core::store::InMemory<suzatary_core::secretary::inbox_event::InboxEvent>,
+    }
+
+    impl Scratch {
+        fn filing(&self) -> Filing<'_> {
+            Filing {
+                cards: TriageCards::new(self.conversations.conversations(), &self.inbox),
+                inbox: &self.inbox,
+            }
         }
     }
 
@@ -415,9 +453,11 @@ mod tests {
             }
         }
         impl Throttling for Unreachable {}
+        let scratch = Scratch::default();
         let outcome = replay(
             &Unreachable,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -452,9 +492,11 @@ mod tests {
             }
         }
         impl Throttling for Insistent {}
+        let scratch = Scratch::default();
         let outcome = replay(
             &Insistent,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -508,9 +550,11 @@ mod tests {
             ),
             (r#"{"say": "declined"}"#, Some("receipt-2")),
         ]);
+        let scratch = Scratch::default();
         let outcome = replay(
             &model,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -543,9 +587,11 @@ mod tests {
     /// No receipt is `None` on that round, never an empty string.
     #[test]
     fn a_round_with_no_receipt_is_none() {
+        let scratch = Scratch::default();
         let outcome = replay(
             &Fixed(vec![r#"{"say": "declined"}"#]),
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -621,9 +667,11 @@ mod tests {
         };
         let waits = std::cell::RefCell::new(Vec::new());
         let sleep = |duration: Duration| waits.borrow_mut().push(duration);
+        let scratch = Scratch::default();
         let outcome = replay(
             &model,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -650,9 +698,11 @@ mod tests {
         let waits = std::cell::RefCell::new(Vec::new());
         let sleep = |duration: Duration| waits.borrow_mut().push(duration);
         let attempts = 3;
+        let scratch = Scratch::default();
         let outcome = replay(
             &AlwaysThrottled,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),
@@ -710,9 +760,11 @@ mod tests {
         };
         let waits = std::cell::RefCell::new(Vec::new());
         let sleep = |duration: Duration| waits.borrow_mut().push(duration);
+        let scratch = Scratch::default();
         let outcome = replay(
             &model,
             &BTreeMap::<String, Agent<'_>>::new(),
+            &scratch.filing(),
             &deployment("life"),
             "system prompt",
             "a message needs triage".to_owned(),

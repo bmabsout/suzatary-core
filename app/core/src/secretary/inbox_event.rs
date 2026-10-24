@@ -1,6 +1,7 @@
 //! The inbox's schema: a proposal asked, and each response to it, about a [`ProposalId`].
 //!
-//! `Asked` (the secretary's), `Offered` (a plugin's, naming it) and `Noticed` (the box's own)
+//! `Asked` (the secretary's), `Triaged` (the triage agent's), `Offered` (a plugin's, naming it)
+//! and `Noticed` (the box's own)
 //! write the content register and
 //! every response the state register, whose values are the machine's
 //! [`Phase`](crate::secretary::phase::Phase)s, declared inflationary, so the store refuses a
@@ -53,6 +54,12 @@ pub const SIGNATURES: &[Signature] = &[
     ),
     (
         "Noticed",
+        &[
+            "proposal", "at", "actor", "act", "why", "sources", "asked", "serves", "spec",
+        ],
+    ),
+    (
+        "Triaged",
         &[
             "proposal", "at", "actor", "act", "why", "sources", "asked", "serves", "spec",
         ],
@@ -114,7 +121,9 @@ impl InboxEvent {
         };
         let done = |done| Ok(Said::Responded(Responded::Done(done)));
         match fields.name() {
-            "Asked" | "Offered" | "Noticed" => Ok(Said::Asked(Box::new(Asked::of_fields(fields)?))),
+            "Asked" | "Triaged" | "Offered" | "Noticed" => {
+                Ok(Said::Asked(Box::new(Asked::of_fields(fields)?)))
+            }
             "NotSent" => Ok(Said::Responded(Responded::Tried {
                 attempt: attempt()?,
                 tried: Tried::NotSent {
@@ -241,7 +250,7 @@ mod tests {
     /// vocabulary are one spelling.
     #[test]
     fn every_signature_is_the_head_and_a_body() {
-        use crate::secretary::inbox::{ASKED, NOTICED, OFFERED};
+        use crate::secretary::inbox::{ASKED, NOTICED, OFFERED, TRIAGED};
         use crate::secretary::responded::{
             ACTED, APPLIED, CHECKED, DISMISSED, MAY_HAVE_GONE, NO_LONGER_NEEDED, NOT_SENT, SENT,
             STARTED, SUPERSEDED,
@@ -249,6 +258,7 @@ mod tests {
         let bodies = [
             ASKED,
             NOTICED,
+            TRIAGED,
             OFFERED,
             NOT_SENT,
             STARTED,

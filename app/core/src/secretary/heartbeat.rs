@@ -25,7 +25,7 @@ pub enum Stage {
     /// The `claude -p` triage agent: its auth check, the fail-closed preflight that fences its
     /// tools, and the run itself.
     Triage,
-    /// `suzatary secretary review`, settling the batch the pass just wrote.
+    /// `suzatary secretary review`, reviewing the cards the pass just filed.
     Review,
     /// `suzatary secretary sweep`, the once-a-day pass over the open list.
     Sweep,

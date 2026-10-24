@@ -15,23 +15,30 @@ use suzatary_core::agent;
 use suzatary_core::capability::Agent;
 use suzatary_core::deployment::Deployment;
 use suzatary_core::for_model::ForModel;
+use suzatary_core::secretary::filed::TriageCards;
 
 /// The server's name, which the tool guard matches as `mcp__suzatary__*`.
 pub const NAME: &str = "suzatary";
 
 /// The verbs over one record per chain, so the `chain` argument picks the store and its
-/// trust policy together.
+/// trust policy together, and the one door their writes go through, as cards.
 pub struct Tools {
     chains: Arc<BTreeMap<String, Agent<'static>>>,
+    cards: TriageCards<'static>,
     deployment: Arc<Deployment>,
 }
 
 impl Tools {
-    /// Bind the surface to one record per chain and a deployment.
+    /// Bind the surface to one record per chain, the Inbox's door and a deployment.
     #[must_use]
-    pub fn new(chains: BTreeMap<String, Agent<'static>>, deployment: Arc<Deployment>) -> Self {
+    pub fn new(
+        chains: BTreeMap<String, Agent<'static>>,
+        cards: TriageCards<'static>,
+        deployment: Arc<Deployment>,
+    ) -> Self {
         Self {
             chains: Arc::new(chains),
+            cards,
             deployment,
         }
     }
@@ -95,12 +102,13 @@ impl ServerHandler for Tools {
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         let chains = Arc::clone(&self.chains);
+        let cards = self.cards;
         let deployment = Arc::clone(&self.deployment);
         let name = request.name.to_string();
         let args = request.arguments.unwrap_or_default();
         // Some verbs shell out for seconds, so they run off the runtime's workers.
         let answered = tokio::task::spawn_blocking(move || {
-            agent::call(chains.as_ref(), deployment.as_ref(), &name, &args)
+            agent::call(chains.as_ref(), &cards, deployment.as_ref(), &name, &args)
         })
         .await
         .map_err(|failed| {
@@ -117,17 +125,17 @@ impl ServerHandler for Tools {
 /// Serve the verbs over stdio, with no listener, until the client hangs up.
 pub async fn serve(
     chains: BTreeMap<String, Agent<'static>>,
+    cards: TriageCards<'static>,
     deployment: Arc<Deployment>,
 ) -> anyhow::Result<()> {
-    let running = Tools::new(chains, deployment)
+    let running = Tools::new(chains, cards, deployment)
         .serve(rmcp::transport::stdio())
         .await?;
     running.waiting().await?;
     Ok(())
 }
 
-/// The agent's interpreters; `K` is where its writes land, a replica that reaches no chain
-/// for the triage agent, every write signed by the agent's own key.
+/// The agent's interpreters; `K` is the chain it reads, a replica of it for the triage agent.
 pub struct Interpreters<K = suzatary_core::store::Signing<suzatary_io::proposals::Proposing>> {
     pub(crate) chain: K,
     pub(crate) grounds: crate::wiring::Grounds,
@@ -151,8 +159,8 @@ impl<K: suzatary_core::store::Prodrome<suzatary_core::record::TodoEvent>> Interp
 }
 
 impl Interpreters {
-    /// The triage agent's interpreters for one chain, over a replica that first adopts
-    /// the chain's objects so its first write has a parent.
+    /// The triage agent's interpreters for one chain, over a replica that first adopts the
+    /// chain's objects, so it reads what the chain holds.
     ///
     /// # Errors
     /// The chain being unreadable or the replica unwritable.
@@ -164,8 +172,8 @@ impl Interpreters {
     }
 }
 
-/// The agent's replica of one chain, its chain's objects taken in first so its first write has
-/// a parent, and every write signed by the agent's own key; the box's is never resolved here.
+/// The agent's replica of one chain, its chain's objects taken in first; the box's key is never
+/// resolved here.
 ///
 /// # Errors
 /// The chain being unreadable or the replica unwritable.
@@ -202,21 +210,25 @@ pub fn run(path: &std::path::Path) -> anyhow::Result<()> {
             Ok((chain.policy.name.as_str().to_owned(), grounds.agent(held)))
         })
         .collect::<anyhow::Result<_>>()?;
+    // The agent's writes are cards in the box's own Inbox, which only the owner's tap performs.
+    let conversations: &'static _ = Box::leak(Box::new(instance.conversation_stores()));
+    let inbox: &'static _ = Box::leak(Box::new(instance.inbox_store()));
+    let cards = TriageCards::new(conversations.conversations(), inbox);
     let deployment = Arc::new(instance.deployment.clone());
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(serve(chains, deployment))
+        .block_on(serve(chains, cards, deployment))
 }
 
 #[cfg(test)]
 mod tests {
     use super::Interpreters;
 
-    /// The triage agent's writes land in a proposal replica and reach no chain: the only
-    /// way the MCP server builds its interpreters answers exactly that.
+    /// The triage agent reads a replica of its chain, never the chain itself: the only way the
+    /// MCP server builds its interpreters answers exactly that.
     #[test]
-    fn the_agent_writes_only_to_a_proposal_replica() {
+    fn the_agent_reads_a_replica() {
         let assemble: fn(
             &crate::instance::Instance,
             &crate::instance::ChainDir,

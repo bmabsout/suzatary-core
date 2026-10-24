@@ -38,12 +38,6 @@ pub struct Args {
     /// rewrite, so this is decided before the write and not afterwards.
     #[arg(long, global = true, value_name = "NAME")]
     chain: Option<String>,
-    /// WHICH AREA of that chain: `main`, the chain itself, or `staging`, the
-    /// replica whose batches the owner composes in or rejects in the Inbox
-    /// (docs/ARCHITECTURE.md §10.6). Any area but `main` adopts the chain
-    /// first, so what is written there is one head beyond it: a batch.
-    #[arg(long, global = true, value_name = "NAME", default_value = crate::instance::MAIN)]
-    area: String,
 }
 
 /// EVERY `todo` ACT.
@@ -275,7 +269,7 @@ pub struct Lifecycle {
 /// `suzatary todo <act>` — EVERY act, in one place.
 pub fn run(path: &Path, args: Args) -> anyhow::Result<()> {
     let instance = &Instance::open(path)?;
-    let chain = &area(instance.chain(args.chain.as_deref())?, &args.area)?;
+    let chain = instance.chain(args.chain.as_deref())?;
     // Resolved once; a key not at hand refuses the write, naming why.
     let keys = &instance.signers();
     let who = |actor: Option<String>| actor.unwrap_or_else(|| chain.owner.as_str().to_owned());
@@ -453,18 +447,6 @@ fn on_the_roster(chain: &ChainDir, actor: &str) -> anyhow::Result<()> {
     }
     let roster: Vec<&str> = chain.policy.roster.iter().map(Actor::as_str).collect();
     bail!("actor must be one of {roster:?}, got {actor:?}")
-}
-
-/// The chain's area, ready to write: `main` as it is, any other after adopting every
-/// object `main` holds, as the triage agent's run does.
-fn area(chain: &ChainDir, name: &str) -> anyhow::Result<ChainDir> {
-    let area = chain.area(name)?;
-    if name != crate::instance::MAIN {
-        suzatary_io::proposals::Replica::new(area.events.clone(), area.policy.untrusted.clone())
-            .refresh(store_of(chain).inner())
-            .with_context(|| format!("adopting the chain into its {name} area"))?;
-    }
-    Ok(area)
 }
 
 /// `suzatary todo add <id> --body … --rationale …`.

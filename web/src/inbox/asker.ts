@@ -3,10 +3,12 @@
 import type { Asker } from "../wire/generated/wire"
 
 export namespace asker {
-  export const fold = <R>(a: Asker, alg: { readonly secretary: () => R; readonly plugin: (name: string) => R; readonly setup: () => R; readonly box: () => R }): R => {
+  export const fold = <R>(a: Asker, alg: { readonly secretary: () => R; readonly triage: () => R; readonly plugin: (name: string) => R; readonly setup: () => R; readonly box: () => R }): R => {
     switch (a.kind) {
       case "secretary":
         return alg.secretary()
+      case "triage":
+        return alg.triage()
       case "plugin":
         return alg.plugin(a.name)
       case "setup":
@@ -22,14 +24,15 @@ export namespace asker {
   export const tag = (a: Asker): Tag =>
     fold<Tag>(a, {
       secretary: () => null,
+      triage: () => ({ text: "Triage", tip: "The triage agent asks for this from mail anyone can send. Nothing changes until you answer." }),
       plugin: name => ({ text: `${name} plugin`, tip: `The ${name} plugin asks for this. It only proposes; nothing happens until you answer.` }),
       setup: () => ({ text: "Setup", tip: "The app asks for this itself, not the secretary: something it needs is not set up yet." }),
       box: () => ({ text: "App", tip: "The app asks for this itself, not the secretary." }),
     })
 
-  export const named = (a: Asker): string => fold(a, { secretary: () => "Secretary", plugin: name => `${name} plugin`, setup: () => "Setup", box: () => "App" })
+  export const named = (a: Asker): string => fold(a, { secretary: () => "Secretary", triage: () => "Triage", plugin: name => `${name} plugin`, setup: () => "Setup", box: () => "App" })
 
   // Only a setup card folds into the Inbox's Setup row; the app's other cards stand among the work.
-  export const isSetup = (a: Asker): boolean => fold(a, { secretary: () => false, plugin: () => false, setup: () => true, box: () => false })
+  export const isSetup = (a: Asker): boolean => fold(a, { secretary: () => false, triage: () => false, plugin: () => false, setup: () => true, box: () => false })
 }
 export default asker

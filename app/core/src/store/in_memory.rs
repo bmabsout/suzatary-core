@@ -3,7 +3,7 @@ use prodrome_core::genesis::mk_genesis;
 use prodrome_core::schema::Schema;
 use prodrome_core::store::{MemoryStore, Replica};
 
-use super::{Prodrome, Reentrant, StoreError, WriteLock};
+use super::{InMemoryHold, Prodrome, Store, StoreError, WriteLock};
 
 /// A prodrome held in memory, for tests: the Prodrome's own `MemoryStore`, so an append writes
 /// byte for byte what a store on disk holding the same objects writes, its heads are derived, and
@@ -11,26 +11,26 @@ use super::{Prodrome, Reentrant, StoreError, WriteLock};
 #[derive(Debug)]
 pub struct InMemory<E: Schema> {
     store: MemoryStore<E>,
-    hold: Reentrant,
+    hold: InMemoryHold,
 }
 
-impl<E: Schema<Vocabulary: Default>> Default for InMemory<E> {
+impl<E: Store<Vocabulary: Default>> Default for InMemory<E> {
     fn default() -> Self {
         Self {
             store: MemoryStore::default(),
-            hold: Reentrant::default(),
+            hold: InMemoryHold::of(E::HOLD),
         }
     }
 }
 
-impl<E: Schema> InMemory<E> {
+impl<E: Store> InMemory<E> {
     /// A store in memory holding nothing, opened at the schema `schema`: a declared schema is a
     /// value, so its store has no default.
     #[must_use]
     pub fn at(schema: E::Vocabulary) -> Self {
         Self {
             store: MemoryStore::at(schema),
-            hold: Reentrant::default(),
+            hold: InMemoryHold::of(E::HOLD),
         }
     }
 
@@ -51,7 +51,7 @@ impl<E: Schema> InMemory<E> {
     }
 }
 
-impl<E: Schema> Prodrome<E> for InMemory<E> {
+impl<E: Store> Prodrome<E> for InMemory<E> {
     fn objects(&self) -> Result<Vec<(Hash, Envelope<E>)>, StoreError> {
         let unreadable =
             |why: prodrome_core::literal::ProdromeError| StoreError::unreadable("memory", why);
@@ -105,6 +105,6 @@ impl<E: Schema> Prodrome<E> for InMemory<E> {
     }
 
     fn locked(&self) -> Result<Box<dyn WriteLock + '_>, StoreError> {
-        Ok(self.hold.hold())
+        self.hold.hold("memory")
     }
 }

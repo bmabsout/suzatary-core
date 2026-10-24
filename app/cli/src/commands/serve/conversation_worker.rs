@@ -426,6 +426,7 @@ async fn round(id: &ConversationId, state: &Arc<State>) {
             &chains,
             &asked,
             &system,
+            &secretary::surface::Subset::ALL,
             &sink,
         )
     })

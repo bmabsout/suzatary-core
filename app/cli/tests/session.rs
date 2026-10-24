@@ -96,6 +96,7 @@ fn no_session_opens_once() {
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &Sink {
             on_delta: &|_| {},
             on_working: &|_| {},
@@ -170,6 +171,7 @@ fn a_stored_session_resumes_with_exactly_the_delta() {
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &Sink {
             on_delta: &|_| {},
             on_working: &|_| {},
@@ -225,6 +227,7 @@ fn a_lost_resume_is_followed_by_exactly_one_open_over_the_whole_transcript() {
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &Sink {
             on_delta: &|_| {},
             on_working: &|_| {},
@@ -310,6 +313,7 @@ fn a_session_opened_on_another_surface_is_reopened_once() {
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &sink,
     )
     .expect("the exchange runs")
@@ -349,6 +353,7 @@ fn a_session_opened_on_another_surface_is_reopened_once() {
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &sink,
     )
     .expect("the second exchange runs");
@@ -400,6 +405,7 @@ fn the_memory_heads_a_batch_once() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -510,6 +516,7 @@ fn a_stopped_round_ends_in_the_act_and_the_next_opens_cold() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -614,6 +621,7 @@ fn nothing_waiting_asks_no_model_after_an_answer_a_failure_or_a_stop() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -699,6 +707,7 @@ fn nothing_waiting_asks_a_stateless_model_nothing() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -778,6 +787,7 @@ fn a_round_picks_only_when_something_waits_and_by_the_order_then() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -882,6 +892,7 @@ fn answered_once(
         &chains,
         &id(),
         "you are the secretary",
+        &suzatary_core::secretary::surface::Subset::ALL,
         &Sink {
             on_delta: &|_| {},
             on_working: &|_| {},
@@ -1014,6 +1025,7 @@ fn a_round_another_model_answered_ends_the_session() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -1090,6 +1102,7 @@ fn a_round_the_box_ended_ends_the_session() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},
@@ -1369,6 +1382,7 @@ proptest::proptest! {
                 &chains,
                 &id(),
                 "you are the secretary",
+                &suzatary_core::secretary::surface::Subset::ALL,
                 &Sink { on_delta: &|_| {}, on_working: &|_| {}, halt: &Halt::new() },
             )
             .expect("the exchange runs");
@@ -1437,6 +1451,7 @@ fn a_round_whose_opens_keep_failing_is_answered_statelessly_to_its_end() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &Sink {
                 on_delta: &|_| {},
                 on_working: &|_| {},

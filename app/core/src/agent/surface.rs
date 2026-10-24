@@ -7,14 +7,21 @@
 use serde_json::Value;
 
 use super::verbs::{
-    Context, Evaluate, HistoryArgs, Mark, New, NoiseAdd, RecordArgs, ShowArgs, Sync, TodoAdd,
-    TodoUpdate, VerifyChain,
+    Context, Evaluate, HistoryArgs, Mark, New, NoiseAdd, ShowArgs, Sync, VerifyChain,
 };
 use super::{Call, Holds, Says};
 use crate::authoring::Writer;
 use crate::capability::Agent;
 use crate::chains::ChainPolicy;
+use crate::reference::TodoRef;
+use crate::refusal::Refusal;
+use crate::secretary::changes::{self, Act, Building, Changeset};
+use crate::secretary::filed::Carding;
+use crate::secretary::verbs::Reasoned;
 use crate::verb::{Chained, Surface, verbs};
+use crate::zone::Moment;
+use prodrome_core::event::TodoId;
+use serde_json::json;
 
 /// The triage agent's verbs: each runs against a [`Call`] and answers JSON.
 pub enum TriageSurface {}
@@ -57,22 +64,80 @@ impl Holds for TriageSurface {
         — pass `part` (2, 3, …) for the rest. Never guess at what a cut part left \
         out; ask for the next one. `links` and every header travel whole on every \
         part.",
-        record: "Record a lifecycle event for a todo onto the append-only chain. This is \
-        your ONLY write to history. kind is 'completed', 'cancelled', \
+        record: "Propose a lifecycle event for a todo. kind is 'completed', 'cancelled', \
         'reopened', or 'tended' (no 'created' — todo authoring lives in the \
         content verbs; no spec authoring). 'tended' is a pass at a RECURRING \
         todo (its price holds a Recur): it was done again and stays open, so \
-        its price restarts from now. Never 'completed' for one of those.\n\nThe actor is always 'triage' and the timestamp is \
-        always the server's clock — you cannot set either, and you cannot \
-        backdate. Your events are PROVISIONAL by construction: they do not bind \
-        evaluation until the owner confirms and a trusted actor re-appends them. \
-        `todo` must be an id the chain already knows (some prior event mentions \
-        it); an unknown id is rejected as a likely typo. A todo you authored this \
-        run with `todo_add` is already known.\n\n\
+        its price restarts from now. Never 'completed' for one of those.\n\n\
+        Nothing is written to the chain: this files a card in the owner's Inbox, joining \
+        any open card about the same todo, and he taps it or answers no. `why` and \
+        `sources` are REQUIRED, as on `todo_add`; `sources` names the message that shows \
+        it happened. `todo` must be an id the chain already knows, or one an open card \
+        of yours adds; an unknown id is rejected as a likely typo.\n\n\
         `chain` is WHICH STORE the todo lives in and must match the one it was \
         authored in — leave it out for the owner's own list, pass \
         `chain=\"suzatary\"` for this system's work.",
+        todo_add: "Propose a new todo. Nothing is written to the chain: this files a CARD in the owner's \
+        Inbox, which he taps to make the todo or answers no. A later `todo_update` or `record` \
+        on the same todo joins the same card, so the Inbox holds one card for it.\n\n\
+        `why`: REQUIRED — what the card is for, in a sentence the owner reads first.\n\
+        `sources`: REQUIRED — what it rests on, comma-separated references, usually \
+        `mail:<hash>` of the message.\n\
+        `todo_id`: 3-64 lowercase letters/digits, starting with a letter. It is \
+        the handle `mark --todo-id` and `record` use, so choose something you can \
+        reproduce (e.g. `permitfiling`).\n\
+        `body`: the action line, one sentence, as Typst MARKUP: `*bold*` is bold, and \
+        a `$`, `@`, `#`, `*`, `_`, `<` or `[` you mean literally takes a backslash \
+        (`Pay \\$40`). It is compiled before it is stored, without `html` or any \
+        file, and refused with the line and column when it does not compile. \
+        `detail` is the same. Every other field is plain text.\n\
+        `rationale`: REQUIRED — WHY this priority, in one sentence. It is \
+        recorded as the comment above the number and is the only place the \
+        reasoning exists.\n\
+        `kind`: 'todo' (needs `category`), 'ekaTodo' or 'suzateryTodo' (which set \
+        their own category — do not pass one).\n\
+        `priority`: a whole percentage like '65%'. It is a FULFILLMENT: LOW means \
+        urgent, HIGH means satisfied or someday. Give exactly one of `priority`, \
+        `deadline_end_date`, `recur_every_days` or `periodic_every_days`.\n\
+        `deadline_*`: use when the todo decays toward a date rather than sitting \
+        at a fixed number (`deadline_start_priority` defaults to 60%, \
+        `deadline_end_priority` to 5%). A deadline bounds WHEN, not the stakes: \
+        something merely moot afterwards (a form, a small recoverable cost) still \
+        floors around 60% on its last day.\n\
+        `recur_every_days`: a chore done again and again (vinegar the \
+        toothbrush every two months). After every pass (`record` kind \
+        'tended') the fulfillment runs from `cycle_from_priority` to \
+        `cycle_to_priority` over that many days, then holds; before the first \
+        pass it keeps the price it had. `periodic_every_days` is the same \
+        cycle on the calendar, whatever is done (rent). Both need both ends.\n\
+        `waiting_on`: only when there is genuinely nothing we can do. One \
+        unblocking email we could send means leave it unset.\n\
+        `source_*`: all four or none — the message this came from.\n\
+        `date`: which day the todo is created on, YYYY-MM-DD, default the day it is made.\n\
+        `parent`: the id of the todo this is a SUBTODO of. The parent's price \
+        gains a reference to this one in the same write, so its value composes \
+        this one's; without `category` this takes the parent's.\n\
+        `chain`: WHICH LIST it goes in, and this is a decision, not a detail. \
+        Leave it out for the owner's own todos — mail, deadlines, people, money, \
+        travel. Pass `chain=\"suzatary\"` for this system's own work: a gate \
+        that failed, a test that is flaky, a sync that broke, a verb that needs \
+        fixing. The test is who the todo is FOR. A todo lives in ONE chain and \
+        cannot be moved afterwards, because the Prodrome does not rewrite.",
+        todo_update: "Propose changed fields on a todo that already exists. Nothing is written to the \
+        chain: this files a card in the owner's Inbox, joining any open card about the same \
+        todo, and he taps it or answers no. `why` and `sources` are REQUIRED, as on \
+        `todo_add`. Only the fields you pass change.\n\nChanging `priority` (or a deadline, or a cycle — the same price fields `todo_add` \
+        takes, one of them) REQUIRES `rationale`: the comment above that number is the only \
+        record of why it is what it is. Passing `rationale` alone rewrites just the reason.\n\n\
+        `clear_waiting_on` sets it back to `none` — use it the moment there is an email we \
+        could send, since `waitingOn` means nothing we can do.\n\n\
+        `body`, `detail` and `detail_append` are Typst markup, checked as `todo_add` checks \
+        them. `detail_append`: a sentence to add under the existing detail, keeping its \
+        markup — use this, never `detail`, when the detail already exists; give at most one \
+        of the two.\n\n`chain` must be the store the todo was authored in; there is no moving \
+        one between them.",
     };
+    type Filing = Reasoned;
 
     fn agent<'a>(call: &Self::Call<'a>) -> Agent<'a> {
         *call.caps
@@ -81,12 +146,67 @@ impl Holds for TriageSurface {
     fn chain<'a>(call: &Self::Call<'a>) -> &'a ChainPolicy {
         call.chain
     }
+
+    fn write(call: &Call<'_>, act: Act, filing: Reasoned) -> Result<Value, Refusal> {
+        let reasons = filing.reasons()?;
+        let at = call.caps.clock.now();
+        let nodes = call.caps.chain.nodes()?;
+        // A card about a todo the chain holds is priced as that todo is.
+        let serves = crate::todos::current(&nodes, at, act.todo())
+            .map(|_| TodoId::new(act.todo()))
+            .transpose()
+            .map_err(|failed| Refusal::bad_request(failed.to_string()))?
+            .map(|id| TodoRef {
+                chain: call.chain.name.clone(),
+                id,
+            });
+        let changeset = Changeset::new(call.chain.name.as_str(), vec![act])
+            .map_err(|failed| Refusal::internal(failed.to_string()))?;
+        let categories: Vec<&str> = call
+            .deployment
+            .categories
+            .keys()
+            .map(String::as_str)
+            .collect();
+        // Built as the tap will build it, so a card the tap would refuse is refused now.
+        let building = Building {
+            now: Moment {
+                at,
+                zone: call.deployment.zone,
+            },
+            by: crate::secretary::WRITES_AS,
+            categories: &categories,
+            untrusted: &call.chain.untrusted,
+            typeset: call.caps.render,
+        };
+        let check = |changeset: &Changeset| changes::checked(changeset, call.caps.chain, &building);
+        let carded = call.cards.file(at, changeset, reasons, serves, &check)?;
+        Ok(json!({
+            "filed": carded.card.to_string(),
+            "acts": carded.acts,
+            "next": match carded.how {
+                Carding::New => {
+                    "Filed as a card in the owner's Inbox. Nothing is on the chain until he taps \
+                     it; a later todo_update or record on this todo joins this card."
+                }
+                Carding::Joined => {
+                    "Joined the open card about this todo: the owner sees one card with every act \
+                     in order. Nothing is on the chain until he taps it."
+                }
+                Carding::Already => {
+                    "The open card about this todo already asks for this: nothing new was filed."
+                }
+            },
+        }))
+    }
 }
 
 type GitDiffSummary = super::verbs::GitDiffSummary<TriageSurface>;
 type History = super::verbs::History<TriageSurface, Chained<HistoryArgs>>;
 type ListOpenTodos = super::verbs::ListOpenTodos<TriageSurface>;
-type Record = super::verbs::Record<TriageSurface, Chained<RecordArgs>>;
+type Record = super::verbs::Record<TriageSurface>;
+type TodoAdd = super::verbs::TodoAdd<TriageSurface>;
+type TodoUpdate = super::verbs::TodoUpdate<TriageSurface>;
 type Search = super::verbs::Search<TriageSurface>;
 type Show = super::verbs::Show<TriageSurface, ShowArgs>;
 type TodoShow = super::verbs::TodoShow<TriageSurface>;

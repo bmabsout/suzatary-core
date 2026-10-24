@@ -7,7 +7,7 @@ use crate::refusal::Refusal;
 use crate::repos::Patch;
 use crate::secretary::acts::Act;
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{located, propose, reasons_of, refused_by, serves_of};
+use crate::secretary::verbs::{FilingArgs, located, refused_by};
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
 
@@ -20,10 +20,8 @@ pub struct ProposePatchArgs {
     base: Option<String>,
     patch: String,
     message: String,
-    why: String,
-    sources: String,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 impl Verb for ProposePatch {
@@ -48,7 +46,7 @@ impl Verb for ProposePatch {
         every proposal; `serves` and `revises` as for `propose_email`.";
 
     fn run(call: &Call<'_>, args: ProposePatchArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let (repo, base) = located(call.caps, &args.repo, args.base.as_deref())?;
         let visibility = call
             .caps
@@ -83,14 +81,9 @@ impl Verb for ProposePatch {
             patch,
             message,
         };
-        let index = propose(
-            call.caps,
-            call.conversation,
-            Proposal::Act(act),
-            &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
-        )?;
+        let index = args
+            .filing
+            .file(call.caps, call.conversation, Proposal::Act(act), &reasons)?;
         Ok(json!({
             "proposed": index,
             "repo": repo.to_string(),

@@ -13,6 +13,9 @@ pub enum Proposer {
     /// The secretary, in a round of one of its conversations: the box's own proposals are its
     /// rounds too.
     Secretary,
+    /// The triage agent, from mail anyone can send: what it files is provisional until the owner
+    /// taps it.
+    Triage,
     /// An `actor` plugin, from what its store holds: it proposes and never performs.
     Plugin(PluginName),
     /// The box, with no model asked: what a reading of the deployment calls for (a declared
@@ -28,6 +31,7 @@ impl Proposer {
     pub fn on_wire(&self, proposal: &Proposal, asked: &ProposalRef) -> crate::wire::Asker {
         match self {
             Proposer::Secretary => crate::wire::Asker::Secretary {},
+            Proposer::Triage => crate::wire::Asker::Triage {},
             Proposer::Plugin(name) => crate::wire::Asker::Plugin {
                 name: name.to_string(),
             },
@@ -74,6 +78,7 @@ impl Proposer {
     pub fn named(&self) -> String {
         match self {
             Proposer::Secretary => "the Suzatary secretary".to_owned(),
+            Proposer::Triage => "the triage agent".to_owned(),
             Proposer::Plugin(name) => format!("the {name} plugin"),
             Proposer::Box => "the box".to_owned(),
         }

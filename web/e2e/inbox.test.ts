@@ -2,16 +2,15 @@
  * THE INBOX, END TO END (`docs/INBOXPRODROME-PLAN-2026-09-17.md` §5 commit 4).
  *
  * A DECISION IS A RECORD, and this file is the browser's own check of that:
- * the real `suzatary serve`, the real fold, a real held batch and a real
- * scripted proposal — so what these scenes read is `view::entries` kept to
- * `kind === "decision"`, exactly the page's own claim.
+ * the real `suzatary serve`, the real fold, a real triage card and a real
+ * scripted proposal, so what these scenes read is what the page itself reads.
  *
  * THE SCENES:
  *
- * 1. A held batch appears in the Inbox as an open decision, drawn as its
- *    diff, with the secretary's own reason above it.
- * 2. A viewer reads the Inbox and is offered nothing to press, and the route
- *    refuses it.
+ * 1. A triage card appears in the Inbox, tagged as the triage agent's and
+ *    drawn as its diff, and the chain has not moved.
+ * 2. A viewer reads the Inbox and is offered nothing to press, and the tap
+ *    route refuses it.
  * 3. A card is drawn closed, and asking Send opens it whole before the question.
  * 4. Tapping a CHANGESET proposal Confirms it and drops the count — a
  *    changeset, not an email, so it never touches the shared SMTP recorder
@@ -22,9 +21,8 @@
  * 7. A send that may have gone through stays in the Inbox with one answer,
  *    "I checked Sent"; a tap asked anyway answers with the record, and after
  *    the check it leaves and still sends nothing.
- * 8. A held batch and a changeset open on their one-line summary, the diff
- *    collapsed; expanded, a pick made in the diff survives the redraw and is
- *    exactly what Accept takes.
+ * 8. A triage card and a changeset open on their one-line summary, the diff
+ *    collapsed; tapping the triage card performs every act on it.
  */
 
 import assert from "node:assert/strict";
@@ -62,16 +60,8 @@ async function openInbox(base: string): Promise<void> {
   await app.page.navigate(`${base}/#/inbox`);
   await app.page.reload();
   await app.page.waitFor(
-    `document.querySelector(".inboxpage .batch, .inboxpage .proposal, .inboxpage .empty") !== null && document.querySelector('.inboxpage .proposals[data-box="Answered"]') !== null`,
+    `document.querySelector(".inboxpage .proposal, .inboxpage .empty") !== null && document.querySelector('.inboxpage .proposals[data-box="Answered"]') !== null`,
     { timeout: 15000 },
-  );
-  // The ticks and the buttons arrive with `GET /api/me`'s answer, which lands
-  // AFTER the mount: a click before it would land on a page about to redraw.
-  // A proposal card needs no such wait — its Send button is drawn with the
-  // card itself, unlike a batch's ticks.
-  await app.page.waitFor(
-    `document.querySelector(".inboxpage .empty, .inboxpage .proposal") !== null || document.querySelector(".batchacts .act, .batchacts .readonly") !== null`,
-    { timeout: 10000 },
   );
 }
 
@@ -109,12 +99,6 @@ async function propose(base: string, said: string, index: number): Promise<strin
   return id;
 }
 
-/** The object hashes a batch card is showing, in the order it shows them. */
-const shownObjects = (): Promise<string[]> =>
-  app.page.evaluate<string[]>(
-    `[...document.querySelectorAll(".proposedobject")].map((row) => row.getAttribute("data-object"))`,
-  );
-
 /** RUN THE AGENT'S WRITER AGAIN, from node. `scripts/web-e2e.sh` names the
  * binary and the fixture's instance file; there is nothing here to fake. */
 function rerunTriage(...flags: string[]): { ran: boolean; refused: string } {
@@ -139,77 +123,42 @@ async function post(base: string, path: string, body: unknown): Promise<{ status
   return JSON.parse(said) as { status: number; body: unknown };
 }
 
-app.scene("a held batch appears in the Inbox as an open decision, drawn as its diff", async () => {
-  await openInbox(PROPOSED_BASE);
+/** The fixture's triage card: the first the triage agent filed. */
+const TRIAGE = `.inboxpage .proposal[data-conversation="triage"]`;
 
-  // ITS SUMMARY FIRST, the rows folded: a viewer reads the overview and may open the diff.
+app.scene("a triage card appears in the Inbox, tagged as the agent's and drawn as its diff", async () => {
+  await openInbox(PROPOSED_BASE);
+  await app.page.waitFor(`document.querySelector('${TRIAGE}') !== null`, { timeout: 10000 });
+  assert.equal(await app.page.evaluate<string>(`document.querySelector('${TRIAGE} .proposaltag').textContent`), "Triage");
+  // ITS SUMMARY FIRST: the acts in one line.
   assert.equal(
-    await app.page.evaluate<string>(`document.querySelector(".batch .diffline").textContent`),
+    await app.page.evaluate<string>(`document.querySelector('${TRIAGE} .diffline').textContent`),
     `add ${proposed.id} · complete ${CLOSED}`,
   );
-  assert.equal(await app.page.evaluate<boolean>(`document.querySelector(".batch .batchobjects").hidden`), true);
-  // ITS LINE IS THE COUNT AND THE DATE; the chain, the writer and the batch's name are in the diff.
-  assert.deepEqual(
-    await app.page.evaluate<string[]>(`[...document.querySelector(".batch .batchhead").children].map((c) => c.className)`),
-    ["batchsize", "batchwhen"],
-  );
-  assert.equal(await app.page.evaluate<string>(`document.querySelector(".batch .batchsize").textContent`), "2 changes");
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".batch .batchobjects .batchmeta :is(.batchchain, .batchwho, .batchhash)").length`),
-    3,
-  );
-  await app.page.click(".batch .diffbtn");
-  await app.page.waitFor(`document.querySelector(".batch .batchobjects").hidden === false`, { timeout: 4000 });
-
-  const objects = await shownObjects();
-  assert.equal(objects.length, 2, "one run, two writes");
-
-  const text = await app.page.evaluate<string>(`document.querySelector(".inboxpage").textContent`);
-  assert.match(text, new RegExp(`add ${proposed.id}`), `the added todo is named as an addition: ${text}`);
-  assert.match(text, new RegExp(`complete ${CLOSED}`), `the completion names its todo: ${text}`);
+  await app.page.click(`${TRIAGE} .proposaldetails > summary`);
+  await app.page.waitFor(`document.querySelector('${TRIAGE} .proposaldetails').open === true`, { timeout: 4000 });
+  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll('${TRIAGE} .proposedobject').length`), 2, "one card, two acts");
+  const text = await app.page.evaluate<string>(`document.querySelector('${TRIAGE}').textContent`);
   assert.match(text, new RegExp(proposed.body), "the body is shown in full");
   assert.match(text, /the rain did it/, "and so is the note on the completion");
 
-  // THE SECRETARY'S OWN REASON IS THE DECISION'S rationale — the record it
-  // authored when it held the batch, drawn above the diff exactly as it drew
-  // the OLD review line.
-  const held = await app.page.evaluate<string | null>(
-    `document.querySelector(".inboxpage .batch .batchheld")?.textContent ?? null`,
-  );
-  assert.notEqual(held, null, "a held batch carries the secretary's reason");
-  assert.match(held ?? "", /^Held for you: /, `${held ?? ""}`);
-  assert.match(held ?? "", /adds a todo and completes it/, `${held ?? ""}`);
-
-  // AND THE CHAIN HAS NOT MOVED. Nothing here is on it.
+  // AND THE CHAIN HAS NOT MOVED. Nothing here is on it until a tap.
   const entries = await fold(app.page);
   assert.equal(entries.find((entry) => entry.todo === ADDED), undefined, "the added todo is not on the chain");
-
-  // The badge counts the one open decision.
-  assert.equal(await badge(), "1", "one decision is waiting, and the bar says so");
+  assert.equal(await badge(), "1", "one card is waiting, and the bar says so");
 });
 
 app.scene("a viewer reads the Inbox and is offered nothing to press", async () => {
   await openInbox(PROPOSED_BASE);
+  await app.page.waitFor(`document.querySelector('${TRIAGE}') !== null`, { timeout: 10000 });
   assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".batchacts .act").length`),
+    await app.page.evaluate<number>(`document.querySelectorAll('${TRIAGE} .act-confirm').length`),
     0,
-    "a login that cannot settle is not offered a button that settles",
+    "a login that cannot tap is not offered a button that taps",
   );
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".batchacts .readonly").length`),
-    1,
-    "the row is there and says why, so the page's shape does not change under a viewer",
-  );
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".proposedpick").length`),
-    0,
-    "and there are no ticks either — a selection it cannot send is furniture",
-  );
-
   // …and the ROUTE refuses it, whatever the page drew.
-  const refused = await post(PROPOSED_BASE, "/api/life/proposals/accept", { objects: [] });
+  const refused = await post(PROPOSED_BASE, "/api/secretary/conversations/triage/proposals/0/tap", {});
   assert.equal(refused.status, 403);
-  assert.match((refused.body as { error: string }).error, /may read this app but not write to it/);
 });
 
 // EVERY SCENE FROM HERE SCOPES ITS QUERIES BY `[data-conversation="<id>"]`,
@@ -416,34 +365,29 @@ const shoot = async (selector: string, name: string): Promise<void> => {
   await app.page.screenshot(`${SHOTS}/${name}.png`);
 };
 
-app.scene("a batch and a changeset open on their summary, and a pick made in the diff is what Accept takes", async () => {
+app.scene("a triage card and a changeset open on their summary, and a tap performs every act of the card", async () => {
   const HELD = "e2esummarybatch";
   const ran = rerunTriage("--hold", HELD);
-  assert.equal(ran.ran, true, `the held run: ${ran.refused}`);
+  assert.equal(ran.ran, true, `the triage run: ${ran.refused}`);
   const id = await propose(WRITE_BASE, "propose a summary changeset", 0);
   await openInbox(WRITE_BASE);
 
-  const head = await app.page.evaluate<string>(
-    `[...document.querySelectorAll(".inboxpage .batch")].find((b) => b.textContent.includes("${HELD}"))?.getAttribute("data-batch") ?? ""`,
+  const index = await app.page.evaluate<string>(
+    `[...document.querySelectorAll('${TRIAGE}')].find((c) => c.textContent.includes("${HELD}"))?.getAttribute("data-proposal") ?? ""`,
   );
-  assert.notEqual(head, "", "the held run is drawn as a batch");
-  const batch = `.inboxpage .batch[data-batch="${head}"]`;
+  assert.notEqual(index, "", "the triage run is drawn as a card");
+  const card = `${TRIAGE}[data-proposal="${index}"]`;
   const changeset = `.inboxpage .proposal[data-conversation="${id}"]`;
-  await app.page.waitFor(`document.querySelector('${batch} .batchacts .act') !== null`, { timeout: 10000 });
-  await shoot(batch, "batch-folded");
+  await app.page.waitFor(`document.querySelector('${card} .act-confirm') !== null`, { timeout: 10000 });
+  await shoot(card, "triage-folded");
   await shoot(changeset, "changeset-folded");
   const text = (selector: string): Promise<string> =>
     app.page.evaluate<string>(`document.querySelector('${selector}')?.textContent ?? ""`);
-  const hidden = (selector: string): Promise<boolean> =>
-    app.page.evaluate<boolean>(`document.querySelector('${selector}').hidden`);
 
-  // THE BATCH, FOLDED: the acts, the hold's reason in numbers, the picks counted, and its acts still offered.
-  assert.equal(await text(`${batch} .diffline`), `add ${HELD} · complete ${HELD}`);
-  assert.equal(await text(`${batch} .diffflag`), `At or under the 45% the review holds: ${HELD} at 40%`);
-  assert.equal(await text(`${batch} .diffpicked`), "2 of 2 picked");
-  assert.equal(await app.page.evaluate<string>(`document.querySelector('${batch} .diffbtn').getAttribute("aria-expanded")`), "false");
-  assert.equal(await hidden(`${batch} .batchobjects`), true, "the rows and their ticks are folded");
-  assert.equal(await text(`${batch} .act-accept`), "Accept all");
+  // THE TRIAGE CARD, FOLDED: the acts and the low price said, and Confirm offered.
+  assert.equal(await text(`${card} .diffline`), `add ${HELD} · complete ${HELD}`);
+  assert.equal(await text(`${card} .diffflag`), `At or under the 45% the review holds: ${HELD} at 40%`);
+  assert.equal(await app.page.evaluate<boolean>(`document.querySelector('${card} .proposaldetails').open`), false, "a card is drawn closed");
 
   // THE CHANGESET, FOLDED: grouped by act, the low price said, and Confirm still offered.
   assert.equal(await text(`${changeset} .diffline`), "add 2 todos · complete e2esummaryone");
@@ -455,42 +399,15 @@ app.scene("a batch and a changeset open on their summary, and a pick made in the
   assert.equal(await app.page.evaluate<number>(`document.querySelectorAll('${changeset} .proposedobject').length`), 3);
   await shoot(changeset, "changeset-open");
 
-  // OPENED, a pick is made in the diff; the redraw it causes keeps the diff open.
-  await app.page.click(`${batch} .diffbtn`);
-  await app.page.waitFor(`document.querySelector('${batch} .batchobjects').hidden === false`, { timeout: 4000 });
-  const completion = await app.page.evaluate<string>(
-    `document.querySelector('${batch} .proposedobject.act-completed').getAttribute("data-object")`,
-  );
-  const addition = await app.page.evaluate<string>(
-    `document.querySelector('${batch} .proposedobject.act-added').getAttribute("data-object")`,
-  );
-  const clicked = await app.page.evaluate<number>("performance.now()");
-  await app.page.click(`${batch} .proposedpick[data-pick="${completion}"]`);
-  await app.page.waitFor(`document.querySelector('${batch} .diffpicked')?.textContent === "1 of 2 picked"`, { timeout: 4000 });
-  // Drawing the page again runs none of its handlers: one pick is one toggle and a draw or two, and it stays.
-  await new Promise((r) => setTimeout(r, 1500));
-  const draws = await app.page.evaluate<number>(`performance.getEntriesByName("page:draw").filter((e) => e.startTime >= ${clicked}).length`);
-  assert.ok(draws <= 3, `a pick drew the page ${draws} times`);
-  assert.equal(await text(`${batch} .diffpicked`), "1 of 2 picked", "the pick stays made");
-  assert.equal(await hidden(`${batch} .batchobjects`), false, "a pick does not fold the diff it was made in");
-  assert.equal(await text(`${batch} .act-accept`), "Accept 1");
-  await shoot(batch, "batch-open");
-
-  // ACCEPT TAKES EXACTLY THE PICK: the todo lands, its completion is still standing.
-  await app.page.click(`${batch} .act-accept`);
-  await app.page.waitFor(`document.querySelector('.inboxpage .batch .diffline')?.textContent === "complete ${HELD}"`, {
-    timeout: 15000,
-  });
+  // THE TAP PERFORMS THE WHOLE CARD: the todo is added and completed, as the owner.
+  await app.page.click(`${card} .act-confirm`);
+  await app.page.waitFor(`document.querySelector('${card} .proposalconfirm') !== null`, { timeout: 4000 });
+  await app.page.click(`${card} .act-confirm.confirming`);
+  await app.page.waitFor(`document.querySelector('${card}') === null`, { timeout: 15000 });
   const entries = await fold(app.page);
-  assert.equal(entries.find((entry) => entry.todo === HELD)?.state, "open", "the addition is on the chain, the completion is not");
-  const standing = await app.page.evaluate<{ objects: { hash: string }[] }[]>(
-    `fetch("/api/life/proposals").then((r) => r.json()).then((j) => j.batches)`,
-  );
-  const left = standing.flatMap((b) => b.objects.map((o) => o.hash));
-  assert.ok(left.includes(completion), "the completion still stands");
-  assert.ok(!left.includes(addition), "the addition it rests on was taken");
+  assert.equal(entries.find((entry) => entry.todo === HELD)?.state, "completed", "both acts are on the chain");
 
   // Nothing of this scene is left standing for a later file.
-  const rejected = await post(WRITE_BASE, "/api/life/proposals/reject", { objects: [completion] });
-  assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+  const dismissed = await post(WRITE_BASE, `/api/secretary/conversations/${id}/proposals/0/dismiss`, { reason: "e2e cleanup" });
+  assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
 });

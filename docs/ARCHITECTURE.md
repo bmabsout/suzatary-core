@@ -1227,7 +1227,27 @@ NEITHER AGENT SURFACE GAINS A VERB: a triage claim's inverse settles nothing;
 the TRUSTED secretary must not, because the last event may be THE OWNER'S OWN.
 Both manuals say so; the verb-list snapshots fail if `undo`/`redo` appear.
 
-**10.6 An agent's run writes to a REPLICA, and accepting is the restricted JOIN.**
+**10.6 An agent's writes are cards in the Inbox, performed only by the owner's tap.**
+
+*Since 2026-10-24 (the owner: one path for every change that waits for his tap).* A chain change
+that waits for the owner has one shape, a `Proposal::Changes` card, and one performer, the tap
+(`changes::apply`, as `assistant`). The triage agent's `todo_add`, `todo_update` and `record` are
+the secretary's verb types (`agent::verbs`, generic over `agent::Holds`): each builds one
+`changes::Act`, and the surface's `Holds::write` decides what happens to it. The secretary
+performs it at once. The triage agent files it through `secretary::filed::TriageCards`, the one
+door its call holds, as a card asked by `Proposer::Triage` (stored `Triaged`) in the `triage`
+conversation, after building it against the chain as the tap would. A later write about a todo
+that an open triage card names joins that card and replaces it, so the Inbox holds one card per
+todo. The agent still reads a replica of the chain (`events-triage/`), synced before a run; it
+appends nothing to it. The secretary's review lists the open triage cards (`triage_cards`) and
+may withdraw one (`triage_withdraw`); it cannot perform one. The batches written before this are
+carried into cards by `suzatary proposals carry` (`docs/MIGRATE-TRIAGE-CARDS-2026-10-24.md`).
+
+What follows is the design this replaced, kept as the record of why: the replica, the batch, and
+accepting as the restricted join.
+
+**10.6 (until 2026-10-24) An agent's run writes to a REPLICA, and accepting is the restricted
+JOIN.**
 
 The owner, 2026-09-10: "an agent's changes are actually their own mini prodrome
 and we can accept the changes by merging them in or not, rather than have

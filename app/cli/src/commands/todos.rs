@@ -40,17 +40,6 @@ pub enum Action {
         #[arg(long)]
         json: bool,
     },
-    /// EVERY BATCH THE TRIAGE AGENT HAS PROPOSED and nobody has settled
-    /// (docs/ARCHITECTURE.md §10.6), each object as a diff.
-    ///
-    /// The second reading of the list, and it belongs beside the first: these
-    /// are the same rows one step before they are on the chain. `suzatary
-    /// proposals accept|reject` is what settles one.
-    Proposals {
-        /// Print the batches as JSON instead of as a list.
-        #[arg(long)]
-        json: bool,
-    },
 }
 
 /// `suzatary todos <reading>`.
@@ -59,7 +48,6 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
     let chain = instance.chain(args.chain.as_deref())?;
     match args.action {
         Action::Open { json } => open_todos(&instance, chain, json),
-        Action::Proposals { json } => super::proposals::list(&instance, chain, json),
     }
 }
 

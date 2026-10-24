@@ -11,7 +11,7 @@ import app from "../app/app";
 import pairing from "../app/pairing";
 import signer from "../prodrome/signer";
 import { attachmentUrl, pairDevice, revealHeld } from "../wire/api";
-import type { CardAnswer, CardFile, FileFrom, ProposalRow, ProposedObject } from "../wire/generated/wire";
+import type { CardAnswer, CardFile, FileFrom, ProposalRow, ProposedObject, Revises } from "../wire/generated/wire";
 import proposed from "./proposed";
 import type { Child } from "../view/dom";
 import { el } from "../view/dom";
@@ -39,9 +39,6 @@ import { toast } from "../view/toast";
 type Confirmed = Extract<CardAnswer, { asks: "confirm" | "always" | "endorse" }>;
 const confirmed = (a: CardAnswer): a is Confirmed => a.asks === "confirm" || a.asks === "always" || a.asks === "endorse";
 
-/** A name short enough to read: a batch object's hash, or a changeset act's bare position. */
-export const short = (hash: string): string => hash.slice(0, 12);
-
 function changedFields(object: ProposedObject): HTMLElement | null {
   const changes = proposed.changes(object);
   if (changes.length === 0) return null;
@@ -61,53 +58,35 @@ function changedFields(object: ProposedObject): HTMLElement | null {
   );
 }
 
-/** One row, a batch's sealed object or a changeset's unsealed act drawn alike; `toggle` is `null` for a changeset, confirmed whole. */
-export function objectRow(
-  object: ProposedObject,
-  picked: ReadonlySet<string>,
-  toggle: ((hash: string, on: boolean) => void) | null,
-): HTMLElement {
+// Whether a row is one the card it replaces did not ask for.
+export type Since = "First" | "Carried" | "New"
+export const since = (revises: Revises | null, object: ProposedObject): Since =>
+  revises === null ? "First" : object.position > revises.carried ? "New" : "Carried"
+
+/** One event of a changeset, drawn as a row of its diff. */
+export function objectRow(object: ProposedObject, from: Since = "First"): HTMLElement {
   const t = proposed.todo(object);
   const note = proposed.note(object);
-  const tick =
-    toggle === null
-      ? null
-      : el("input", {
-          type: "checkbox",
-          class: "proposedpick",
-          "data-pick": object.hash,
-          checked: picked.has(object.hash),
-          onchange: (event: Event) => {
-            if (event.target instanceof HTMLInputElement) toggle(object.hash, event.target.checked);
-          },
-        });
   return el(
     "div",
-    { class: `proposedobject act-${object.act}`, "data-object": object.hash },
+    { class: `proposedobject act-${object.act}${from === "New" ? " proposednew" : ""}`, "data-object": String(object.position) },
     el(
-      "label",
+      "p",
       { class: "proposedhead" },
-      tick,
       el("span", { class: "proposedact" }, digest.sentence(object)),
-      el("code", { class: "proposedhash" }, short(object.hash)),
+      from === "New" ? el("span", { class: "proposedfresh" }, "new") : null,
     ),
-    t === null || t.body === "" ? null : el("p", { class: "proposedbody" }, t.body),
+    t.body === "" ? null : el("p", { class: "proposedbody" }, t.body),
     note === null || note === "" ? null : el("p", { class: "proposednote" }, note),
     changedFields(object),
-    t !== null && t.pending_todo
+    t.pending_todo
       ? el(
           "p",
           { class: "proposedpending" },
-          "This todo is not on the chain yet — it is proposed in another batch, and accepting this alone records an outcome for a todo with no content.",
+          "This todo is not on the chain yet: another card adds it, and this one records an outcome for a todo with no content until that one is tapped.",
         )
       : null,
-    t === null
-      ? null
-      : el(
-          "a",
-          { class: "proposedlink", href: hrefOf({ type: "todo", id: t.todo }) },
-          "open the todo",
-        ),
+    el("a", { class: "proposedlink", href: hrefOf({ type: "todo", id: t.todo }) }, "open the todo"),
   );
 }
 
@@ -239,6 +218,9 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
     ),
   );
   node.appendChild(el("p", { class: "proposalwhy" }, proposal.why));
+  // A card that replaces another carries its rows first; the rows after them are what is new.
+  if (proposal.revises !== null && proposal.revises.carried > 0 && proposal.revises.carried < card.rows.length)
+    node.appendChild(el("p", { class: "proposalrevises" }, `Replaces an earlier card: the first ${proposal.revises.carried} of these were asked before, the rows marked new are not.`))
   // While its act runs, what the box waits for (a sign-in's link and code) is on the card where it was asked.
   if (proposal.announced !== null)
     node.appendChild(el("p", { class: "proposalannounced" }, textWithReferences(proposal.announced, "box")));
@@ -265,8 +247,8 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
     card.fields.map((shown) => field(shown.label, shown.value)),
     card.body === "" ? null : heldvalue.within(el("pre", { class: "proposalbody" }, card.body), revealHeld),
     card.files.length === 0 ? null : el("ul", { class: "proposalfiles" }, card.files.map(fileRow)),
-    // A changeset's rows, drawn as a triage batch's are and confirmed whole.
-    card.rows.length === 0 ? null : el("div", { class: "proposedchangeset" }, ...card.rows.map((row) => objectRow(row, new Set(), null))),
+    // A changeset's rows, confirmed whole.
+    card.rows.length === 0 ? null : el("div", { class: "proposedchangeset" }, ...card.rows.map(row => objectRow(row, since(proposal.revises, row)))),
   );
   node.appendChild(details);
 

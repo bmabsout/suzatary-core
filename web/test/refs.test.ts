@@ -28,8 +28,8 @@ import assert from "node:assert/strict";
 import type { Reference } from "../src/chat/refs";
 import { parse, print, tokenise, urlTokens } from "../src/chat/refs";
 
-/** The eight, as `SECRETARY.md` shows them to the model and as
- * `suzatary_core::reference::tests` asserts them. */
+/** The seven `SECRETARY.md` shows the model, and a triage batch's, which held decisions still
+ * name, as `suzatary_core::reference::tests` asserts them. */
 const SPELLINGS = [
   "todo:life/book-flight",
   "mail:a1b2c3d4e5f6",

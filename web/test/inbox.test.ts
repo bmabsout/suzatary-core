@@ -9,9 +9,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { Authored, Entry } from "../src/wire/generated/wire";
-import type { ConversationPayload, ProposalRow, ProposedObject } from "../src/wire/generated/wire";
-import type { InboxProposal, ProposalsPayload, ProposedBatch } from "../src/wire/generated/wire";
-import { oneCardPerBatch, rowOf, sameRows, splitSetup } from "../src/inbox/inbox";
+import type { ConversationPayload, ProposalRow } from "../src/wire/generated/wire";
+import type { InboxProposal } from "../src/wire/generated/wire";
+import { rowOf, sameRows, splitSetup } from "../src/inbox/inbox";
 import type { Row } from "../src/inbox/inbox";
 import waiting from "../src/inbox/waiting";
 import { forAll } from "./gen";
@@ -123,6 +123,7 @@ function proposalRow(over: Partial<ProposalRow> = {}): ProposalRow {
     turn: 0,
     coding: null,
     announced: null,
+    revises: null,
     ...over,
   };
 }
@@ -144,71 +145,29 @@ function conversationPayload(over: Partial<ConversationPayload> = {}): Conversat
   };
 }
 
-function batchOf(over: Partial<ProposedBatch> = {}): ProposedBatch {
-  return { head: "a1b2c3d4", at: "2026-09-17T08:00:00", actor: "triage", objects: [object("a1b2c3d4", [])], ...over };
-}
-
-function object(hash: string, needs: string[]): ProposedObject {
-  return { hash, act: "added", todo: "t1", body: "", at: "", actor: "triage", changes: [], needs, pending_todo: false };
-}
-
-/** A held batch that grew after the hold: `a1b2c3d4` was the head the
- * secretary held, and `e5f6a7b8` was appended on top of it. */
-const grown = (): ProposedBatch =>
-  batchOf({ head: "e5f6a7b8", objects: [object("a1b2c3d4", []), object("e5f6a7b8", ["a1b2c3d4"])] });
-
-test("rowOf: a decision is about the batch that holds its object, and reviewed only what it saw", () => {
-  const held = decision(entry({ authored: authored({ detail: "batch:life/a1b2c3d4\n\nheld" }) }));
-  const batches = new Map([["life", { chain: "life", batches: [grown()], reviews: [] }]]);
-  const row = rowOf(held, new Map(), batches);
-  assert.ok(row.kind === "batch");
-  assert.equal(row.batch.head, "e5f6a7b8");
-  assert.deepEqual([...row.reviewed], ["a1b2c3d4"]);
-});
-
-test("oneCardPerBatch: a batch held twice is drawn once, by the decision that saw the most", () => {
-  const batches = new Map([["life", { chain: "life", batches: [grown()], reviews: [] }]]);
-  const first = rowOf(decision(entry({ todo: "d1", authored: authored({ detail: "batch:life/a1b2c3d4" }) })), new Map(), batches);
-  const second = rowOf(decision(entry({ todo: "d2", authored: authored({ detail: "batch:life/e5f6a7b8" }) })), new Map(), batches);
-  const other = rowOf(decision(entry({ todo: "d3", authored: authored({ detail: "garbage" }) })), new Map(), batches);
-  assert.deepEqual(oneCardPerBatch([first, other, second]), [other, second]);
-});
-
 test("rowOf: a proposal resolved against a fetched conversation mounts its card", () => {
   const conversations = new Map([["default", conversationPayload()]]);
-  const row = rowOf(waiting.proposal(asked()), conversations, new Map());
+  const row = rowOf(waiting.proposal(asked()), conversations);
   assert.equal(row.kind, "proposal");
   assert.ok(row.kind === "proposal" && row.proposal.index === 3);
   assert.ok(row.kind === "proposal" && row.conversation.title === "Default");
 });
 
-test("rowOf: a batch reference resolved against a fetched proposals list mounts the batch", () => {
-  const held = decision(entry({ authored: authored({ detail: "batch:life/a1b2c3d4\n\nheld" }) }));
-  const payload: ProposalsPayload = { chain: "life", batches: [batchOf()], reviews: [] };
-  const batches = new Map([["life", payload]]);
-  const row = rowOf(held, new Map(), batches);
-  assert.equal(row.kind, "batch");
-  assert.ok(row.kind === "batch" && row.batch.head === "a1b2c3d4");
-});
-
 test("rowOf: a proposal index this fetch does not carry is unresolved, never a half-built card", () => {
   const conversations = new Map([["default", conversationPayload({ proposals: [] })]]);
-  const row = rowOf(waiting.proposal(asked()), conversations, new Map());
+  const row = rowOf(waiting.proposal(asked()), conversations);
   assert.equal(row.kind, "unresolved");
 });
 
-test("rowOf: a batch head settled through another door is unresolved, not silently blank", () => {
+test("rowOf: a decision naming a triage batch is unresolved, never a half-built card", () => {
   const held = decision(entry({ authored: authored({ detail: "batch:life/a1b2c3d4\n\nheld" }) }));
-  const payload: ProposalsPayload = { chain: "life", batches: [], reviews: [] };
-  const batches = new Map([["life", payload]]);
-  const row = rowOf(held, new Map(), batches);
-  assert.equal(row.kind, "unresolved");
+  assert.equal(rowOf(held, new Map()).kind, "unresolved");
 });
 
 test("sameRows: a coding session handed over is a different row, so its card is drawn again", () => {
   const reported = { state: "reported" as const, id: "s1", branch: "claude/x", path: "docs/reports/x.md", report: "done", stat: [], handed: "" };
   const of = (coding: ProposalRow["coding"]) =>
-    rowOf(waiting.proposal(asked()), new Map([["default", conversationPayload({ proposals: [proposalRow({ coding })] })]]), new Map());
+    rowOf(waiting.proposal(asked()), new Map([["default", conversationPayload({ proposals: [proposalRow({ coding })] })]]));
   assert.ok(sameRows([of(reported)], [of(reported)]));
   assert.ok(!sameRows([of(reported)], [of({ ...reported, handed: "2026-10-07T10:00:00" })]));
 });

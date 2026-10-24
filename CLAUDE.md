@@ -517,43 +517,41 @@ Threat model: an injected email can at worst mis-triage or write bad todo text
   re-append of the same content: `suzatary todo confirm <id>`, human-only like
   sending, no MCP twin (test-pinned; an agent that can confirm itself has
   confirmed nothing). The provisional record stays on the chain.
-- ⚠️ **The agent's writes do not reach a chain** (2026-09-10, ARCHITECTURE
-  §10.6; the owner: "an agent's changes are actually their own mini prodrome and
-  we can accept the changes by merging them in or not"). Its `Chain` is a
-  REPLICA of its target (`events-triage/` beside `events/`, named in
-  `instance.toml`'s `[[chains]]`), synced from it before a run (the
-  Prodrome's `store::sync`) and appended to in `Change`s (2026-10-03). What it
-  holds and the target does not STANDS, and a BATCH is what stands about one
-  todo (`proposals::batches`, a function of the two object sets; nothing about
-  a run is kept), accepted (the restricted join, the Prodrome's
-  `store::accept`, of exactly the objects picked) or rejected (deleted from the
-  replica — the ONE place an object is removed, allowed because nothing anyone
-  holds rests on them; rejecting is not accepting, and records nothing else).
-  The fence is unchanged (same `tool-guard.sh`, seven traits,
-  `agent::VERBS`, `WRITES_AS`, snapshot); only the interpreter differs (a type
-  parameter on `commands::mcp::Interpreters`). It cannot settle its own work:
-  `proposals` is a field of `Server` and `Secretary`, not of `Agent`, and the
-  routes need the gate's actor, which loopback never mints.
-- **The secretary settles the batches** (2026-09-11, §10.6).
-  The `Secretary` record has `proposals` and three verbs — `proposals_list`,
-  `proposals_accept`, `proposals_reject`; the agent's record is untouched,
-  which is why there are separate records. The rule is `SECRETARY.md`'s "Reviewing
-  the agent's batches": accept ordinary work that carries its evidence, reject
-  duplicates and noise, HOLD anything at or under 45%, anything closing a todo
-  the owner wrote, anything about money, legal or medical matters — when in
-  doubt, hold. A hold is DERIVED from what is still standing, not a fourth
-  verb; every settle writes a `Reviewed` line with a REQUIRED `why`.
-  `scripts/hourly-triage.sh` runs `suzatary secretary review` at the end of
-  each pass, before `safe-push.sh`, so the settlement rides in the batch's
-  commit; it exits zero when batches are held and when the model is
-  unreachable. A pass with no new mail runs no model and still calls
-  `safe-push.sh`, so what the server wrote since the last pass (taps,
-  proposals, conversations, the app's chain writes) is committed within five
-  minutes; the push asks only its own set before verifying, so a quiet tree
-  costs a `git status`. `suzatary secretary reviews --since <date>` is the day's
+- ⚠️ **The agent's writes do not reach a chain; they are cards** (2026-10-24,
+  ARCHITECTURE §10.6; the owner: one path for every change that waits for his
+  tap). The triage agent's `todo_add`, `todo_update` and `record` are the SAME
+  verb types the secretary holds (`agent::verbs::{TodoAdd, TodoUpdate,
+  Record}`, generic over `agent::Holds`): each builds one `changes::Act` and
+  hands it to its surface's `Holds::write`. The secretary's performs it at
+  once as `assistant`; the agent's files it through
+  `secretary::filed::TriageCards`, the one door the agent's call holds (its
+  stores are private and its one method files as `Proposer::Triage`, stored
+  `Triaged`), as a `Proposal::Changes` card in the Inbox, joining the open
+  triage card about the same todo so the Inbox holds one card per todo, after
+  building it against the chain as the tap will. Only the owner's tap
+  performs a card (the one performer, `changes::apply`, as `assistant`); its
+  `why` and `sources` are the agent's, required, and the card says who asked.
+  The agent's `chain` is still a REPLICA of its target (`events-triage/`),
+  synced before a run and READ; nothing appends to it. The fence is
+  unchanged (same `tool-guard.sh`, `agent::VERBS`, `WRITES_AS`, snapshot).
+  The open batches written before this are carried into cards by `suzatary
+  proposals carry` (dry run first, `--apply` after the deploy with the owner's
+  yes); that verb, `secretary::batch_cards` and the replica's files go in its
+  follow-up.
+- **The secretary reviews the triage cards** (§10.6). Two verbs,
+  `triage_cards` and `triage_withdraw`; the rule is `SECRETARY.md`'s
+  "Reviewing the agent's cards": withdraw duplicates and noise with a REQUIRED
+  `why`, leave the rest for the owner, and never perform one (it holds no tap).
+  A hold is DERIVED from what is still open; every withdrawal and hold writes a
+  `Reviewed` line. `scripts/hourly-triage.sh` runs `suzatary secretary review`
+  at the end of each pass, before `safe-push.sh`; it exits zero when cards are
+  left and when the model is unreachable. A pass with no new mail runs no
+  model and still calls `safe-push.sh`, so what the server wrote since the last
+  pass (taps, proposals, conversations, the app's chain writes) is committed
+  within five minutes. `suzatary secretary reviews --since <date>` is the day's
   decisions for the briefing. The old mechanism remains for objects `triage`
-  wrote to the chain before this (two open todos, 2026-09-10); `untrusted = []`
-  waits until those are settled by hand.
+  wrote to the chain before batches (two open todos, 2026-09-10); `untrusted =
+  []` waits until those are settled by hand.
 - ⚠️ **A request from this box is local wherever it dials** (2026-10-05,
   #82): loopback cannot write, and a request from this box to its own tailnet
   address would otherwise resolve to the owner's login, a `web.act_as` key,

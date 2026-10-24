@@ -246,8 +246,8 @@ fn a_box_route_is_held_to_the_key_that_asked() {
     let phone = seed('1');
     let (running, fakes) = signing_server("signatures-requests", &phone);
     let base = running.base.clone();
-    let accept = format!("{base}/api/proposals/accept");
-    let body = serde_json::json!({ "objects": ["0".repeat(64)] });
+    let accept = format!("{base}/api/secretary/conversations/nothing/proposals/0/dismiss");
+    let body = serde_json::json!({ "reason": "not now" });
     let said = |mut response: ureq::http::Response<ureq::Body>| {
         (
             common::status(&response),
@@ -272,7 +272,10 @@ fn a_box_route_is_held_to_the_key_that_asked() {
         .expect("the record reads")
         .expect("kept");
     assert_eq!(recorded.key, phone.public().as_str());
-    assert_eq!(recorded.target, "/api/proposals/accept");
+    assert_eq!(
+        recorded.target,
+        "/api/secretary/conversations/nothing/proposals/0/dismiss"
+    );
     assert_eq!(recorded.actor, "ada");
     assert!(recorded.verifies());
 
@@ -758,16 +761,6 @@ impl Replaying {
         }
         panic!("the round never finished");
     }
-
-    /// An agent's batch of one object: a completion of `todo`, signed by the agent's key.
-    fn batch(&self, todo: &str) -> String {
-        let replica = self.fakes.proposing();
-        let name = replica
-            .append(mk_completed(todo, common::now(), "triage", "").expect("an event"))
-            .expect("the agent proposes");
-        suzatary_core::store::sign(&replica, &seed('8'), &name).expect("the agent signs");
-        name.as_str().to_owned()
-    }
 }
 
 /// A REQUEST IS PERFORMED ONCE: each route the box performs for a device, sent again with the
@@ -850,33 +843,6 @@ fn a_replayed_request_is_answered_from_its_record_and_performs_nothing() {
     );
 }
 
-/// An agent's batch accepted and another rejected, replayed: each taken once.
-#[test]
-fn a_replayed_settlement_settles_once() {
-    let r = replaying("signatures-replay-batches");
-    // An agent's batch taken, another rejected: each once.
-    let taken = r.batch(common::CAST.todos.urgent.id);
-    let accepted = r.twice(
-        "/api/proposals/accept",
-        &serde_json::json!({ "objects": [taken] }),
-        200,
-    );
-    assert!(
-        accepted["adopted"].to_string().contains(&taken),
-        "{accepted}"
-    );
-    let dropped = r.batch(common::CAST.todos.flat.id);
-    let rejected = r.twice(
-        "/api/proposals/reject",
-        &serde_json::json!({ "objects": [dropped] }),
-        200,
-    );
-    assert!(
-        rejected["removed"].to_string().contains(&dropped),
-        "the batch and its signature are removed: {rejected}"
-    );
-}
-
 /// The same request sent many times AT ONCE is performed once: each copy is answered by the
 /// performance, from its record, or refused while it runs, and the turn is said once.
 #[test]
@@ -949,10 +915,7 @@ impl Sent {
 
 /// A body `route` reads and performs, with the secret or the marker wherever it takes words, and
 /// the key that signs it.
-fn performed_body(
-    route: &str,
-    batches: &mut impl Iterator<Item = String>,
-) -> (serde_json::Value, Secret) {
+fn performed_body(route: &str) -> (serde_json::Value, Secret) {
     use base64::Engine as _;
     let phone = seed('1');
     let body = match route
@@ -978,9 +941,6 @@ fn performed_body(
             "body": MARKER, "category": "home",
             "priority": { "how": "flat", "percent": 75 }, "rationale": SECRET,
         }}),
-        "proposals/accept" | "proposals/reject" => {
-            serde_json::json!({ "objects": [batches.next().expect("a batch")] })
-        }
         "secretary/attachments" => {
             let jpeg = [&[0xFF, 0xD8, 0xFF, 0xE0][..], SECRET.as_bytes()].concat();
             serde_json::json!({
@@ -1138,15 +1098,6 @@ fn a_pushed_request_record_holds_nothing_said_either_way() {
     let device_card = serde_json::from_str::<serde_json::Value>(&card).expect("JSON")["proposed"]
         .as_u64()
         .expect("an index");
-    let todos = &common::CAST.todos;
-    let mut batches = [
-        todos.urgent.id,
-        todos.flat.id,
-        todos.checklist.id,
-        todos.high.id,
-    ]
-    .map(|todo| r.batch(todo))
-    .into_iter();
     let default = suzatary_core::secretary::store::DEFAULT.as_str().to_owned();
 
     // Every route the server lists that asks a signature, sent a body it performs.
@@ -1171,7 +1122,7 @@ fn a_pushed_request_record_holds_nothing_said_either_way() {
             .replace("{index}", &index.to_string())
             .replace("{id}", id_in(route))
             .replace("{store}", "topics");
-        let (body, key) = performed_body(route, &mut batches);
+        let (body, key) = performed_body(route);
         let (status, said) = sent.send(&r, &path, &body, &key);
         // A body the route cannot read is refused before it performs, and leaves no record; every
         // body here is one it reads, so each route performs (its own 404 or 409 included).

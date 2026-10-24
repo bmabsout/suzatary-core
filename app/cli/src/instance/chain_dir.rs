@@ -27,33 +27,7 @@ pub struct ChainDir {
     pub owner: Actor,
 }
 
-/// The name of a chain's own store among its areas.
-pub const MAIN: &str = "main";
-/// The name of the area its proposals replica is.
-pub const STAGING: &str = "staging";
-
 impl ChainDir {
-    /// One of the chain's areas as a chain of its own: the same policy over
-    /// `main` (the chain) or `staging` (its proposals replica).
-    ///
-    /// # Errors
-    /// A name the chain has no area for.
-    pub fn area(&self, name: &str) -> anyhow::Result<ChainDir> {
-        match name {
-            MAIN => Ok(self.clone()),
-            STAGING => Ok(ChainDir {
-                policy: self.policy.clone(),
-                events: self.proposals.clone(),
-                proposals: self.proposals.clone(),
-                owner: self.owner.clone(),
-            }),
-            other => anyhow::bail!(
-                "chain {} has no area {other:?}; its areas are {MAIN} and {STAGING}",
-                self.policy.name.as_str()
-            ),
-        }
-    }
-
     /// One `[[chains]]` entry, its untrusted actors checked against its own
     /// roster: a name the roster does not know reads as configured and
     /// behaves as absent.

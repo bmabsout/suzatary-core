@@ -512,12 +512,16 @@ fn checked(
     changes::checked(
         changeset,
         &crate::commands::store_of(chain),
-        suzatary_core::zone::Moment {
-            at: suzatary_core::capability::Clock::now(&SystemClock),
-            zone: instance.persona.zone,
+        &changes::Building {
+            now: suzatary_core::zone::Moment {
+                at: suzatary_core::capability::Clock::now(&SystemClock),
+                zone: instance.persona.zone,
+            },
+            by: suzatary_core::secretary::WRITES_AS,
+            categories: &categories,
+            untrusted: &chain.policy.untrusted,
+            typeset: render,
         },
-        &categories,
-        render,
     )
 }
 

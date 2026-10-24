@@ -63,9 +63,6 @@ fn every_write_route_refuses_a_bare_post_from_loopback() {
         "/api/held/reveal",
         // Loopback cancelling a watch would be the box's shell or the triage agent closing it.
         "/api/mail/watches/0123456789abcdef/cancel",
-        // Loopback settling a batch would be the triage agent settling its own proposals.
-        "/api/proposals/accept",
-        "/api/proposals/reject",
         // The error report's gate keeps the log to the logins that may write.
         "/api/client-errors",
         // Loopback writing a topic would be the box's shell or the triage agent writing one.
@@ -99,7 +96,6 @@ fn nothing_but_the_named_writes_answers_a_post() {
         // The watches' read; its one write is `…/watches/<id>/cancel`.
         "/api/mail/watches",
         "/events",
-        "/api/proposals",
         // A read whose sibling writes are separate paths.
         "/api/overview",
         // The memory's read; its one write is `…/memory/<id>/forget`.

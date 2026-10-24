@@ -26,31 +26,6 @@
       "maps": []
     }
   ],
-  "AcceptedPayload": [
-    {
-      "value": {
-        "adopted": [
-          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
-          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
-          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
-          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
-          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
-          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
-        ],
-        "already": [],
-        "chain": "life",
-        "heads": [
-          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
-          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
-          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
-          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
-          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
-          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
-        ]
-      },
-      "maps": []
-    }
-  ],
   "AttachmentRow": [
     {
       "value": {
@@ -456,6 +431,244 @@
         "proposals": [
           {
             "act": {
+              "chain": "life",
+              "changes": [
+                {
+                  "act": "added",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [
+                    {
+                      "after": "Reply",
+                      "before": "",
+                      "field": "body"
+                    }
+                  ],
+                  "pending_todo": false,
+                  "position": 1,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "edited",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [],
+                  "pending_todo": false,
+                  "position": 2,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "repriced",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [],
+                  "pending_todo": false,
+                  "position": 3,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "created",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "registered",
+                  "pending_todo": true,
+                  "position": 4,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "completed",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "done",
+                  "pending_todo": true,
+                  "position": 5,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "cancelled",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 6,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "reopened",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 7,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "tended",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 8,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "respecified",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 9,
+                  "todo": "email-harrow"
+                }
+              ],
+              "kind": "changes",
+              "problem": ""
+            },
+            "announced": null,
+            "at": "2026-09-02T12:00:00",
+            "card": {
+              "answers": [],
+              "body": "",
+              "by": {
+                "kind": "triage"
+              },
+              "fields": [],
+              "files": [],
+              "link": null,
+              "problem": "",
+              "readonly": "",
+              "rows": [
+                {
+                  "act": "added",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [
+                    {
+                      "after": "Reply",
+                      "before": "",
+                      "field": "body"
+                    }
+                  ],
+                  "pending_todo": false,
+                  "position": 1,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "edited",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [],
+                  "pending_todo": false,
+                  "position": 2,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "repriced",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "changes": [],
+                  "pending_todo": false,
+                  "position": 3,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "created",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "registered",
+                  "pending_todo": true,
+                  "position": 4,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "completed",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "done",
+                  "pending_todo": true,
+                  "position": 5,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "cancelled",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 6,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "reopened",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 7,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "tended",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 8,
+                  "todo": "email-harrow"
+                },
+                {
+                  "act": "respecified",
+                  "actor": "triage",
+                  "at": "2026-09-02T12:00:00",
+                  "body": "Reply",
+                  "note": "",
+                  "pending_todo": false,
+                  "position": 9,
+                  "todo": "email-harrow"
+                }
+              ],
+              "sentence": "",
+              "title": "Change the chain",
+              "uncertain": ""
+            },
+            "coding": null,
+            "index": 0,
+            "outcome": "",
+            "revises": null,
+            "sources": [
+              "briefing:2026-09-02"
+            ],
+            "state": "standing",
+            "tries": 0,
+            "turn": 0,
+            "why": "a message asks for it"
+          }
+        ]
+      },
+      "maps": []
+    },
+    {
+      "value": {
+        "proposals": [
+          {
+            "act": {
               "account": "her@example.invalid",
               "attachments": [],
               "body": "Following up on the deed.",
@@ -513,6 +726,7 @@
             "coding": null,
             "index": 0,
             "outcome": "",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -571,6 +785,7 @@
             "coding": null,
             "index": 1,
             "outcome": "counsel@example.test",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -629,6 +844,7 @@
             "coding": null,
             "index": 2,
             "outcome": "1 change",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -696,6 +912,7 @@
             "coding": null,
             "index": 3,
             "outcome": "auth: 535 5.7.8 Authentication failed",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -754,6 +971,7 @@
             "coding": null,
             "index": 4,
             "outcome": "the message was handed over and no answer came: reset",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -812,6 +1030,7 @@
             "coding": null,
             "index": 5,
             "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -870,6 +1089,7 @@
             "coding": null,
             "index": 6,
             "outcome": "the grant is stored",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -928,6 +1148,7 @@
             "coding": null,
             "index": 7,
             "outcome": "wrong person",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -986,6 +1207,7 @@
             "coding": null,
             "index": 8,
             "outcome": "the message was handed over and no answer came: reset",
+            "revises": null,
             "sources": [
               "briefing:2026-09-27"
             ],
@@ -2614,171 +2836,6 @@
       "maps": []
     }
   ],
-  "ProposalsPayload": [
-    {
-      "value": {
-        "batches": [
-          {
-            "actor": "triage",
-            "at": "2026-09-02T12:00:00",
-            "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "objects": [
-              {
-                "act": "added",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "changes": [
-                  {
-                    "after": "Reply",
-                    "before": "",
-                    "field": "body"
-                  }
-                ],
-                "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "needs": [],
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "merge",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000000",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ]
-              },
-              {
-                "act": "edited",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "changes": [],
-                "hash": "0000000000000000000000000000000000000000000000000000000000000001",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "repriced",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "changes": [],
-                "hash": "0000000000000000000000000000000000000000000000000000000000000002",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "created",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000003",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "registered",
-                "pending_todo": true,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "completed",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000004",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "done",
-                "pending_todo": true,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "cancelled",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000005",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "",
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "reopened",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000006",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "",
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "tended",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000007",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "",
-                "pending_todo": false,
-                "todo": "email-harrow"
-              },
-              {
-                "act": "respecified",
-                "actor": "triage",
-                "at": "2026-09-02T12:00:00",
-                "body": "Reply",
-                "hash": "0000000000000000000000000000000000000000000000000000000000000008",
-                "needs": [
-                  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                ],
-                "note": "",
-                "pending_todo": false,
-                "todo": "email-harrow"
-              }
-            ]
-          }
-        ],
-        "chain": "life",
-        "reviews": [
-          {
-            "at": "2026-09-02T12:00:00",
-            "batch": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "conversation": "review",
-            "decision": "settled",
-            "how": "accepted",
-            "objects": [
-              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-            ],
-            "why": "it carries its evidence"
-          },
-          {
-            "at": "2026-09-02T12:00:00",
-            "batch": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "conversation": "review",
-            "decision": "held",
-            "why": "it changes a commitment"
-          }
-        ]
-      },
-      "maps": []
-    }
-  ],
   "ProvenanceRow": [
     {
       "value": {
@@ -2843,22 +2900,6 @@
             "kind": "trust",
             "reason": "its signatures do not prove it: unsigned"
           }
-        ]
-      },
-      "maps": []
-    }
-  ],
-  "RejectedPayload": [
-    {
-      "value": {
-        "chain": "life",
-        "removed": [
-          "5fbc855a3ee2607f0f8c4352fb436c27731d4a13bb6d3919110f6386db9f0e73",
-          "642518fd2e480cb8cb9cd81daab784b672c2ff57ed3f1c8450c05ac83d83b40c",
-          "6d7206c59206825db49152c912ffad406376011f0131d2fd6a9997727dbb264a",
-          "6e7be820713bb7fa870f3b5aa39a96653c8c6387c56fd6968a138dccf6515311",
-          "b182b6e87e34b4a1373009d84f601d8ed7d1c7057f02c20f54f6a5514c82f53d",
-          "fd954b57c01f37dae4785cb83b4af627582fbc33afe6e4448741aab8cd9af39c"
         ]
       },
       "maps": []
@@ -3060,6 +3101,7 @@
               "coding": null,
               "index": 0,
               "outcome": "",
+              "revises": null,
               "sources": [
                 "mail:e2e0000000000000000000000000000000000000000000000000000000000000"
               ],
@@ -3203,6 +3245,7 @@
               "coding": null,
               "index": 0,
               "outcome": "",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3261,6 +3304,7 @@
               "coding": null,
               "index": 1,
               "outcome": "counsel@example.test",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3319,6 +3363,7 @@
               "coding": null,
               "index": 2,
               "outcome": "1 change",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3386,6 +3431,7 @@
               "coding": null,
               "index": 3,
               "outcome": "auth: 535 5.7.8 Authentication failed",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3444,6 +3490,7 @@
               "coding": null,
               "index": 4,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3502,6 +3549,7 @@
               "coding": null,
               "index": 5,
               "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3560,6 +3608,7 @@
               "coding": null,
               "index": 6,
               "outcome": "the grant is stored",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3618,6 +3667,7 @@
               "coding": null,
               "index": 7,
               "outcome": "wrong person",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3676,6 +3726,7 @@
               "coding": null,
               "index": 8,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3866,6 +3917,7 @@
               "coding": null,
               "index": 0,
               "outcome": "",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3924,6 +3976,7 @@
               "coding": null,
               "index": 1,
               "outcome": "counsel@example.test",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -3982,6 +4035,7 @@
               "coding": null,
               "index": 2,
               "outcome": "1 change",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4049,6 +4103,7 @@
               "coding": null,
               "index": 3,
               "outcome": "auth: 535 5.7.8 Authentication failed",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4107,6 +4162,7 @@
               "coding": null,
               "index": 4,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4165,6 +4221,7 @@
               "coding": null,
               "index": 5,
               "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4223,6 +4280,7 @@
               "coding": null,
               "index": 6,
               "outcome": "the grant is stored",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4281,6 +4339,7 @@
               "coding": null,
               "index": 7,
               "outcome": "wrong person",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4339,6 +4398,7 @@
               "coding": null,
               "index": 8,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4417,6 +4477,7 @@
               "coding": null,
               "index": 0,
               "outcome": "",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4475,6 +4536,7 @@
               "coding": null,
               "index": 1,
               "outcome": "counsel@example.test",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4533,6 +4595,7 @@
               "coding": null,
               "index": 2,
               "outcome": "1 change",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4600,6 +4663,7 @@
               "coding": null,
               "index": 3,
               "outcome": "auth: 535 5.7.8 Authentication failed",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4658,6 +4722,7 @@
               "coding": null,
               "index": 4,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4716,6 +4781,7 @@
               "coding": null,
               "index": 5,
               "outcome": "started at 2026-09-02T12:00:30, open until 2026-09-02T12:15:30",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4774,6 +4840,7 @@
               "coding": null,
               "index": 6,
               "outcome": "the grant is stored",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4832,6 +4899,7 @@
               "coding": null,
               "index": 7,
               "outcome": "wrong person",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],
@@ -4890,6 +4958,7 @@
               "coding": null,
               "index": 8,
               "outcome": "the message was handed over and no answer came: reset",
+              "revises": null,
               "sources": [
                 "briefing:2026-09-27"
               ],

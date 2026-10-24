@@ -70,7 +70,7 @@ pub struct Database<'a> {
 pub struct Area<'a> {
     /// The chain.
     pub events: &'a dyn Prodrome<TodoEvent>,
-    /// The agent's batches against it.
+    /// The triage agent's replica of it.
     pub proposals: &'a dyn Replica<TodoEvent>,
 }
 

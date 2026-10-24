@@ -12,6 +12,18 @@ pub struct Standing {
     pub asking: Asking,
     /// Its inbox object: the act, its reasons and its reading.
     pub object: crate::secretary::inbox::Object,
+    /// The proposal it replaces, and how much of that one it carries.
+    pub revises: Option<Revised>,
+}
+
+/// The proposal a card replaces, as its reader is shown it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Revised {
+    /// The replaced proposal's index in the same conversation.
+    pub card: usize,
+    /// How many of this card's changeset rows, from the first, the replaced card already asked
+    /// for: every row after them is new. `0` where either is not a changeset.
+    pub carried: usize,
 }
 
 /// Why proposal `index`, at `reading`, may not be withdrawn or revised: only one

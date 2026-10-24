@@ -969,14 +969,6 @@ pub struct PostedObjects {
     pub objects: Vec<String>,
 }
 
-/// `POST …/proposals/accept` and `…/reject`: the objects of a batch a settle names.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
-#[serde(deny_unknown_fields)]
-pub struct PickedObjects {
-    /// Each object's hash.
-    pub objects: Vec<String>,
-}
-
 /// `POST /api/secretary/conversations` and `…/title`: a topic's title; `""` leaves it to the
 /// title job.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
@@ -1346,26 +1338,21 @@ pub struct ProposedChange {
     pub after: String,
 }
 
-/// One object of a batch, as a person reads it.
+/// One event a changeset builds, as a person reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 pub struct ProposedObject {
-    /// Its name, what an accept or reject carries.
-    pub hash: String,
-    /// The names in this batch it rests on, so a pick can close over them.
-    pub needs: Vec<String>,
+    /// Its place in the changeset, from 1.
+    pub position: usize,
     /// What it does, the row read as a sentence.
     #[serde(flatten)]
     #[ts(flatten)]
     pub act: ObjectAct,
 }
 
-/// What one proposed object does: a merge, which says nothing about a todo, or one act on a
-/// todo, carrying what its kind of act shows.
+/// What one proposed event does to a todo, carrying what its kind of act shows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(tag = "act", rename_all = "lowercase")]
 pub enum ObjectAct {
-    /// Two histories joined.
-    Merge,
     /// A todo's first content.
     Added {
         /// The todo it is about.
@@ -1454,7 +1441,6 @@ impl ObjectAct {
     #[must_use]
     pub fn word(&self) -> &'static str {
         match self {
-            Self::Merge => "merge",
             Self::Added { .. } => "added",
             Self::Edited { .. } => "edited",
             Self::Repriced { .. } => "repriced",
@@ -1467,11 +1453,10 @@ impl ObjectAct {
         }
     }
 
-    /// The todo it acts on; none for a merge.
+    /// The todo it acts on.
     #[must_use]
-    pub fn todo(&self) -> Option<&ProposedTodo> {
+    pub fn todo(&self) -> &ProposedTodo {
         match self {
-            Self::Merge => None,
             Self::Added { todo, .. }
             | Self::Edited { todo, .. }
             | Self::Repriced { todo, .. }
@@ -1480,19 +1465,18 @@ impl ObjectAct {
             | Self::Cancelled { todo, .. }
             | Self::Reopened { todo, .. }
             | Self::Tended { todo, .. }
-            | Self::Respecified { todo, .. } => Some(todo),
+            | Self::Respecified { todo, .. } => todo,
         }
     }
 
-    /// What a content write changes; none for a lifecycle event or a merge.
+    /// What a content write changes; none for a lifecycle event.
     #[must_use]
     pub fn changes(&self) -> &[ProposedChange] {
         match self {
             Self::Added { changes, .. }
             | Self::Edited { changes, .. }
             | Self::Repriced { changes, .. } => changes,
-            Self::Merge
-            | Self::Created { .. }
+            Self::Created { .. }
             | Self::Completed { .. }
             | Self::Cancelled { .. }
             | Self::Reopened { .. }
@@ -1501,7 +1485,7 @@ impl ObjectAct {
         }
     }
 
-    /// A lifecycle event's note; none for a content write or a merge.
+    /// A lifecycle event's note; none for a content write.
     #[must_use]
     pub fn note(&self) -> Option<&str> {
         match self {
@@ -1511,7 +1495,7 @@ impl ObjectAct {
             | Self::Reopened { note, .. }
             | Self::Tended { note, .. }
             | Self::Respecified { note, .. } => Some(note),
-            Self::Merge | Self::Added { .. } | Self::Edited { .. } | Self::Repriced { .. } => None,
+            Self::Added { .. } | Self::Edited { .. } | Self::Repriced { .. } => None,
         }
     }
 }
@@ -1527,72 +1511,8 @@ pub struct ProposedTodo {
     pub at: String,
     /// Who wrote it.
     pub actor: String,
-    /// Its todo has no content on the target chain: it waits on another batch.
+    /// Its todo has no content on the chain: it waits on another card.
     pub pending_todo: bool,
-}
-
-/// One run's work: what one head reaches that the target lacks.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-pub struct ProposedBatch {
-    /// The head, which is the batch's name.
-    pub head: String,
-    /// The head's claimed instant, what the list sorts by.
-    pub at: String,
-    /// Who wrote it.
-    pub actor: String,
-    /// Parents first.
-    pub objects: Vec<ProposedObject>,
-}
-
-/// What the secretary decided about one batch; for an accept or reject the
-/// batch itself is gone, so this line is what says it happened.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-pub struct ReviewedBatch {
-    /// The batch's head.
-    pub batch: String,
-    /// The secretary's words, never empty.
-    pub why: String,
-    /// When.
-    pub at: String,
-    /// The conversation it was decided in.
-    pub conversation: String,
-    /// Settled, with the objects it settled, or held whole.
-    #[serde(flatten)]
-    #[ts(flatten)]
-    pub decision: crate::secretary::store::Decision,
-}
-
-/// `GET /api/proposals`: every batch standing against one chain.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-pub struct ProposalsPayload {
-    /// The chain.
-    pub chain: String,
-    /// Newest head first.
-    pub batches: Vec<ProposedBatch>,
-    /// Today's decisions, oldest first; a longer window is the CLI's.
-    pub reviews: Vec<ReviewedBatch>,
-}
-
-/// What `POST /api/proposals/accept` did: accepting is the restricted join.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-pub struct AcceptedPayload {
-    /// The chain.
-    pub chain: String,
-    /// Every head after it, sorted.
-    pub heads: Vec<String>,
-    /// Adopted, parents first.
-    pub adopted: Vec<String>,
-    /// Already held.
-    pub already: Vec<String>,
-}
-
-/// What `POST /api/proposals/reject` did.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-pub struct RejectedPayload {
-    /// The chain.
-    pub chain: String,
-    /// The names removed from the replica.
-    pub removed: Vec<String>,
 }
 
 /// Who said a turn, and what only that speaker's turn carries. The route's match over `Turn`
@@ -2197,6 +2117,8 @@ pub enum RememberWords {
 pub enum Asker {
     /// The secretary, whose cards every card before plugins was.
     Secretary {},
+    /// The triage agent, which reads mail anyone can send.
+    Triage {},
     /// An `actor` plugin, by its name.
     Plugin {
         /// The plugin's name.
@@ -2419,6 +2341,18 @@ pub struct ProposalRow {
     /// While its act runs, what the box said it waits for (a sign-in's link and code), drawn on
     /// the card where it was asked; `None` once it ends, or for an act that says nothing.
     pub announced: Option<String>,
+    /// The card of the same conversation it replaces, `None` for a first asking.
+    pub revises: Option<Revises>,
+}
+
+/// The card a proposal replaces, and which of its own rows that card already asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+pub struct Revises {
+    /// The replaced card's index in the same conversation.
+    pub card: usize,
+    /// How many changeset rows, from the first, the replaced card already asked for; every row
+    /// after them is new. `0` where either card is not a changeset.
+    pub carried: usize,
 }
 
 /// One proposal in the inbox prodrome, as the Inbox lists it.
@@ -3003,9 +2937,6 @@ fn answers(visit: &mut impl TypeVisitor) {
     visit.visit::<ReleasesPayload>();
     visit.visit::<AuthoredPayload>();
     visit.visit::<DevicePayload>();
-    visit.visit::<ProposalsPayload>();
-    visit.visit::<AcceptedPayload>();
-    visit.visit::<RejectedPayload>();
     visit.visit::<MemoryPayload>();
     visit.visit::<InboxProposalsPayload>();
     visit.visit::<DrawnPayload>();
@@ -3028,7 +2959,6 @@ fn answers(visit: &mut impl TypeVisitor) {
 /// alone, so the browser has no decoder for one.
 fn bodies(visit: &mut impl TypeVisitor) {
     visit.visit::<Authoring>();
-    visit.visit::<PickedObjects>();
     visit.visit::<Titling>();
     visit.visit::<crate::secretary::routes::Erasing>();
     visit.visit::<Saying>();
@@ -3165,7 +3095,6 @@ mod tests {
         }
         let hash = "a".repeat(64);
         reads::<PostedObjects>(&serde_json::json!({"objects": ["Created(...)"]}));
-        reads::<PickedObjects>(&serde_json::json!({"objects": [hash]}));
         reads::<Authoring>(&serde_json::json!({"update": {"todo": "t", "body": "b", "note": "n"}}));
         reads::<Authoring>(&serde_json::json!({"confirm": {"todo": "t"}}));
         reads::<Authoring>(&serde_json::json!({"add": {

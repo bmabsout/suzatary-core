@@ -581,12 +581,10 @@ echo "==> fixture servers"
 # `write_base`, to set — see `secrets_home`/`secrets_store` above for the
 # isolation that makes running the real `secretspec` safe here.
 read_base="$(start read --login e2e-reader@example.invalid --settings)"
-# `--reviewed` goes on the READ-ONLY one (§10.6): its batch is HELD
-# by the secretary, with the reason drawn above it, and today's settled batches
-# are listed under it. The writer's deployment deliberately has NO review, so
-# the accept/reject scenes still see an unreviewed batch — "the secretary has
-# looked at this" and "nobody has" are two states of one page, and a suite that
-# put both on one server would be a suite whose result depended on file order.
+# `--reviewed` goes on the READ-ONLY one (§10.6): its triage card is HELD
+# by the secretary's review, with the reason recorded. The writer's deployment
+# deliberately has NO review, so "the secretary has looked at this" and "nobody
+# has" are two states on two servers, and no scene's result depends on file order.
 proposed_base="$(start proposed --login e2e-reader@example.invalid --propose --reviewed)"
 write_base="$(start write --propose --settings)"
 # THE BOOTSTRAP'S SERVER: its model's last call failed, so the box files the card that connects

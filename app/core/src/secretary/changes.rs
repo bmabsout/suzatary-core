@@ -1,7 +1,8 @@
-//! A changeset: chain acts the secretary is not sure of, performed only by the owner's tap.
+//! A changeset: chain acts that wait for the owner's tap, whoever proposed them, and the acts a
+//! trusted writer performs at once.
 //!
 //! Acts are stored and events are not, because an `Authored` built at proposal time would undo
-//! whatever moved on the chain since; each act goes through the same builders a direct write does.
+//! whatever moved on the chain since; a direct write and a tap build each act the same way.
 
 use prodrome_core::literal::{ProdromeError, Value as LiteralValue};
 use schemars::JsonSchema;
@@ -10,18 +11,18 @@ use serde_json::{Map, Value};
 
 use crate::agent::priced::{PRICE_SPELLINGS, Priced};
 use crate::authoring::{self, NewTodo, Writer};
-use crate::believed::Preview;
+use crate::believed::{Believed, Preview};
 use crate::capability::{Agent, Datetime, Typeset};
 use crate::chains::ChainPolicy;
 use crate::literal::{Fields, Literal, Signature, arm, no_arm, record};
-use crate::record::{Node, TodoEvent};
+use crate::record::{Node, Source, TodoEvent};
 use crate::refusal::{Refusal, shown as quoted};
 use crate::todo::{Patch, Price, TodoFields, TodoPatch};
 use crate::zone::Moment;
 
-/// One chain act the secretary wants made, each arm backed by an existing builder.
+/// One chain act, each arm backed by an existing builder.
 ///
-/// No `Reopen` or `Undo`, since mail never suggests one and the last event may be the owner's.
+/// No `Undo`, since the last event may be the owner's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "act", rename_all = "lowercase")]
 pub enum Act {
@@ -32,6 +33,10 @@ pub enum Act {
         /// Everything else.
         #[serde(flatten)]
         fields: TodoFields,
+        /// The message, the day and the parent. Left out of the JSON form, which only a model
+        /// reads; the stored literal carries it.
+        #[serde(skip)]
+        from: Provenance,
     },
     /// Change fields on a todo that does.
     Update {
@@ -55,6 +60,13 @@ pub enum Act {
         /// Why, in a sentence. "" for none.
         note: String,
     },
+    /// Open it again.
+    Reopen {
+        /// Which todo.
+        todo: String,
+        /// Why, in a sentence. "" for none.
+        note: String,
+    },
     /// A pass at a recurring todo: done again, and still open.
     Tend {
         /// Which todo.
@@ -71,6 +83,18 @@ pub enum Act {
         /// Why that number now.
         rationale: String,
     },
+}
+
+/// What an added todo carries beyond its fields; every part is optional data, and the default
+/// is a todo created today from no message, under no parent.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Provenance {
+    /// The message it came from.
+    pub source: Option<Source>,
+    /// The day it is created on, at midnight; `None` is the day it is built.
+    pub created: Option<Datetime>,
+    /// The todo it is a subtodo of: the parent's price gains a reference to it in the same act.
+    pub parent: Option<String>,
 }
 
 /// Which act a model's record names, and on which todo.
@@ -129,6 +153,7 @@ impl Act {
             | Act::Update { todo, .. }
             | Act::Complete { todo, .. }
             | Act::Cancel { todo, .. }
+            | Act::Reopen { todo, .. }
             | Act::Tend { todo, .. }
             | Act::Reprice { todo, .. } => todo,
         }
@@ -142,6 +167,7 @@ impl Act {
             Act::Update { .. } => "update",
             Act::Complete { .. } => "complete",
             Act::Cancel { .. } => "cancel",
+            Act::Reopen { .. } => "reopen",
             Act::Tend { .. } => "tend",
             Act::Reprice { .. } => "reprice",
         }
@@ -176,6 +202,7 @@ impl Act {
                         detail,
                         waiting_on,
                     },
+                    from: Provenance::default(),
                 })
             }
             "update" => {
@@ -209,6 +236,10 @@ impl Act {
                 todo,
                 note: crate::verb::parse::<Noted>(fields)?.note,
             }),
+            "reopen" => Ok(Act::Reopen {
+                todo,
+                note: crate::verb::parse::<Noted>(fields)?.note,
+            }),
             "tend" => Ok(Act::Tend {
                 todo,
                 note: crate::verb::parse::<Noted>(fields)?.note,
@@ -228,49 +259,80 @@ impl Act {
                 })
             }
             other => Err(Refusal::bad_request(format!(
-                "no act named {} — an act is one of add, update, complete, cancel, tend, reprice",
+                "no act named {} — an act is one of add, update, complete, cancel, reopen, tend, \
+                 reprice",
                 quoted(other)
             ))),
         }
     }
 
-    /// The event this act is, against `nodes`: the chain plus the changeset's earlier acts.
+    /// The events this act is, against `nodes`: the chain plus the changeset's earlier acts. An
+    /// add under a parent is two, the child and the parent's revision.
     ///
     /// # Errors
     /// Whatever the builder refuses.
-    pub fn event(
+    pub fn events(
         &self,
         nodes: &[Node],
-        now: Moment,
-        by: Writer,
-        categories: &[&str],
-        typeset: &dyn Typeset,
-    ) -> Result<TodoEvent, Refusal> {
+        building: &Building<'_>,
+    ) -> Result<Vec<TodoEvent>, Refusal> {
+        let Building {
+            now,
+            by,
+            categories,
+            untrusted,
+            typeset,
+        } = *building;
         let at = now.at;
         match self {
-            Act::Add { todo, fields } => {
+            Act::Add { todo, fields, from } => {
                 if crate::todos::current(nodes, at, todo).is_some() {
                     return Err(Refusal::conflict(format!(
                         "todo {} already exists — update it instead of adding it again",
                         quoted(todo)
                     )));
                 }
-                authoring::build_todo(
-                    &NewTodo {
-                        todo: todo.clone(),
-                        fields: fields.clone(),
-                        source: None,
-                        subtodos: Vec::new(),
-                    },
-                    now,
-                    by.actor(),
-                    categories,
-                    typeset,
-                )
+                let new = NewTodo {
+                    todo: todo.clone(),
+                    fields: fields.clone(),
+                    source: from.source.clone(),
+                    subtodos: Vec::new(),
+                };
+                let mut built = match &from.parent {
+                    None => vec![authoring::build_todo(
+                        &new,
+                        now,
+                        by.actor(),
+                        categories,
+                        typeset,
+                    )?],
+                    Some(parent) => {
+                        let parent = existing(nodes, at, parent)?;
+                        let believed = Believed::of(nodes, at, untrusted)
+                            .map_err(|failed| Refusal::internal(failed.to_string()))?;
+                        let (child, revision) = authoring::build_subtodo(
+                            &new,
+                            &parent,
+                            &believed.linkable(),
+                            now,
+                            by.actor(),
+                            categories,
+                            typeset,
+                        )?;
+                        vec![child, revision]
+                    }
+                };
+                if let (Some(day), Some(TodoEvent::Authored(child))) =
+                    (from.created, built.first_mut())
+                {
+                    child.payload.created = day;
+                }
+                Ok(built)
             }
             Act::Update { todo, fields } => {
                 let before = existing(nodes, at, todo)?;
                 authoring::update_todo(&before, fields, now, by.actor(), categories, "", typeset)
+                    .map(|event| vec![event])
             }
             Act::Reprice {
                 todo,
@@ -291,6 +353,7 @@ impl Act {
                     "",
                     typeset,
                 )
+                .map(|event| vec![event])
             }
             Act::Complete { todo, note } => lifecycle(nodes, todo, note, |t, n| {
                 prodrome_core::event::mk_completed(t, at, by.actor(), n)
@@ -298,11 +361,30 @@ impl Act {
             Act::Cancel { todo, note } => lifecycle(nodes, todo, note, |t, n| {
                 prodrome_core::event::mk_cancelled(t, at, by.actor(), n)
             }),
+            Act::Reopen { todo, note } => lifecycle(nodes, todo, note, |t, n| {
+                prodrome_core::event::mk_reopened(t, at, by.actor(), n)
+            }),
             Act::Tend { todo, note } => lifecycle(nodes, todo, note, |t, n| {
                 prodrome_core::event::mk_tended(t, at, by.actor(), n)
             }),
         }
     }
+}
+
+/// What every act is built with: the instant and the owner's zone, who writes it, the
+/// deployment's categories, the chain's trust policy and the markup door.
+#[derive(Clone, Copy)]
+pub struct Building<'a> {
+    /// The instant, and the zone a day is read in.
+    pub now: Moment,
+    /// Who the events are by.
+    pub by: Writer,
+    /// The categories a todo may name.
+    pub categories: &'a [&'a str],
+    /// The chain's untrusted actors, which a subtodo's loop check folds under.
+    pub untrusted: &'a prodrome_core::policy::Untrusted,
+    /// Typst, which admits every body.
+    pub typeset: &'a dyn Typeset,
 }
 
 /// The record an edit is against, or the refusal that says there is none.
@@ -333,9 +415,11 @@ fn lifecycle(
     todo: &str,
     note: &str,
     build: impl FnOnce(&str, &str) -> Result<TodoEvent, prodrome_core::literal::ProdromeError>,
-) -> Result<TodoEvent, Refusal> {
+) -> Result<Vec<TodoEvent>, Refusal> {
     known(nodes, todo)?;
-    build(todo, note).map_err(|failed| Refusal::bad_request(failed.to_string()))
+    build(todo, note)
+        .map(|event| vec![event])
+        .map_err(|failed| Refusal::bad_request(failed.to_string()))
 }
 
 /// The acts in order, never empty, deserialisation included.
@@ -355,7 +439,9 @@ struct RawChangeset {
 
 /// A changeset that changes nothing.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("a changeset names at least one act — add, update, complete, cancel, tend or reprice")]
+#[error(
+    "a changeset names at least one act — add, update, complete, cancel, reopen, tend or reprice"
+)]
 pub struct NoActs;
 
 impl Changeset {
@@ -402,28 +488,27 @@ impl From<Changeset> for RawChangeset {
     }
 }
 
-/// Every act as an event, the one build pass the diff, the proposal check and the tap share.
+/// Every act as its events, the one build pass the diff, the proposal check and the tap share.
 ///
 /// # Errors
 /// The first [`Refusal`], naming the act by position and by what it is.
 pub fn events_of(
     changeset: &Changeset,
     chain: &Preview,
-    now: Moment,
-    by: Writer,
-    categories: &[&str],
-    typeset: &dyn Typeset,
+    building: &Building<'_>,
 ) -> Result<Vec<TodoEvent>, Refusal> {
     let mut preview = chain.clone();
     let mut built = Vec::with_capacity(changeset.acts().len());
     for (index, act) in changeset.acts().iter().enumerate() {
-        let event = act
-            .event(preview.nodes(), now, by, categories, typeset)
-            .map_err(|failed| named(index, act, &failed))?;
-        preview
-            .ahead(event.clone())
-            .map_err(|failed| named(index, act, &Refusal::internal(failed.to_string())))?;
-        built.push(event);
+        for event in act
+            .events(preview.nodes(), building)
+            .map_err(|failed| named(index, act, &failed))?
+        {
+            preview
+                .ahead(event.clone())
+                .map_err(|failed| named(index, act, &Refusal::internal(failed.to_string())))?;
+            built.push(event);
+        }
     }
     Ok(built)
 }
@@ -447,35 +532,24 @@ fn named(index: usize, act: &Act, failed: &Refusal) -> Refusal {
 pub enum Unapplied {
     /// Refused before the first append: nothing is on the chain.
     Refused(Refusal),
-    /// An append failed: the acts before it are on the chain, and the one
-    /// that failed may be.
+    /// An append failed: the events before it are on the chain, and the one that failed may be.
     Appending(Refusal),
 }
 
-/// Whether `changeset` would build against `chain` as it stands at `at`: every act through the
-/// builders a tap uses, each body through the markup door, nothing appended. A proposed
-/// changeset the chain would refuse is refused while it is fixable, whoever proposed it.
+/// Whether `changeset` would build against `chain` as it stands: every act through the builders
+/// a tap uses, each body through the markup door, nothing appended. A proposed changeset the
+/// chain would refuse is refused while it is fixable, whoever proposed it.
 ///
 /// # Errors
 /// The chain's refusal of the first act it would not build, or a chain that cannot be read.
 pub fn checked(
     changeset: &Changeset,
     chain: &dyn crate::store::Prodrome<TodoEvent>,
-    now: Moment,
-    categories: &[&str],
-    typeset: &dyn Typeset,
+    building: &Building<'_>,
 ) -> Result<(), Refusal> {
     let preview =
         Preview::of(chain.objects()?).map_err(|failed| Refusal::internal(failed.to_string()))?;
-    events_of(
-        changeset,
-        &preview,
-        now,
-        crate::secretary::WRITES_AS,
-        categories,
-        typeset,
-    )
-    .map(|_| ())
+    events_of(changeset, &preview, building).map(|_| ())
 }
 
 /// Applies a changeset under the write lock, building and verifying every act before any append.
@@ -515,23 +589,25 @@ pub fn apply(
     let built = events_of(
         changeset,
         &chain,
-        Moment { at, zone },
-        by,
-        categories,
-        caps.render,
+        &Building {
+            now: Moment { at, zone },
+            by,
+            categories,
+            untrusted: &policy.untrusted,
+            typeset: caps.render,
+        },
     )
     .map_err(Unapplied::Refused)?;
 
-    // Rendered and read back before anything lands, as a direct write is.
+    // Rendered and read back before anything lands.
     let mut preview = chain;
-    for (index, event) in built.iter().enumerate() {
+    for event in &built {
         preview
             .ahead(event.clone())
             .map_err(|failed| Unapplied::Refused(Refusal::internal(failed.to_string())))?;
         if let TodoEvent::Authored(record) = event {
-            crate::todos::render_current(preview.nodes(), at, &policy.untrusted, record).map_err(
-                |failed| Unapplied::Refused(named(index, &changeset.acts()[index], &failed)),
-            )?;
+            crate::todos::render_current(preview.nodes(), at, &policy.untrusted, record)
+                .map_err(Unapplied::Refused)?;
         }
     }
 
@@ -539,7 +615,7 @@ pub fn apply(
     for (index, event) in built.into_iter().enumerate() {
         let name = caps.chain.append(event).map_err(|failed| {
             Unapplied::Appending(Refusal::internal(format!(
-                "act {} of this changeset could not be appended ({failed}) — {} act(s) \
+                "event {} of this changeset could not be appended ({failed}) — {} event(s) \
                  before it are on the chain",
                 index + 1,
                 index
@@ -550,31 +626,16 @@ pub fn apply(
     Ok(names)
 }
 
-/// The changeset drawn as a batch's diff, or the refusal of an act that no longer builds.
+/// The changeset drawn as rows of a diff, or the refusal of an act that no longer builds.
 #[must_use]
 pub fn shown(
     changeset: &Changeset,
     chain: &Preview,
-    now: Moment,
-    by: Writer,
-    categories: &[&str],
-    typeset: &dyn Typeset,
+    building: &Building<'_>,
 ) -> (Vec<crate::wire::ProposedObject>, String) {
-    match events_of(changeset, chain, now, by, categories, typeset) {
+    match events_of(changeset, chain, building) {
         Ok(built) => (
-            crate::proposals::diff::shown(
-                chain.nodes(),
-                &built
-                    .iter()
-                    .enumerate()
-                    .map(|(index, event)| crate::proposals::diff::Proposed {
-                        // An act is unsealed, so its position is its only name.
-                        name: format!("{}", index + 1),
-                        event: Some(event),
-                        needs: Vec::new(),
-                    })
-                    .collect::<Vec<_>>(),
-            ),
+            crate::secretary::diff::shown(chain.nodes(), &built),
             String::new(),
         ),
         Err(refusal) => (Vec::new(), refusal.message().to_owned()),
@@ -628,6 +689,25 @@ pub const ADD: Signature = (
         "waiting_on",
     ],
 );
+/// `AddFrom(todo, ..., source, created, parent)`: an add with a [`Provenance`]. A shipped kind's
+/// fields are frozen, so an add that carries one prints as a kind of its own and every `Add`
+/// already stored reads as it did.
+pub const ADD_FROM: Signature = (
+    "AddFrom",
+    &[
+        "todo",
+        "body",
+        "rationale",
+        "kind",
+        "category",
+        "priority",
+        "detail",
+        "waiting_on",
+        "source",
+        "created",
+        "parent",
+    ],
+);
 /// `Update(todo, ...)`: each field `None` where it is kept.
 pub const UPDATE: Signature = (
     "Update",
@@ -649,6 +729,8 @@ pub const UPDATE: Signature = (
 pub const COMPLETE: Signature = ("Complete", &["todo", "note"]);
 /// `Cancel(todo, note)`.
 pub const CANCEL: Signature = ("Cancel", &["todo", "note"]);
+/// `Reopen(todo, note)`.
+pub const REOPEN: Signature = ("Reopen", &["todo", "note"]);
 /// `Tend(todo, note)`.
 pub const TEND: Signature = ("Tend", &["todo", "note"]);
 /// `Reprice(todo, priority, rationale)`.
@@ -660,9 +742,8 @@ impl Literal for Act {
             record(signature, vec![todo.to_value(), note.to_value()])
         };
         match self {
-            Act::Add { todo, fields } => record(
-                ADD,
-                vec![
+            Act::Add { todo, fields, from } => {
+                let mut values = vec![
                     todo.to_value(),
                     fields.body.to_value(),
                     fields.rationale.to_value(),
@@ -671,8 +752,18 @@ impl Literal for Act {
                     fields.price.to_value(),
                     fields.detail.to_value(),
                     fields.waiting_on.to_value(),
-                ],
-            ),
+                ];
+                if *from == Provenance::default() {
+                    record(ADD, values)
+                } else {
+                    values.extend([
+                        from.source.to_value(),
+                        from.created.to_value(),
+                        from.parent.to_value(),
+                    ]);
+                    record(ADD_FROM, values)
+                }
+            }
             Act::Update { todo, fields } => record(
                 UPDATE,
                 vec![
@@ -691,6 +782,7 @@ impl Literal for Act {
             ),
             Act::Complete { todo, note } => noted(COMPLETE, todo, note),
             Act::Cancel { todo, note } => noted(CANCEL, todo, note),
+            Act::Reopen { todo, note } => noted(REOPEN, todo, note),
             Act::Tend { todo, note } => noted(TEND, todo, note),
             Act::Reprice {
                 todo,
@@ -708,21 +800,31 @@ impl Literal for Act {
             let fields = Fields::of(value, signature)?;
             Ok((fields.get("todo")?, fields.get("note")?))
         };
+        let added = |fields: &Fields<'_>, from| -> Result<Act, ProdromeError> {
+            Ok(Act::Add {
+                todo: fields.get("todo")?,
+                fields: TodoFields {
+                    body: fields.get("body")?,
+                    rationale: fields.get("rationale")?,
+                    kind: fields.get("kind")?,
+                    category: fields.get("category")?,
+                    price: fields.get("priority")?,
+                    detail: fields.get("detail")?,
+                    waiting_on: fields.get("waiting_on")?,
+                },
+                from,
+            })
+        };
         Ok(match arm(value)? {
-            "Add" => {
-                let fields = Fields::of(value, ADD)?;
-                Act::Add {
-                    todo: fields.get("todo")?,
-                    fields: TodoFields {
-                        body: fields.get("body")?,
-                        rationale: fields.get("rationale")?,
-                        kind: fields.get("kind")?,
-                        category: fields.get("category")?,
-                        price: fields.get("priority")?,
-                        detail: fields.get("detail")?,
-                        waiting_on: fields.get("waiting_on")?,
-                    },
-                }
+            "Add" => added(&Fields::of(value, ADD)?, Provenance::default())?,
+            "AddFrom" => {
+                let fields = Fields::of(value, ADD_FROM)?;
+                let from = Provenance {
+                    source: fields.get("source")?,
+                    created: fields.get("created")?,
+                    parent: fields.get("parent")?,
+                };
+                added(&fields, from)?
             }
             "Update" => {
                 let fields = Fields::of(value, UPDATE)?;
@@ -749,6 +851,10 @@ impl Literal for Act {
             "Cancel" => {
                 let (todo, note) = noted(CANCEL)?;
                 Act::Cancel { todo, note }
+            }
+            "Reopen" => {
+                let (todo, note) = noted(REOPEN)?;
+                Act::Reopen { todo, note }
             }
             "Tend" => {
                 let (todo, note) = noted(TEND)?;
@@ -801,6 +907,7 @@ mod tests {
                 detail: String::new(),
                 waiting_on: String::new(),
             },
+            from: Provenance::default(),
         };
         let printed = serde_json::to_string(&act).expect("an act serialises");
         assert!(printed.contains(r#""act":"add""#), "{printed}");
@@ -877,16 +984,21 @@ mod tests {
             &Parses,
         )
         .expect("a todo");
-        let (rows, problem) = shown(
-            &Changeset::new("life", listed.clone()).expect("one act"),
-            &Preview::chain(std::slice::from_ref(&brush)),
-            crate::zone::Moment {
+        let untrusted = prodrome_core::policy::Untrusted::none();
+        let building = Building {
+            now: crate::zone::Moment {
                 at,
                 zone: crate::zone::Zone::UTC,
             },
-            Writer::Assistant,
-            &[],
-            &Parses,
+            by: Writer::Assistant,
+            categories: &[],
+            untrusted: &untrusted,
+            typeset: &Parses,
+        };
+        let (rows, problem) = shown(
+            &Changeset::new("life", listed.clone()).expect("one act"),
+            &Preview::chain(std::slice::from_ref(&brush)),
+            &building,
         );
         assert_eq!(problem, "");
         assert_eq!(rows[0].act.word(), "repriced");
@@ -902,26 +1014,17 @@ mod tests {
             "80%; every 60 days after a pass, from 100% to 30%"
         );
 
-        let TodoEvent::Authored(built) = listed[0]
-            .event(
-                Preview::chain(&[brush]).nodes(),
-                crate::zone::Moment {
-                    at,
-                    zone: crate::zone::Zone::UTC,
-                },
-                Writer::Assistant,
-                &[],
-                &Parses,
-            )
-            .expect("a reprice")
-        else {
+        let built = listed[0]
+            .events(Preview::chain(&[brush]).nodes(), &building)
+            .expect("a reprice");
+        let [TodoEvent::Authored(built)] = built.as_slice() else {
             panic!("a reprice is an Authored");
         };
-        let spec = built.payload.spec;
+        let spec = &built.payload.spec;
         assert!(
             matches!(spec.out(), prodrome_core::term::TermF::Recur { todo, .. } if todo == "brush"),
             "{}",
-            prodrome_core::fpl::print_term(&spec)
+            prodrome_core::fpl::print_term(spec)
         );
     }
 }

@@ -6,7 +6,7 @@ use crate::refusal::Refusal;
 use crate::secretary::acts::Act;
 use crate::secretary::store::Proposal;
 use crate::secretary::verb_answer::VerbAnswer;
-use crate::secretary::verbs::{drive_path, drive_refusal, kept, propose, reasons_of};
+use crate::secretary::verbs::{Reasoned, drive_path, drive_refusal, kept, propose};
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
 
@@ -16,8 +16,8 @@ pub struct DriveRead;
 #[derive(Deserialize, JsonSchema)]
 pub struct DriveReadArgs {
     path: String,
-    why: String,
-    sources: String,
+    #[serde(flatten)]
+    reasoned: Reasoned,
 }
 
 impl Verb for DriveRead {
@@ -38,7 +38,7 @@ impl Verb for DriveRead {
         required as for proposals.";
 
     fn run(call: &Call<'_>, args: DriveReadArgs) -> Result<VerbAnswer, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.reasoned.reasons()?;
         let path = drive_path(&args.path)?;
         if crate::drive::allowed(&call.caps.drive.allowed_folders(), &path) {
             let read = call

@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::refusal::Refusal;
 use crate::secretary::acts::Act;
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{propose, reasons_of};
+use crate::secretary::verbs::{Reasoned, propose};
 use crate::secretary::{self, Call, SecretarySurface, taint};
 use crate::verb::Verb;
 use crate::web::{self, AllowRule, SearchQuery, WebError, WebRequest};
@@ -18,8 +18,8 @@ pub struct WebArgs {
     search: Option<String>,
     url: Option<String>,
     always: Option<String>,
-    why: String,
-    sources: String,
+    #[serde(flatten)]
+    reasoned: Reasoned,
 }
 
 impl Verb for Web {
@@ -45,7 +45,7 @@ impl Verb for Web {
         is a new request. `why` and `sources` are required as for proposals.";
 
     fn run(call: &Call<'_>, args: WebArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.reasoned.reasons()?;
         let request = match (args.search, args.url) {
             (Some(words), None) => WebRequest::Search {
                 query: SearchQuery::try_from(words)

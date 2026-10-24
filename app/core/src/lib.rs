@@ -45,7 +45,6 @@ pub mod notify;
 pub mod persona;
 pub mod plugin;
 pub mod portal;
-pub mod proposals;
 pub mod query;
 pub mod reading;
 pub mod record;

@@ -10,7 +10,7 @@ use crate::zone::Zone;
 /// A round the box opens for itself, once a day.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Daily {
-    /// The review of the triage agent's standing batches.
+    /// The review of the triage agent's open cards.
     Review,
     /// The sweep of the open list.
     Sweep,

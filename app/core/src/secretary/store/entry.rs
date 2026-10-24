@@ -61,7 +61,7 @@ pub enum Entry {
         #[serde(skip_serializing_if = "Option::is_none")]
         revises: Option<usize>,
     },
-    /// The secretary settled, or deliberately did not settle, one of the triage agent's batches.
+    /// The secretary withdrew, or deliberately left, one of the triage agent's cards.
     ///
     /// A decision nobody can read afterwards is not delegated, so the briefing,
     /// `suzatary secretary reviews` and the Inbox all read this record.
@@ -69,9 +69,9 @@ pub enum Entry {
         /// When.
         #[serde(serialize_with = "stamped")]
         at: Datetime,
-        /// Which chain's replica it was against, since a batch is against one chain.
+        /// Which chain the card was against.
         chain: String,
-        /// The batch, by its head.
+        /// What was reviewed: a card's reference, or an older batch's head.
         batch: String,
         /// What was decided, and the objects it settled.
         #[serde(flatten)]
@@ -83,7 +83,7 @@ pub enum Entry {
     /// The review was asked for and could not run.
     ///
     /// Recorded like a failed send, so an unsettled Inbox is distinguishable from one with nothing
-    /// to settle. Appended after the batches were read in, so a reader sees what stood at that
+    /// to settle. Appended after the cards were read in, so a reader sees what stood at that
     /// moment.
     ReviewFailed {
         /// When.
@@ -91,7 +91,7 @@ pub enum Entry {
         at: Datetime,
         /// The box's own words for why — the model's refusal, verbatim.
         reason: Words<String>,
-        /// How many batches it left standing, recorded then because what stands now is a different
+        /// How many cards it left open, recorded then because what stands now is a different
         /// number.
         standing: usize,
     },

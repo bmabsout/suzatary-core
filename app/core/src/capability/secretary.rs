@@ -73,8 +73,6 @@ pub struct Secretary<'a> {
     /// The owner's calendars, read-only, in the box's clock: what a plugin learned, whose
     /// titles are other people's words. Meetings are never todos.
     pub calendar: &'a dyn Calendar,
-    /// The agent's standing batches, which it settles; the agent never holds this.
-    pub proposals: &'a dyn crate::store::Replica<TodoEvent>,
     /// Whether each declared secret resolves, never a value.
     pub secrets: &'a dyn Secrets,
     /// The web, within the allow rules.

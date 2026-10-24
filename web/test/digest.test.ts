@@ -9,30 +9,28 @@ import type proposed from "../src/inbox/proposed"
 import { forAll, type Rng } from "./gen"
 
 type More = { readonly changes?: ProposedChange[]; readonly pending_todo?: boolean }
-// One row of each act, its todo `todo` (a merge names none).
+// One row of each act, about `todo`.
 const row = (act: proposed.Act, todo: string, more: More = {}): ProposedObject => {
-  const hash = `${act}-${todo}`
-  const needs: string[] = []
+  const position = 1
   const t = { todo, body: "", at: "", actor: "triage", pending_todo: more.pending_todo ?? false }
   const changes = more.changes ?? []
   switch (act) {
-    case "merge": return { hash, needs, act }
-    case "added": return { hash, needs, act, ...t, changes }
-    case "edited": return { hash, needs, act, ...t, changes }
-    case "repriced": return { hash, needs, act, ...t, changes }
-    case "created": return { hash, needs, act, ...t, note: "" }
-    case "completed": return { hash, needs, act, ...t, note: "" }
-    case "cancelled": return { hash, needs, act, ...t, note: "" }
-    case "reopened": return { hash, needs, act, ...t, note: "" }
-    case "tended": return { hash, needs, act, ...t, note: "" }
-    case "respecified": return { hash, needs, act, ...t, note: "" }
+    case "added": return { position, act, ...t, changes }
+    case "edited": return { position, act, ...t, changes }
+    case "repriced": return { position, act, ...t, changes }
+    case "created": return { position, act, ...t, note: "" }
+    case "completed": return { position, act, ...t, note: "" }
+    case "cancelled": return { position, act, ...t, note: "" }
+    case "reopened": return { position, act, ...t, note: "" }
+    case "tended": return { position, act, ...t, note: "" }
+    case "respecified": return { position, act, ...t, note: "" }
   }
 }
 
-const ACTS: readonly proposed.Act[] = ["added", "edited", "repriced", "completed", "cancelled", "reopened", "tended", "created", "respecified", "merge"]
+const ACTS: readonly proposed.Act[] = ["added", "edited", "repriced", "completed", "cancelled", "reopened", "tended", "created", "respecified"]
 const anyRow = (r: Rng): ProposedObject => {
   const act = r.pick(ACTS)
-  const todo = act === "merge" ? "" : r.pick(["a", "b", "c"])
+  const todo = r.pick(["a", "b", "c"])
   return row(act, todo, {
     changes: r.bool() ? [{ field: "priority", before: "", after: r.pick(["10%", "45%", "70%", "unpriced"]) }] : [],
     pending_todo: r.bool(0.2),
@@ -59,8 +57,8 @@ test("law: every act and every named todo of the rows is in the line", () => {
     assert.equal(t.groups.reduce((k, g) => k + g.objects, 0), xs.length, `every object is counted, seed ${seed}`)
     const line = digest.line(t)
     for (const g of t.groups) {
-      const said = g.act === "merge" ? digest.phrase("merge", "") : digest.phrase(g.act, g.todos.length === 1 ? (g.todos[0] ?? "") : `${g.todos.length} todos`)
-      assert.ok(g.act === "merge" && g.objects > 1 ? line.includes(`join histories ${g.objects} times`) : line.includes(said), `${said} in ${line}, seed ${seed}`)
+      const said = digest.phrase(g.act, g.todos.length === 1 ? (g.todos[0] ?? "") : `${g.todos.length} todos`)
+      assert.ok(line.includes(said), `${said} in ${line}, seed ${seed}`)
     }
   })
 })

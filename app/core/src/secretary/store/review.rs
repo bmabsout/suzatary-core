@@ -1,17 +1,17 @@
-//! One batch's answer, as a reader gets it.
+//! One review answer about a triage card, or a batch before cards, as a reader gets it.
 
 use super::Decision;
 use crate::secretary::words::Words;
 
-/// One batch's answer, as a reader gets it: the fold of one [`Entry::Reviewed`](super::Entry::Reviewed). A review is a
+/// One review answer, as a reader gets it: the fold of one [`Entry::Reviewed`](super::Entry::Reviewed). A review is a
 /// fact about a moment, so re-reviewing a head later is another line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Review {
     /// When it was decided.
     pub at: crate::capability::Datetime,
-    /// Which chain the batch was against.
+    /// Which chain the card was against.
     pub chain: String,
-    /// The batch, by its head.
+    /// What was reviewed: a card's reference, or an older batch's head.
     pub batch: String,
     /// What was decided, and the objects it settled.
     pub decision: Decision,
@@ -20,27 +20,16 @@ pub struct Review {
 }
 
 impl std::fmt::Display for Review {
-    /// The record line, one shape for all three decisions, so every reader quotes one sentence.
-    ///
-    /// `accepted 3 objects of batch a1b2c3d4e5f6… on life: <why>`, and
-    /// `held batch a1b2c3d4e5f6… on life: <why>` (a hold settles no object).
+    /// The record line, one shape for every decision, so every reader quotes one sentence:
+    /// `rejected proposal:triage/3 on life: <why>` and `held proposal:triage/4 on life: <why>`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let head: String = self.batch.chars().take(12).collect();
-        match &self.decision {
-            Decision::Held => write!(f, "held batch {head}… on {}: {}", self.chain, self.why),
-            Decision::Settled { how, objects } => write!(
-                f,
-                "{} {} object{} of batch {head}… on {}: {}",
-                how.word(),
-                objects.as_slice().len(),
-                if objects.as_slice().len() == 1 {
-                    ""
-                } else {
-                    "s"
-                },
-                self.chain,
-                self.why
-            ),
-        }
+        write!(
+            f,
+            "{} {} on {}: {}",
+            self.decision.word(),
+            self.batch,
+            self.chain,
+            self.why
+        )
     }
 }

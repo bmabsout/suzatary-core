@@ -1952,7 +1952,7 @@ fn review(
                 );
             } else {
                 println!(
-                    "secretary: the review did not run ({}) — every batch is still standing",
+                    "secretary: the review did not run ({}) — every card is still open",
                     refusal.message()
                 );
             }
@@ -1973,7 +1973,7 @@ fn review(
         return Ok(());
     }
     if reviewed.rounds == 0 {
-        println!("secretary: nothing is standing, nothing to review");
+        println!("secretary: no triage card is open, nothing to review");
         return Ok(());
     }
     println!(
@@ -1985,7 +1985,7 @@ fn review(
             println!("  {line}");
         }
     }
-    // The model's last words once, rather than once per held batch that carries them.
+    // The model's last words once, rather than once per held card that carries them.
     if let Some(text) = reviewed
         .stored
         .turns

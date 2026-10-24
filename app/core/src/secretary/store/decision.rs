@@ -1,4 +1,4 @@
-//! What a review did about one batch.
+//! What a review did about one triage card.
 
 use prodrome_core::literal::ProdromeError;
 use serde::{Deserialize, Serialize};

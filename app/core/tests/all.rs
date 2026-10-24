@@ -52,5 +52,7 @@ mod transcript;
 mod transport_port;
 #[path = "tree.rs"]
 mod tree;
+#[path = "triage_cards.rs"]
+mod triage_cards;
 #[path = "web_vectors.rs"]
 mod web_vectors;

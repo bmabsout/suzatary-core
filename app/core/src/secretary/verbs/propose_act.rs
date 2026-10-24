@@ -6,7 +6,7 @@ use crate::mail::address::EmailAddress;
 use crate::refusal::{Refusal, shown};
 use crate::secretary::acts::Act;
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{propose, reasons_of, serves_of};
+use crate::secretary::verbs::FilingArgs;
 use crate::secretary::{Call, SecretarySurface};
 use crate::settings::Settable;
 use crate::verb::{Caught, Verb};
@@ -47,10 +47,8 @@ pub struct ProposeActArgs {
     end: Caught<Option<String>>,
     #[serde(default)]
     place: Caught<Option<String>>,
-    why: String,
-    sources: String,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 // The two acts' own arguments are read only by the act that takes them.
@@ -106,7 +104,7 @@ impl Verb for ProposeAct {
         takes, and mean the same thing.";
 
     fn run(call: &Call<'_>, args: ProposeActArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let act =
             match args.act.as_str() {
                 "auth" => {
@@ -161,13 +159,11 @@ impl Verb for ProposeAct {
                     )));
                 }
             };
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Act(act.clone()),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         let mut answer = json!({
             "proposed": index,

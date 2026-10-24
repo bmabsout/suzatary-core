@@ -556,6 +556,53 @@ mod tests {
         assert!(memories.read().is_err());
     }
 
+    /// A triage write joining the open card about its todo files the new card and withdraws the
+    /// old one under the inbox's one hold, on the box's own file lock, which one process cannot
+    /// take twice: it returns.
+    #[test]
+    fn a_triage_card_joins_under_the_inbox_file_lock() {
+        use suzatary_core::secretary::changes::{Act, Changeset};
+        use suzatary_core::secretary::filed::{Carding, TriageCards};
+
+        let dir = tempfile::tempdir().expect("a scratch dir");
+        let root = dir.path().to_path_buf();
+        let (sent, joined) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let inbox: Objects<suzatary_core::secretary::inbox_event::InboxEvent> =
+                Objects::open(root.join("inbox"));
+            let lines = lines_at(root.join("lines"));
+            let cards = TriageCards::new(lines.conversations(), &inbox);
+            let file = |note: &str, at: u32| {
+                cards
+                    .file(
+                        Datetime::new(2026, 10, 24, 9, at, 0, 0).expect("an instant"),
+                        Changeset::new(
+                            "life",
+                            vec![Act::Complete {
+                                todo: "permit".to_owned(),
+                                note: note.to_owned(),
+                            }],
+                        )
+                        .expect("one act"),
+                        Reasons::new(
+                            "a message says so",
+                            vec!["briefing:2026-10-24".parse().expect("a reference")],
+                        )
+                        .expect("reasons"),
+                        None,
+                        &|_| Ok(()),
+                    )
+                    .expect("filed")
+                    .how
+            };
+            let _ = sent.send((file("filed", 0), file("filed again", 1)));
+        });
+        let (first, second) = joined
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("the join returns rather than waiting on its own lock");
+        assert_eq!((first, second), (Carding::New, Carding::Joined));
+    }
+
     /// The memory on disk: a `Genesis` and a `Change` per event, no object holding a fact's
     /// words, the words in the text store until forgotten, and beside the objects only the two
     /// locks.

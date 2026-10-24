@@ -1,4 +1,4 @@
-// One thing waiting on the owner: a proposal in the inbox prodrome, or an open decision on a chain (a held batch).
+// One thing waiting on the owner: a proposal in the inbox prodrome, or an open decision on a chain.
 
 import type { ConversationRow, Entry, Fulfillment, InboxProposal, Unheld } from "../wire/generated/wire"
 import fulfillment from "../todo/fulfillment"

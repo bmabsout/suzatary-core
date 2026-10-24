@@ -135,7 +135,7 @@ impl ThreadId {
     }
 }
 
-/// A held triage run's name: the head object of a `proposals::batches` replica.
+/// A triage batch's name from before the agent filed cards: the head object of its replica.
 ///
 /// Eight is the floor, not [`MailHash`]'s six: a short prefix of a young store collides sooner
 /// than a message corpus's does.
@@ -620,8 +620,9 @@ mod tests {
         }
     }
 
-    /// The eight spellings `SECRETARY.md` shows the model, so the manual, the tokeniser and this
-    /// grammar cannot drift apart.
+    /// The seven spellings `SECRETARY.md` shows the model, and a triage batch's, which held
+    /// decisions on the chain still name, so the manual, the tokeniser and this grammar cannot
+    /// drift apart.
     #[test]
     fn the_text_forms_are_the_ones_the_manual_names() {
         for text in [

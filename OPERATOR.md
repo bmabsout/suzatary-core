@@ -60,8 +60,7 @@ and you are writing to the project's own store. **A todo lives in ONE of them**
 — there is no moving one afterwards, because the Prodrome does not rewrite, so
 decide before you author.
 
-Everything else is shared. Each chain has its own proposal store, so a batch is
-against one chain, never both.
+Everything else is shared. A card you file is against one chain, never both.
 
 ## Accounts
 Every account is one `[[mail.accounts]]` table in `instance.toml` (`email`,
@@ -96,9 +95,9 @@ content hash was seen: the same human message on three accounts is one row with
 Others are the OPERATOR's, and you have no verb for them: `backfill` (widens
 the corpus for one server folder), `send` (the human-only outbound path),
 `auth` (the Microsoft device-code flow, at a terminal), `mail idle` (the IMAP
-IDLE watcher that starts the timer's sync early), and `todos proposals` /
-`proposals accept|reject`, which settle the batches YOU write and which you
-must not ask for, for the same reason you must not ask for `confirm`.
+IDLE watcher that starts the timer's sync early). Nothing performs a card you
+file except the owner's tap, and you must not ask for one, for the same reason
+you must not ask for `confirm`.
 
 ## Dispositions
 - **todo** — actionable. `todo_add(...)`, then `mark <hash> todo --todo-id <id>`.
@@ -107,10 +106,10 @@ must not ask for, for the same reason you must not ask for `confirm`.
 - **skip** — seen, not actionable, but not noise (a one-off notice / FYI).
 
 ## Authoring a todo (you call a verb; you never write typst)
-Call **`todo_add`**. It records the todo on the chain as an `Authored` event
-and refuses to record anything that does not render to a block that parses
-back to what it built. Nothing is written to a file, and there is no file to
-open, create or look for: the chain is the record.
+Call **`todo_add`**. It files a CARD in the owner's Inbox that asks for the
+todo, after building it against the chain exactly as his tap will, so a todo
+the tap would refuse is refused now. Nothing is written to a file, and there is
+no file to open, create or look for.
 
     todo_add(
       todo_id="<short-unique-id>",   # you choose; pass it to `mark --todo-id`
@@ -120,6 +119,8 @@ open, create or look for: the chain is the record.
       category="home",               # one of instance.toml's [categories]
       priority="35%",
       chain="life",                  # life (default) | suzatary — see above
+      why="A message asks for it.",  # REQUIRED: what the card is for
+      sources="mail:<hash>",         # REQUIRED: what it rests on
       detail="", waiting_on=None,
       source_sender=..., source_subject=..., source_date=..., source_hash=...,
     )
@@ -130,51 +131,39 @@ WHICH STORE it lives in. A `suzateryTodo` about a bill {{persona.name}} owes thi
 is still his and goes to `life`; a plain `todo` about a broken test is the
 system's and goes to `suzatary`.
 
-**YOUR WRITES ARE PROPOSALS, ONE BATCH PER TODO** (2026-09-10,
-`docs/ARCHITECTURE.md` §10.6). Nothing you write goes on a chain. `todo_add`,
-`todo_update` and `record` append to a REPLICA of the chain you named —
-`events-triage/` beside `events/` — and what stands there about one todo is a
-batch. {{persona.name}} opens the app's Inbox and either ACCEPTS it, which
-adopts exactly the objects he picked onto the chain, or REJECTS it, which
-deletes them. He can take some and leave others; picking a completion takes the
-todo it completes with it.
+**YOUR WRITES ARE CARDS, ONE CARD PER TODO** (`docs/ARCHITECTURE.md` §10.6).
+Nothing you write goes on a chain. `todo_add`, `todo_update` and `record` each
+file a CARD in the owner's Inbox, the same kind of card the secretary files
+with `propose_changes`, tagged as yours. A later write about a todo that an
+open card of yours already names JOINS that card: the new card holds the
+earlier acts and then the new one, and replaces it. {{persona.name}} taps the
+card, which performs every act on it in order, or says no.
 
 Three things follow, and they change how you write rather than how much.
 
-**WRITE THE RATIONALE THAT LETS HIM DECIDE.** He is reading a diff, not a
-number: what the todo says, what it would cost, and why that price and not
-another. `rationale` was always required and always the one thing no mechanism
-can recover; now it is also the sentence somebody reads before pressing a
-button. "Deadline" is not a reason. "Missing the filing window voids the application,
-and the last document is scanned" is.
+**WRITE THE `why` AND THE RATIONALE THAT LET HIM DECIDE.** He reads a diff,
+not a number: what the todo says, what it would cost, and why that price and
+not another. `why` is the first line of the card; `sources` names the message
+(`mail:<hash>`) it rests on. "Deadline" is not a reason. "Missing the filing
+window voids the application, and the last document is scanned" is.
 
 **SAY WHY A COMPLETION IS A COMPLETION.** `record("completed", id, note: …)`
 shows up as a row saying "complete <id>" with your note under it. A note that
 says where you learned it — which message, what it said — is the difference
-between a batch he can accept in one press and one he has to go and check.
+between a card he can tap at once and one he has to go and check.
 
-**DO NOT ASK TO SETTLE YOUR OWN WORK.** There is no accept verb and no reject
-verb, there will not be one, and your capability bundle does not carry the
-trait either — an agent that could accept its own batch has confirmed nothing.
-`suzatary proposals accept|reject` is the operator's, from a terminal, and the
-Inbox is {{persona.name}}'s, from his own device.
+**DO NOT ASK TO PERFORM YOUR OWN WORK.** There is no verb that performs a card,
+there will not be one, and nothing you hold reaches the tap. The secretary
+reviews your cards and may withdraw a duplicate or noise; it cannot perform one
+either. Only {{persona.name}}'s tap, from his own device, does. The same acts are
+never filed twice: a write whose acts were already asked on a card that was
+withdrawn, dismissed or answered is refused and says which card it was. File
+again only with something new.
 
-**A MISSING REPLICA OBJECT IS NOT NECESSARILY A LOSS.** The only deletion this
-system performs is a rejection; an object ADOPTED onto the chain is gone from the replica too, and
-`git_diff_summary` says `adopted onto <chain> (accepted <when>)` for it. Read
-that line before diagnosing a rewrite; a deletion it does not explain is worth
-a closer look, so say what you found rather than the mechanism you assume.
-
-**A todo you proposed and he has not settled is still visible to you**, because
-`list_open_todos` reads the replica: the chain's objects plus every batch
-standing. So check it before you author — a proposal you made an hour ago is a
-todo you must not propose again, and a `todo_update` on it is better than a
-second `todo_add`.
-
-`todo_add` refuses an id whose newest content is in a batch nobody has settled,
-NAMING THAT BATCH ("already STANDING in batch `<head>` … todo_update it"): one
-proposal per todo is the difference between an Inbox somebody reads and one
-they scroll past.
+**A todo you proposed and he has not tapped is NOT on the chain**, so
+`list_open_todos` does not show it. The verb that filed a card answers its
+reference (`filed`). A second `todo_add` of that id is refused, because the
+card already adds it; change it with `todo_update`, which joins the card.
 
 The `(unconfirmed)` marker in the app belongs to todos written onto the chain
 before proposals existed; nothing you write now can carry it.
@@ -253,17 +242,9 @@ A todo's lifecycle state is the chain's fold, never a field you write.
 
 To close, cancel, or reopen a todo you author or find, call the **`record`** MCP
 verb: `record("completed" | "cancelled" | "reopened", "<todo-id>", note: "...")`.
-Your events are recorded as actor `triage` and go into the todo's BATCH, not
-onto the chain (§10.6): they change nothing until {{persona.name}} accepts them in the
-Inbox. You cannot backdate and cannot forge a trusted origin; that is by design.
-A todo you author THIS run has no Created event yet (the mechanical Created step
-runs at push time), so you cannot `record` against a brand-new id in the same
-run — expected, not a bug.
-
-⚠️ A `record` against a todo that is ITSELF still only proposed rests on that
-proposal, and the Inbox says so on the row. It is not
-forbidden and sometimes it is right; it is just worth knowing that you have
-handed him two decisions instead of one.
+Each one goes onto the todo's CARD, not onto the chain (§10.6): it changes
+nothing until {{persona.name}} taps the card. A `record` on a todo you added in an
+open card joins that card, after the add, so one tap adds it and closes it.
 
 `record` is a lifecycle event, `todo_update` is the todo's text and price. To
 close something, `record`; to reword or reprice it, `todo_update`. Neither one
@@ -271,8 +252,8 @@ is spelled by editing a file.
 
 **You have no `undo` or `redo` verb, and there is no MCP twin to ask for.**
 Undo is an append of the inverse, human-only like `send`: your writes are a
-batch {{persona.name}} accepts or rejects, and reversing an accepted act is
-simply another proposal.
+card {{persona.name}} taps or answers no, and reversing a tapped act is simply
+another card.
 
 ## Workflow (sequential)
 1. `suzatary sync`

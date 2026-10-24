@@ -638,7 +638,7 @@ const WRITES: [&str; 5] = [
     "record",
     "remember",
     "propose_email",
-    "proposals_accept",
+    "triage_withdraw",
 ];
 
 fn steps() -> impl proptest::strategy::Strategy<Value = Vec<Step>> {

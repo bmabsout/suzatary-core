@@ -2,58 +2,50 @@ use std::marker::PhantomData;
 
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-use crate::agent::{Holds, writes};
-use crate::refusal::Refusal;
-use crate::verb::{Own, Verb};
+use super::Written;
+use crate::agent::Holds;
+use crate::refusal::{Refusal, shown};
+use crate::secretary::changes::Act;
+use crate::verb::{Chained, Verb};
 
-/// A todo's lifecycle event, written as the surface writes, its arguments spelled `A`.
-pub struct Record<S, A>(PhantomData<(S, A)>);
+/// A todo's lifecycle event, as the surface writes.
+pub struct Record<S>(PhantomData<S>);
 
-/// The event, the todo and a note, empty when absent.
+/// The event, the todo and a note, absent or null meaning none.
 #[derive(Deserialize, JsonSchema)]
 pub struct RecordArgs {
-    kind: String,
-    todo: String,
-    #[serde(default)]
-    note: String,
-}
-
-/// The same arguments with a note that may be null, absent meaning none.
-#[derive(Deserialize, JsonSchema)]
-pub struct RecordArgsNullNote {
     kind: String,
     todo: String,
     note: Option<String>,
 }
 
-impl Own<RecordArgs> for RecordArgsNullNote {
-    fn own(self) -> RecordArgs {
-        RecordArgs {
-            kind: self.kind,
-            todo: self.todo,
-            note: self.note.unwrap_or_default(),
+impl RecordArgs {
+    /// The act this event is; repricing is `todo_update`'s.
+    fn act(self) -> Result<Act, Refusal> {
+        let (todo, note) = (self.todo, self.note.unwrap_or_default());
+        match self.kind.as_str() {
+            "completed" => Ok(Act::Complete { todo, note }),
+            "cancelled" => Ok(Act::Cancel { todo, note }),
+            "reopened" => Ok(Act::Reopen { todo, note }),
+            "tended" => Ok(Act::Tend { todo, note }),
+            other => Err(Refusal::bad_request(format!(
+                "kind must be one of completed, cancelled, reopened or tended, got {}",
+                shown(other)
+            ))),
         }
     }
 }
 
-impl<S: Holds, A: Own<RecordArgs> + DeserializeOwned + JsonSchema> Verb for Record<S, A> {
+impl<S: Holds> Verb for Record<S> {
     type Surface = S;
-    type Args = A;
+    type Args = Chained<Written<RecordArgs, S::Filing>>;
     type Answer = Value;
     const NAME: &'static str = "record";
     const DESCRIPTION: &'static str = S::SAYS.record;
 
-    fn run(call: &S::Call<'_>, args: A) -> Result<Value, Refusal> {
-        let args = args.own();
-        writes::record(
-            &S::agent(call),
-            S::WRITES_AS,
-            &args.kind,
-            &args.todo,
-            &args.note,
-        )
+    fn run(call: &S::Call<'_>, Chained(written): Self::Args) -> Result<Value, Refusal> {
+        S::write(call, written.args.act()?, written.filing)
     }
 }

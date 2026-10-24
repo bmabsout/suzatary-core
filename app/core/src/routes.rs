@@ -1026,11 +1026,10 @@ pub fn content<E: prodrome_core::schema::Schema>(
 }
 
 /// `GET /api/waiting`: how many cards the Inbox draws, as the page resolves its rows
-/// (`web/src/inbox/inbox.ts`, `rowOf` and `oneCardPerBatch`), the one count the badge shows on
-/// every page, the Inbox's included: one per open proposal, one per open decision on each of
-/// `chains`, a decision about a batch standing in `batches` counted once per batch however many
-/// decisions name it, and one per proposal line no inbox record places. A tab reads this number
-/// without holding the conversations: their lines are read by shape, never opened.
+/// (`web/src/inbox/inbox.ts`, `rowOf`), the one count the badge shows on every page, the Inbox's
+/// included: one per open proposal, one per open decision on each of `chains`, and one per
+/// proposal line no inbox record places. A tab reads this number without holding the
+/// conversations: their lines are read by shape, never opened.
 ///
 /// # Errors
 /// A store that does not read, a chain the set does not hold, and lines the fold refuses: no
@@ -1040,48 +1039,21 @@ pub fn waiting(
     lines: &dyn Prodrome<crate::secretary::line_event::LineEvent>,
     set: &ChainSet<'_>,
     chains: &[ChainName],
-    batches: &dyn Fn(&ChainName) -> Answered<Vec<crate::proposals::Batch>>,
 ) -> Answered<wire::WaitingPayload> {
-    use crate::reference::Reference;
     let proposals = crate::secretary::readings::waiting(inbox, set).len();
-    let mut cards = BTreeMap::<ChainName, Vec<crate::proposals::Batch>>::new();
-    let mut held = std::collections::BTreeSet::<(ChainName, prodrome_core::event::Hash)>::new();
     let mut decisions = 0usize;
     for chain in chains {
         let (by_hash, _, rows) = rows(set, chain)?;
-        for row in &rows {
-            let Some(record) = view::content_of(row, &by_hash) else {
-                continue;
-            };
-            let open = wire::EntryState::from(crate::believed::one_outcome(row.outcome()))
-                == wire::EntryState::Open;
-            if !record.payload.is_decision() || !open {
-                continue;
-            }
-            let detail = record.payload.detail.as_str();
-            let first = detail.split_once('\n').map_or(detail, |(first, _)| first);
-            let Ok(Reference::Batch { chain, head }) = first.parse::<Reference>() else {
-                decisions += 1;
-                continue;
-            };
-            if !cards.contains_key(&chain) {
-                cards.insert(chain.clone(), batches(&chain)?);
-            }
-            let standing = cards.get(&chain).and_then(|standing| {
-                standing.iter().find(|batch| {
-                    batch
-                        .objects
-                        .iter()
-                        .any(|(name, _)| name.as_str() == head.as_str())
+        decisions += rows
+            .iter()
+            .filter(|row| {
+                view::content_of(row, &by_hash).is_some_and(|record| {
+                    record.payload.is_decision()
+                        && wire::EntryState::from(crate::believed::one_outcome(row.outcome()))
+                            == wire::EntryState::Open
                 })
-            });
-            match standing {
-                Some(batch) => {
-                    held.insert((chain, batch.head.clone()));
-                }
-                None => decisions += 1,
-            }
-        }
+            })
+            .count();
     }
     let missing = |_: &crate::secretary::locked_text::KeyName| -> crate::secretary::words::Words<
         crate::secretary::locked_text::TextKey,
@@ -1092,7 +1064,7 @@ pub fn waiting(
         .map(|read| read.into_stored().lines(inbox).unplaced().count())
         .sum();
     Ok(wire::WaitingPayload {
-        count: proposals + decisions + held.len() + unplaced,
+        count: proposals + decisions + unplaced,
     })
 }
 

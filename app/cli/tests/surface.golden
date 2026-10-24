@@ -31,9 +31,6 @@ POST /api/objects act -
 GET /api/overview read -
 GET /api/portal read -
 GET /api/presence read -
-GET /api/proposals read -
-POST /api/proposals/accept act signed
-POST /api/proposals/reject act signed
 GET /api/releases read -
 POST /api/secretary/attachments write signed
 GET /api/secretary/attachments/{id} read -
@@ -72,9 +69,6 @@ GET /api/{chain}/fold read -
 GET /api/{chain}/me read -
 GET /api/{chain}/objects read -
 POST /api/{chain}/objects act -
-GET /api/{chain}/proposals read -
-POST /api/{chain}/proposals/accept act signed
-POST /api/{chain}/proposals/reject act signed
 GET /api/{chain}/tip read -
 GET /api/{chain}/todo/{id} read -
 GET /api/{chain}/tree read -

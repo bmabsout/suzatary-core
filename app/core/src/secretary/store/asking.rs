@@ -15,4 +15,6 @@ pub struct Asking {
     /// How many turns stood before this was proposed: the card is drawn after turn
     /// `after_turn - 1`, `0` meaning before any turn. Derived in [`Stored::of`](super::Stored::of).
     pub after_turn: usize,
+    /// The proposal of this conversation it replaces, as its line records it.
+    pub revises: Option<usize>,
 }

@@ -40,10 +40,9 @@ flowchart LR
   mail["Your mail<br/>(Gmail, Microsoft, Proton)"] -->|every 5 minutes| triage
 
   subgraph box["Your box"]
-    triage["Triage agent<br/>behind its fence"] -->|provisional writes| replica[("Agent's replica")]
-    replica -->|batches the secretary accepts or holds| chain[("Prodrome<br/>todos priced by fulfillment")]
-    secretary["Secretary"] -->|reads, proposes| chain
-    secretary -->|proposals: an email, a sign-in| inbox[("Inbox")]
+    triage["Triage agent<br/>behind its fence"] -->|cards: a todo, a completion| inbox[("Inbox")]
+    secretary["Secretary"] -->|reads, writes what you ask| chain[("Prodrome<br/>todos priced by fulfillment")]
+    secretary -->|proposals: an email, a sign-in| inbox
   end
 
   chain --> app["The app<br/>phone and desktop, over your tailnet"]
@@ -53,12 +52,12 @@ flowchart LR
 
 1. **Mail is synced** every five minutes, plus a push wake for IMAP accounts.
 2. **The triage agent** reads each new message and writes what it implies —
-   a new todo, a change of deadline, a completion — into *its own replica* of
-   your todo store. It runs behind a fence that permits only Suzatary's own
-   verbs, and it has no way to send, sign in or reach the network.
-3. **The secretary** reviews the agent's batches: it accepts ordinary work
-   that carries its evidence and holds anything urgent, about money, legal or
-   medical matters, or closing a todo you wrote yourself. It is also the
+   a new todo, a change of deadline, a completion — as a *card in your Inbox*.
+   Nothing reaches your todos until you tap the card. It runs behind a fence
+   that permits only Suzatary's own verbs, and it has no way to send, sign in
+   or reach the network.
+3. **The secretary** reviews the agent's cards: it withdraws duplicates and
+   noise and leaves the rest for you, with its reasons. It is also the
    conversation you have in the app.
 4. **The app** reads the store. It is a web app you open on your phone or
    desktop over your tailnet, with an optional Android portal. Your writes are
@@ -72,7 +71,7 @@ flowchart LR
 </p>
 
 <p align="center">
-  <img src="docs/images/inbox-desktop.png" alt="The Inbox: a batch the secretary held, with its reasons" width="720">
+  <img src="docs/images/inbox-desktop.png" alt="The Inbox: the cards waiting for a tap" width="720">
 </p>
 
 The pictures are of the test suite's fixture deployment, taken with its

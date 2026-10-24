@@ -111,61 +111,6 @@ fn a_batch_written_before_the_switch_is_the_agent_keys_once_adopted() {
             _ => None,
         });
     assert_eq!(signer, Some(public(AGENT)), "signed by the agent's key");
-
-    // Accepted through the one door, it lands proven, its signature with it.
-    ok(&signing(
-        &instance,
-        &["proposals", "accept", pending.as_str()],
-        &seeds(),
-    ));
-    let history: prodrome_core::dag::Dag<TodoEvent> = objects_named(&root).into_iter().collect();
-    let trust = suzatary_core::signatures::Trust::of(
-        &history,
-        &prodrome_core::sign::Registrar::Roots([public(OWN)].into_iter().collect()),
-    );
-    assert!(
-        trust.proves(&pending),
-        "the batch is the agent key's on the chain"
-    );
-}
-
-/// A batch the door would refuse as a post is refused as an accept: signed by a key nobody
-/// registered, it does not enter the chain, whole.
-#[test]
-fn an_accepted_batch_is_held_to_the_door_a_post_is() {
-    let root = scratch("adopt-door");
-    a_chain(&root);
-    let instance = a_signing_instance(&root, &public(OWN));
-    ok(&signing(&instance, &["device", "init"], &seeds()));
-    let stranger = Secret::new(&"5".repeat(64)).expect("a seed");
-    let proposing = replica(&root);
-    let pending = proposing
-        .append(done("parkingpermit", "triage"))
-        .expect("proposed");
-    suzatary_core::store::sign(&proposing, &stranger, &pending).expect("signed by a stranger");
-    let before = objects(&root).len();
-
-    let refused = signing(
-        &instance,
-        &["proposals", "accept", pending.as_str()],
-        &seeds(),
-    );
-    assert!(
-        !refused.status.success(),
-        "an unproven batch entered the chain"
-    );
-    let said = String::from_utf8_lossy(&refused.stderr);
-    assert!(said.contains("not trusted"), "stderr: {said}");
-    assert_eq!(objects(&root).len(), before, "nothing entered");
-}
-
-fn objects_named(root: &Path) -> Vec<(Hash, Envelope<TodoEvent>)> {
-    suzatary_io::objects::Objects::chain(EventStore::new(
-        root.join("events"),
-        prodrome_core::policy::Untrusted::none(),
-    ))
-    .objects()
-    .expect("the chain reads")
 }
 
 #[test]
@@ -396,11 +341,6 @@ fn device_init_repairs_a_box_adopted_before_custody() {
     assert_eq!(listed(instance, "ada", &public(OWN)), "trusted");
     assert_eq!(listed(instance, "assistant", &public(OWN)), "trusted");
     ok(&signing(instance, &["verify"], &seeds()));
-    ok(&signing(
-        instance,
-        &["proposals", "accept", pending.as_str()],
-        &seeds(),
-    ));
 
     let again = signing(instance, &["device", "init"], &seeds());
     ok(&again);

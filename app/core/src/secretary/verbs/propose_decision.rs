@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::decisions::Draft;
 use crate::refusal::Refusal;
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{propose, reasons_of, serves_of};
+use crate::secretary::verbs::FilingArgs;
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
 
@@ -19,10 +19,8 @@ pub struct ProposeDecisionArgs {
     body: String,
     rationale: String,
     supersedes: Option<String>,
-    why: String,
-    sources: String,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 impl Verb for ProposeDecision {
@@ -40,7 +38,7 @@ impl Verb for ProposeDecision {
         `revises` as for `propose_email`.";
 
     fn run(call: &Call<'_>, args: ProposeDecisionArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let draft = Draft::new(
             &args.id,
             &args.title,
@@ -51,13 +49,11 @@ impl Verb for ProposeDecision {
         .map_err(|refused| Refusal::bad_request(refused.to_string()))?;
         call.caps.decisions.admits(&draft, call.caps.render)?;
         let sentence = crate::secretary::decide::sentence(&draft);
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Decide(draft),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         Ok(json!({
             "proposed": index,

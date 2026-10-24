@@ -12,7 +12,7 @@ mod local;
 mod plugins;
 mod roots;
 
-pub use chain_dir::{ChainDir, ChainDirs, MAIN, STAGING};
+pub use chain_dir::{ChainDir, ChainDirs};
 pub use edits::{InstanceEdits, editing};
 pub(crate) use file::Signatures;
 pub(crate) use file::{Chain, File, Orders, Web};

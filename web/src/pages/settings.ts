@@ -114,7 +114,7 @@ export namespace settingsPage {
     ]
   }
 
-  // What of the Inbox a line draws: its proposals, which the tab holds, so the box answering for its batches moves
+  // What of the Inbox a line draws: its proposals, which the tab holds, so the box answering for its folds moves
   // nothing here.
   const proposed = reading.settled(
     reading.map(inboxPage.waits, w => w.rows.filter(r => r.kind === "proposal")),

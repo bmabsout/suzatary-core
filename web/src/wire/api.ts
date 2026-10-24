@@ -1,7 +1,7 @@
 // Every route the box answers, named once: its path, its method, and the decoder its answer passes through `http`.
 
 import app from "../app/app";
-import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ContentPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, Registering, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, SkeletonPayload, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload, WatchesPayload } from "./generated/wire";
+import type { AboutPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ContentPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PostedObjects, Reasoning, ReceiptPayload, Registering, ReleasesPayload, Revealing, SayPayload, Saying, SkeletonPayload, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload, WatchesPayload } from "./generated/wire";
 import { print } from "../chat/refs";
 import type { Reference } from "../chat/refs";
 import heads from "../prodrome/heads";
@@ -103,18 +103,6 @@ export const storeContent = (store: string, hashes: readonly string[]): Promise<
 
 /** The Inbox badge's count, read on the box. */
 export const waitingCount = (): Promise<WaitingPayload> => http.get("/api/waiting", payload.WaitingPayload);
-
-/** Every batch standing against one chain. */
-export const proposals = (chain?: string): Promise<ProposalsPayload> =>
-  http.get(onChain("proposals", chain), payload.ProposalsPayload);
-
-/** The set must be ancestor-closed within its batch; the page closes it with each row's `needs`, and the box refuses an open one. */
-export const acceptProposals = (chain: string, objects: readonly string[]): Promise<AcceptedPayload> =>
-  http.act(onChain("proposals/accept", chain), { objects: [...objects] } satisfies PickedObjects, payload.AcceptedPayload);
-
-/** The one delete this app asks for, allowed because nothing anyone holds rests on a batch's objects. */
-export const rejectProposals = (chain: string, objects: readonly string[]): Promise<RejectedPayload> =>
-  http.act(onChain("proposals/reject", chain), { objects: [...objects] } satisfies PickedObjects, payload.RejectedPayload);
 
 // --- mail and briefings ------------------------------------------------------
 

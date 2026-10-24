@@ -113,7 +113,7 @@ fn write_case_file(dir: &std::path::Path) -> PathBuf {
 fn write_script(dir: &std::path::Path) -> PathBuf {
     let text = r#"[
         {
-            "reply": "{\"say\": \"filing it\", \"calls\": [{\"verb\": \"todo_add\", \"args\": {\"todo_id\": \"benchtest1\", \"body\": \"a scripted candidate wrote this\", \"rationale\": \"the script said so\", \"category\": \"home\", \"priority\": \"65%\"}}]}"
+            "reply": "{\"say\": \"filing it\", \"calls\": [{\"verb\": \"todo_add\", \"args\": {\"todo_id\": \"benchtest1\", \"body\": \"a scripted candidate wrote this\", \"rationale\": \"the script said so\", \"category\": \"home\", \"priority\": \"65%\", \"why\": \"a message asks for it\", \"sources\": \"briefing:2026-09-02\"}}]}"
         },
         {
             "when": "todo_add",
@@ -178,10 +178,9 @@ fn a_scripted_todo_add_lands_as_a_real_object_and_a_run_resumes() {
     let suzatary_bench::run::CallOutcome::Answered { value } = &round.calls[0].outcome else {
         panic!("todo_add was refused: {:?}", round.calls[0].outcome);
     };
-    assert_eq!(value["ok"], serde_json::json!(true));
-    assert_eq!(value["todo_id"], serde_json::json!("benchtest1"));
+    assert_eq!(value["filed"], serde_json::json!("proposal:triage/0"));
 
-    // The verb's answer carries no hash, so this one came from the chain itself.
+    // The verb's answer carries no hash, so this one came from the scratch inbox itself.
     assert_eq!(first_answer.objects.len(), 1, "{first:?}");
     let hash = &first_answer.objects[0];
     assert_eq!(hash.len(), 64, "{hash:?} is not a sha256 hex digest");
@@ -429,7 +428,7 @@ sent_folder = "Sent Items"
 fn write_project_chain_script(dir: &std::path::Path) -> PathBuf {
     let text = r#"[
         {
-            "reply": "{\"say\": \"this is about the system, not Ada's life\", \"calls\": [{\"verb\": \"todo_add\", \"args\": {\"chain\": \"suzatary\", \"todo_id\": \"projecttest1\", \"body\": \"a system fact routed to the project chain\", \"rationale\": \"the script said so\", \"category\": \"home\", \"priority\": \"65%\"}}]}"
+            "reply": "{\"say\": \"this is about the system, not Ada's life\", \"calls\": [{\"verb\": \"todo_add\", \"args\": {\"chain\": \"suzatary\", \"todo_id\": \"projecttest1\", \"body\": \"a system fact routed to the project chain\", \"rationale\": \"the script said so\", \"category\": \"home\", \"priority\": \"65%\", \"why\": \"a message asks for it\", \"sources\": \"briefing:2026-09-02\"}}]}"
         },
         {
             "when": "todo_add",
@@ -489,11 +488,10 @@ fn a_call_naming_the_project_chain_lands_there_not_as_a_refusal() {
         );
     };
     assert_eq!(
-        value["ok"],
-        serde_json::json!(true),
-        "the write to the project chain must succeed: {value:?}"
+        value["filed"],
+        serde_json::json!("proposal:triage/0"),
+        "the card for the project chain must be filed: {value:?}"
     );
-    assert_eq!(value["todo_id"], serde_json::json!("projecttest1"));
 
     assert_eq!(answer.objects.len(), 1, "{answer:?}");
 

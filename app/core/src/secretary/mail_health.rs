@@ -62,6 +62,7 @@ pub fn act_of(zone: crate::zone::Zone, account: &str, since: Instant) -> Act {
             .to_owned(),
             waiting_on: String::new(),
         },
+        from: changes::Provenance::default(),
     }
 }
 
@@ -111,13 +112,16 @@ pub fn propose_persistent(
         changes::events_of(
             &changeset,
             &preview,
-            crate::zone::Moment {
-                at: caps.clock.now(),
-                zone,
+            &changes::Building {
+                now: crate::zone::Moment {
+                    at: caps.clock.now(),
+                    zone,
+                },
+                by: WRITES_AS,
+                categories,
+                untrusted: &bound.policy.untrusted,
+                typeset: caps.render,
             },
-            WRITES_AS,
-            categories,
-            caps.render,
         )?;
         let reasons = Reasons::new(
             format!(

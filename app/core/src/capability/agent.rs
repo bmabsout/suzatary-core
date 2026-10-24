@@ -3,15 +3,15 @@ use crate::record::TodoEvent;
 use crate::store::Prodrome;
 
 /// What the triage agent may use: it reads attacker-controlled mail, so nothing here
-/// sends, notifies, names a peer or settles a batch, and its `chain` is a replica
-/// that only proposes.
+/// sends, notifies, names a peer or performs a card, and its `chain` is a replica it reads.
+/// Its writes are cards, filed through the call's [`crate::secretary::filed::TriageCards`].
 ///
 /// ```
 /// fn write(agent: suzatary_core::capability::Agent<'_>) { let _ = agent.chain; }
 /// ```
 ///
-/// No field reaches the owner's phone, a peer's login, the model, the inbox a person
-/// taps, or the batches it would settle:
+/// No field reaches the owner's phone, a peer's login, the model, or the inbox a person
+/// taps:
 ///
 /// ```compile_fail,E0609
 /// fn push(agent: suzatary_core::capability::Agent<'_>) { let _ = agent.notify; }
@@ -21,9 +21,6 @@ use crate::store::Prodrome;
 /// ```
 /// ```compile_fail,E0609
 /// fn file(agent: suzatary_core::capability::Agent<'_>) { let _ = agent.inbox; }
-/// ```
-/// ```compile_fail,E0609
-/// fn settle(agent: suzatary_core::capability::Agent<'_>) { let _ = agent.proposals; }
 /// ```
 /// ```compile_fail,E0609
 /// fn fetch(agent: suzatary_core::capability::Agent<'_>) { let _ = agent.web; }
@@ -45,7 +42,7 @@ use crate::store::Prodrome;
 /// ```
 #[derive(Clone, Copy)]
 pub struct Agent<'a> {
-    /// The replica its writes land in.
+    /// A replica of the chain, synced before a run, which it reads.
     pub chain: &'a dyn Prodrome<TodoEvent>,
     /// The triage queue and its dedup state.
     pub corpus: &'a dyn Corpus,

@@ -4,7 +4,7 @@
 import { actButton } from "./acts";
 import act from "../view/act";
 import type { Acted } from "./acts";
-import { proposals as fetchProposals, todo as fetchTodo } from "../wire/api";
+import { todo as fetchTodo } from "../wire/api";
 import type { AuthoredSource, Entry, FieldChange, Link, TodoLinks, TodoPayload } from "../wire/generated/wire";
 import { neighbourList } from "./card";
 import app from "../app/app";
@@ -37,7 +37,7 @@ import data from "../algebra/data";
 import disclosure from "../view/disclosure";
 import ui from "../app/ui";
 import registers from "../app/registers";
-import proposedObject from "../inbox/proposed";
+import dressed from "../chat/dressed";
 
 // Who wrote the content and on which day, in one line; whether its number counts it, behind that line. A todo with no
 // content has nothing to attribute, and its content section says so.
@@ -369,10 +369,11 @@ export namespace todoview {
     return {
       node,
       update: () =>
-        void fetchProposals()
-          .then((listed) => {
+        void dressed
+          .inbox(time.moment(), null)
+          .then(({ payload }) => {
             if (destroyed) return;
-            const standing = listed.batches.flatMap((batch) => batch.objects).filter((object) => proposedObject.todo(object)?.todo === id);
+            const standing = payload.proposals.filter((p) => p.state.kind === "open" && p.serves?.endsWith(`/${id}`) === true);
             node.replaceChildren(
               ...(standing.length === 0
                 ? []
@@ -382,12 +383,12 @@ export namespace todoview {
                       { class: "proposednote", role: "status" },
                       `${standing.length} proposed change${standing.length === 1 ? "" : "s"} to this todo ${standing.length === 1 ? "is" : "are"} waiting in the `,
                       el("a", { href: hrefOf({ type: "inbox" }) }, "Inbox"),
-                      ". Nothing here reflects it until you accept it.",
+                      ". Nothing here reflects it until you tap it.",
                     ),
                   ]),
             );
           })
-          // A todo page that cannot reach the proposals route is still a todo page.
+          // A todo page that cannot read the Inbox is still a todo page.
           .catch(() => {}),
       destroy: () => {
         destroyed = true;

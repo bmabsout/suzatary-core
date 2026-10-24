@@ -10,9 +10,7 @@ use crate::secretary;
 use crate::secretary::attached::{self, Attached};
 use crate::secretary::attachment_source::AttachmentSource;
 use crate::secretary::store::{ConversationId, Draft, Proposal};
-use crate::secretary::verbs::{
-    drive_refusal, kept, mail_refusal, propose, reasons_of, refused_by, serves_of,
-};
+use crate::secretary::verbs::{FilingArgs, drive_refusal, kept, mail_refusal, refused_by};
 use crate::secretary::{Call, SecretarySurface};
 use crate::upload::Upload;
 use crate::verb::Verb;
@@ -26,13 +24,11 @@ pub struct ProposeEmailArgs {
     to: String,
     subject: String,
     body: String,
-    why: String,
-    sources: String,
     cc: Option<String>,
     #[schemars(with = "Option<Vec<Value>>")]
     attach: Option<Value>,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 /// One address, shaped by [`crate::mail::address::EmailAddress`], refused with its field name.
@@ -366,7 +362,7 @@ impl Verb for ProposeEmail {
         placeholder and a placeholder in the subject are refused.";
 
     fn run(call: &Call<'_>, args: ProposeEmailArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let held = held_in(call.caps, call.conversation, &args.subject, &args.body)?;
         let draft = Draft {
             account: address(&args.account, "account")?,
@@ -383,13 +379,11 @@ impl Verb for ProposeEmail {
         if draft.to.is_empty() {
             return Err(Refusal::bad_request("to must name at least one recipient"));
         }
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Email(draft.clone()),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         Ok(json!({
             "proposed": index,

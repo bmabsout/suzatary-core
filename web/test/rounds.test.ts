@@ -85,6 +85,7 @@ function proposalAt(index: number, turn: number): ProposalRow {
     turn,
     coding: null,
     announced: null,
+    revises: null,
   };
 }
 

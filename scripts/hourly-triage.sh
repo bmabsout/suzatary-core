@@ -256,9 +256,10 @@ THEN:
      thread where the owner is only CC'd, a resolved FYI) -> `mark ... skip`.
    - "todo": genuinely actionable. Call `todo_add` with the fields — id, body,
      rationale, kind, category, priority (or a deadline), detail, and the
-     source_* fields from the message. It records the todo on the chain.
-     Do NOT escape anything yourself: pass plain
-     prose and it is escaped correctly, including quotes and `@`. Then
+     source_* fields from the message, plus `why` and `sources`
+     (`mail:<hash>`). It files a card in the owner's Inbox; nothing reaches
+     the chain until he taps it. `body` and `detail` are Typst markup: a
+     `$ @ # * _ < [` you mean literally takes a backslash. Then
      `mark ... todo --todo-id <id>` linking the message to it.
      `rationale` is required and is the one field only you can supply: say WHY
      that priority in one sentence. It becomes the comment above the number and
@@ -315,10 +316,9 @@ FENCE="$(scripts/triage-fence.sh "$REPO")" || {
 
 # Pinned model (not the ambient CLI default) so it can't drift silently.
 #
-# claude-sonnet-5, the owner's call: this agent's writes reach a REPLICA
-# (§10.6), and the SECRETARY reviews every batch against a written rule before
-# anything is adopted, so the judgement lives in that step, which stays on
-# `instance.toml`'s secretary model.
+# claude-sonnet-5, the owner's call: this agent's writes are CARDS that only
+# the owner's tap performs (§10.6), and the SECRETARY reviews every card
+# against a written rule first, so the judgement lives in those two steps.
 #
 # The constraint this answers is QUOTA, not money: a subscription is flat, and
 # 288 Opus passes a day spend a weekly allowance the secretary's review also
@@ -433,30 +433,22 @@ if [ -n "$AGENT_FAILED" ]; then
 fi
 
 # THE SECRETARY REVIEWS WHAT THIS RUN PROPOSED (docs/ARCHITECTURE.md §10.6).
-# The run above wrote a BATCH into the replica; this hands
-# it to the trusted agent, which accepts the ordinary work, rejects the
-# duplicates and noise, and LEAVES STANDING anything that changes a real
-# commitment — so what reaches the Inbox is the residue, within minutes of the
-# run rather than by morning.
+# The run above filed CARDS in the Inbox; this hands them to the secretary,
+# which withdraws duplicates and noise and leaves the rest, with its reasons,
+# for the owner's tap. It performs none.
 #
-# ⚠️ IT GOES HERE, BEFORE safe-push, BECAUSE THAT IS WHERE THE BATCH IS AND
-# WHERE THE COMMIT IS. `safe-push.sh` is commit AND push in one flock'd step, so
-# "after the commit, before the push" is not a place this script has; what the
-# rule is FOR is that the batch exists on disk and that everything the review
-# does — objects adopted onto `events/`, objects deleted from `events-triage/`
-# — rides out in the SAME commit as the batch it settled.
-# Running it afterwards would publish an Inbox full of things that were about to
-# be answered, and need a second push to say so.
+# ⚠️ IT GOES HERE, BEFORE safe-push, so the withdrawals and the review's lines
+# ride out in the SAME commit as the cards they answer.
 #
 # ⚠️ A FAILED REVIEW DOES NOT STOP THE PASS, AND IS NOT HIDDEN: the push
 # below still commits what the agent read, and the pass ends failed at
 # `review`, which the brief's alarm says. `secretary review` exits zero when
-# batches are held (holding is the correct answer) and when the model cannot
-# be reached (every batch stays standing); a non-zero exit is anything else.
+# cards are left (leaving them is the correct answer) and when the model cannot
+# be reached (every card stays open); a non-zero exit is anything else.
 # The conversation records every decision; `suzatary secretary reviews
 # --since <date>` reads them back.
 CURRENT_STAGE=review
-echo "hourly-triage: handing the batch to the secretary for review"
+echo "hourly-triage: handing the cards to the secretary for review"
 # If the review has been down twelve passes running (about an hour at this
 # cadence), the verb pushes to the phone itself, once per outage: a rate-limit
 # minute should not page, and a day of silence (11-12 Sep) must not recur.
@@ -469,7 +461,7 @@ if [ "$REVIEW_STATUS" -ne 0 ]; then
   defer review
 fi
 
-# THE SWEEP RUNS ONCE A DAY, AFTER THE REVIEW HAS SETTLED THE BATCHES
+# THE SWEEP RUNS ONCE A DAY, AFTER THE REVIEW HAS READ THE CARDS
 # (`docs/OPENSWEEP-PLAN-2026-09-21.md` §4 commit 3, §5 "do not run it per
 # pass"). Once a day because the corpus does not change fast enough to earn
 # more, and a changeset a day is one the owner will read. "Once a day" is a

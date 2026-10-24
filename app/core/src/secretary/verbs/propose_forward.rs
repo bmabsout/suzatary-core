@@ -9,7 +9,7 @@ use crate::secretary::attached::MAX_TOTAL;
 use crate::secretary::read_mail::ReadMail;
 use crate::secretary::store::{Forward, Forwarded, Proposal, Style};
 use crate::secretary::verbs::propose_email::{address, addresses};
-use crate::secretary::verbs::{mail_refusal, propose, reasons_of, serves_of};
+use crate::secretary::verbs::{FilingArgs, mail_refusal};
 use crate::secretary::{Call, SecretarySurface};
 use crate::verb::Verb;
 
@@ -24,12 +24,10 @@ pub struct ProposeForwardArgs {
     message: String,
     #[serde(rename = "as")]
     style: Style,
-    why: String,
-    sources: String,
     note: Option<String>,
     cc: Option<String>,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 impl Verb for ProposeForward {
@@ -54,7 +52,7 @@ impl Verb for ProposeForward {
         placeholder. A message over 20 MB cannot be forwarded.";
 
     fn run(call: &Call<'_>, args: ProposeForwardArgs) -> Result<Value, Refusal> {
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let note = args.note.unwrap_or_default();
         let to = addresses(&args.to, "to")?;
         if to.is_empty() {
@@ -114,13 +112,11 @@ impl Verb for ProposeForward {
                 date: shown.row.date.map(crate::capability::Datetime::isoformat),
             },
         };
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Forward(forward.clone()),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         let original = &forward.message;
         Ok(json!({

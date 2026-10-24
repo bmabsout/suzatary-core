@@ -133,12 +133,11 @@ real browser); each section says which.
   shown is its draft, at a bounded cost", `islands.test.ts` "law: a
   change to what is behind
   alone draws the status line…", `writes.test.ts` "ticking a subtodo moves
-  the chip" (one write, it stays ticked), `e2e/inbox.test.ts` "a batch and a
-  changeset open on their summary…" (one pick, at most three draws) and "a
+  the chip" (one write, it stays ticked), `e2e/inbox.test.ts` "a
   reason being typed stays in its own card while the card above it goes".
 - **A page waiting says nothing.** Until its first value, and while a
   value it read still waits on more (`waits`: the Inbox while the box is
-  asked for its batches, the list while the chain folds, a search on its
+  asked for its folds, the list while the chain folds, a search on its
   way), the frame draws one placeholder (`web/src/view/placeholder.ts`): the
   loading mark (`loadmark.ts`, one swappable piece) over grey bars in the
   shape the page names (`Lines`, `Rows`, `Cards`, `Turns`), with no words,
@@ -228,7 +227,7 @@ Three; the build enforces the count:
      (a block that does not compile there is text);
    - a page the box printed (`suzatary_core::reading`): a todo's reading part
      with "Why this number", every datum a Typst string literal;
-   - the Inbox's decision and held-batch prose, and a day's briefing;
+   - the Inbox's decision prose, and a day's briefing;
    - a Typst view the tab compiled with typst-wasm (`#/typst`, stages 0 and 4
      of `docs/APP-AS-READING-PLAN-2026-10-02.md`): the kit (`web/typst/`)
      over the nodes of one state value whose every text is a JSON string,
@@ -744,8 +743,9 @@ term is one of its folds):
 ### 3.10 The Inbox
 
 A proposal's object in the inbox prodrome (the tab's replica of it, read by
-`Proposals.inbox`) is the Inbox's row, beside each held batch's decision on a chain (`waiting.ts` is the one
-algebra over both), and the card is how the owner answers it.
+`Proposals.inbox`) is the Inbox's row, beside each open decision on a chain (`waiting.ts` is the one
+algebra over both), and the card is how the owner answers it. A triage card is such a proposal,
+asked by the triage agent and tagged so.
 
 - **One order over two readings of one set.** `waiting.all` mixes a
   proposal priced on the device (`Proposals.inbox` through the module's
@@ -791,21 +791,17 @@ algebra over both), and the card is how the owner answers it.
   `web/e2e/inbox.test.ts` scenes 6 and 7.
 
 - **A diff opens on its summary, and nothing decided from is folded.** A
-  changeset's rows are under its card's Details and a held batch's behind its
-  one toggle, collapsed by default, under one line that is a function of the
-  rows alone: every act of
-  the diff appears in it, grouped in the order the acts first appear, every
-  object counted. A changeset that no longer applies, a price at or under the
-  review's 45% and a batch's picks out of its objects are said in that
-  overview, never only in the rows, and the acts (Confirm, Accept, Reject)
-  stay outside the fold, acting on what they did before. — `digest.test.ts` "law: `of` is a monoid homomorphism" and "law:
+  changeset's rows are under its card's Details, collapsed by default, under
+  one line that is a function of the rows alone: every act of the diff
+  appears in it, grouped in the order the acts first appear, every row
+  counted. A changeset that no longer applies and a price at or under the
+  review's 45% are said in that overview, never only in the rows, and the
+  answers stay outside the fold. — `digest.test.ts` "law: `of` is a monoid homomorphism" and "law:
   every act and every named todo of the rows is in the line" (seeded);
   `inbox.state.test.ts` "expanded: …"; `web/e2e/inbox.test.ts` scene 8 and
   `secretary.test.ts` "a changeset card shows the diff, and Confirm applies
-  it". A batch's own line is its count of changes and its date; the chain it
-  is held on, who wrote it and its name are inside its diff. —
-  `web/e2e/inbox.test.ts` "a held batch appears in the Inbox as an open
-  decision, drawn as its diff".
+  it"; `web/e2e/inbox.test.ts` "a triage card appears in the Inbox, tagged as
+  the agent's and drawn as its diff".
 - **A card is drawn closed, and a yes is asked with the card open.** A card
   shows its head, who asked when it was not the secretary (a tag whose tip
   says why), its reason, what it would do, a changeset's one line, its page

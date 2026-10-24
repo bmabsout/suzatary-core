@@ -12,16 +12,17 @@ use super::verb_answer::VerbAnswer;
 use super::verbs::{
     AddTopics, Attachments, Briefing, BriefingDelta, Calendar, Context, Decisions, DraftNote,
     DriveList, DriveRead, Forget, GitDiffSummary, History, JunkDigest, JunkShow, ListOpenTodos,
-    ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
-    ProposeCodingSession, ProposeDecision, ProposeEmail, ProposeForward, ProposePatch, Recall,
-    Record, Remember, RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail,
-    TodoAdd, TodoShow, TodoUpdate, UploadRead, WatchMail, Weather, Web, WithdrawProposal, Zoom,
+    ProposeAct, ProposeChanges, ProposeCodingSession, ProposeDecision, ProposeEmail,
+    ProposeForward, ProposePatch, Recall, Record, Remember, RepoGrep, RepoRead, RepoTree,
+    ReposList, Search, SearchOlder, Show, SyncMail, TodoAdd, TodoShow, TodoUpdate, TriageCards,
+    TriageWithdraw, UploadRead, WatchMail, Weather, Web, WithdrawProposal, Zoom,
 };
-use crate::agent::{Holds, Says};
+use crate::agent::{Direct, Holds, Says};
 use crate::authoring::Writer;
 use crate::capability::Agent;
 use crate::chains::ChainPolicy;
 use crate::refusal::{Refusal, shown};
+use crate::secretary::changes::{self, Act, Changeset, Unapplied};
 use crate::verb::{Surface, verbs};
 
 /// The secretary's verbs: each runs against a [`Call`], and answers JSON and the files it hands
@@ -59,7 +60,49 @@ impl Holds for SecretarySurface {
         restarting from now — never 'completed' for one of those. Recorded as \
         `assistant`, so it BINDS — a completion here is the todo being done, \
         not a claim awaiting confirmation. Only when the owner has said so.",
+        todo_add: "AUTHOR A TODO, as the trusted actor `assistant` — so it binds the fold \
+        and renders with no `(unconfirmed)` marker. That is affordable because the owner \
+        is reading this conversation, so author what they asked for and propose the rest.\n\n\
+        `body`: the action line, one sentence, as Typst MARKUP: `*bold*` is bold, and \
+        a `$`, `@`, `#`, `*`, `_`, `<` or `[` you mean literally takes a backslash \
+        (`Pay \\$40`). It is compiled before it is stored, without `html` or any \
+        file, and refused with the line and column when it does not compile. \
+        `detail` is the same. Every other field is plain text.\n\
+        `rationale` is required: one sentence saying why THAT number.\n\
+        `priority`: a whole percentage like '65%'. It is a FULFILLMENT: LOW means \
+        urgent, HIGH means satisfied or someday. Give exactly one of `priority`, \
+        `deadline_end_date`, `recur_every_days` or `periodic_every_days`.\n\
+        `deadline_*`: use when the todo decays toward a date rather than sitting \
+        at a fixed number (`deadline_start_priority` defaults to 60%, \
+        `deadline_end_priority` to 5%). A deadline bounds WHEN, not the stakes: \
+        something merely moot afterwards (a form, a small recoverable cost) still \
+        floors around 60% on its last day.\n\
+        `recur_every_days`: a chore done again and again (vinegar the \
+        toothbrush every two months). After every pass (`record` kind \
+        'tended') the fulfillment runs from `cycle_from_priority` to \
+        `cycle_to_priority` over that many days, then holds; before the first \
+        pass it keeps the price it had. `periodic_every_days` is the same \
+        cycle on the calendar, whatever is done (rent). Both need both ends.\n\
+        `source_*`: all four or none — the message this came from. `date`: which day it is \
+        created on, YYYY-MM-DD.\n\
+        `chain` picks the store: leave it out for the owner's life, \
+        `chain=\"suzatary\"` for this system's own work.\n\n\
+        `parent` makes it a SUBTODO: the parent's price gains a reference to \
+        it in the same write, so the parent's value composes this one's; \
+        without `category` it takes the parent's.",
+        todo_update: "Change fields on a todo that exists, as the trusted actor `assistant`. Only what \
+        you name changes.\n\nChanging `priority` (or a deadline, or a cycle — the same price fields `todo_add` \
+        takes, one of them) REQUIRES `rationale`: the comment above that number is the only \
+        record of why it is what it is. Passing `rationale` alone rewrites just the reason.\n\n\
+        `clear_waiting_on` sets it back to `none` — use it the moment there is an email we \
+        could send, since `waitingOn` means nothing we can do.\n\n\
+        `body`, `detail` and `detail_append` are Typst markup, checked as `todo_add` checks \
+        them. `detail_append`: a sentence to add under the existing detail, keeping its \
+        markup — use this, never `detail`, when the detail already exists; give at most one \
+        of the two.\n\n`chain` must be the store the todo was authored in; there is no moving \
+        one between them.",
     };
+    type Filing = Direct;
 
     fn agent<'a>(call: &Self::Call<'a>) -> Agent<'a> {
         call.caps.agent()
@@ -67,6 +110,36 @@ impl Holds for SecretarySurface {
 
     fn chain<'a>(call: &Self::Call<'a>) -> &'a ChainPolicy {
         call.chain
+    }
+
+    fn write(call: &Call<'_>, act: Act, Direct {}: Direct) -> Result<Value, Refusal> {
+        let changeset = Changeset::new(call.chain.name.as_str(), vec![act])
+            .map_err(|failed| Refusal::internal(failed.to_string()))?;
+        let categories: Vec<&str> = call
+            .deployment
+            .categories
+            .keys()
+            .map(String::as_str)
+            .collect();
+        match changes::apply(
+            &call.caps.agent(),
+            call.chain,
+            &categories,
+            call.deployment.zone,
+            &changeset,
+            super::WRITES_AS,
+        ) {
+            Ok(names) => Ok(serde_json::json!({
+                "ok": true,
+                "chain": changeset.chain(),
+                "todo": changeset.acts().first().map(Act::todo),
+                "appended": names
+                    .iter()
+                    .map(prodrome_core::event::Hash::as_str)
+                    .collect::<Vec<_>>(),
+            })),
+            Err(Unapplied::Refused(refusal) | Unapplied::Appending(refusal)) => Err(refusal),
+        }
     }
 }
 
@@ -88,7 +161,7 @@ pub enum Effect {
     Proposes,
     /// Appends to a chain as the trusted actor, binding at once.
     Writes,
-    /// Accepts or rejects the triage agent's standing batches.
+    /// Withdraws one of the triage agent's cards; performing one is the owner's tap alone.
     Settles,
     /// Starts the timer's own mail sync early: nothing the timer does not reach, and nothing a
     /// rewind could take back.
@@ -159,12 +232,11 @@ verbs! {
     ProposeCodingSession: powers(Proposes, Tainted),
     ProposeDecision: powers(Proposes, Tainted),
     DraftNote: powers(Proposes, Tainted),
+    TriageCards: powers(Reads, Tainted),
+    TriageWithdraw: powers(Settles, Tainted),
     // Writes the box-local topic store, no chain and no proposal; a topic it may create was
     // written in a round with no words but the owner's, so its answer carries none but his.
     AddTopics: powers(Reads, Clean),
-    ProposalsList: powers(Reads, Tainted),
-    ProposalsAccept: powers(Settles, Tainted),
-    ProposalsReject: powers(Settles, Tainted),
 }
 
 /// Some of the verbs: the ones a round's model is shown and may call, and the refusal a call of

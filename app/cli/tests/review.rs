@@ -1,62 +1,64 @@
-//! The secretary reviewing the agent's batches end to end, with only the model scripted.
+//! The secretary reviewing the triage agent's cards end to end, with only the model scripted.
 //!
 //! No server or peer: the box starts a review, so no request, gate or `Tap` is involved.
 
 mod common;
 
 use common::{FakeModel, Fakes};
-use prodrome_core::event::{Hash, mk_completed};
 use suzatary_core::capability::Clock as _;
+use suzatary_core::reference::ProposalRef;
 use suzatary_core::secretary::Bound;
+use suzatary_core::secretary::changes::{Act, Changeset, Provenance};
+use suzatary_core::secretary::filed::TriageCards;
 use suzatary_core::secretary::review::{review, reviews};
-use suzatary_core::secretary::store::{Decision, Outcome, Settle};
+use suzatary_core::secretary::store::{Outcome, Reasons, Settle};
 use suzatary_core::store::Prodrome as _;
-use suzatary_core::wire::EntryState;
 
-/// Three batches, each through a fresh `Proposing` so they stay independent.
-fn three_runs(caps: &Fakes) -> [Hash; 3] {
-    let ordinary = caps.agent_run();
-    let ordinary = ordinary
-        .append(a_todo("parkingpermit", "Renew the parking permit"))
-        .expect("appends");
-    let duplicate = caps.agent_run();
-    let duplicate = duplicate
-        .append(a_todo("permitagain", "Renew the parking permit"))
-        .expect("appends");
-    let hisown = caps.agent_run();
-    let hisown = hisown
-        .append(
-            mk_completed("file-permit", common::now(), "triage", "it looked done").expect("valid"),
-        )
-        .expect("appends");
-    [ordinary, duplicate, hisown]
+/// Three cards, as the triage agent files them: two adds and a completion. Their lines go to
+/// a store the review does not read, since the review reads cards from the inbox alone.
+fn three_cards(caps: &Fakes) -> [ProposalRef; 3] {
+    let lines = suzatary_core::secretary::conversations::InMemory::default();
+    let cards = TriageCards::new(lines.conversations(), &caps.inbox);
+    let file = |act: Act| {
+        cards
+            .file(
+                caps.clock.now(),
+                Changeset::new("life", vec![act]).expect("one act"),
+                Reasons::new(
+                    "a message asks for it",
+                    vec!["briefing:2026-09-02".parse().expect("a reference")],
+                )
+                .expect("reasons"),
+                None,
+                &|_| Ok(()),
+            )
+            .expect("filed")
+            .card
+    };
+    [
+        file(an_add("parkingpermit")),
+        file(an_add("permitagain")),
+        file(Act::Complete {
+            todo: "file-permit".to_owned(),
+            note: "it looked done".to_owned(),
+        }),
+    ]
 }
 
-fn a_todo(id: &str, body: &str) -> suzatary_core::record::TodoEvent {
-    suzatary_core::authoring::build_todo(
-        &suzatary_core::authoring::NewTodo {
-            todo: id.to_owned(),
-            fields: suzatary_core::todo::TodoFields {
-                body: body.to_owned(),
-                rationale: "an errand with a recoverable cost".to_owned(),
-                kind: "todo".to_owned(),
-                category: "home".to_owned(),
-                price: suzatary_core::todo::Price::Flat { percent: 75 },
-                detail: String::new(),
-                waiting_on: String::new(),
-            },
-            source: None,
-            subtodos: Vec::new(),
+fn an_add(id: &str) -> Act {
+    Act::Add {
+        todo: id.to_owned(),
+        fields: suzatary_core::todo::TodoFields {
+            body: "Renew the parking permit".to_owned(),
+            rationale: "an errand with a recoverable cost".to_owned(),
+            kind: "todo".to_owned(),
+            category: "home".to_owned(),
+            price: suzatary_core::todo::Price::Flat { percent: 75 },
+            detail: String::new(),
+            waiting_on: String::new(),
         },
-        suzatary_core::zone::Moment {
-            at: common::now(),
-            zone: suzatary_core::zone::Zone::UTC,
-        },
-        "triage",
-        &["work", "home", "other", "study"],
-        &suzatary_io::typeset::InProcess,
-    )
-    .expect("a valid todo")
+        from: Provenance::default(),
+    }
 }
 
 /// The fixture deployment, which `context` and the chain lookup read.
@@ -68,34 +70,39 @@ fn deployment() -> suzatary_core::deployment::Deployment {
 }
 
 /// What the secretary said it was doing, quoted back by the held line.
-const SAID: &str = "I took the parking permit, dropped the duplicate, and I am leaving the \
-                    deed completion for you: you wrote that todo yourself.";
+const SAID: &str = "I withdrew the duplicate and left the rest for your tap.";
 
-/// The script: one turn that settles two batches, then one that explains.
-fn script(accept: &Hash, reject: &Hash) -> FakeModel {
+/// The script: one turn that withdraws a card, then one that explains.
+fn script(duplicate: &ProposalRef) -> FakeModel {
     let replies = format!(
-        r#"{{"say": "Settling the ordinary ones.", "calls": [
-             {{"verb": "proposals_accept", "args": {{
-                "chain": "life", "objects": "{}",
-                "why": "A new todo with its rationale, and nothing about it is a commitment of yours."}}}},
-             {{"verb": "proposals_reject", "args": {{
-                "chain": "life", "objects": "{}",
-                "why": "A duplicate of the permit todo in the batch before it."}}}}
+        r#"{{"say": "Withdrawing the duplicate.", "calls": [
+             {{"verb": "triage_withdraw", "args": {{
+                "card": "{duplicate}",
+                "why": "A duplicate of the permit card before it."}}}}
            ]}}"#,
-        accept.as_str(),
-        reject.as_str(),
     );
     FakeModel::saying_owned([replies, format!(r#"{{"say": "{SAID}"}}"#)])
 }
 
-/// The model accepts one batch, rejects another, and the third is derived as held.
+/// Whether a card still waits for the owner.
+fn open(caps: &Fakes, card: &ProposalRef) -> bool {
+    suzatary_core::secretary::inbox::fold(&caps.inbox)
+        .expect("the inbox reads")
+        .objects()
+        .find(|object| object.asked.asked == *card)
+        .is_some_and(|object| object.reading.performs())
+}
+
+/// THE TRUST BOUNDARY: the review withdraws one card and holds the rest, and no card it reads
+/// reaches the chain, since only the owner's tap performs one.
 #[test]
-fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
+fn a_review_withdraws_a_card_holds_the_rest_and_performs_none() {
     let caps = Fakes::new("review-round");
-    let [ordinary, duplicate, hisown] = three_runs(&caps);
+    let before = caps.chain.objects().expect("the chain reads").len();
+    let [ordinary, duplicate, completion] = three_cards(&caps);
     let policy = common::chain();
     let deployment = deployment();
-    let caps = caps.model(script(&ordinary, &duplicate));
+    let caps = caps.model(script(&duplicate));
     let chains = [Bound {
         name: "life",
         caps: caps.secretary(),
@@ -111,52 +118,97 @@ fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
     )
     .expect("the review runs");
 
-    // Accepted: the object is on the chain now.
-    let chain: Vec<Hash> = caps
-        .chain
-        .objects()
-        .expect("the chain reads")
-        .into_iter()
-        .map(|(name, _)| name)
-        .collect();
-    assert!(
-        chain.contains(&ordinary),
-        "the accepted object is on the chain"
+    assert_eq!(
+        caps.chain.objects().expect("the chain reads").len(),
+        before,
+        "a review appends nothing to the chain"
     );
-
-    // Rejected: gone from the replica, its name in the receipt that guards against its return.
-    let replica: Vec<Hash> = caps
-        .proposals
-        .objects()
-        .expect("the replica reads")
-        .into_iter()
-        .map(|(name, _)| name)
-        .collect();
     assert!(
-        !replica.contains(&duplicate),
-        "the rejected object is deleted"
+        !open(&caps, &duplicate),
+        "the withdrawn card no longer waits"
     );
+    assert!(open(&caps, &ordinary) && open(&caps, &completion));
 
-    // Held: the residue, never claimed.
-    assert!(replica.contains(&hisown), "the held batch is untouched");
-
-    // One record line per decision.
-    let accepted = done.with(Outcome::Settled(Settle::Accepted));
-    let rejected = done.with(Outcome::Settled(Settle::Rejected));
+    let withdrawn = done.with(Outcome::Settled(Settle::Rejected));
     let held = done.with(Outcome::Held);
-    assert_eq!(accepted.len(), 1, "{:?}", done.decided);
-    assert_eq!(rejected.len(), 1, "{:?}", done.decided);
-    assert_eq!(held.len(), 1, "{:?}", done.decided);
-    assert_eq!(done.standing, 1, "only the held batch is left standing");
-    assert_eq!(accepted[0].batch, ordinary.as_str());
-    assert_eq!(rejected[0].batch, duplicate.as_str());
-    assert_eq!(held[0].batch, hisown.as_str());
+    assert!(done.with(Outcome::Settled(Settle::Accepted)).is_empty());
+    assert_eq!(withdrawn.len(), 1, "{:?}", done.decided);
+    assert_eq!(held.len(), 2, "{:?}", done.decided);
+    assert_eq!(done.standing, 2, "two cards are left for the owner");
+    assert_eq!(withdrawn[0].batch, duplicate.to_string());
+    assert!(held.iter().any(|line| line.batch == completion.to_string()));
     assert_eq!(held[0].chain, "life");
     // With no hold verb, the hold's reason is what the secretary said.
     assert_eq!(held[0].why.get().map(String::as_str), Some(SAID));
 }
 
-/// Nothing standing opens no conversation and never asks the model.
+/// THE TRUST BOUNDARY: a review round's turn holds the cards' words, which came out of mail, so
+/// it is shown no verb that writes, and a write it calls anyway is refused and writes nothing.
+#[test]
+fn a_review_round_holds_no_write_verb() {
+    let caps = Fakes::new("review-no-writes");
+    let before = caps.chain.objects().expect("the chain reads");
+    let _ = three_cards(&caps);
+    let policy = common::chain();
+    let caps = caps.model(FakeModel::saying([
+        r#"{"say": "Doing what the card says.", "calls": [
+             {"verb": "todo_add", "args": {"chain": "life", "todo_id": "wire", "body": "Wire it",
+                "rationale": "a card said so", "category": "home", "priority": "20%"}},
+             {"verb": "record", "args": {"chain": "life", "kind": "completed",
+                "todo": "file-permit"}}
+           ]}"#,
+        r#"{"say": "Left for the owner."}"#,
+    ]));
+    let chains = [Bound {
+        name: "life",
+        caps: caps.secretary(),
+        policy: &policy,
+    }];
+    let done = review(
+        &caps.secretary(),
+        &deployment(),
+        &suzatary_core::settings::Settables::default(),
+        &chains,
+        "a brief",
+    )
+    .expect("the review runs");
+
+    let shown = caps.model.shown();
+    for verb in [
+        "todo_add",
+        "todo_update",
+        "record",
+        "propose_changes",
+        "remember",
+    ] {
+        assert!(
+            !shown[0].iter().any(|name| name == verb),
+            "{verb}: {shown:?}"
+        );
+    }
+    assert!(shown[0].iter().any(|name| name == "triage_withdraw"));
+    let refused: Vec<&str> = done
+        .stored
+        .turns
+        .iter()
+        .filter_map(|said| match &said.turn {
+            suzatary_core::capability::Turn::Tool {
+                verb,
+                outcome: suzatary_core::secretary::outcome::Outcome::Refused,
+                ..
+            } => Some(verb.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(refused, ["todo_add", "record"]);
+    assert_eq!(
+        caps.chain.objects().expect("the chain reads"),
+        before,
+        "a review round writes nothing to the chain"
+    );
+}
+
+/// Nothing open opens no conversation and never asks the model.
 #[test]
 fn a_quiet_pass_asks_no_model_and_opens_no_conversation() {
     let caps = Fakes::new("review-quiet");
@@ -176,7 +228,7 @@ fn a_quiet_pass_asks_no_model_and_opens_no_conversation() {
     )
     .expect("the review runs");
     assert_eq!(done.rounds, 0);
-    assert_eq!(done.standing, 0, "nothing was standing");
+    assert_eq!(done.standing, 0, "nothing was open");
     assert!(done.decided.is_empty());
     assert!(
         suzatary_core::secretary::transcript::keys(caps.conversations.conversations())
@@ -186,54 +238,45 @@ fn a_quiet_pass_asks_no_model_and_opens_no_conversation() {
     );
 }
 
-/// A second review of a batch still held writes no second line.
+/// A second review of a card still held writes no second line.
 #[test]
-fn holding_the_same_batch_again_is_not_a_second_line() {
+fn holding_the_same_card_again_is_not_a_second_line() {
     let caps = Fakes::new("review-twice");
-    let [_, _, hisown] = three_runs(&caps);
+    let [_, _, completion] = three_cards(&caps);
     let policy = common::chain();
     let deployment = deployment();
     let caps = caps.model(FakeModel::saying([
-        r#"{"say": "These all change something of yours; I am holding them."}"#,
-        r#"{"say": "Still holding them."}"#,
+        r#"{"say": "These all change something of yours; I am leaving them."}"#,
+        r#"{"say": "Still leaving them."}"#,
     ]));
     let chains = [Bound {
         name: "life",
         caps: caps.secretary(),
         policy: &policy,
     }];
-
-    let first = review(
-        &caps.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("the review runs");
+    let reviewed = || {
+        review(
+            &caps.secretary(),
+            &deployment,
+            &suzatary_core::settings::Settables::default(),
+            &chains,
+            "a brief",
+        )
+        .expect("the review runs")
+    };
+    let first = reviewed();
     assert_eq!(first.with(Outcome::Held).len(), 3, "{:?}", first.decided);
-    assert_eq!(
-        first.standing, 3,
-        "all three are still standing when it ends"
-    );
+    assert_eq!(first.standing, 3, "all three are still open when it ends");
     assert!(
         first
             .with(Outcome::Held)
             .iter()
-            .any(|held| held.batch == hisown.as_str())
+            .any(|held| held.batch == completion.to_string())
     );
-
-    let again = review(
-        &caps.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("the review runs again");
+    let again = reviewed();
     assert!(
         again.decided.is_empty(),
-        "a batch already held today is already recorded: {:?}",
+        "a card already held today is already recorded: {:?}",
         again.decided
     );
 }
@@ -304,7 +347,7 @@ fn an_unreadable_conversation_is_named_and_paged_once() {
 #[test]
 fn a_review_that_cannot_reach_its_model_writes_the_outage_down() {
     let caps = Fakes::new("review-unreachable");
-    let [_, _, _] = three_runs(&caps);
+    let _ = three_cards(&caps);
     let policy = common::chain();
     let deployment = deployment();
     // An empty script answers `ModelError::Failed`, as an unreachable model does.
@@ -337,7 +380,7 @@ fn a_review_that_cannot_reach_its_model_writes_the_outage_down() {
     );
     assert_eq!(
         stored.failures[0].standing, 3,
-        "all three batches stood unanswered"
+        "all three cards stood unanswered"
     );
     assert!(
         stored.failures[0]
@@ -367,42 +410,11 @@ fn a_review_that_cannot_reach_its_model_writes_the_outage_down() {
     );
 }
 
-/// Every `decision` row the fold shows, read well after `common::now()` because `FakeClock` ticks.
-fn decisions(caps: &Fakes) -> Vec<suzatary_core::wire::Entry> {
-    let well_after =
-        prodrome_core::literal::Datetime::new(2026, 9, 10, 0, 0, 0, 0).expect("a real instant");
-    let policy = suzatary_core::chains::ChainPolicy {
-        name: suzatary_core::chains::ChainName::new("life").expect("a slug"),
-        untrusted: prodrome_core::policy::Untrusted::none(),
-        roster: std::collections::BTreeSet::new(),
-        root: suzatary_core::cast::keys::root(),
-    };
-    let chain: &dyn suzatary_core::store::Prodrome<suzatary_core::record::TodoEvent> = &caps.chain;
-    let read = suzatary_core::chain_set::Read::of_stores([(&policy, chain)]);
-    suzatary_core::routes::fold(
-        &caps.render,
-        &policy.name,
-        &policy.untrusted,
-        &read.set(well_after),
-        None,
-    )
-    .expect("the fold reads")
-    .entries
-    .into_iter()
-    .filter(|entry| {
-        entry
-            .authored
-            .as_ref()
-            .is_some_and(|authored| authored.block == suzatary_core::wire::Block::Decision)
-    })
-    .collect()
-}
-
 /// A hold's reason is the answer's prose, not its Typst markup.
 #[test]
 fn a_hold_s_reason_is_the_answer_s_words_not_its_markup() {
     let caps = Fakes::new("review-held-prose");
-    let _ = three_runs(&caps);
+    let _ = three_cards(&caps);
     let policy = common::chain();
     let holding = caps.model(FakeModel::saying([
         r#"{"say": "*Why I held it:* each one #minor[changes] something of yours."}"#,
@@ -412,7 +424,7 @@ fn a_hold_s_reason_is_the_answer_s_words_not_its_markup() {
         caps: holding.secretary(),
         policy: &policy,
     }];
-    review(
+    let done = review(
         &holding.secretary(),
         &deployment(),
         &suzatary_core::settings::Settables::default(),
@@ -420,184 +432,25 @@ fn a_hold_s_reason_is_the_answer_s_words_not_its_markup() {
         "a brief",
     )
     .expect("the round runs");
-
-    let held = decisions(&holding);
+    let held = done.with(Outcome::Held);
     assert!(!held.is_empty());
-    for entry in &held {
-        let authored = entry.authored.as_ref().expect("a decision is authored");
+    for line in held {
         assert_eq!(
-            authored.rationale.join(" "),
-            "Why I held it: each one changes something of yours.",
-            "{authored:?}"
+            line.why.get().map(String::as_str),
+            Some("Why I held it: each one changes something of yours."),
+            "{line:?}"
         );
     }
-}
-
-/// A held batch is an open decision, which a later pass completes or cancels in place.
-#[test]
-fn a_held_batch_is_a_decision_accepting_or_rejecting_it_later_settles_it() {
-    let caps = Fakes::new("review-batch-decision");
-    let [ordinary, duplicate, hisown] = three_runs(&caps);
-    let policy = common::chain();
-    let deployment = deployment();
-
-    // Round one: hold everything.
-    let holding = caps.model(FakeModel::saying([
-        r#"{"say": "These all change something of yours; I am holding them."}"#,
-    ]));
-    let chains = [Bound {
-        name: "life",
-        caps: holding.secretary(),
-        policy: &policy,
-    }];
-    let first = review(
-        &holding.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("round one runs");
-    assert_eq!(first.with(Outcome::Held).len(), 3, "{:?}", first.decided);
-
-    let open = decisions(&holding);
-    assert_eq!(
-        open.len(),
-        3,
-        "each held batch authored a decision: {open:?}"
-    );
-    assert!(
-        open.iter().all(|entry| entry.state == EntryState::Open),
-        "{open:?}"
-    );
-
-    // Round two, a later pass: settle two of the three.
-    let settling = holding.model(script(&ordinary, &duplicate));
-    let chains = [Bound {
-        name: "life",
-        caps: settling.secretary(),
-        policy: &policy,
-    }];
-    let second = review(
-        &settling.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("round two runs");
-    assert_eq!(
-        second.with(Outcome::Settled(Settle::Accepted)).len(),
-        1,
-        "{:?}",
-        second.decided
-    );
-    assert_eq!(
-        second.with(Outcome::Settled(Settle::Rejected)).len(),
-        1,
-        "{:?}",
-        second.decided
-    );
-
-    let settled = decisions(&settling);
-    assert_eq!(
-        settled.len(),
-        3,
-        "settling never authors a SECOND decision for the same batch: {settled:?}"
-    );
-    let completed = settled
-        .iter()
-        .filter(|entry| entry.state == EntryState::Completed)
-        .count();
-    let cancelled = settled
-        .iter()
-        .filter(|entry| entry.state == EntryState::Cancelled)
-        .count();
-    let still_open = settled
-        .iter()
-        .filter(|entry| entry.state == EntryState::Open)
-        .count();
-    assert_eq!(completed, 1, "the accepted batch's decision: {settled:?}");
-    assert_eq!(cancelled, 1, "the rejected batch's decision: {settled:?}");
-    assert_eq!(
-        still_open,
-        1,
-        "{}'s batch is still held: {settled:?}",
-        hisown.as_str()
-    );
-}
-
-/// A hold recorded without a decision behind it gets its decision on the next pass.
-#[test]
-fn a_hold_recorded_without_its_decision_gets_one_on_the_next_pass() {
-    let caps = Fakes::new("review-heal-decision");
-    let heads = three_runs(&caps);
-    let policy = common::chain();
-    let deployment = deployment();
-    let holding = caps.model(FakeModel::saying([r#"{"say": "Still holding these."}"#]));
-
-    let today = prodrome_core::fpl::instant_of(holding.clock.now()).date();
-    let id = today_of(today);
-    suzatary_core::secretary::start(
-        holding.conversations.conversations(),
-        &holding.model,
-        &id,
-        "Review",
-        suzatary_core::secretary::store::Kind::Review,
-        holding.clock.now(),
-    )
-    .expect("the conversation opens");
-    for head in &heads {
-        suzatary_core::secretary::transcript::push(
-            holding.conversations.conversations(),
-            &id,
-            &suzatary_core::secretary::store::Entry::Reviewed {
-                at: suzatary_core::capability::Datetime::new(2026, 9, 22, 0, 0, 0, 0)
-                    .expect("an instant"),
-                chain: "life".to_owned(),
-                batch: head.as_str().to_owned(),
-                decision: Decision::Held,
-                why: suzatary_core::secretary::words::Words::kept("held earlier today".to_owned()),
-            },
-        )
-        .expect("the hold line is written");
-    }
-    assert!(decisions(&holding).is_empty(), "no decision stands yet");
-
-    let chains = [Bound {
-        name: "life",
-        caps: holding.secretary(),
-        policy: &policy,
-    }];
-    let pass = review(
-        &holding.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("the review runs");
-    assert!(
-        pass.decided.is_empty(),
-        "the holds were already recorded, so no second line: {:?}",
-        pass.decided
-    );
-    let open = decisions(&holding);
-    assert_eq!(
-        open.len(),
-        3,
-        "each standing batch now has its decision: {open:?}"
-    );
 }
 
 /// The review's round, pinned: its lines and what the model is shown and sent.
 #[test]
 fn the_reviews_round_is_pinned() {
     let caps = Fakes::new("review-pinned");
-    let [ordinary, duplicate, _hisown] = three_runs(&caps);
+    let [_, duplicate, _] = three_cards(&caps);
     let policy = common::chain();
     let deployment = deployment();
-    let caps = caps.model(script(&ordinary, &duplicate));
+    let caps = caps.model(script(&duplicate));
     let chains = [Bound {
         name: "life",
         caps: caps.secretary(),

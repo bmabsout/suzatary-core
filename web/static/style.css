@@ -4879,8 +4879,21 @@ h1[tabindex="-1"]:focus {
   color: var(--ink-muted);
 }
 
-/* A row whose todo is itself only proposed depends on ANOTHER batch, and
-   accepting it alone records an outcome for a todo with no content. Said
+/* A card that replaces another draws the rows that one did not ask for as new. */
+.proposedfresh {
+  margin-left: 0.4rem;
+  font-size: var(--t-small);
+  color: var(--primary);
+}
+
+.proposalrevises {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-muted);
+}
+
+/* A row whose todo is itself only proposed depends on ANOTHER card, and
+   tapping it alone records an outcome for a todo with no content. Said
    plainly rather than drawn as an ordinary row. */
 .proposedpending {
   color: var(--primary);

@@ -87,7 +87,6 @@ impl Nothing {
             briefings: &Nothing,
             weather: &Nothing,
             calendar: &Nothing,
-            proposals: &Nothing,
             secrets: &Nothing,
             web: &Nothing,
             repositories: &Nothing,

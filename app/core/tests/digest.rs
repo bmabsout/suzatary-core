@@ -272,7 +272,7 @@ proptest! {
 }
 
 /// Every object of `store`, as a replica hands it over.
-fn prints<E: prodrome_core::schema::Schema>(store: &InMemory<E>) -> Vec<(Hash, String)> {
+fn prints<E: suzatary_core::store::Store>(store: &InMemory<E>) -> Vec<(Hash, String)> {
     store
         .objects()
         .expect("objects")

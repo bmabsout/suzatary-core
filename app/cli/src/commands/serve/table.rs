@@ -26,11 +26,6 @@ pub fn table() -> Vec<Route> {
         Route::post("/objects", Scope::Chain, chain::take_objects),
         // Appends nothing: the answer is an event's print, which the phone seals.
         Route::post("/author", Scope::Chain, chain::author),
-        // Settling needs a peer mapped to an actor, which loopback never is, so the
-        // triage agent cannot accept its own batch.
-        Route::get("/proposals", Scope::Chain, proposals::batches),
-        Route::post("/proposals/accept", Scope::Chain, proposals::accept),
-        Route::post("/proposals/reject", Scope::Chain, proposals::reject),
         Route::special("/events", Scope::Box, get(stream::events)),
         Route::special("/events", Scope::Named, get(stream::events)),
         Route::get("/api/briefings", Scope::Box, the_box::briefings),

@@ -533,8 +533,10 @@ mod tests {
                         .expect("an instant"),
                     object: id,
                     after_turn: 0,
+                    revises: None,
                 },
                 object,
+                revises: None,
             }
         };
         let standings = [

@@ -1,8 +1,8 @@
 //! A whole conversation as a reader gets one: the fold of its lines.
 
 use super::{
-    Aside, Asking, ConversationId, Entry, Kept, Kind, Line, Lines, Review, ReviewFailure, Rewind,
-    Said, Scope, Standing, Unheld, Unplaced,
+    Aside, Asking, ConversationId, Entry, Kept, Kind, Line, Lines, Proposal, Review, ReviewFailure,
+    Rewind, Said, Scope, Standing, Unheld, Unplaced,
 };
 
 use crate::capability::{Datetime, Turn};
@@ -27,7 +27,7 @@ pub struct Stored {
     pub turns: Vec<Said>,
     /// Every proposal, in the order made; the index is the tap's.
     pub proposals: Vec<Asking>,
-    /// Every batch this conversation settled or held, in the order it did.
+    /// Every card this conversation withdrew or held, in the order it did.
     pub reviews: Vec<Review>,
     /// Every time a review was asked for here and could not run, in order; usually empty.
     pub failures: Vec<ReviewFailure>,
@@ -115,7 +115,11 @@ impl Stored {
                 turn: turn.clone(),
                 by: by.clone(),
             }),
-            Entry::Proposed { at, object, .. } => proposed(self, *at, object),
+            Entry::Proposed {
+                at,
+                object,
+                revises,
+            } => proposed(self, *at, object, *revises),
             Entry::Reviewed {
                 at,
                 chain,
@@ -394,7 +398,7 @@ impl Stored {
                 self.proposals.len()
             ))
         })?;
-        joined(asking, inbox).map_err(|unplaced| {
+        joined(self, asking, inbox).map_err(|unplaced| {
             crate::refusal::Refusal::conflict(format!(
                 "conversation {} names proposal {}, which cannot be read: {}",
                 self.id, unplaced.asking.object, unplaced.why
@@ -410,7 +414,7 @@ impl Stored {
             self.proposals
                 .iter()
                 .map(|asking| {
-                    joined(asking, inbox)
+                    joined(self, asking, inbox)
                         .map_or_else(Line::Unplaced, |standing| Line::Placed(Box::new(standing)))
                 })
                 .collect(),
@@ -426,7 +430,11 @@ impl Stored {
     }
 }
 
-fn joined(asking: &Asking, inbox: &crate::secretary::inbox::Fold) -> Result<Standing, Unplaced> {
+fn joined(
+    stored: &Stored,
+    asking: &Asking,
+    inbox: &crate::secretary::inbox::Fold,
+) -> Result<Standing, Unplaced> {
     let object = inbox.get(&asking.object).ok_or_else(|| Unplaced {
         asking: asking.clone(),
         why: if inbox.unasked().contains(&asking.object) {
@@ -435,19 +443,42 @@ fn joined(asking: &Asking, inbox: &crate::secretary::inbox::Fold) -> Result<Stan
             Unheld::NotHeld
         },
     })?;
+    let rows = |object: &crate::secretary::inbox::Object| match &object.asked.proposal {
+        Proposal::Changes(changeset) => changeset.acts().len(),
+        Proposal::Email(_)
+        | Proposal::Forward(_)
+        | Proposal::Act(_)
+        | Proposal::Remember { .. }
+        | Proposal::Decide(_) => 0,
+    };
+    let revises = asking.revises.map(|card| super::Revised {
+        card,
+        carried: stored
+            .proposals
+            .get(card)
+            .and_then(|old| inbox.get(&old.object))
+            .map_or(0, |old| rows(old).min(rows(object))),
+    });
     Ok(Standing {
         asking: asking.clone(),
         object: object.clone(),
+        revises,
     })
 }
 
 /// Fold one [`Entry::Proposed`](super::Entry::Proposed): push the new [`Asking`](super::Asking).
-fn proposed(stored: &mut Stored, at: Datetime, object: &crate::secretary::inbox::ProposalId) {
+fn proposed(
+    stored: &mut Stored,
+    at: Datetime,
+    object: &crate::secretary::inbox::ProposalId,
+    revises: Option<usize>,
+) {
     stored.proposals.push(Asking {
         index: stored.proposals.len(),
         at,
         object: object.clone(),
         after_turn: stored.turns.len(),
+        revises,
     });
 }
 

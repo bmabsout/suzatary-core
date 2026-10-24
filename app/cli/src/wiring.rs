@@ -211,7 +211,6 @@ impl Opened {
             briefings: &self.briefings,
             weather: &self.weather,
             calendar: &self.calendar,
-            proposals: &stores.proposals,
             secrets: &self.secrets,
             web: &self.web,
             repositories: self.repos.as_ref(),
@@ -234,8 +233,6 @@ pub struct Stores {
     pub policy: ChainPolicy,
     /// Written through the box's key: every append the box makes is signed.
     pub(crate) chain: Signing<Objects<TodoEvent>>,
-    /// The agent's replica beside this chain.
-    pub(crate) proposals: suzatary_io::proposals::Replica,
 }
 
 impl Stores {
@@ -245,7 +242,6 @@ impl Stores {
         Self {
             policy: chain.policy.clone(),
             chain: Instance::writer_of(chain, signers, &chain.owner),
-            proposals: crate::commands::proposals_of(chain),
         }
     }
 }

@@ -141,7 +141,7 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
     read.adopt(&signers)
         .whole()
         .context("adopting signatures on every chain")?;
-    // Opt-in, so one server can show the empty Inbox and another a waiting batch,
+    // Opt-in, so one server can show the empty Inbox and another a waiting card,
     // independent of which test ran first.
     if propose {
         triage_run(&root.join("instance.toml"))?;
@@ -171,7 +171,6 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
             "proposed": if propose { vec![CAST.proposed.id] } else { vec![] },
             "reviewed": reviewed,
             "held": if reviewed { HELD_WHY } else { "" },
-            "settled": if reviewed { vec![ACCEPTED_HEAD, REJECTED_HEAD] } else { vec![] },
             "secretAsk": secret_ask,
             "mail": mail_config.is_some(),
             "mailSubjects": if mail_config.is_some() { CAST.mail.iter().map(|m| m.subject).collect() } else { vec![] },
@@ -307,36 +306,25 @@ fn write_notice(cur: &Path, notice: &cast::Notice) -> anyhow::Result<()> {
         .with_context(|| format!("writing the fixture's notice {}", mail.msgid))
 }
 
-/// The secretary's words above the batch the fixture leaves standing.
+/// The secretary's words beside the triage card the fixture leaves open.
 const HELD_WHY: &str =
     "This one adds a todo and completes it in one breath, so it is yours to say.";
 
-/// Two heads the fixture's review settled; they name nothing in either store, as a settled
-/// batch leaves only its review line.
-const ACCEPTED_HEAD: &str = "a11ce97ed0000000000000000000000000000000000000000000000000000001";
-const REJECTED_HEAD: &str = "e7ec7ed00000000000000000000000000000000000000000000000000000002f";
-
-/// One day's review written through the real stores without a model: review lines, and an
-/// open decision for the held batch as `secretary::review` writes on a real box.
+/// One day's review written through the real stores without a model: a held line for each open
+/// triage card, as `secretary::review` writes on a real box.
 fn a_review(root: &Path) -> anyhow::Result<()> {
-    use suzatary_core::secretary::store::{Decision, Entry, Settle};
-    use suzatary_core::store::Prodrome;
+    use suzatary_core::secretary::store::{Decision, Entry};
 
     let read = crate::instance::Instance::open(&root.join("instance.toml"))?;
-    let chain = read.first();
-    let replica = crate::commands::proposals_of(chain);
-    let standing = suzatary_core::store::Prodrome::objects(&replica)?;
-    let events_store = crate::commands::store_of(chain);
-    let target = suzatary_core::sync::Objects::of(&Prodrome::objects(&events_store)?);
-    let head =
-        suzatary_core::proposals::batches(&target, &suzatary_core::sync::Objects::of(&standing))
-            .first()
-            .map(|batch| batch.head.as_str().to_owned())
-            .context("the fixture's triage run left a batch to hold")?;
-
-    let now = SystemClock.now();
-    let at = now;
-    let day = read.persona.zone.day(fpl::instant_of(now));
+    let inbox = read.inbox_store();
+    let open = suzatary_core::secretary::verbs::standing(&inbox)
+        .map_err(|refusal| anyhow::anyhow!("{}", refusal.message()))?;
+    anyhow::ensure!(
+        !open.is_empty(),
+        "the fixture's triage run left a card to hold"
+    );
+    let at = SystemClock.now();
+    let day = read.persona.zone.day(fpl::instant_of(at));
     let id = suzatary_core::secretary::store::ConversationId::daily(
         suzatary_core::secretary::daily::Daily::Review,
         day,
@@ -352,84 +340,19 @@ fn a_review(root: &Path) -> anyhow::Result<()> {
             kind: suzatary_core::secretary::store::Kind::Review,
         },
     )?;
-    let line = |batch: &str, decision: Decision, why: &str| Entry::Reviewed {
-        at,
-        chain: chain.policy.name.as_str().to_owned(),
-        batch: batch.to_owned(),
-        decision,
-        why: suzatary_core::secretary::words::Words::kept(why.to_owned()),
-    };
-    let settled = |how, head: &str| Decision::Settled {
-        how,
-        objects: suzatary_core::nonempty::NonEmpty::of(vec![head.to_owned()]).expect("one object"),
-    };
-    suzatary_core::secretary::transcript::push(
-        store.conversations(),
-        &id,
-        &line(
-            ACCEPTED_HEAD,
-            settled(Settle::Accepted, ACCEPTED_HEAD),
-            "An ordinary todo with its source and its reason; nothing about it is yours to decide.",
-        ),
-    )?;
-    suzatary_core::secretary::transcript::push(
-        store.conversations(),
-        &id,
-        &line(
-            REJECTED_HEAD,
-            settled(Settle::Rejected, REJECTED_HEAD),
-            "A duplicate of the todo the batch before it already proposes.",
-        ),
-    )?;
-    suzatary_core::secretary::transcript::push(
-        store.conversations(),
-        &id,
-        &line(&head, Decision::Held, HELD_WHY),
-    )?;
-    hold(&read, &head, HELD_WHY)
-}
-
-/// The open decision the Inbox draws for a held batch, as `secretary::review` writes it; the
-/// Inbox's fold reads this, not the review's conversation line.
-fn hold(read: &crate::instance::Instance, head: &str, why: &str) -> anyhow::Result<()> {
-    use suzatary_core::authoring::{NewDecision, build_decision};
-    use suzatary_core::reference::{BatchHead, Reference};
-    use suzatary_core::store::Prodrome;
-
-    let chain = read.first();
-    let events_store = crate::commands::store_of(chain);
-    let nodes = Prodrome::nodes(&events_store)?;
-    let events = suzatary_core::view::events_of(&nodes);
-    let known: std::collections::BTreeSet<String> = events
-        .iter()
-        .map(|event| event.todo().as_str().to_owned())
-        .collect();
-    let new = NewDecision {
-        body: format!(
-            "Settle the triage batch {head} on {}",
-            chain.policy.name.as_str()
-        ),
-        why: why.to_owned(),
-        performs: Reference::Batch {
-            chain: ChainName::new(chain.policy.name.as_str())?,
-            head: BatchHead::new(head.to_owned())?,
-        },
-        detail: why.to_owned(),
-        priority: None,
-        category: String::new(),
-        source: String::new(),
-    };
-    let event = build_decision(
-        &new,
-        suzatary_core::zone::Moment {
-            at: SystemClock.now(),
-            zone: read.persona.zone,
-        },
-        "assistant",
-        &[],
-        &known,
-    )?;
-    Prodrome::append(&events_store, event)?;
+    for (card, changeset) in open {
+        suzatary_core::secretary::transcript::push(
+            store.conversations(),
+            &id,
+            &Entry::Reviewed {
+                at,
+                chain: changeset.chain().to_owned(),
+                batch: card.to_string(),
+                decision: Decision::Held,
+                why: suzatary_core::secretary::words::Words::kept(HELD_WHY.to_owned()),
+            },
+        )?;
+    }
     Ok(())
 }
 
@@ -692,7 +615,7 @@ fn a_configure_card(root: &Path) -> anyhow::Result<()> {
             proposer: suzatary_core::secretary::proposer::Proposer::Secretary,
             proposal: Proposal::Act(suzatary_core::secretary::acts::Act::Configure { change }),
             reasons: Reasons::new(
-                "Ada asked for the API's model to review the agent's batches",
+                "Ada asked for the API's model to review the agent's cards",
                 vec![format!("todo:life/{}", CAST.todos.urgent.id).parse()?],
             )?,
             serves: None,
@@ -885,117 +808,88 @@ fn the_branch_back(url: &str) -> anyhow::Result<suzatary_core::coding::Seen> {
     })
 }
 
-/// One triage run written as a real run writes it: a new todo and its completion, one batch
-/// about one todo whose second change rests on its first.
+/// One triage run written as a real run writes it, through the agent's own verbs: a new todo and
+/// its completion, filed as one card in the Inbox.
 ///
-/// Every field is fixed, so a rerun yields byte-identical objects, which the reject scene uses
-/// to show that the same write is the same object.
+/// Every field is fixed, so a rerun files nothing new: the same acts are the card already there.
 ///
 /// # Errors
-/// The instance being unreadable, or the replica unwritable.
+/// The instance being unreadable, or a verb refusing.
 pub fn triage_run(instance: &Path) -> anyhow::Result<()> {
-    let read = crate::instance::Instance::open(instance)?;
-    let chain = read.first();
-    let caps = crate::commands::mcp::Interpreters::assemble(&read, chain)?;
-    // A fixed instant, so two runs produce the same bytes.
-    let at = fpl::datetime_of(
-        fpl::instant_of(SystemClock.now())
-            .date()
-            .and_hms_opt(9, 0, 0)
-            .context("nine in the morning is a real time")?,
-    )?;
     let proposed = &CAST.proposed;
-    let added = suzatary_core::authoring::build_todo(
-        &suzatary_core::authoring::NewTodo {
-            todo: proposed.id.to_owned(),
-            fields: suzatary_core::todo::TodoFields {
-                body: proposed.body.to_owned(),
-                rationale: proposed.rationale.concat(),
-                kind: "todo".to_owned(),
-                category: proposed.category.to_owned(),
-                price: suzatary_core::todo::Price::Flat { percent: 75 },
-                detail: String::new(),
-                waiting_on: String::new(),
-            },
-            source: None,
-            subtodos: Vec::new(),
-        },
-        suzatary_core::zone::Moment {
-            at,
-            zone: read.persona.zone,
-        },
-        "triage",
-        &["work", "study", "project", "home", "other"],
-        &suzatary_io::typeset::InProcess,
+    filed(
+        instance,
+        &serde_json::json!({
+            "todo_id": proposed.id,
+            "body": proposed.body,
+            "rationale": proposed.rationale.concat(),
+            "category": proposed.category,
+            "priority": "75%",
+            "why": "A message asks for this.",
+            "sources": "briefing:2025-09-01",
+        }),
+        &serde_json::json!({
+            "kind": "completed",
+            "todo": proposed.id,
+            "note": "the rain did it",
+            "why": "A later message says it is done.",
+            "sources": "briefing:2025-09-01",
+        }),
     )
-    .map_err(|refusal| anyhow::anyhow!("{}", refusal.message()))?;
-    caps.agent().chain.append(added)?;
-    caps.agent()
-        .chain
-        .append(mk_completed(proposed.id, at, "triage", "the rain did it")?)?;
-    Ok(())
 }
 
-/// Why the fixture holds a batch a scene asked for.
-const HELD_RUN_WHY: &str = "It is priced at 40%, under what the review settles alone.";
-
-/// One run adding `todo` at 40% and completing it, the completion resting on the addition,
-/// then held for the owner: a batch a writing login can pick from in the Inbox.
+/// One run adding `todo` at 40% and completing it, filed as one triage card a writing login can
+/// tap in the Inbox.
 ///
 /// # Errors
-/// The instance being unreadable, the replica unwritable, or the run leaving no batch.
+/// The instance being unreadable, or a verb refusing.
 pub fn held_run(instance: &Path, todo: &str) -> anyhow::Result<()> {
-    let read = crate::instance::Instance::open(instance)?;
-    let chain = read.first();
-    let caps = crate::commands::mcp::Interpreters::assemble(&read, chain)?;
-    let at = SystemClock.now();
-    let added = suzatary_core::authoring::build_todo(
-        &suzatary_core::authoring::NewTodo {
-            todo: todo.to_owned(),
-            fields: suzatary_core::todo::TodoFields {
-                body: "A held batch, read from its summary".to_owned(),
-                rationale: "testing a held batch's summary".to_owned(),
-                kind: "todo".to_owned(),
-                category: CAST.proposed.category.to_owned(),
-                price: suzatary_core::todo::Price::Flat { percent: 40 },
-                detail: String::new(),
-                waiting_on: String::new(),
-            },
-            source: None,
-            subtodos: Vec::new(),
-        },
-        suzatary_core::zone::Moment {
-            at,
-            zone: read.persona.zone,
-        },
-        "triage",
-        &["work", "study", "project", "home", "other"],
-        &suzatary_io::typeset::InProcess,
+    filed(
+        instance,
+        &serde_json::json!({
+            "todo_id": todo,
+            "body": "A triage card, read from its summary",
+            "rationale": "testing a triage card's summary",
+            "category": CAST.proposed.category,
+            "priority": "40%",
+            "why": "testing a triage card",
+            "sources": "briefing:2025-09-01",
+        }),
+        &serde_json::json!({
+            "kind": "completed",
+            "todo": todo,
+            "note": "done, testing",
+            "why": "testing a triage card",
+            "sources": "briefing:2025-09-01",
+        }),
     )
-    .map_err(|refusal| anyhow::anyhow!("{}", refusal.message()))?;
-    caps.agent().chain.append(added)?;
-    caps.agent()
-        .chain
-        .append(mk_completed(todo, at, "triage", "done, testing")?)?;
+}
 
-    let target = suzatary_core::sync::Objects::of(&suzatary_core::store::Prodrome::objects(
-        &crate::commands::store_of(chain),
-    )?);
-    let standing = suzatary_core::sync::Objects::of(&suzatary_core::store::Prodrome::objects(
-        &crate::commands::proposals_of(chain),
-    )?);
-    let head = suzatary_core::proposals::batches(&target, &standing)
-        .into_iter()
-        .find(|batch| {
-            batch.objects.iter().any(|(_, envelope)| {
-                envelope
-                    .event()
-                    .is_some_and(|event| event.todo().as_str() == todo)
-            })
-        })
-        .map(|batch| batch.head.as_str().to_owned())
-        .context("the run left a batch to hold")?;
-    hold(&read, &head, HELD_RUN_WHY)
+/// `todo_add` with `adding`, then `record` with `recording`, through the triage agent's surface
+/// over the fixture's stores.
+fn filed(
+    instance: &Path,
+    adding: &serde_json::Value,
+    recording: &serde_json::Value,
+) -> anyhow::Result<()> {
+    let read = crate::instance::Instance::open(instance)?;
+    let caps = crate::commands::mcp::Interpreters::assemble(&read, read.first())?;
+    let chains = std::collections::BTreeMap::from([(
+        read.first().policy.name.as_str().to_owned(),
+        caps.agent(),
+    )]);
+    let conversations = read.conversation_stores();
+    let inbox = read.inbox_store();
+    let cards =
+        suzatary_core::secretary::filed::TriageCards::new(conversations.conversations(), &inbox);
+    for (verb, args) in [("todo_add", adding), ("record", recording)] {
+        let args = args
+            .as_object()
+            .context("a verb's arguments are an object")?;
+        suzatary_core::agent::call(&chains, &cards, &read.deployment, verb, args)
+            .map_err(|refusal| anyhow::anyhow!("{verb}: {}", refusal.message()))?;
+    }
+    Ok(())
 }
 
 /// The fixture's Drive CLI, in its root.
@@ -1363,12 +1257,11 @@ pub struct Args {
     /// The checkout `instance.toml`'s `dist` points into.
     #[arg(long)]
     repo: PathBuf,
-    /// Leave one triage batch waiting in the Inbox; off by default so a server can show
+    /// Leave one triage card waiting in the Inbox; off by default so a server can show
     /// the empty Inbox.
     #[arg(long)]
     propose: bool,
-    /// Write today's review: the standing batch held with a reason, plus one accepted and
-    /// one rejected batch.
+    /// Write today's review: the open triage card held with a reason.
     #[arg(long, requires = "propose")]
     reviewed: bool,
     /// Declare one provider and write the fixture's own `secretspec.toml`; the caller must
@@ -1445,17 +1338,16 @@ pub struct TriageArgs {
     /// The fixture deployment's instance file.
     #[arg(long)]
     instance: PathBuf,
-    /// Instead, add and complete this todo at 40% and hold the batch for the owner.
+    /// Instead, add and complete this todo at 40%, filed as its own card.
     #[arg(long)]
     hold: Option<String>,
 }
 
-/// `suzatary-dev fixture-triage`: run the agent's writer again, so a scene can check that a
-/// rejected batch's identical bytes do not get back into the store, or with `--hold` leave a
-/// held batch a writing login can pick from.
+/// `suzatary-dev fixture-triage`: run the agent's writer again, so a scene can check that the
+/// same acts file no second card, or with `--hold` leave a card a writing login can tap.
 ///
 /// # Errors
-/// The instance being unreadable, or the replica unwritable.
+/// The instance being unreadable.
 pub fn triage(args: &TriageArgs) -> anyhow::Result<()> {
     let ran = match &args.hold {
         Some(todo) => held_run(&args.instance, todo),

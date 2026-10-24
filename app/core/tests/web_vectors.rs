@@ -1338,7 +1338,7 @@ struct Shipped {
     text: String,
 }
 
-fn shipped<E: prodrome_core::schema::Schema>(store: &InMemory<E>) -> Vec<Shipped> {
+fn shipped<E: suzatary_core::store::Store>(store: &InMemory<E>) -> Vec<Shipped> {
     store
         .objects()
         .expect("an in-memory store reads")
@@ -2151,8 +2151,7 @@ fn the_answers_vector_holds_every_answer() {
         pending_todo,
     };
     let object = wire::ProposedObject {
-        hash: "b".repeat(64),
-        needs: Vec::new(),
+        position: 1,
         act: wire::ObjectAct::Added {
             todo: todo(false),
             changes: vec![wire::ProposedChange {
@@ -2164,7 +2163,6 @@ fn the_answers_vector_holds_every_answer() {
     };
     // Every other act an object can be, so the tab decodes each.
     let others = [
-        wire::ObjectAct::Merge,
         wire::ObjectAct::Edited {
             todo: todo(false),
             changes: Vec::new(),
@@ -2201,48 +2199,44 @@ fn the_answers_vector_holds_every_answer() {
     .into_iter()
     .enumerate()
     .map(|(n, act)| wire::ProposedObject {
-        hash: format!("{n:064x}"),
-        needs: vec!["b".repeat(64)],
+        position: n + 2,
         act,
     });
-    samples.add([wire::ProposalsPayload {
-        chain: "life".to_owned(),
-        batches: vec![wire::ProposedBatch {
-            head: "b".repeat(64),
+    let rows: Vec<wire::ProposedObject> = std::iter::once(object).chain(others).collect();
+    // A triage card's changeset, every row kind drawn, so the tab decodes each.
+    samples.add([wire::DrawnPayload {
+        proposals: vec![wire::ProposalRow {
+            index: 0,
+            act: wire::ProposedAct::Changes {
+                chain: "life".to_owned(),
+                changes: rows.clone(),
+                problem: String::new(),
+            },
+            card: wire::Card {
+                title: "Change the chain".to_owned(),
+                by: wire::Asker::Triage {},
+                sentence: String::new(),
+                fields: Vec::new(),
+                body: String::new(),
+                rows,
+                files: Vec::new(),
+                problem: String::new(),
+                answers: Vec::new(),
+                uncertain: String::new(),
+                readonly: String::new(),
+                link: None,
+            },
+            why: "a message asks for it".to_owned(),
+            sources: vec!["briefing:2026-09-02".parse().expect("a reference")],
             at: stamp(at),
-            actor: "triage".to_owned(),
-            objects: std::iter::once(object).chain(others).collect(),
+            state: wire::ProposalState::Standing,
+            outcome: String::new(),
+            tries: 0,
+            turn: 0,
+            coding: None,
+            announced: None,
+            revises: None,
         }],
-        reviews: vec![
-            wire::ReviewedBatch {
-                batch: "b".repeat(64),
-                why: "it carries its evidence".to_owned(),
-                at: stamp(at),
-                conversation: "review".to_owned(),
-                decision: suzatary_core::secretary::store::Decision::Settled {
-                    how: suzatary_core::secretary::store::Settle::Accepted,
-                    objects: suzatary_core::nonempty::NonEmpty::of(vec!["b".repeat(64)])
-                        .expect("one object"),
-                },
-            },
-            wire::ReviewedBatch {
-                batch: "c".repeat(64),
-                why: "it changes a commitment".to_owned(),
-                at: stamp(at),
-                conversation: "review".to_owned(),
-                decision: suzatary_core::secretary::store::Decision::Held,
-            },
-        ],
-    }]);
-    samples.add([wire::AcceptedPayload {
-        chain: "life".to_owned(),
-        heads: heads.clone(),
-        adopted: heads.clone(),
-        already: Vec::new(),
-    }]);
-    samples.add([wire::RejectedPayload {
-        chain: "life".to_owned(),
-        removed: heads.clone(),
     }]);
 
     let inbox_fold = inbox::fold(&bundle.inbox).expect("the inbox reads");

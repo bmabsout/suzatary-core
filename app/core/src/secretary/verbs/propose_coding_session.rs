@@ -6,7 +6,7 @@ use crate::coding::Task;
 use crate::refusal::Refusal;
 use crate::secretary::acts::Act;
 use crate::secretary::store::Proposal;
-use crate::secretary::verbs::{propose, reasons_of, serves_of};
+use crate::secretary::verbs::FilingArgs;
 use crate::secretary::{self, Call, SecretarySurface, taint};
 use crate::verb::Verb;
 
@@ -24,10 +24,8 @@ pub struct ProposeCodingSession;
 #[derive(Deserialize, JsonSchema)]
 pub struct ProposeCodingSessionArgs {
     task: String,
-    why: String,
-    sources: String,
-    serves: Option<String>,
-    revises: Option<usize>,
+    #[serde(flatten)]
+    filing: FilingArgs,
 }
 
 impl Verb for ProposeCodingSession {
@@ -60,17 +58,15 @@ impl Verb for ProposeCodingSession {
         )?) {
             return Err(Refusal::forbidden(READ_OUTSIDE));
         }
-        let reasons = reasons_of(&args.why, &args.sources)?;
+        let reasons = args.filing.reasons()?;
         let task =
             Task::try_from(args.task).map_err(|failed| Refusal::bad_request(failed.to_string()))?;
         let act = Act::CodingSession { task };
-        let index = propose(
+        let index = args.filing.file(
             call.caps,
             call.conversation,
             Proposal::Act(act.clone()),
             &reasons,
-            serves_of(args.serves.as_deref())?,
-            args.revises,
         )?;
         Ok(json!({
             "proposed": index,

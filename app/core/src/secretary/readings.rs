@@ -1093,6 +1093,10 @@ pub(crate) fn proposal(
         turn: standing.asking.after_turn,
         coding: None,
         announced: None,
+        revises: standing.revises.map(|revised| wire::Revises {
+            card: revised.card,
+            carried: revised.carried,
+        }),
     }
 }
 

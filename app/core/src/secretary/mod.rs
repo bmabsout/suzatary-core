@@ -7,6 +7,7 @@ pub mod acts;
 pub mod answer;
 pub mod attached;
 pub mod attachment_source;
+pub mod batch_cards;
 pub mod bootstrap;
 pub mod briefs;
 mod call;
@@ -26,6 +27,7 @@ mod conversation_json;
 pub mod conversations;
 pub mod daily;
 pub mod decide;
+pub mod diff;
 pub mod digest;
 pub mod digest_event;
 pub mod digest_label;
@@ -92,7 +94,7 @@ pub mod turn_shape;
 pub mod two_phase;
 pub mod upload_standing;
 pub mod verb_answer;
-mod verbs;
+pub mod verbs;
 pub mod words;
 
 use serde_json::{Map, Value};
@@ -236,6 +238,7 @@ pub fn converse(
         chains,
         id,
         system,
+        &Subset::ALL,
         &Sink::quiet(&Halt::new()),
     )
 }
@@ -250,7 +253,7 @@ pub fn converse(
 /// with the box's words instead, in [`Answered::ending`].
 #[expect(
     clippy::too_many_arguments,
-    reason = "a round's model, its deployment and live names, its chains and its sink"
+    reason = "a round's model, its deployment and live names, its chains, its verbs and its sink"
 )]
 pub fn answer<'p>(
     caps: &Secretary<'_>,
@@ -260,6 +263,7 @@ pub fn answer<'p>(
     chains: &[Bound<'_>],
     id: &ConversationId,
     system: &str,
+    verbs: &Subset,
     sink: &Sink<'_>,
 ) -> Result<Option<Answered>, Refusal> {
     if queue::Pending::of(&read(caps.conversations, id)?).is_none() {
@@ -290,7 +294,7 @@ pub fn answer<'p>(
         &Rules {
             ask,
             system,
-            verbs: &Subset::ALL,
+            verbs,
             run: &run,
             bound: MAX_ROUNDS,
             sink,
@@ -499,7 +503,7 @@ fn load(
                 "tries": standing.object.tries(),
             }))
         }
-        // The secretary's record holds no `Proposals`, so a batch is not readable here.
+        // A batch is the replica's, which the secretary's record does not hold.
         Reference::Batch { chain, head } => Err(Refusal::not_found(format!(
             "batch:{chain}/{} is not readable from the conversation; ask about the \
              decision that names it instead",

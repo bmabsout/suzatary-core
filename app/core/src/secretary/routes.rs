@@ -74,7 +74,7 @@ pub struct Cards<'a> {
 /// Each named chain's events, folded once, reading only the chains a changeset names because the
 /// page polls this route.
 struct Drawn<'a> {
-    nodes: std::collections::BTreeMap<String, Preview>,
+    nodes: std::collections::BTreeMap<String, (Preview, prodrome_core::policy::Untrusted)>,
     /// What an act's markup is admitted through, as it would be on the tap.
     typeset: &'a dyn crate::capability::Typeset,
     now: crate::zone::Moment,
@@ -141,7 +141,10 @@ impl<'a> Drawn<'a> {
                 .ok()
                 .and_then(|objects| Preview::of(objects).ok())
             {
-                read.insert(bound.name.to_owned(), preview);
+                read.insert(
+                    bound.name.to_owned(),
+                    (preview, bound.policy.untrusted.clone()),
+                );
             }
         }
         Self {
@@ -243,7 +246,7 @@ impl Draw for Drawn<'_> {
         let Ok(todo) = TodoId::new(crate::coding::handed_todo(conversation, index)) else {
             return String::new();
         };
-        let on = self.nodes.get(chain.as_str()).is_some_and(|preview| {
+        let on = self.nodes.get(chain.as_str()).is_some_and(|(preview, _)| {
             preview
                 .nodes()
                 .iter()
@@ -262,7 +265,7 @@ impl Draw for Drawn<'_> {
     }
 
     fn shown(&self, changeset: &Changeset) -> (Vec<wire::ProposedObject>, String) {
-        let Some(nodes) = self.nodes.get(changeset.chain()) else {
+        let Some((nodes, untrusted)) = self.nodes.get(changeset.chain()) else {
             return (
                 Vec::new(),
                 format!(
@@ -275,10 +278,13 @@ impl Draw for Drawn<'_> {
         changes::shown(
             changeset,
             nodes,
-            self.now,
-            crate::secretary::WRITES_AS,
-            &known,
-            self.typeset,
+            &changes::Building {
+                now: self.now,
+                by: crate::secretary::WRITES_AS,
+                categories: &known,
+                untrusted,
+                typeset: self.typeset,
+            },
         )
     }
 }
@@ -2177,6 +2183,7 @@ pub fn hand(
                 ),
                 waiting_on: String::new(),
             },
+            from: changes::Provenance::default(),
         }],
     )
     .map_err(|failed| Refusal::internal(failed.to_string()))?;
@@ -2386,8 +2393,10 @@ mod tests {
                 at,
                 object: id,
                 after_turn: 0,
+                revises: None,
             },
             object,
+            revises: None,
         }
     }
 

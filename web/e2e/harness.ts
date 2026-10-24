@@ -6,7 +6,7 @@
  * `E2E_BASE` is gated to a login this deployment knows as a VIEWER and not an
  * actor, so its chain cannot change however hard a test tries — every
  * read-only file shares it, and the refusal file drives it on purpose.
- * `E2E_BASE_PROPOSED` is that same viewer over a deployment with a triage batch
+ * `E2E_BASE_PROPOSED` is that same viewer over a deployment with a triage card
  * waiting, because an empty Inbox and a full one are two claims and one page.
  * `E2E_BASE_WRITE` is gated to the writer login and has a chain of its own,
  * so a completed todo in one file is never a missing card in another.
@@ -49,7 +49,7 @@ function required(name: string): string {
 export const BASE = required("E2E_BASE");
 
 /**
- * The same viewer login, over a deployment whose triage run left a BATCH
+ * The same viewer login, over a deployment whose triage run left a CARD
  * waiting (§10.6).
  *
  * `BASE` deliberately has nothing waiting, because the EMPTY Inbox is a claim

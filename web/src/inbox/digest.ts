@@ -16,7 +16,7 @@ export namespace digest {
   // SECRETARY.md's review holds a todo priced at or under this for the owner.
   export const HOLD = 45
 
-  // The one phrasing of an act, for a row's sentence and a group's; a merge names no todo.
+  // The one phrasing of an act, for a row's sentence and a group's.
   export const phrase = (act: proposed.Act, what: string): string => {
     switch (act) {
       case "added": return `add ${what}`
@@ -28,11 +28,10 @@ export namespace digest {
       case "reopened": return `reopen ${what}`
       case "tended": return `record a pass at ${what}`
       case "created": return `register ${what}`
-      case "merge": return "join two histories"
     }
   }
 
-  export const sentence = (o: ProposedObject): string => phrase(o.act, proposed.todo(o)?.todo ?? "")
+  export const sentence = (o: ProposedObject): string => phrase(o.act, proposed.todo(o).todo)
 
   // The box prints a price `{:.0}%` first, then any recurrence; anything else has no number to hold on.
   export const percent = (printed: string): number | null => {
@@ -64,9 +63,9 @@ export namespace digest {
     const price = proposed.changes(o).find(c => c.field === "priority")
     const p = price === undefined ? null : percent(price.after)
     return {
-      groups: [{ act: o.act, todos: t === null ? [] : [t.todo], objects: 1 }],
-      urgent: t !== null && p !== null && p <= HOLD ? [{ todo: t.todo, percent: p }] : [],
-      pending: t !== null && t.pending_todo ? [t.todo] : [],
+      groups: [{ act: o.act, todos: [t.todo], objects: 1 }],
+      urgent: p !== null && p <= HOLD ? [{ todo: t.todo, percent: p }] : [],
+      pending: t.pending_todo ? [t.todo] : [],
     }
   }
 
@@ -74,10 +73,8 @@ export namespace digest {
 
   const counted = (k: number, noun: string): string => `${k} ${noun}${k === 1 ? "" : "s"}`
 
-  // A merge has no todo, so a group of merges is counted by its objects.
   const groupLine = (g: Group): string =>
-    g.act === "merge" ? (g.objects === 1 ? phrase("merge", "") : `join histories ${g.objects} times`)
-    : phrase(g.act, g.todos.length === 1 ? (g.todos[0] ?? "") : counted(g.todos.length, "todo"))
+    phrase(g.act, g.todos.length === 1 ? (g.todos[0] ?? "") : counted(g.todos.length, "todo"))
 
   export const line = (t: T): string => t.groups.map(groupLine).join(" · ")
 
@@ -87,8 +84,6 @@ export namespace digest {
     urgent.length === 0 ? "" : `At or under the ${HOLD}% the review holds: ${urgent.map(price).join(", ")}`
 
   export const pendingLine = ({ pending }: T): string =>
-    pending.length === 0 ? "" : `Not on the chain yet, waiting on another batch: ${pending.join(", ")}`
-
-  export const picked = (k: number, n: number): string => `${k} of ${n} picked`
+    pending.length === 0 ? "" : `Not on the chain yet, waiting on another card: ${pending.join(", ")}`
 }
 export default digest

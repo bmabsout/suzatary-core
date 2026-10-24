@@ -15,4 +15,8 @@ pub struct Says {
     pub show: &'static str,
     /// `record`.
     pub record: &'static str,
+    /// `todo_add`.
+    pub todo_add: &'static str,
+    /// `todo_update`.
+    pub todo_update: &'static str,
 }

@@ -144,6 +144,7 @@ fn a_round_over_a_session() {
             &chains,
             &id(),
             "you are the secretary",
+            &suzatary_core::secretary::surface::Subset::ALL,
             &sink,
         )
         .expect("the exchange runs")

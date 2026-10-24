@@ -1,9 +1,9 @@
 //! The triage agent's whole surface: every verb a pure function of an [`Agent`] record,
 //! which holds nothing that sends, confirms or names a peer.
 //!
-//! `verbs` holds one type per verb and `surface` sums them. `reads` and `writes` are the bodies
-//! the secretary's verbs of the same names share, each write with its own
-//! [`Writer`](crate::authoring::Writer).
+//! `verbs` holds one type per verb and `surface` sums them. `reads` holds the bodies the
+//! secretary's verbs of the same names share; a shared writing verb builds its act once and hands
+//! it to its surface's [`Holds::write`]: the triage agent files a card, and the secretary writes.
 
 mod call;
 mod holds;
@@ -13,14 +13,13 @@ mod says;
 pub(crate) mod sourced;
 mod surface;
 pub mod verbs;
-pub(crate) mod writes;
 
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 
 pub use call::Call;
-pub use holds::Holds;
+pub use holds::{Direct, Holds};
 pub use says::Says;
 pub use surface::{TriageCall, TriageSurface, TriageVerb, tools};
 // Public so `app/cli/tests/live.rs` can weigh the answers on the live manuals.
@@ -32,8 +31,8 @@ use crate::record::TodoEvent;
 use crate::refusal::{Refusal, shown};
 use crate::store::Prodrome;
 
-/// Who every write from this surface is by: a constant [`call`] reads, never an argument,
-/// and untrusted, so nothing it records binds until the owner confirms.
+/// Who this surface is: a constant, never an argument. Its writes are cards, which the owner's
+/// tap performs.
 pub const WRITES_AS: crate::authoring::Writer = crate::authoring::Writer::Triage;
 
 /// One call as the agent sent it: read whole once, then run against the record of the chain it
@@ -43,6 +42,7 @@ pub const WRITES_AS: crate::authoring::Writer = crate::authoring::Writer::Triage
 /// An unknown verb or chain, a missing or ill-typed argument, or an effect's own failure.
 pub fn call(
     records: &BTreeMap<String, Agent<'_>>,
+    cards: &crate::secretary::filed::TriageCards<'_>,
     deployment: &Deployment,
     verb: &str,
     args: &Map<String, Value>,
@@ -76,6 +76,7 @@ pub fn call(
             caps,
             deployment,
             chain,
+            cards,
         })
         .map(crate::held_value::withheld_value)
 }

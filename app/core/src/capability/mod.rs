@@ -286,7 +286,6 @@ mod tests {
             briefings: _,
             weather: _,
             calendar: _,
-            proposals: _,
             secrets: _,
             web: _,
             repositories: _,

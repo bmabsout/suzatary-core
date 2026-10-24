@@ -53,9 +53,9 @@ pub fn value(object: &Object, set: &ChainSet<'_>) -> Option<crate::wire::Fulfill
 /// One proposal, as the inbox stores it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Asked {
-    /// Who asked for it: the secretary's is printed `Asked`, a plugin's `Offered` with the
-    /// plugin's name and the box's own `Noticed`, so no stored `Asked` moved when others began to
-    /// propose.
+    /// Who asked for it: the secretary's is printed `Asked`, the triage agent's `Triaged`, a
+    /// plugin's `Offered` with the plugin's name and the box's own `Noticed`, so no stored `Asked`
+    /// moved when others began to propose.
     pub proposer: Proposer,
     /// The act, whole: what the card shows is what a submit performs.
     pub proposal: Proposal,
@@ -159,6 +159,7 @@ impl Asked {
         match &self.proposer {
             Proposer::Secretary => (ASKED, asked.into()),
             Proposer::Box => (NOTICED, asked.into()),
+            Proposer::Triage => (TRIAGED, asked.into()),
             Proposer::Plugin(name) => (
                 OFFERED,
                 std::iter::once(name.as_str().to_owned().to_value())
@@ -180,6 +181,7 @@ impl Asked {
         let proposer = match fields.name() {
             "Asked" => Proposer::Secretary,
             "Noticed" => Proposer::Box,
+            "Triaged" => Proposer::Triage,
             "Offered" => Proposer::Plugin(
                 PluginName::parse(&fields.get::<String>("plugin")?)
                     .map_err(|failed| invalid(failed.to_string()))?,
@@ -204,6 +206,11 @@ pub const ASKED: Signature = (
 /// `Noticed(..)`: the box's own, the same fields.
 pub const NOTICED: Signature = (
     "Noticed",
+    &["act", "why", "sources", "asked", "serves", "spec"],
+);
+/// `Triaged(..)`: the triage agent's, the same fields.
+pub const TRIAGED: Signature = (
+    "Triaged",
     &["act", "why", "sources", "asked", "serves", "spec"],
 );
 /// `Offered(plugin, ..)`: a plugin's, naming it.
@@ -631,7 +638,7 @@ impl Fold {
     pub fn holding(&self, asked: &Asked, at: Datetime) -> Option<&Object> {
         match asked.proposer {
             Proposer::Box => self.held(&asked.proposal, Some(at)),
-            Proposer::Secretary | Proposer::Plugin(_) => {
+            Proposer::Secretary | Proposer::Triage | Proposer::Plugin(_) => {
                 self.get(self.named.get(&ProposalId::of(asked, at))?)
             }
         }
@@ -717,6 +724,20 @@ pub fn transition<C: Prodrome<InboxEvent> + ?Sized>(
     step: impl FnOnce(&Object) -> Result<Step, Refusal>,
 ) -> Result<Response, Refusal> {
     let _held = caps.locked()?;
+    transition_held(caps, id, by, at, step)
+}
+
+/// [`transition`], under the inbox's one hold, which the caller has taken.
+///
+/// # Errors
+/// As [`transition`].
+pub fn transition_held<C: Prodrome<InboxEvent> + ?Sized>(
+    caps: &C,
+    id: &ProposalId,
+    by: &Actor,
+    at: Datetime,
+    step: impl FnOnce(&Object) -> Result<Step, Refusal>,
+) -> Result<Response, Refusal> {
     let fold = fold(caps)?;
     let object = fold.one(id)?;
     match step(object)? {
@@ -848,6 +869,43 @@ pub fn withdraw<C: Prodrome<InboxEvent> + ?Sized>(
     withdrawal: Withdrawal,
 ) -> Result<Response, Refusal> {
     transition(caps, id, by, at, |object| withdrawing(object, withdrawal))
+}
+
+/// [`withdraw`] a proposal nobody has answered yet: once the owner has tapped it, even a tap that
+/// failed, the card is his to settle, and this refuses.
+///
+/// # Errors
+/// As [`transition`], and [`Refusal::conflict`] for a proposal with any response.
+pub fn withdraw_unanswered<C: Prodrome<InboxEvent> + ?Sized>(
+    caps: &C,
+    id: &ProposalId,
+    by: &Actor,
+    at: Datetime,
+    withdrawal: Withdrawal,
+) -> Result<Response, Refusal> {
+    transition(caps, id, by, at, |object| match object.reading {
+        Reading::Standing => withdrawing(object, withdrawal),
+        Reading::One(_) | Reading::Conflict(_) | Reading::Unreadable(_) => {
+            Err(Refusal::conflict(format!(
+                "proposal {} has been answered, so it is the owner's to settle",
+                object.id
+            )))
+        }
+    })
+}
+
+/// [`withdraw`], under the inbox's one hold, which the caller has taken.
+///
+/// # Errors
+/// As [`withdraw`].
+pub fn withdraw_held<C: Prodrome<InboxEvent> + ?Sized>(
+    caps: &C,
+    id: &ProposalId,
+    by: &Actor,
+    at: Datetime,
+    withdrawal: Withdrawal,
+) -> Result<Response, Refusal> {
+    transition_held(caps, id, by, at, |object| withdrawing(object, withdrawal))
 }
 
 /// The owner has checked a send that may have gone: records his check and performs nothing;

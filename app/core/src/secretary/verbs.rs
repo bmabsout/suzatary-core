@@ -1,19 +1,14 @@
 //! Every secretary verb, one type each, and what several of them share.
 
-use schemars::JsonSchema;
-use serde::Deserialize;
-use serde_json::{Value, json};
-
+use super::SecretarySurface;
 use super::filed::{Filed, Filing};
 use super::proposer::Proposer;
 use super::responded::Withdrawal;
-use super::store::{ConversationId, Decision, Entry, Proposal, Reasons, Settle};
-use super::{Call, SecretarySurface, WRITES_AS};
+use super::store::{ConversationId, Proposal, Reasons};
 use crate::agent::verbs;
 use crate::capability::{MailError, Secretary};
 use crate::reference::{Reference, TodoRef};
 use crate::refusal::{Refusal, shown};
-use crate::secretary::transcript;
 
 mod add_topics;
 mod attachments;
@@ -25,12 +20,10 @@ mod decisions;
 mod draft_note;
 mod drive_list;
 mod drive_read;
+mod filing;
 mod forget;
 mod junk_digest;
 mod junk_show;
-mod proposals_accept;
-mod proposals_list;
-mod proposals_reject;
 mod propose_act;
 mod propose_changes;
 mod propose_coding_session;
@@ -47,8 +40,8 @@ mod repos_list;
 mod search;
 mod search_older;
 mod sync_mail;
-mod todo_add;
-mod todo_update;
+mod triage_cards;
+mod triage_withdraw;
 mod upload_read;
 mod watch_mail;
 mod weather;
@@ -66,7 +59,11 @@ pub type History = verbs::History<SecretarySurface, verbs::HistoryArgs>;
 /// One chain's open todos.
 pub type ListOpenTodos = verbs::ListOpenTodos<SecretarySurface>;
 /// A todo's lifecycle event, as the trusted assistant.
-pub type Record = verbs::Record<SecretarySurface, verbs::RecordArgsNullNote>;
+pub type Record = verbs::Record<SecretarySurface>;
+/// Author a todo, as the trusted assistant.
+pub type TodoAdd = verbs::TodoAdd<SecretarySurface>;
+/// Change fields on a todo, as the trusted assistant.
+pub type TodoUpdate = verbs::TodoUpdate<SecretarySurface>;
 /// One message in full, never paged.
 pub type Show = verbs::Show<SecretarySurface, verbs::WholeArgs>;
 /// One todo as the chain holds it.
@@ -79,12 +76,10 @@ pub use decisions::Decisions;
 pub use draft_note::DraftNote;
 pub use drive_list::DriveList;
 pub use drive_read::DriveRead;
+pub use filing::{FilingArgs, Reasoned};
 pub use forget::Forget;
 pub use junk_digest::JunkDigest;
 pub use junk_show::JunkShow;
-pub use proposals_accept::ProposalsAccept;
-pub use proposals_list::{ProposalsList, answered, listed};
-pub use proposals_reject::ProposalsReject;
 pub use propose_act::ProposeAct;
 pub use propose_changes::ProposeChanges;
 pub use propose_coding_session::ProposeCodingSession;
@@ -101,8 +96,8 @@ pub use repos_list::ReposList;
 pub use search::Search;
 pub use search_older::SearchOlder;
 pub use sync_mail::SyncMail;
-pub use todo_add::TodoAdd;
-pub use todo_update::TodoUpdate;
+pub use triage_cards::{TriageCards, answered, listed, standing};
+pub use triage_withdraw::TriageWithdraw;
 pub use upload_read::UploadRead;
 pub use watch_mail::WatchMail;
 pub use weather::Weather;
@@ -129,129 +124,9 @@ fn mail_refusal(failed: &MailError) -> Refusal {
     }
 }
 
-// --- the review --------------------------------------------------------------
-
-/// What `proposals_accept` and `proposals_reject` take.
-#[derive(Deserialize, JsonSchema)]
-pub struct SettleArgs {
-    chain: String,
-    objects: String,
-    why: String,
-}
-
-/// Accept or reject a pick and record why, the record written only after the settle succeeds.
-///
-/// `why` is required, because the owner delegated the decision, not the account of it.
-fn settle(call: &Call<'_>, args: &SettleArgs, how: Settle) -> Result<Value, Refusal> {
-    let (caps, chain, id) = (call.caps, call.chain, call.conversation);
-    let named = args.chain.as_str();
-    if named != chain.name.as_str() {
-        // Asserted rather than assumed, because settling the wrong store is unrecoverable.
-        return Err(Refusal::internal(format!(
-            "this bundle is {}, not {}",
-            chain.name.as_str(),
-            shown(named)
-        )));
-    }
-    let why = args.why.trim().to_owned();
-    if why.is_empty() {
-        return Err(Refusal::bad_request(
-            "say why: the reason is the whole of what the owner reads back, and a settle with \
-             none is a decision they cannot check",
-        ));
-    }
-    let picked = crate::proposals::names(&list_of(&args.objects))?;
-    if picked.is_empty() {
-        return Err(Refusal::bad_request(
-            "objects must name at least one object of a standing batch",
-        ));
-    }
-    let target = crate::sync::Objects::of(&caps.chain.objects()?);
-    let replica = crate::sync::Objects::of(&caps.proposals.objects()?);
-    let touched = crate::proposals::grouped(&target, &replica, &picked);
-
-    let done = match how {
-        // The routes settle the inbox decision themselves; this is the conversation's receipt.
-        Settle::Accepted => {
-            let payload = crate::proposals::routes::accept(
-                caps.chain,
-                caps.proposals,
-                caps.render,
-                caps.clock,
-                chain,
-                &picked,
-                WRITES_AS.actor(),
-            )?;
-            json!({"adopted": payload.adopted, "already": payload.already, "heads": payload.heads})
-        }
-        Settle::Rejected => {
-            let payload = crate::proposals::routes::reject(
-                caps.chain,
-                caps.proposals,
-                caps.clock,
-                chain,
-                &picked,
-                WRITES_AS.actor(),
-            )?;
-            json!({"removed": payload.removed})
-        }
-    };
-
-    let at = caps.clock.now();
-    let mut lines: Vec<String> = Vec::new();
-    // A head names the objects of its own batch the pick settled; one with none settled nothing.
-    let settled = touched.iter().filter_map(|(head, objects)| {
-        crate::nonempty::NonEmpty::of(
-            objects
-                .iter()
-                .map(|name| name.as_str().to_owned())
-                .collect(),
-        )
-        .map(|objects| (head, objects))
-    });
-    for (head, objects) in settled {
-        let review = super::store::Review {
-            at,
-            chain: chain.name.as_str().to_owned(),
-            batch: head.as_str().to_owned(),
-            decision: Decision::Settled { how, objects },
-            why: crate::secretary::words::Words::kept(why.clone()),
-        };
-        lines.push(review.to_string());
-        transcript::push(
-            caps.conversations,
-            id,
-            &Entry::Reviewed {
-                at: review.at,
-                chain: review.chain,
-                batch: review.batch,
-                decision: review.decision,
-                why: review.why,
-            },
-        )?;
-    }
-    Ok(json!({
-        "decision": how.word(),
-        "chain": chain.name.as_str(),
-        "recorded": lines,
-        "outcome": done,
-    }))
-}
-
 // --- filing a proposal -------------------------------------------------------
 //
 // Every `propose_*` verb files its act in the inbox as `assistant`; `serves` is kept as data.
-
-/// `serves`, a `todo:<chain>/<id>` reference, when given.
-fn serves_of(serves: Option<&str>) -> Result<Option<TodoRef>, Refusal> {
-    serves
-        .map(|text| {
-            text.trim()
-                .parse::<TodoRef>()
-                .map_err(|failed| Refusal::bad_request(format!("serves: {failed}")))
-        })
-        .transpose()
-}
 
 /// File `proposal` in the inbox, name it in the conversation, and supersede what it revises.
 ///
@@ -322,15 +197,6 @@ fn withdrawable(
     }
 }
 
-/// A comma-separated list, trimmed, gaps dropped; a flat string is what a model spells reliably.
-fn list_of(text: &str) -> Vec<String> {
-    text.split(',')
-        .map(str::trim)
-        .filter(|one| !one.is_empty())
-        .map(str::to_owned)
-        .collect()
-}
-
 // --- drive -------------------------------------------------------------------
 
 /// A `path` argument, parsed.
@@ -359,12 +225,6 @@ fn not_a_junk_account(account: &str, known: &[String]) -> Refusal {
         shown(account),
         known.join(", ")
     ))
-}
-
-/// A proposal's `why` and `sources`, neither of which may be empty.
-fn reasons_of(why: &str, sources: &str) -> Result<Reasons, Refusal> {
-    Reasons::new(why, references(sources, "sources")?)
-        .map_err(|failed| Refusal::bad_request(failed.to_string()))
 }
 
 /// The `sources` argument: text forms, comma-separated, each through [`Reference`]'s parser.

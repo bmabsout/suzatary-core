@@ -2483,7 +2483,6 @@ impl Fakes {
             briefings: &self.briefings,
             weather: &FakeWeather,
             calendar: &self.calendar,
-            proposals: &self.proposals,
             secrets: self.secrets.as_ref(),
             web: &self.web,
             repositories: self.repos.as_ref(),

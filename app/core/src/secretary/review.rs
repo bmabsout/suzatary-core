@@ -1,22 +1,19 @@
-//! The secretary reviews the agent's batches, applying `SECRETARY.md`'s rule by the model.
+//! The secretary reviews the triage agent's open cards, applying `SECRETARY.md`'s rule by the
+//! model: it may withdraw a card and never performs one, which is the owner's tap alone.
 //!
-//! A hold is derived from what is still standing when the round ends, and a failed review leaves
-//! every batch standing.
+//! A hold is derived from what is still open when the round ends, and a failed review leaves
+//! every card open.
 
 use super::Bound;
 use super::daily::{Daily, daily_round};
 use super::found::{Found, Unreadable};
 use super::store::{ConversationId, Decision, Entry, Outcome, Review, Stored};
-use super::surface::SecretaryVerb;
-use super::verbs::{answered, listed};
-use crate::authoring::NewDecision;
+use super::surface::{Effect, SecretaryVerb, Subset};
+use super::verbs::{answered, listed, standing};
 use crate::capability::{Secretary, Turn};
-use crate::chains::ChainName;
 use crate::deployment::Deployment;
-use crate::reference::{BatchHead, Reference};
-use crate::refusal::Refusal;
+use crate::refusal::{Refusal, shown};
 use crate::secretary::transcript;
-use crate::wire::ProposalsPayload;
 
 /// What one review did.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,9 +22,9 @@ pub struct Reviewed {
     pub stored: Stored,
     /// How many times the model was asked; zero when nothing was standing.
     pub rounds: usize,
-    /// The lines this review wrote, in order: accepted, rejected and held with the reason.
+    /// The lines this review wrote, in order: withdrawn and held, with the reason.
     pub decided: Vec<Review>,
-    /// How many batches are still standing when it ends.
+    /// How many cards are still open when it ends.
     pub standing: usize,
 }
 
@@ -43,20 +40,32 @@ impl Reviewed {
 }
 
 /// The question the review asks, as a person turn; the rule itself stays in `SECRETARY.md`.
-const ASK: &str = "Review the triage agent's standing batches, below. Settle the ordinary ones \
-                   with proposals_accept and proposals_reject — naming the chain, the object \
-                   hashes and WHY — and leave standing anything that changes a real commitment \
-                   of mine, per \"Reviewing the agent's batches\" in your brief. Then tell me, \
-                   in a few sentences, what you accepted, what you rejected and what you are \
-                   holding for me and why. When in doubt, hold.";
+const ASK: &str = "Review the triage agent's open cards, below. Withdraw duplicates and noise \
+                   with triage_withdraw, naming the card and WHY, and leave every other card \
+                   for my tap, per \"Reviewing the agent's cards\" in your brief. Then tell me, \
+                   in a few sentences, what you withdrew and what you left for me and why. \
+                   When in doubt, leave it.";
 
 /// A hold's reason when the model said nothing about the rest.
 const UNSPOKEN: &str = "The secretary left this standing and did not say why.";
 
-/// Review every standing batch, on every chain, in one round, then write a `held` line for what
-/// still stands.
+/// What a review round may call: the reads, and `triage_withdraw`. Its turn holds the cards'
+/// words, which came out of mail anyone can send, so it holds no verb that writes to a chain,
+/// files, remembers or sends: whatever a card says, the round can withdraw it and nothing more.
+pub const SURFACE: Subset = Subset {
+    allows: |verb| verb.class().effect == Effect::Reads || verb == SecretaryVerb::TriageWithdraw,
+    refuses: |called, listed| {
+        Refusal::not_found(format!(
+            "the review may not call {} — its verbs are {listed}",
+            shown(called)
+        ))
+    },
+};
+
+/// Review every open triage card in one round, then write a `held` line for each card still
+/// open.
 ///
-/// The seed is `proposals_list`'s own answer as a `Turn::Tool`, and spends no rounds.
+/// The seed is `triage_cards`' own answer as a `Turn::Tool`, and spends no rounds.
 ///
 /// # Errors
 /// The stores' own failures, the model's, and an unreadable conversation.
@@ -69,8 +78,7 @@ pub fn review(
 ) -> Result<Reviewed, Refusal> {
     let round = daily_round(caps, deployment.zone, Daily::Review)?;
     let id = round.id.clone();
-    let standing = listed(chains, deployment.zone)?;
-    if heads(&standing).is_empty() {
+    if standing(caps.inbox)?.is_empty() {
         // Nothing standing opens no conversation and spawns no model.
         return Ok(Reviewed {
             stored: round.idle(caps),
@@ -100,9 +108,9 @@ pub fn review(
         &Entry::Said {
             at: caps.clock.now(),
             turn: Turn::Tool {
-                verb: SecretaryVerb::ProposalsList.into(),
-                answer: serde_json::to_string_pretty(&answered(&standing))
-                    .unwrap_or_else(|failed| format!("(the batches did not serialise: {failed})")),
+                verb: SecretaryVerb::TriageCards.into(),
+                answer: serde_json::to_string_pretty(&answered(&listed(chains, deployment)?))
+                    .unwrap_or_else(|failed| format!("(the cards did not serialise: {failed})")),
                 outcome: crate::secretary::outcome::Outcome::Answered,
                 files: Vec::new(),
             },
@@ -123,6 +131,7 @@ pub fn review(
         chains,
         &id,
         system,
+        &SURFACE,
         &quiet,
     )
     .and_then(|answered| {
@@ -140,18 +149,18 @@ pub fn review(
                 &Entry::ReviewFailed {
                     at: caps.clock.now(),
                     reason: crate::secretary::words::Words::kept(refusal.message().to_owned()),
-                    standing: heads(&standing).len(),
+                    standing: standing(caps.inbox).map_or(0, |open| open.len()),
                 },
             );
             return Err(refusal);
         }
     };
-    // No round ran only when nothing waited, so every batch is held.
+    // No round ran only when nothing waited, so every card is held.
     let (after, rounds) = match answered {
         Some(answered) => (answered.stored, answered.rounds),
         None => (super::read(caps.conversations, &id)?, 0),
     };
-    let standing = hold_the_rest(caps, deployment, chains, &id, &after)?;
+    let standing = hold_the_rest(caps, &id, &after)?;
 
     let stored = super::read(caps.conversations, &id)?;
     Ok(Reviewed {
@@ -211,17 +220,14 @@ pub fn note_unreadable(
     }))
 }
 
-/// Write down what is still standing, one line per batch per day, with the secretary's own words
-/// as the reason.
+/// Write down what is still open, one line per card per day, with the secretary's own words as
+/// the reason.
 fn hold_the_rest(
     caps: &Secretary<'_>,
-    deployment: &Deployment,
-    chains: &[Bound<'_>],
     id: &ConversationId,
     answered: &Stored,
 ) -> Result<usize, Refusal> {
     let why = said(answered);
-    let left = listed(chains, deployment.zone)?;
     let known: std::collections::BTreeSet<String> = answered
         .reviews
         .iter()
@@ -229,20 +235,10 @@ fn hold_the_rest(
         .map(|review| review.batch.clone())
         .collect();
     let at = caps.clock.now();
-    let held = heads(&left);
-    for (chain, head) in &held {
-        // Authoring is idempotent, and a batch held without a decision is invisible in the Inbox.
-        author_batch_decision(
-            chains,
-            chain,
-            head,
-            &why,
-            crate::zone::Moment {
-                at: caps.clock.now(),
-                zone: deployment.zone,
-            },
-        )?;
-        if known.contains(head) {
+    let held = standing(caps.inbox)?;
+    for (card, changeset) in &held {
+        let card = card.to_string();
+        if known.contains(&card) {
             continue;
         }
         transcript::push(
@@ -250,9 +246,9 @@ fn hold_the_rest(
             id,
             &Entry::Reviewed {
                 at,
-                chain: chain.clone(),
-                batch: head.clone(),
-                // A hold is a decision about the whole batch, so it names no object.
+                chain: changeset.chain().to_owned(),
+                batch: card,
+                // A hold names no object.
                 decision: Decision::Held,
                 why: crate::secretary::words::Words::kept(why.clone()),
             },
@@ -261,53 +257,9 @@ fn hold_the_rest(
     Ok(held.len())
 }
 
-/// Author the decision a held batch is, once per `batch:<chain>/<head>`, at the default priority.
-fn author_batch_decision(
-    chains: &[Bound<'_>],
-    chain: &str,
-    head: &str,
-    why: &str,
-    now: crate::zone::Moment,
-) -> Result<(), Refusal> {
-    let Some(bound) = super::bound_named(chains, chain) else {
-        // Unreachable, since `heads` read these chains a moment ago.
-        return Ok(());
-    };
-    let chain_name =
-        ChainName::new(chain).map_err(|failed| Refusal::internal(failed.to_string()))?;
-    let batch_head =
-        BatchHead::new(head).map_err(|failed| Refusal::internal(failed.to_string()))?;
-    let performs = Reference::Batch {
-        chain: chain_name,
-        head: batch_head,
-    };
-    let nodes = bound.caps.chain.nodes()?;
-    let events = crate::view::events_of(&nodes);
-    if crate::authoring::decision_for(&events, &performs).is_some() {
-        return Ok(());
-    }
-    let known: std::collections::BTreeSet<String> = events
-        .iter()
-        .map(|event| event.todo().as_str().to_owned())
-        .collect();
-    let new = NewDecision {
-        body: format!("Settle the triage batch {head} on {chain}"),
-        why: why.to_owned(),
-        performs,
-        detail: why.to_owned(),
-        priority: None,
-        category: String::new(),
-        source: String::new(),
-    };
-    let event = crate::authoring::build_decision(&new, now, super::WRITES_AS.actor(), &[], &known)?;
-    bound.caps.chain.append(event)?;
-    Ok(())
-}
-
 /// The last thing the model said, which is what a hold's reason is.
 ///
-/// Read as prose, because a decision's rationale is stored escaped and markup would show as
-/// source.
+/// Read as prose, because the Inbox shows it as text.
 fn said(stored: &Stored) -> String {
     stored
         .turns
@@ -320,19 +272,6 @@ fn said(stored: &Stored) -> String {
             _ => None,
         })
         .unwrap_or_else(|| UNSPOKEN.to_owned())
-}
-
-/// Every standing batch, by chain and head.
-fn heads(listed: &[ProposalsPayload]) -> Vec<(String, String)> {
-    listed
-        .iter()
-        .flat_map(|payload| {
-            payload
-                .batches
-                .iter()
-                .map(|batch| (payload.chain.clone(), batch.head.clone()))
-        })
-        .collect()
 }
 
 /// Every conversation: each that reads as it stands, and each that does not, named.
@@ -405,7 +344,7 @@ pub fn failures(
 pub struct Outage {
     /// Failed passes since the last review that ran; zero when it is up.
     pub consecutive: usize,
-    /// Batches standing at the latest failure.
+    /// Cards open at the latest failure.
     pub standing: usize,
 }
 

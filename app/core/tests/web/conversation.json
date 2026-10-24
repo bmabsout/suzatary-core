@@ -127,7 +127,8 @@
       "tries": 0,
       "turn": 2,
       "coding": null,
-      "announced": null
+      "announced": null,
+      "revises": null
     }
   ],
   "unplaced": [],

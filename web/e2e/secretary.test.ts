@@ -196,7 +196,7 @@ app.scene("dismissing a proposal drops it from the Inbox and shows the reason", 
 /**
  * A CHANGESET CARD IS A DIFF (§10.3, "Changesets"), and it offers Confirm,
  * Dismiss and Reply — the same three answers a proposed email gets, drawn with
- * the same row a triage batch's diff uses. Confirming APPLIES it: this is the
+ * the same row a triage card's diff uses. Confirming APPLIES it: this is the
  * one scene that checks the acts actually land on the chain.
  */
 app.scene("a changeset card shows the diff, and Confirm applies it", async () => {

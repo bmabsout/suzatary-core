@@ -768,10 +768,27 @@ fn dispatch_case(
         .iter()
         .map(|(name, interpreters)| (name.clone(), interpreters.agent()))
         .collect();
+    // The candidate's cards land in this case's scratch, never the box's inbox.
+    let inbox =
+        suzatary_io::objects::Objects::<suzatary_core::secretary::inbox_event::InboxEvent>::open(
+            case_scratch.join("inbox"),
+        );
+    let conversations = suzatary_io::conversations::ConversationStores::open(
+        case_scratch.join("conversations"),
+        case_scratch.join("conversations-lines-keys"),
+        std::sync::Arc::new(instance.answers()),
+    );
 
     let outcome = run::replay(
         candidate,
         &chains,
+        &run::Filing {
+            cards: suzatary_core::secretary::filed::TriageCards::new(
+                conversations.conversations(),
+                &inbox,
+            ),
+            inbox: &inbox,
+        },
         &instance.deployment,
         system,
         opening,

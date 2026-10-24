@@ -53,7 +53,7 @@ pub enum Push {
     },
     /// The secretary's review has failed `passes` passes running.
     ReviewDown {
-        /// Batches left standing.
+        /// Cards left open.
         standing: usize,
         /// Consecutive failed passes.
         passes: NonZeroUsize,

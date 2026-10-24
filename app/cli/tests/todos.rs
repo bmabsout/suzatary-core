@@ -145,14 +145,6 @@ sync = "gmail"
     path
 }
 
-fn suzatary(instance: &Path, args: &[&str]) -> std::process::Output {
-    crate::binary::keyed()
-        .args(["--instance", &instance.to_string_lossy()])
-        .args(args)
-        .output()
-        .expect("the binary runs")
-}
-
 #[test]
 fn a_held_batchs_decision_never_shows_on_the_open_list() {
     let root = scratch("decision-off-the-list");
@@ -185,87 +177,6 @@ fn a_held_batchs_decision_never_shows_on_the_open_list() {
     assert!(
         rows.iter().any(|row| row["id"] == "parkingpermit"),
         "the ordinary todo is still on the list: {rows:#?}"
-    );
-}
-
-/// A todo added to the staging area never reaches the chain: `todo add --area
-/// staging` writes into the chain's proposals replica, after adopting the
-/// chain, so the chain's objects are exactly what they were and the replica
-/// holds the new todo one head beyond them, a batch the Inbox offers.
-#[test]
-fn a_todo_added_to_the_staging_area_never_reaches_the_chain() {
-    let root = scratch("stage");
-    a_chain(&root);
-    let instance = an_instance(&root);
-    let objects = |dir: &str| -> Vec<String> {
-        let mut names: Vec<String> = std::fs::read_dir(root.join(dir).join("objects"))
-            .map(|entries| {
-                entries
-                    .map(|entry| {
-                        entry
-                            .expect("an entry")
-                            .file_name()
-                            .to_string_lossy()
-                            .into_owned()
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        names.sort();
-        names
-    };
-    // The first writer adopts the root; read once, so what follows is the staged write alone.
-    assert!(suzatary(&instance, &["device", "init"]).status.success());
-    let chain_before = objects("events");
-
-    let staged = suzatary(
-        &instance,
-        &[
-            "todo",
-            "add",
-            "stagedidea",
-            "--body",
-            "A staged idea",
-            "--rationale",
-            "Proposed for the owner to compose in.",
-            "--category",
-            "other",
-            "--priority",
-            "80",
-            "--actor",
-            "assistant",
-            "--area",
-            "staging",
-        ],
-    );
-    assert!(
-        staged.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&staged.stderr)
-    );
-
-    assert_eq!(objects("events"), chain_before, "the chain was written to");
-    let replica = objects("events-triage");
-    assert!(
-        chain_before.iter().all(|name| replica.contains(name)),
-        "the replica did not adopt the chain"
-    );
-    assert_eq!(
-        replica.len(),
-        chain_before.len() + 2,
-        "one staged change and its signature beyond the chain, and nothing joining it"
-    );
-    let staged_events = EventStore::new(
-        root.join("events-triage"),
-        prodrome_core::policy::Untrusted::none(),
-    )
-    .events()
-    .expect("the replica reads");
-    assert!(
-        staged_events
-            .iter()
-            .any(|event| event.todo().as_str() == "stagedidea"),
-        "the staged todo is not in the replica"
     );
 }
 
