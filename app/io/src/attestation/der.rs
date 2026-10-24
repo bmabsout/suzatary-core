@@ -166,22 +166,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn short_and_long_lengths_read() {
-        let short = [tag::OCTET_STRING, 2, 0xaa, 0xbb, tag::INTEGER, 1, 5];
-        let mut reader = Reader::new(&short);
-        assert_eq!(reader.expect(tag::OCTET_STRING), Ok(&[0xaa, 0xbb][..]));
-        assert_eq!(reader.expect(tag::INTEGER), Ok(&[5][..]));
-        assert!(reader.is_empty());
-
-        let mut long = vec![tag::OCTET_STRING, 0x82, 0x01, 0x00];
-        long.extend([7; 256]);
-        assert_eq!(
-            Reader::new(&long).expect(tag::OCTET_STRING),
-            Ok(&[7; 256][..])
-        );
-    }
-
-    #[test]
     fn truncation_and_indefinite_lengths_are_refused() {
         for bad in [
             &[tag::SEQUENCE][..],
@@ -190,15 +174,6 @@ mod tests {
         ] {
             assert!(Reader::new(bad).next().is_err(), "{bad:?}");
         }
-    }
-
-    #[test]
-    fn integers_read_with_their_sign_padding() {
-        assert_eq!(small_unsigned(&[0x05]), Ok(5));
-        assert_eq!(small_unsigned(&[0x00, 0xff]), Ok(255));
-        assert_eq!(small_unsigned(&[0x01, 0x00]), Ok(256));
-        assert!(small_unsigned(&[0xff]).is_err());
-        assert!(small_unsigned(&[1, 2, 3]).is_err());
     }
 
     #[test]

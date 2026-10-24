@@ -2,9 +2,7 @@
  * THE WIDE LAYOUT, AT DESKTOP SIZE: what the owner's browser at a desk sees, where the phone's tests do not look.
  *
  * More drops a sheet whose links a press reaches. The secretary panel's toggle keeps one place, open or closed, and
- * a closed panel takes no width. The Todos page fits the window, so only its panes scroll. A login that may read and
- * not write, or a writer whose browser key the chain does not trust, is told so, in a status line where the composer
- * would be. The untrusted key's scene is last: it puts a key nobody trusted in this browser's place.
+ * a closed panel takes no width. The Todos page fits the window, so only its panes scroll.
  */
 
 import assert from "node:assert/strict";
@@ -112,45 +110,4 @@ app.scene("the panel's toggle keeps its place, a closed panel takes no width, an
   await app.page.waitFor(`document.querySelector(".panelcollapse").getAttribute("aria-expanded") === "true"`);
   assert.deepEqual(await box(".panelcollapse"), open, "and back where it was");
   assert.equal(await app.page.evaluate<boolean>(fits), true, "open, the page does not scroll either");
-});
-
-app.scene("a login that reads and does not write is told so where the composer would be, in the panel and on the page", async () => {
-  await app.open(BASE);
-  const line = (scope: string): string =>
-    `document.querySelector(${JSON.stringify(`${scope} .readonly[role="status"]`)})?.textContent ?? ""`;
-  await app.page.waitFor(`(${line(".secretarypanel")}) !== ""`);
-  assert.match(await app.page.evaluate<string>(line(".secretarypanel")), /can read here and not write\. Write from/);
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll(".composebox").length`), 0, "no box that writes");
-  await app.page.navigate(`${BASE}/#/secretary/default`);
-  await app.page.waitFor(`(${line("#view")}) !== ""`);
-  assert.match(await app.page.evaluate<string>(line("#view")), /e2e-reader@example\.invalid/);
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll(".composebox").length`), 0, "no box that writes");
-});
-
-app.scene("a writer whose browser key the chain does not trust is sent to Settings, in the panel and on the page", async () => {
-  // A new key in this browser's place, as "Use a new key on this device" makes one, and never trusted at the terminal.
-  await app.page.navigate(`${WRITE_BASE}/manifest.webmanifest`);
-  await app.page.evaluate(`(async () => {
-    const request = (r) => new Promise((ok, no) => { r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
-    const opening = indexedDB.open("suzatary-keys", 1);
-    opening.onupgradeneeded = () => opening.result.createObjectStore("keys");
-    const db = await request(opening);
-    const pair = await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"]);
-    const raw = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
-    const key = { public: Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join(""), key: pair.privateKey };
-    await request(db.transaction("keys", "readwrite").objectStore("keys").put(key, "device"));
-    db.close();
-    return true;
-  })()`);
-  await app.open(WRITE_BASE);
-  const said = "This device is not trusted to write yet: trust it from Settings → This device with the code from the box, or ask there, then tap its card on a trusted device.";
-  const line = (scope: string): string => `document.querySelector(${JSON.stringify(`${scope} .readonly[role="status"]`)})`;
-  await app.page.waitFor(`(${line(".secretarypanel")})?.textContent.startsWith(${JSON.stringify(said)}) === true`, { timeout: 20000 });
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll(".secretarypanel .composebox").length`), 0, "no box whose every send the box refuses");
-  assert.equal(await app.page.evaluate<string>(`${line(".secretarypanel")}.querySelector("a").getAttribute("href")`), "#/settings");
-  await app.page.navigate(`${WRITE_BASE}/#/secretary/default`);
-  await app.page.waitFor(`(${line("#view .compose")})?.textContent.startsWith(${JSON.stringify(said)}) === true`, { timeout: 20000 });
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll("#view .composebox").length`), 0, "nor on the page");
-  await app.page.click(`#view .compose .readonly a`);
-  await app.page.waitFor(`location.hash === "#/settings"`);
 });

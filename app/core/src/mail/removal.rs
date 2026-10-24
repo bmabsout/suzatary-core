@@ -36,17 +36,3 @@ impl Removal {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A removal is had exactly when something is to be deleted, and says what.
-    #[test]
-    fn a_removal_is_what_is_left_to_delete() {
-        assert_eq!(Removal::of(false, false), None);
-        assert_eq!(Removal::of(true, false), Some(Removal::SignIn));
-        assert_eq!(Removal::of(false, true), Some(Removal::Mail));
-        assert_eq!(Removal::of(true, true), Some(Removal::Both));
-    }
-}

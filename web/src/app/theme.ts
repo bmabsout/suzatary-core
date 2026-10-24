@@ -8,15 +8,6 @@ export type Theme = "auto" | "light" | "dark";
 
 export const THEMES: readonly Theme[] = ["auto", "light", "dark"];
 
-export function isTheme(value: unknown): value is Theme {
-  return value === "auto" || value === "light" || value === "dark";
-}
-
-/** Anything that is not one of the three is `auto`. */
-export function parseTheme(value: string | null): Theme {
-  return isTheme(value) ? value : "auto";
-}
-
 /** The root's `data-theme`, absent for `auto` so the stylesheet's `:not([data-theme="light"])` guard holds. */
 export function attributeFor(theme: Theme): string | null {
   return theme === "auto" ? null : theme;

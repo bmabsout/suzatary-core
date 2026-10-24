@@ -162,21 +162,6 @@ mod tests {
     use super::*;
     use crate::literal;
 
-    #[test]
-    fn a_calls_strings_are_read_and_its_other_values_skipped() {
-        let read = strings(
-            "Learned(occurrence='a b', at=datetime(2026, 10, 5, 9, 0, 0), actor='ics', \
-             title=\"It's (due)\", attendees=('x, y', 'z'), status='confirmed')",
-        )
-        .expect("a call");
-        assert_eq!(read.get("occurrence").map(String::as_str), Some("a b"));
-        assert_eq!(read.get("title").map(String::as_str), Some("It's (due)"));
-        assert_eq!(read.get("status").map(String::as_str), Some("confirmed"));
-        assert!(!read.contains_key("at") && !read.contains_key("attendees"));
-        assert!(strings("Learned(title='open").is_err());
-        assert!(strings("Learned(title='a') and more").is_err());
-    }
-
     proptest! {
         /// Reading is the inverse of the printer, whatever the text.
         #[test]

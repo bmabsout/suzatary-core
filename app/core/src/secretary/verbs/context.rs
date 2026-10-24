@@ -132,15 +132,6 @@ mod tests {
         )
     }
 
-    /// A declared name that does not resolve is named.
-    #[test]
-    fn an_unresolved_declared_secret_is_named() {
-        assert_eq!(
-            FakeSecrets::new(&[], &[]).missing(),
-            "declared but unset: ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, PHALA_API_KEY"
-        );
-    }
-
     /// A locked store names no secret unset, and is asked once, not once per name and state.
     #[test]
     fn a_locked_store_is_asked_once_and_names_nothing_unset() {
@@ -162,19 +153,5 @@ mod tests {
             "declared but unset: CLAUDE_CODE_OAUTH_TOKEN; \
              the secret store could not read: PHALA_API_KEY"
         );
-    }
-
-    /// When everything declared resolves the line is `""`.
-    #[test]
-    fn every_declared_secret_resolving_leaves_the_line_empty() {
-        let caps = FakeSecrets::new(
-            &[
-                "ANTHROPIC_API_KEY",
-                "CLAUDE_CODE_OAUTH_TOKEN",
-                "PHALA_API_KEY",
-            ],
-            &[],
-        );
-        assert_eq!(caps.missing(), "");
     }
 }

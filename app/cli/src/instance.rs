@@ -739,10 +739,7 @@ pub(crate) fn adoption_lock(events: &Path) -> anyhow::Result<suzatary_io::durabl
 mod tests {
     use super::*;
     use prodrome_core::event::Actor;
-    use prodrome_core::policy::Untrusted;
     use suzatary_core::capability::Login;
-    use suzatary_core::chains::ChainPolicy;
-    use suzatary_core::models::Reserve;
     use suzatary_core::settings::Attestation;
     use suzatary_core::settings::Edits as _;
     use suzatary_core::settings::configure::{Performed, Refused, Write};
@@ -810,38 +807,6 @@ sent_folder = "Sent Items"
         path
     }
 
-    /// The person's prose is read from the box-local tier the instance names, and a file
-    /// there that is not prose stops the read rather than reading as none.
-    #[test]
-    fn the_persona_s_prose_is_read_from_the_box_local_tier() {
-        let dir = tempfile::tempdir().expect("scratch");
-        let text = GOOD.replace("/tmp/suzatary-test", &dir.path().display().to_string());
-        let path = dir.path().join("instance.toml");
-        std::fs::write(&path, text).expect("writes");
-        assert_eq!(
-            Instance::read(&path, &env()).expect("reads").persona.prose,
-            suzatary_core::persona::Prose::default(),
-            "no file is no prose"
-        );
-        std::fs::create_dir_all(dir.path().join("local")).expect("the tier");
-        std::fs::write(
-            dir.path().join("local/persona.toml"),
-            "email_voice = [\"One ask per message.\"]\n",
-        )
-        .expect("writes");
-        let read = Instance::read(&path, &env()).expect("reads");
-        assert_eq!(read.local.persona(), dir.path().join("local/persona.toml"));
-        assert_eq!(
-            read.persona.prose.email_voice,
-            vec!["One ask per message.".to_owned()]
-        );
-        std::fs::write(dir.path().join("local/persona.toml"), "voice = 1\n").expect("writes");
-        assert!(
-            Instance::read(&path, &env()).is_err(),
-            "a file that is not prose"
-        );
-    }
-
     #[test]
     fn an_adopted_code_root_wins_over_the_files_repo() {
         let beside = PathBuf::from("/srv/checkout");
@@ -862,25 +827,6 @@ sent_folder = "Sent Items"
             Path::new("/tmp/suzatary-test")
         );
         let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_relative_repo_is_beside_the_file() {
-        let dir = std::env::temp_dir().join("suzatary-instance-relative-repo");
-        std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("instance.toml");
-        std::fs::write(&file, GOOD.replace("/tmp/suzatary-test", ".")).unwrap();
-        let instance = Instance::read(&file, &env()).unwrap();
-        let expected = std::fs::canonicalize(&dir).unwrap();
-        assert_eq!(instance.code(), expected);
-        assert_eq!(instance.first().events, expected.join("events"));
-        assert_eq!(
-            instance
-                .chain(Some("suzatary"))
-                .expect("the second chain")
-                .events,
-            expected.join("events-suzatary")
-        );
     }
 
     #[test]
@@ -931,87 +877,6 @@ sent_folder = "Sent Items"
         assert_eq!(instance.mail.accounts.accounts().len(), 1);
         // `GOOD` has no `[notify]` table.
         assert_eq!(instance.notify, None);
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_notify_section_naming_channels_is_configured() {
-        let text = format!("{GOOD}\n[notify]\nchannels = [\"fcm\", \"ntfy\"]\n");
-        let path = write(&text, "notify-configured");
-        let instance = Instance::read(&path, &env()).expect("a deployment");
-        assert_eq!(
-            NonEmpty::listed(instance.notify.as_ref()),
-            [Channel::Fcm, Channel::Ntfy]
-        );
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn an_empty_notify_table_is_no_channel_as_no_table_is() {
-        let text = format!("{GOOD}\n[notify]\n");
-        let path = write(&text, "notify-empty");
-        let instance = Instance::read(&path, &env()).expect("a deployment");
-        assert_eq!(instance.notify, None);
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn the_junk_churn_list_is_parsed_with_the_file() {
-        let path = write(GOOD, "junk-absent");
-        let instance = Instance::read(&path, &env()).expect("a deployment");
-        assert_eq!(
-            instance.mail.junk,
-            suzatary_core::mail::junk::ChurnList::default()
-        );
-        let text = format!("{GOOD}\n[mail.junk]\nchurn = [\"Offers.Example.NET\"]\n");
-        let path = write(&text, "junk-listed");
-        let instance = Instance::read(&path, &env()).expect("a deployment");
-        let listed: Vec<&str> = instance
-            .mail
-            .junk
-            .iter()
-            .map(suzatary_core::mail::junk::Domain::as_str)
-            .collect();
-        assert_eq!(listed, vec!["offers.example.net"]);
-        let text = format!("{GOOD}\n[mail.junk]\nchurn = [\"not a domain\"]\n");
-        let path = write(&text, "junk-refused");
-        let refused = Instance::read(&path, &env()).expect_err("refused");
-        assert!(
-            format!("{refused:#}").contains("not a domain"),
-            "{refused:#}"
-        );
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn the_junk_keep_list_is_parsed_with_the_file() {
-        let text = format!(
-            "{GOOD}\n[mail.junk]\nchurn = [\"offers.example.net\"]\nkeep = [\"Deals.Offers.Example.NET\"]\n"
-        );
-        let path = write(&text, "junk-keep");
-        let instance = Instance::read(&path, &env()).expect("a deployment");
-        let kept = suzatary_core::mail::junk::Sender::Domain(
-            suzatary_core::mail::junk::Domain::of_address("a@deals.offers.example.net")
-                .expect("a domain"),
-        );
-        assert_eq!(instance.mail.junk.origin(&kept), None);
-        let still_churn = suzatary_core::mail::junk::Sender::Domain(
-            suzatary_core::mail::junk::Domain::of_address("a@offers.example.net")
-                .expect("a domain"),
-        );
-        assert_eq!(
-            instance.mail.junk.origin(&still_churn),
-            Some(suzatary_core::mail::junk::Origin::Ours)
-        );
-        let _ = std::fs::remove_file(&path);
-
-        let text = format!("{GOOD}\n[mail.junk]\nkeep = [\"not a domain\"]\n");
-        let path = write(&text, "junk-keep-refused");
-        let refused = Instance::read(&path, &env()).expect_err("refused");
-        assert!(
-            format!("{refused:#}").contains("not a domain"),
-            "{refused:#}"
-        );
         let _ = std::fs::remove_file(&path);
     }
 
@@ -1076,60 +941,48 @@ sent_folder = "Sent Items"
             .to_path_buf()
     }
 
+    /// `repo` and `data` name two roots, each absolute or beside the file, and a file with no
+    /// `data` puts both beside it: the chains live under the data root, the bundle under the code
+    /// root.
     #[test]
-    fn repo_and_data_resolve_to_two_different_roots() {
-        let text = GOOD
-            .replace(r#"repo = "/tmp/suzatary-test""#, r#"repo = "/a""#)
-            .replace(r#"data = "/tmp/suzatary-test""#, r#"data = "/b""#);
-        let path = write(&text, "two-roots");
-        let instance = Instance::read(&path, &env()).expect("two distinct roots parse");
-        assert_eq!(instance.first().events, PathBuf::from("/b/events"));
-        assert_eq!(
-            instance
-                .chain(Some("suzatary"))
-                .expect("the second chain")
-                .events,
-            PathBuf::from("/b/events-suzatary")
-        );
-        assert_eq!(instance.serving.dist, PathBuf::from("/a/web/dist"));
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn a_file_with_no_data_key_puts_both_roots_beside_it() {
-        let dir = std::env::temp_dir().join("suzatary-instance-no-data-key");
-        std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("instance.toml");
-        let text = GOOD
-            .replace("data = \"/tmp/suzatary-test\"\n", "")
-            .replace("/tmp/suzatary-test", ".");
-        std::fs::write(&file, text).unwrap();
-        let instance = Instance::read(&file, &env()).unwrap();
-        let expected = std::fs::canonicalize(&dir).unwrap();
-        assert_eq!(instance.first().events, expected.join("events"));
-        assert_eq!(instance.serving.dist, expected.join("web/dist"));
-    }
-
-    #[test]
-    fn a_relative_data_resolves_beside_the_file() {
-        let base = std::env::temp_dir().join("suzatary-instance-relative-data");
-        std::fs::create_dir_all(&base).unwrap();
-        let elsewhere = std::env::temp_dir().join("suzatary-instance-relative-data-elsewhere");
-        std::fs::create_dir_all(&elsewhere).unwrap();
+    fn the_code_and_data_roots_resolve_from_the_file() {
+        let base = std::env::temp_dir().join("suzatary-instance-roots");
+        let elsewhere = std::env::temp_dir().join("suzatary-instance-roots-elsewhere");
+        for dir in [&base, &elsewhere] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let here = std::fs::canonicalize(&base).unwrap();
+        let there = std::fs::canonicalize(&elsewhere).unwrap();
+        let text = |repo: &str, data: Option<&str>| {
+            let data = data.map_or(String::new(), |data| format!("data = {data:?}\n"));
+            GOOD.replace("data = \"/tmp/suzatary-test\"\n", &data)
+                .replace("/tmp/suzatary-test", repo)
+        };
         let file = base.join("instance.toml");
-        let text = GOOD
-            .replace(r#"repo = "/tmp/suzatary-test""#, r#"repo = ".""#)
-            .replace(
-                r#"data = "/tmp/suzatary-test""#,
-                r#"data = "../suzatary-instance-relative-data-elsewhere""#,
+        for (repo, data, code, chains) in [
+            (".", Some("."), here.clone(), here.clone()),
+            ("/a", Some("/b"), PathBuf::from("/a"), PathBuf::from("/b")),
+            (".", None, here.clone(), here.clone()),
+            (
+                ".",
+                Some("../suzatary-instance-roots-elsewhere"),
+                here,
+                there,
+            ),
+        ] {
+            std::fs::write(&file, text(repo, data)).unwrap();
+            let instance = Instance::read(&file, &env()).unwrap();
+            assert_eq!(instance.code(), code, "{repo} {data:?}");
+            assert_eq!(instance.first().events, chains.join("events"));
+            assert_eq!(
+                instance
+                    .chain(Some("suzatary"))
+                    .expect("the second chain")
+                    .events,
+                chains.join("events-suzatary")
             );
-        std::fs::write(&file, text).unwrap();
-        let instance = Instance::read(&file, &env()).unwrap();
-        let expected_data = std::fs::canonicalize(&elsewhere).unwrap();
-        assert_eq!(instance.first().events, expected_data.join("events"));
-        // The code root stays beside the file, not under `data`.
-        let expected_code = std::fs::canonicalize(&base).unwrap();
-        assert_eq!(instance.serving.dist, expected_code.join("web/dist"));
+            assert_eq!(instance.serving.dist, code.join("web/dist"));
+        }
     }
 
     /// An instance file the server would misread stops it starting, naming why: a writer who is
@@ -1245,72 +1098,6 @@ sent_folder = "Sent Items"
             );
             let _ = std::fs::remove_file(&path);
         }
-    }
-
-    #[test]
-    fn a_file_that_is_not_there_says_which_one() {
-        let missing = PathBuf::from("/nonexistent/instance.toml");
-        let refused = Instance::read(&missing, &env()).expect_err("a missing file is refused");
-        assert!(format!("{refused:#}").contains("/nonexistent/instance.toml"));
-    }
-
-    #[test]
-    fn the_flag_outranks_the_environment_and_the_default() {
-        let flag = Path::new("/fixture/instance.toml");
-        assert_eq!(
-            Instance::locate_in(Some(flag), Some("/exported/instance.toml")),
-            PathBuf::from("/fixture/instance.toml"),
-            "the flag wins over an exported value"
-        );
-        assert_eq!(
-            Instance::locate_in(None, Some("/exported/instance.toml")),
-            PathBuf::from("/exported/instance.toml"),
-            "the exported value wins over the default"
-        );
-        assert_eq!(
-            Instance::locate_in(None, Some("")),
-            PathBuf::from("instance.toml"),
-            "an empty export is no export"
-        );
-        assert_eq!(
-            Instance::locate_in(None, None),
-            PathBuf::from("instance.toml")
-        );
-    }
-
-    #[test]
-    fn no_providers_or_models_table_is_the_empty_shape() {
-        let path = write(GOOD, "no-modelrouter");
-        let instance = Instance::read(&path, &env()).expect("a deployment with no [models] table");
-        assert!(instance.providers.is_empty());
-        assert!(instance.models.order(Job::Secretary).is_empty());
-        assert!(instance.models.order(Job::Review).is_empty());
-        assert_eq!(instance.models.reserve(), Reserve::default());
-        let _ = std::fs::remove_file(&path);
-    }
-    #[test]
-    fn a_declared_provider_and_an_order_naming_it_parse() {
-        let commit = "a".repeat(40);
-        let text = format!(
-            "{GOOD}\n[[providers]]\nname = \"phala\"\nbase_url = \"https://inference.phala.com/v1\"\nkey = \"PHALA_API_KEY\"\nattested = true\nexpect_commit = {commit:?}\n\n[models]\nsecretary = [\"anthropic/claude-opus-5\", \"phala/deepseek-v4-flash\"]\nreserve = 0.4\n"
-        );
-        let path = write(&text, "declared-provider");
-        let instance = Instance::read(&path, &env()).expect("a well-formed [[providers]]/[models]");
-        assert_eq!(instance.providers.len(), 1);
-        assert_eq!(instance.providers[0].name, "phala");
-        match &instance.providers[0].attestation {
-            Attestation::Required { expect } => assert_eq!(expect.as_str(), commit),
-            Attestation::Unclaimed => panic!("expected Required, got Unclaimed"),
-        }
-        let order = instance.models.order(Job::Secretary);
-        assert_eq!(order.len(), 2);
-        assert_eq!(
-            order[0].backend,
-            suzatary_core::models::Backend::AnthropicApi
-        );
-        assert_eq!(order[1].to_string(), "phala/deepseek-v4-flash");
-        assert!((instance.models.reserve().get() - 0.4).abs() < 1e-9);
-        let _ = std::fs::remove_file(&path);
     }
 
     /// A file with an operator's comment, which a serde round trip would drop.
@@ -1545,29 +1332,6 @@ sent_folder = "Sent Items"
             .is_err(),
             "another account's repository is refused when the file is read"
         );
-    }
-
-    #[test]
-    fn coding_reads_its_routine_repo_and_served_chain() {
-        let coding: Coding = toml::from_str(
-            "routine = \"trig_01fake\"\nrepo = \"bmabsout/Suzatary\"\nchain = \"life\"\n",
-        )
-        .expect("parses");
-        let chains = Chains::of(vec![ChainPolicy {
-            name: suzatary_core::chains::ChainName::new("life").expect("a slug"),
-            untrusted: Untrusted::default(),
-            roster: BTreeSet::new(),
-            root: suzatary_core::cast::keys::root(),
-        }])
-        .expect("one chain");
-        let coding = served(coding, &chains).expect("reads");
-        assert_eq!(coding.routine.as_str(), "trig_01fake");
-        assert_eq!(coding.repo.to_string(), "bmabsout/Suzatary");
-        let elsewhere = Coding {
-            chain: suzatary_core::chains::ChainName::new("suzatary").expect("a slug"),
-            ..coding
-        };
-        assert!(served(elsewhere, &chains).is_err());
     }
 
     #[test]

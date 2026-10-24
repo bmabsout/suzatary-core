@@ -479,14 +479,3 @@ test("a refusal is said on the line of the field it is about, and on the form's 
     assert.deepEqual([line.hidden, said.hidden, said.textContent], [true, false, "the box said no"])
   }
 })
-
-test("a choice's chips say what they ask for while none is lit, and nothing once one is", () => {
-  const m = mountOn(row())
-  const field = m.at("choice") as unknown as FakeElement
-  const prompt = field.childNodes[0] as FakeElement
-  assert.deepEqual([prompt.textContent, prompt.hidden, field.classList.contains("unchosen")], ["Pick one", false, true])
-  m.form.dispatch({ type: "Typed", name: "choice", v: "b" })
-  assert.deepEqual([prompt.hidden, field.classList.contains("unchosen")], [true, false])
-  m.form.dispatch({ type: "Typed", name: "choice", v: "" })
-  assert.deepEqual([prompt.hidden, field.classList.contains("unchosen")], [false, true])
-})

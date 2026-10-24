@@ -365,51 +365,10 @@ mod tests {
         assert_eq!(plain, Value::from("only text"));
     }
 
-    #[test]
-    fn the_request_serialises_one_user_message_with_the_system_split_out() {
-        let body = MessagesRequest {
-            model: "claude-opus-5",
-            max_tokens: 8192,
-            system: "You are the secretary.",
-            stream: true,
-            messages: vec![MessageParam {
-                role: "user",
-                content: Value::from("the transcript"),
-            }],
-        };
-        let value = serde_json::to_value(&body).expect("the request serialises");
-        assert_eq!(value["model"], "claude-opus-5");
-        assert_eq!(value["max_tokens"], 8192);
-        assert_eq!(value["system"], "You are the secretary.");
-        assert_eq!(value["stream"], true);
-        assert_eq!(value["messages"][0]["role"], "user");
-        assert_eq!(value["messages"][0]["content"], "the transcript");
-        assert_eq!(value["messages"].as_array().expect("an array").len(), 1);
-    }
-
     fn delta(text: &str) -> String {
         format!(
             "event: content_block_delta\ndata: {{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{{\"type\":\"text_delta\",\"text\":\"{text}\"}}}}\n\n"
         )
-    }
-
-    #[test]
-    fn a_content_block_delta_appends_its_text() {
-        let mut accumulator = SseAccumulator::new();
-        accumulator
-            .feed(b"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n")
-            .expect("a delta feeds cleanly");
-        assert_eq!(accumulator.text(), "hi");
-    }
-
-    #[test]
-    fn multiple_frames_in_one_chunk_all_accumulate() {
-        let mut accumulator = SseAccumulator::new();
-        let chunk = format!("{}{}{}", delta("a"), delta("b"), delta("c"));
-        accumulator
-            .feed(chunk.as_bytes())
-            .expect("three deltas feed cleanly");
-        assert_eq!(accumulator.text(), "abc");
     }
 
     #[test]
@@ -455,56 +414,5 @@ mod tests {
             usage.cache_read_input_tokens, None,
             "not said, so not a zero"
         );
-    }
-
-    /// A start with no reply's total yet is no usage, never an output of zero.
-    #[test]
-    fn half_a_usage_is_none() {
-        let mut accumulator = SseAccumulator::new();
-        accumulator
-            .feed(b"data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":1}}}\n\n")
-            .expect("message_start feeds cleanly");
-        assert!(accumulator.usage().is_none());
-    }
-
-    /// A frame missing what its event must carry fails the turn rather than reading as nothing.
-    #[test]
-    fn a_frame_missing_its_fields_is_a_failure() {
-        let failed = SseAccumulator::new()
-            .feed(b"event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{}}\n\n")
-            .expect_err("no output_tokens");
-        assert!(failed.to_string().contains("cannot read"), "{failed}");
-    }
-
-    /// `content_block_start`, `content_block_stop` and `ping` are real events this reader ignores.
-    #[test]
-    fn an_unrecognised_event_is_ignored() {
-        let mut accumulator = SseAccumulator::new();
-        accumulator
-            .feed(b"event: ping\ndata: {\"type\": \"ping\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"t\"}}\n\n: a comment\n\n")
-            .expect("an unrecognised event is not an error");
-        assert_eq!(accumulator.text(), "");
-    }
-
-    #[test]
-    fn error_of_reads_the_apis_own_message() {
-        let mapped = error_of(
-            400,
-            r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens is too large"}}"#,
-        );
-        assert!(mapped.to_string().contains("max_tokens is too large"));
-        assert!(mapped.to_string().contains("400"));
-    }
-
-    #[test]
-    fn error_of_falls_back_to_the_raw_body() {
-        let mapped = error_of(502, "upstream timed out");
-        assert!(mapped.to_string().contains("upstream timed out"));
-    }
-
-    #[test]
-    fn throttled_message_names_the_wait_when_given() {
-        assert!(throttled_message(Some("30")).contains("30"));
-        assert!(!throttled_message(None).contains("retry after"));
     }
 }

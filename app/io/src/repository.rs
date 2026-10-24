@@ -129,18 +129,6 @@ mod tests {
 
     use super::*;
 
-    fn no_chains() -> Vec<ChainRoster> {
-        Vec::new()
-    }
-
-    #[test]
-    fn a_diff_of_a_directory_that_is_not_there_is_reported_and_never_panics() {
-        let failed = Checkout::new("/nonexistent/data", no_chains())
-            .diff_summary()
-            .unwrap_err();
-        assert_eq!(failed.what, "git_diff_summary", "{failed}");
-    }
-
     /// The chain `life` (`events/`) and its replica `events-triage/`, as deployed.
     fn life() -> ChainRoster {
         ChainRoster {

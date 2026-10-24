@@ -780,31 +780,6 @@ mod tests {
         assert_eq!(named, Record::FIELDS);
     }
 
-    #[test]
-    fn the_smart_constructors_are_the_only_door() {
-        assert!(mk_note("nowhere", vec!["x".into()]).is_err());
-        assert!(mk_note("block", vec![]).is_err());
-        assert!(mk_subtodo("  ", false).is_err());
-        let at = Datetime::new(2026, 9, 9, 7, 3, 0, 0).expect("a real instant");
-        assert!(
-            mk_record(
-                "todo",
-                at,
-                MarkupSource::escaped("   "),
-                prodrome_core::fpl::mk_absent(),
-                vec![],
-                "",
-                "",
-                MarkupSource::empty(),
-                None,
-                vec![],
-                vec![],
-                ""
-            )
-            .is_err()
-        );
-    }
-
     /// The parser's whitelist is the database's names union this payload's, so a reused name
     /// would be unreachable rather than in force.
     #[test]

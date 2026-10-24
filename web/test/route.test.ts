@@ -3,19 +3,15 @@
  *
  * The reason this exists as a function at all is the home route: under the old
  * `hash.startsWith(prefix)` test, `#/` matched every page, so the list could
- * not be the app's front door. The cases below pin that, the aliases a
- * bookmark depends on, and totality — every string is a route, including one
- * with a percent-escape that `decodeURIComponent` throws on.
+ * not be the app's front door. The cases below pin that, and the spellings
+ * other writers compose: the APK's widget, links and share sheet, and the
+ * box's notifications. Totality and the round trip are `laws.test.ts`'s.
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { hrefOf, parseRoute } from "../src/shell/route";
-import type { Route } from "../src/shell/route";
-import cast from "./cast";
-
-const { counsel, owner } = cast.world;
 
 test("the empty hash, #/ and #/todos are all home", () => {
   for (const hash of ["", "#", "#/", "#/todos"]) {
@@ -33,94 +29,11 @@ test("a todo id is decoded", () => {
   assert.deepEqual(parseRoute(`#/todo/${encodeURIComponent("a b/c")}`), { type: "todo", id: "a b/c" });
 });
 
-test("a hash that is no route names itself: a todo with no id, a malformed escape, a page nobody routes", () => {
-  for (const hash of ["#/todo/", "#/todo", "#/todo/%", "#/nowhere"]) {
-    assert.deepEqual(parseRoute(hash), { type: "unknown", hash });
-  }
-  // A malformed escape is a route, not an exception: a chain with no focus.
-  assert.deepEqual(parseRoute("#/chain/%E0%A4%A"), { type: "chain", focus: "" });
-});
-
-test("#/chain/<hash> focuses an object", () => {
-  assert.deepEqual(parseRoute("#/chain/cc324f2c"), { type: "chain", focus: "cc324f2c" });
-});
-
-test("#/mail is the inbox, and its query lives in the hash", () => {
-  assert.deepEqual(parseRoute("#/mail"), { type: "mail", query: "", account: "" });
-  assert.deepEqual(parseRoute(`#/mail?q=${encodeURIComponent(`from:${counsel.email}`)}`), {
-    type: "mail",
-    query: `from:${counsel.email}`,
-    account: "",
-  });
-  assert.deepEqual(parseRoute(`#/mail?account=${encodeURIComponent(owner.email)}`), {
-    type: "mail",
-    query: "",
-    account: owner.email,
-  });
-  assert.deepEqual(parseRoute(`#/mail?q=deed&account=${encodeURIComponent(owner.email)}`), {
-    type: "mail",
-    query: "deed",
-    account: owner.email,
-  });
-});
-
-test("a mail id and a thread id are different pages, and `thread/` is reserved", () => {
-  // A message id reaches the hash percent-encoded, so its slashes are %2F and
-  // it can never be mistaken for the thread prefix.
-  assert.deepEqual(parseRoute("#/mail/m1%40example.com"), { type: "message", id: "m1@example.com" });
-  assert.deepEqual(parseRoute("#/mail/thread/000000000000c3fb"), { type: "thread", id: "000000000000c3fb" });
-  assert.deepEqual(parseRoute(`#/mail/${encodeURIComponent("thread/x")}`), { type: "message", id: "thread/x" });
-  assert.deepEqual(parseRoute("#/mail/thread/"), { type: "unknown", hash: "#/mail/thread/" });
-});
-
-test("a malformed mail hash is a route, not an exception", () => {
-  assert.deepEqual(parseRoute("#/mail/%"), { type: "unknown", hash: "#/mail/%" });
-  assert.deepEqual(parseRoute("#/mail?q=%E0%A4%A"), { type: "mail", query: "", account: "" });
-});
-
-test("hrefOf round-trips every page through parseRoute", () => {
-  const routes: Route[] = [
-    { type: "todos" },
-    { type: "todo", id: "a b/c" },
-    { type: "mail", query: "", account: "" },
-    { type: "mail", query: `from:${counsel.email}`, account: "" },
-    { type: "mail", query: "subject:deed & more", account: owner.email },
-    { type: "message", id: "m1@example.com" },
-    { type: "message", id: "aaaaaaaaaaaa" },
-    { type: "thread", id: "000000000000c3fb" },
-    { type: "chain", focus: "" },
-    { type: "chain", focus: "cc324f2c" },
-    { type: "settings" },
-    { type: "memory" },
-    { type: "briefings" },
-    { type: "briefing", date: "2026-09-01" },
-    { type: "calendar", date: "" },
-    { type: "calendar", date: "2026-10-05" },
-    { type: "secretary", refs: [] },
-    { type: "conversation", id: "2026-09-09-1", refs: [] },
-  ];
-  for (const route of routes) {
-    assert.deepEqual(parseRoute(hrefOf(route)), route);
-  }
-});
-
-test("calendar: today's week, or the week from a day", () => {
-  assert.deepEqual(parseRoute("#/calendar"), { type: "calendar", date: "" });
-  assert.deepEqual(parseRoute("#/calendar/2026-10-05"), { type: "calendar", date: "2026-10-05" });
-  assert.equal(hrefOf({ type: "calendar", date: "" }), "#/calendar");
-  assert.equal(hrefOf({ type: "calendar", date: "2026-10-05" }), "#/calendar/2026-10-05");
-  assert.deepEqual(parseRoute("#/calendar/%E0"), { type: "unknown", hash: "#/calendar/%E0" });
-});
-
 test("briefings: the list and one day, and a bare prefix names the list", () => {
   assert.deepEqual(parseRoute("#/briefings"), { type: "briefings" });
   assert.deepEqual(parseRoute("#/briefings/2026-09-01"), { type: "briefing", date: "2026-09-01" });
   assert.equal(hrefOf({ type: "briefings" }), "#/briefings");
   assert.equal(hrefOf({ type: "briefing", date: "2026-09-01" }), "#/briefings/2026-09-01");
-});
-
-test("a trailing slash with no date still lists, like #/mail with none", () => {
-  assert.deepEqual(parseRoute("#/briefings/"), { type: "briefings" });
 });
 
 test("the secretary: the list and one conversation", () => {
@@ -135,64 +48,6 @@ test("the secretary: the list and one conversation", () => {
     hrefOf({ type: "conversation", id: "2026-09-09-1", refs: [] }),
     "#/secretary/2026-09-09-1",
   );
-});
-
-/**
- * "ASK THE SECRETARY" IS A LINK, so what is being asked about is IN THE HASH
- * (2026-09-10). That is what makes it a URL somebody can send, what survives a
- * reload, and what lets Back return to the todo the reader came from.
- *
- * The text forms ride as a comma-separated list because a text form holds no
- * comma. They are PARSED by `refs.ts`, never here, so this module stays free of
- * the grammar and a hand-edited hash is somebody else's refusal.
- */
-test("a reference rides the hash into the secretary, and round-trips", () => {
-  assert.deepEqual(parseRoute("#/secretary?ref=todo%3Alife%2Fpermitfiling"), {
-    type: "secretary",
-    refs: ["todo:life/permitfiling"],
-  });
-  assert.deepEqual(
-    parseRoute("#/secretary/2026-09-09-1?ref=mail%3Aa1b2c3%2Cbriefing%3A2026-09-10"),
-    { type: "conversation", id: "2026-09-09-1", refs: ["mail:a1b2c3", "briefing:2026-09-10"] },
-  );
-  // An empty `ref` is no chips rather than one empty chip.
-  assert.deepEqual(parseRoute("#/secretary?ref="), { type: "secretary", refs: [] });
-  for (const route of [
-    { type: "secretary", refs: ["todo:life/x"] } as const,
-    { type: "conversation", id: "2026-09-09-1", refs: ["mail:a1b2c3", "thread:00ab"] } as const,
-  ]) {
-    assert.deepEqual(parseRoute(hrefOf(route)), route);
-  }
-});
-
-/**
- * `focus` IS THE OTHER DOOR (project chain `askfromanywhere`, docs/APP.md §4
- * item 8): "Ask the secretary" with no reference attached, which is a
- * compose-box focus intent riding the same query mechanism `ref` does.
- */
-test("focus rides the hash into the secretary, absent by default, and round-trips", () => {
-  assert.deepEqual(parseRoute("#/secretary?focus=1"), { type: "secretary", refs: [], focus: true });
-  assert.deepEqual(
-    parseRoute("#/secretary/2026-09-09-1?focus=1"),
-    { type: "conversation", id: "2026-09-09-1", refs: [], focus: true },
-  );
-  // A bare `#/secretary` carries no `focus` key at all — absent, not `false`
-  // — so it still `deepEqual`s every literal written before this existed.
-  assert.deepEqual(parseRoute("#/secretary"), { type: "secretary", refs: [] });
-  assert.equal(hrefOf({ type: "secretary", refs: [], focus: true }), "#/secretary?focus=1");
-  assert.equal(hrefOf({ type: "secretary", refs: [] }), "#/secretary");
-  // A reference and the focus intent can ride together.
-  assert.deepEqual(parseRoute("#/secretary?ref=todo%3Alife%2Fx&focus=1"), {
-    type: "secretary",
-    refs: ["todo:life/x"],
-    focus: true,
-  });
-  for (const route of [
-    { type: "secretary", refs: [], focus: true } as const,
-    { type: "conversation", id: "2026-09-09-1", refs: ["mail:a1b2c3"], focus: true } as const,
-  ]) {
-    assert.deepEqual(parseRoute(hrefOf(route)), route);
-  }
 });
 
 /**
@@ -230,25 +85,4 @@ test("a shared text and title ride the hash, and round-trip", () => {
   ]) {
     assert.deepEqual(parseRoute(hrefOf(route)), route);
   }
-});
-
-test("settings and the inbox are each one destination, and their hashes round-trip", () => {
-  // Like every other argumentless page, the head decides, and a trailing segment is no second rule for one route:
-  // under settings it is no route at all, and which inbox batch is open is page-local state, so it is ignored.
-  for (const [route, trailing] of [
-    [{ type: "settings" }, { type: "unknown", hash: "#/settings/anything" }],
-    [{ type: "inbox" }, { type: "inbox" }],
-  ] as const) {
-    const hash = `#/${route.type}`;
-    assert.deepEqual(parseRoute(hash), route);
-    assert.equal(hrefOf(route), hash);
-    assert.deepEqual(parseRoute(`${hash}/anything`), trailing);
-  }
-});
-
-test("#/typst is the Typst list, and #/typst/<id> the same list with a todo open", () => {
-  assert.deepEqual(parseRoute("#/typst"), { type: "typst", open: "" });
-  assert.deepEqual(parseRoute("#/typst/file-permit"), { type: "typst", open: "file-permit" });
-  assert.equal(hrefOf({ type: "typst", open: "file-permit" }), "#/typst/file-permit");
-  assert.deepEqual(parseRoute("#/typst/%"), { type: "unknown", hash: "#/typst/%" });
 });

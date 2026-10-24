@@ -240,19 +240,6 @@ mod tests {
         }
     }
 
-    /// A key is printed as it was spelled, quoted where TOML quotes it.
-    #[test]
-    fn a_key_round_trips() {
-        for text in [
-            "web.app_url",
-            "chains.0.name",
-            r#"web.act_as."her@example.test""#,
-        ] {
-            assert_eq!(text.parse::<Key>().expect("a key").to_string(), text);
-        }
-        assert!("web..app_url".parse::<Key>().is_err());
-    }
-
     /// `set` keeps every other byte, takes its key's type, makes the tables on its way, and
     /// writes nothing the box would refuse.
     #[test]

@@ -414,23 +414,3 @@ fn door_said(door: Option<suzatary_core::gate::Door>, binds: Binds) -> String {
         ),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Outside the unit a door on 443 is no alarm; under a unit binding another port it is.
-    #[test]
-    fn a_door_mismatch_alarms_only_under_the_unit() {
-        let door = || crate::commands::serve::door("https://ada-box.tailnet.ts.net");
-        let shell = door_said(door(), Binds::Shell(8787));
-        assert!(!shell.contains("will not start"), "{shell}");
-        assert!(shell.contains("services.suzatary.web.port"), "{shell}");
-        let unit = door_said(door(), Binds::Unit(8787));
-        assert!(unit.contains("will not start"), "{unit}");
-        assert_eq!(
-            door_said(door(), Binds::Unit(443)),
-            door().expect("a door").to_string()
-        );
-    }
-}

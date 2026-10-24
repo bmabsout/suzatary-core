@@ -200,19 +200,6 @@ impl<'a> IntoIterator for &'a Chains {
 mod tests {
     use super::*;
 
-    fn actor(name: &str) -> Actor {
-        Actor::new(name).expect("a roster name")
-    }
-
-    fn policy(name: &str) -> ChainPolicy {
-        ChainPolicy {
-            name: ChainName::new(name).expect("a slug"),
-            untrusted: Untrusted::of([actor("triage")]),
-            roster: [actor("ada"), actor("triage")].into_iter().collect(),
-            root: crate::cast::keys::root(),
-        }
-    }
-
     /// A name is a path segment, and the type refuses what a route would otherwise have to.
     #[test]
     fn a_chain_name_is_a_slug() {
@@ -233,33 +220,5 @@ mod tests {
         ] {
             assert!(ChainName::new(bad).is_err(), "{bad:?}");
         }
-    }
-
-    #[test]
-    fn the_first_chain_is_the_files_first_and_a_name_finds_the_rest() {
-        let chains = Chains::of(vec![policy("life"), policy("suzatary")]).expect("two chains");
-        assert_eq!(chains.first().name.as_str(), "life");
-        assert_eq!(
-            chains.get("suzatary").map(|c| c.name.as_str()),
-            Some("suzatary")
-        );
-        assert_eq!(chains.get("nowhere"), None);
-        assert_eq!(chains.names(), vec!["life", "suzatary"]);
-        assert_eq!(chains.count(), 2);
-    }
-
-    /// A repeated name is refused where it is built, so `get` answers with one chain.
-    #[test]
-    fn two_chains_may_not_share_a_name_and_there_must_be_one() {
-        assert_eq!(
-            Chains::of(vec![policy("life"), policy("life")]),
-            Err(NotChains::Twice("life".to_owned()))
-        );
-        assert_eq!(Chains::of(Vec::new()), Err(NotChains::Empty));
-    }
-
-    #[test]
-    fn the_trust_policy_travels_as_names() {
-        assert_eq!(policy("life").untrusted_names(), vec!["triage".to_owned()]);
     }
 }

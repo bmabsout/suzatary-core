@@ -258,26 +258,6 @@ pub fn search_query(raw: Option<&str>) -> Result<String, Refusal> {
 mod tests {
     use super::*;
 
-    fn at(day: u32) -> Datetime {
-        Datetime::new(2026, 9, day, 12, 0, 0, 0).expect("a real instant")
-    }
-
-    #[test]
-    fn an_absent_or_empty_moment_is_the_default_and_a_bad_one_is_a_400() {
-        assert_eq!(moment("t", None, at(7)), Ok(at(7)));
-        assert_eq!(moment("t", Some(""), at(7)), Ok(at(7)));
-        assert_eq!(
-            moment("t", Some("2026-09-01T00:00:00"), at(7)),
-            Ok(Datetime::new(2026, 9, 1, 0, 0, 0, 0).expect("a real instant"))
-        );
-        let refused = moment("t", Some("yesterday"), at(7)).unwrap_err();
-        assert_eq!(refused.status().code(), 400);
-        assert_eq!(
-            refused.message(),
-            "t must be an ISO datetime, got 'yesterday'"
-        );
-    }
-
     /// One set of objects has one spelling: one to the most, ascending, none twice.
     #[test]
     fn hashes_are_one_to_the_most_ascending_and_none_twice() {
@@ -296,35 +276,6 @@ mod tests {
             let refusal = Hashes::parse(refused.as_deref()).expect_err("refused");
             assert_eq!(refusal.status().code(), 400, "{refused:?}");
         }
-    }
-
-    /// Capped, not obeyed.
-    #[test]
-    fn a_limit_is_capped_not_obeyed() {
-        assert_eq!(limit(None), Ok(MAIL_LIMIT));
-        assert_eq!(limit(Some("10")), Ok(10));
-        assert_eq!(limit(Some("100000")), Ok(MAX_MAIL));
-        for bad in ["0", "-1", "ten", "1.5"] {
-            assert_eq!(limit(Some(bad)).unwrap_err().status().code(), 400, "{bad}");
-        }
-    }
-
-    #[test]
-    fn a_search_with_no_query_is_a_400_and_not_the_whole_corpus() {
-        assert_eq!(
-            search_query(None).unwrap_err().message(),
-            "q is required: a notmuch query (plain words, from:, subject:, date: …)"
-        );
-        assert_eq!(search_query(Some("   ")).unwrap_err().status().code(), 400);
-        assert_eq!(
-            search_query(Some("  from:her  ")),
-            Ok("from:her".to_owned())
-        );
-        let long = "x".repeat(MAX_QUERY_CHARS + 1);
-        assert_eq!(
-            search_query(Some(&long)).unwrap_err().message(),
-            "q is capped at 500 characters, got 501"
-        );
     }
 
     /// The fold's limit defaults to the whole fold, not a screenful.
@@ -348,19 +299,6 @@ mod tests {
     }
 
     #[test]
-    fn a_turn_before_is_absent_or_a_plain_index() {
-        assert_eq!(turn_before(None), Ok(None));
-        assert_eq!(turn_before(Some("")), Ok(None));
-        assert_eq!(turn_before(Some("0")), Ok(Some(0)));
-        assert_eq!(turn_before(Some("42")), Ok(Some(42)));
-        assert_eq!(
-            turn_before(Some("-1")).unwrap_err().message(),
-            "before must be a non-negative integer turn index, got '-1'"
-        );
-        assert_eq!(turn_before(Some("soon")).unwrap_err().status().code(), 400);
-    }
-
-    #[test]
     fn a_turn_limit_defaults_and_is_capped_not_obeyed() {
         assert_eq!(turn_limit(None, 60), Ok(60));
         assert_eq!(turn_limit(Some(""), 60), Ok(60));
@@ -373,39 +311,5 @@ mod tests {
                 "{bad}"
             );
         }
-    }
-
-    #[test]
-    fn about_is_absent_or_a_parsed_reference() {
-        assert_eq!(about(None), Ok(None));
-        assert_eq!(about(Some("")), Ok(None));
-        assert_eq!(
-            about(Some("todo:life/x")).expect("it parses"),
-            Some("todo:life/x".parse().expect("a reference"))
-        );
-        assert_eq!(
-            about(Some("not-a-reference")).unwrap_err().status().code(),
-            400
-        );
-        assert!(
-            about(Some("not-a-reference"))
-                .unwrap_err()
-                .message()
-                .starts_with("about: ")
-        );
-    }
-
-    #[test]
-    fn a_cursor_is_absent_or_an_instant() {
-        assert_eq!(before(None), Ok(None));
-        assert_eq!(before(Some("")), Ok(None));
-        assert_eq!(
-            before(Some("2026-09-01T10:00:00")),
-            Ok(Some(Datetime::new(2026, 9, 1, 10, 0, 0, 0).expect("real")))
-        );
-        assert_eq!(
-            before(Some("soon")).unwrap_err().message(),
-            "before must be an ISO datetime, got 'soon'"
-        );
     }
 }

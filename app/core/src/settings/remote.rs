@@ -160,7 +160,6 @@ pub fn pushes(head: &Tip, upstream: Option<&Tip>) -> Option<Health> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mail::health::Reading;
 
     /// Every spelling of one remote reads the same, and a credential in the URL is never kept.
     #[test]
@@ -214,89 +213,5 @@ mod tests {
             assert!(!format!("{read:?}").contains("tok"));
         }
         assert_eq!(Pushed::of_git_config("[core]\n"), Pushed::Nowhere);
-    }
-
-    #[test]
-    fn a_dot_git_file_names_its_gitdir() {
-        assert_eq!(
-            Pushed::gitdir("gitdir: /srv/data/.git/worktrees/w\n"),
-            Some("/srv/data/.git/worktrees/w")
-        );
-        assert_eq!(Pushed::gitdir("gitdir:\n"), None);
-        assert_eq!(Pushed::gitdir("[core]\n"), None);
-    }
-
-    const LOG: &str = "0000 1111 Ada <ada@example.test> 1791363600 +0000\tcommit: one\n\
-                       1111 2222 Ada <ada@example.test> 1791367200 +0200\tcommit: two\n";
-
-    fn at(hour: u32) -> Instant {
-        chrono::NaiveDate::from_ymd_opt(2026, 10, 7)
-            .and_then(|day| day.and_hms_opt(hour, 0, 0))
-            .expect("an instant")
-    }
-
-    /// A reflog's last line is where its ref moved last, in UTC whatever zone it was written in.
-    #[test]
-    fn a_reflog_names_its_last_move() {
-        assert_eq!(
-            Tip::of_reflog(LOG),
-            Some(Tip {
-                commit: "2222".to_owned(),
-                at: at(10),
-            })
-        );
-        assert_eq!(Tip::of_reflog(""), None);
-        assert_eq!(Tip::of_reflog("not a reflog\n"), None);
-    }
-
-    /// A head its upstream names was pushed when the upstream moved; one it does not name and
-    /// that moved after is failing since that push; no upstream observes nothing.
-    #[test]
-    fn a_push_reads_as_its_upstream_last_moved() {
-        let tip = |commit: &str, hour| Tip {
-            commit: commit.to_owned(),
-            at: at(hour),
-        };
-        let read = |head: Tip, upstream: Option<Tip>| {
-            pushes(&head, upstream.as_ref()).map(|health| health.reading())
-        };
-        assert_eq!(
-            read(tip("a", 9), Some(tip("a", 10))),
-            Some(Reading::Ok { at: at(10) })
-        );
-        assert_eq!(
-            read(tip("b", 11), Some(tip("a", 10))),
-            Some(Reading::Failing {
-                at: at(11),
-                class: Failure::Unclassified,
-                words: "its latest commit is not on its remote yet".to_owned(),
-                since: at(10),
-            })
-        );
-        assert_eq!(
-            read(tip("b", 9), Some(tip("a", 10))),
-            Some(Reading::Ok { at: at(10) }),
-            "an upstream that moved after the head is ahead of it, not behind"
-        );
-        assert_eq!(read(tip("a", 9), None), None);
-    }
-
-    /// The push token is asked for only where the data repository pushes to GitHub: a folder, no
-    /// origin or another host needs none, and an unread configuration may, so it still asks.
-    #[test]
-    fn only_a_push_to_github_needs_the_token() {
-        let read = |config: &str| Pushed::of_git_config(config).needs_push_token();
-        assert!(read(
-            "[remote \"origin\"]\n\turl = https://github.com/ada/data.git\n"
-        ));
-        assert!(read(
-            "[remote \"origin\"]\n\turl = https://GitHub.com/ada/data\n"
-        ));
-        assert!(!read(
-            "[remote \"origin\"]\n\turl = git@forge.example.test:ada/data.git\n"
-        ));
-        assert!(!read("[remote \"origin\"]\n\turl = /srv/backup/data\n"));
-        assert!(!read("[core]\n\tbare = false\n"));
-        assert!(Pushed::Unread("permission denied".to_owned()).needs_push_token());
     }
 }

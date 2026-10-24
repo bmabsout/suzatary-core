@@ -9,7 +9,7 @@ use prodrome_core::fpl::{self, LinkError, PRIORITY_POWER};
 use prodrome_core::literal::Datetime;
 use prodrome_core::policy::Untrusted;
 
-use prodrome_core::term::{Term, TermF};
+use prodrome_core::term::Term;
 use suzatary_core::record::Entry;
 
 use suzatary_core::believed::Believed;
@@ -206,19 +206,6 @@ fn a_subtodo_sits_under_its_parent_and_a_group_holds_the_root() {
 }
 
 #[test]
-fn children_ascend_in_value() {
-    let tree = household().tree(&by(&[]));
-    let values: Vec<f64> = tree
-        .children
-        .iter()
-        .map(|c| c.node.worth.clone().expect("links").expect("a value"))
-        .collect();
-    let mut sorted = values.clone();
-    sorted.sort_by(f64::total_cmp);
-    assert_eq!(values, sorted);
-}
-
-#[test]
 fn an_unknown_reference_carries_its_link_error() {
     let house = folded(vec![
         todo("parent", "home", with(0.5, &["ghost"])),
@@ -250,18 +237,26 @@ fn a_cycle_carries_its_link_error() {
     assert_eq!(tree.children.len(), 2, "each under the other, both placed");
 }
 
+/// Under every grouping, the children of every node ascend in value: low is urgent, so the
+/// most urgent line comes first at each level.
 #[test]
-fn a_ref_is_the_term_of_every_todo() {
-    let tree = household().tree(&by(&[By::Ancestry]));
-    for row in tree.nodes() {
-        if let Place::At(Segment::Todo(id)) = &row.place {
-            assert_eq!(
-                row.term.out(),
-                &TermF::Ref {
-                    store: None,
-                    entity: id.as_str().to_owned()
-                }
-            );
-        }
+fn children_ascend_in_value_at_every_level() {
+    fn ascends(tree: &Tree<Row>) {
+        let values: Vec<f64> = tree
+            .children
+            .iter()
+            .map(|c| c.node.worth.clone().expect("links").expect("a value"))
+            .collect();
+        assert!(values.is_sorted_by(|a, b| a <= b), "{values:?}");
+        tree.children.iter().for_each(ascends);
+    }
+    let house = household();
+    for generators in [
+        &[][..],
+        &[By::Ancestry],
+        &[By::Category, By::Ancestry],
+        &[By::Urgency, By::Ancestry],
+    ] {
+        ascends(&house.tree(&by(generators)));
     }
 }

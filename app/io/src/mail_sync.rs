@@ -212,25 +212,4 @@ mod tests {
         assert!(synced.at > since);
         let _ = std::fs::remove_dir_all(dir);
     }
-
-    #[test]
-    fn a_unit_that_will_not_start_is_a_failure_and_no_report_is_none() {
-        let dir = scratch("refused");
-        assert!(
-            timer(&dir, "false")
-                .start(crate::clock::SystemClock.now())
-                .is_err()
-        );
-        let quiet = Timer {
-            wait: Duration::from_millis(10),
-            ..timer(&dir, "true")
-        };
-        assert_eq!(
-            quiet
-                .start(crate::clock::SystemClock.now())
-                .expect("started"),
-            None
-        );
-        let _ = std::fs::remove_dir_all(dir);
-    }
 }

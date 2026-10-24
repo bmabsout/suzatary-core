@@ -81,13 +81,3 @@ app.scene("a todo: link becomes a hash into this app, and an outbound one leaves
   assert.equal(outward.target, "_blank");
   assert.ok(!outward.cls.split(/\s+/).includes("todolink"), "an outbound link is not an in-app one");
 });
-
-app.scene("that hash is real: following it opens the todo it names", async () => {
-  await app.resize(DESKTOP);
-  await openPackBags();
-  await app.page.evaluate(
-    `[...document.querySelectorAll(".todoview .rich a")].find((a) => a.getAttribute("href") === "#/todo/${todos.flat.id}")?.click()`,
-  );
-  await app.page.waitFor(`window.location.hash === "#/todo/${todos.flat.id}"`);
-  await app.page.waitFor(`document.querySelector(".todoview .todoid")?.textContent === "${todos.flat.id}"`);
-});

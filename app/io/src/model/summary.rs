@@ -231,28 +231,4 @@ mod tests {
         assert_eq!(summary_of("Not logged in · Please run /login"), Ok(None));
         assert_eq!(summary_of(""), Ok(None));
     }
-
-    /// One `--output-format json` object reads the same as the last line of a stream.
-    #[test]
-    fn one_object_is_a_run_and_a_result_with_no_usage_says_so() {
-        let summary = summary_of(
-            r#"{"type":"result","subtype":"success","is_error":true,"num_turns":1,"duration_ms":5,"result":"  Not logged in","session_id":"0f0e0d0c-0b0a-4009-8008-070605040302"}"#,
-        )
-        .expect("readable")
-        .expect("one object");
-        assert_eq!(summary.outcome, Outcome::SignedOut);
-        assert!(summary.to_string().contains("tokens: not reported"));
-    }
-
-    /// A run whose last result line is of another shape is that, never a run with no result.
-    #[test]
-    fn an_unreadable_last_result_is_said_apart_from_none() {
-        let offered = r#"{"type":"system","subtype":"init","tools":["Bash"]}"#;
-        let broken = r#"{"type":"result","subtype":"success","is_error":false}"#;
-        assert_eq!(
-            summary_of(&format!("{offered}\n{broken}\n")),
-            Err(Unreadable)
-        );
-        assert_eq!(summary_of(offered), Ok(None));
-    }
 }

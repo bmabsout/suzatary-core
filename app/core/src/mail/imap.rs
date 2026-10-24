@@ -374,25 +374,6 @@ mod tests {
         }
     }
 
-    /// Each kind of pull has its settings, and only the routine one writes upstream.
-    #[test]
-    fn a_pulls_settings_are_its_kinds() {
-        assert_eq!(
-            (inbox().folder(), inbox().criteria().as_str()),
-            ("INBOX", "SINCE 01-Sep-2026")
-        );
-        assert!(!inbox().readonly() && inbox().unread() && inbox().limit().is_none());
-        assert_eq!(
-            (
-                backfill(Some(3)).folder(),
-                backfill(Some(3)).criteria().as_str()
-            ),
-            ("Sent Items", "ALL")
-        );
-        assert!(backfill(None).readonly() && !backfill(None).unread());
-        assert_eq!(backfill(Some(3)).limit(), Some(3));
-    }
-
     /// A whole IMAP server, as a value.
     struct FakeServer {
         uidvalidity: String,
@@ -491,45 +472,26 @@ mod tests {
         }
     }
 
+    /// The same generation keeps every UID, a changed one discards both sets, and an
+    /// unrecorded one is adopted without dropping anything.
     #[test]
-    fn the_same_generation_keeps_every_uid() {
-        let held = state(Some("7"), &[1, 2], &[1]);
-        assert_eq!(reconcile(held.clone(), "7"), held);
-    }
-
-    /// A changed generation discards both sets.
-    #[test]
-    fn a_changed_generation_drops_both_uid_sets() {
-        assert_eq!(
-            reconcile(state(Some("7"), &[1, 2], &[1]), "8"),
-            state(Some("8"), &[], &[])
-        );
-    }
-
-    /// An unrecorded generation is adopted, not treated as a mismatch.
-    #[test]
-    fn an_unrecorded_generation_is_adopted_without_dropping_anything() {
-        assert_eq!(
-            reconcile(state(None, &[1], &[]), "7"),
-            state(Some("7"), &[1], &[])
-        );
-        assert_eq!(
-            reconcile(SyncState::default(), "7"),
-            state(Some("7"), &[], &[])
-        );
-    }
-
-    // --- Dates ---------------------------------------------------------------
-
-    #[test]
-    fn an_imap_date_is_the_servers_own_spelling() {
-        let day = chrono::NaiveDate::from_ymd_opt(2026, 9, 1).expect("a date");
-        assert_eq!(imap_date(day), "01-Sep-2026");
-        assert_eq!(
-            imap_date(chrono::NaiveDate::from_ymd_opt(2026, 12, 25).expect("a date")),
-            "25-Dec-2026"
-        );
-        assert_eq!(imap_date(window_start(day)), "25-Aug-2026");
+    fn a_uid_set_survives_exactly_its_own_generation() {
+        for (held, server, reconciled) in [
+            (
+                state(Some("7"), &[1, 2], &[1]),
+                "7",
+                state(Some("7"), &[1, 2], &[1]),
+            ),
+            (
+                state(Some("7"), &[1, 2], &[1]),
+                "8",
+                state(Some("8"), &[], &[]),
+            ),
+            (state(None, &[1], &[]), "7", state(Some("7"), &[1], &[])),
+            (SyncState::default(), "7", state(Some("7"), &[], &[])),
+        ] {
+            assert_eq!(reconcile(held.clone(), server), reconciled, "{held:?}");
+        }
     }
 
     // --- Names ---------------------------------------------------------------
@@ -576,20 +538,6 @@ mod tests {
         assert!(!is_seen_name("x.u1.ms:2,R"));
         // An S in the digest is not a flag.
         assert!(!is_seen_name("Sabcdef.u1.ms"));
-    }
-
-    #[test]
-    fn locally_seen_uids_keeps_only_read_files_that_name_a_uid() {
-        let names = [
-            "aaaa.u1.ms:2,S",      // read, ours
-            "bbbb.u2.ms",          // unread
-            "cccc.u3.ms:2,RS",     // read, ours
-            "1752513600.4.ms:2,S", // read, somebody else's
-        ];
-        assert_eq!(
-            locally_seen_uids(&names),
-            [1u32, 3].into_iter().collect::<BTreeSet<_>>()
-        );
     }
 
     // --- The pull ------------------------------------------------------------

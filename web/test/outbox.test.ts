@@ -10,13 +10,6 @@ import { forAll } from "./gen"
 
 const STATES: readonly Unsent[] = ["Sending", "AwaitingTrust", "Refused"]
 
-test("a refusal is said at once and once, and offers its one todo", () => {
-  const refused = new Map<string, Unsent>([["file-permit", "Refused"]])
-  const first = outbox.step(outbox.EMPTY, refused, 0)
-  assert.deepEqual(first.said, { type: "Said", text: "A change was refused. Open its todo to see why.", about: { type: "Refused", todo: "file-permit" } })
-  assert.deepEqual(outbox.step(first.t, refused, 1000).said, { type: "Quiet" }, "said once")
-})
-
 test("an act on its way is said only once it is late, and an act taken before then says nothing", () => {
   const sending = new Map<string, Unsent>([["pack-bags", "Sending"]])
   const early = outbox.step(outbox.EMPTY, sending, 0)

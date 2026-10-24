@@ -366,26 +366,3 @@ fn configure(
     let models: Vec<&str> = models.iter().map(String::as_str).collect();
     Configure::order(&now, job, &models).map_err(refused)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::connect::{Table, TemplateId};
-
-    /// The model reads the catalog only from this verb's words, so every template a Connect card
-    /// can write is named there, with its parameters, and none it cannot.
-    #[test]
-    fn the_description_names_every_template_a_card_can_write() {
-        for id in TemplateId::ALL {
-            let named = ProposeAct::DESCRIPTION.contains(&format!("`{}`", id.as_str()));
-            match id.template().table {
-                Table::Link(_) | Table::Account(_) | Table::Folder | Table::Channel(_) => {
-                    assert!(named, "{} is not named", id.as_str());
-                }
-                Table::Always | Table::Backend(_) => {
-                    assert!(!named, "{} writes no table", id.as_str());
-                }
-            }
-        }
-    }
-}

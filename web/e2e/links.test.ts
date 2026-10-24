@@ -4,10 +4,10 @@
  *
  * `scripts/web-e2e.sh` starts this file's server with `--settings --connections lapsed`: the Work calendar
  * declared with its link not stored, over a secret store of its own, the reference plugins
- * passed in `SUZATARY_PLUGINS` so a stored link is synced at its tap; a Drive folder whose CLI
- * answers that its session expired; and a Microsoft account signed in to read and not to send.
+ * passed in `SUZATARY_PLUGINS` so a stored link is synced at its tap; and a Microsoft account
+ * signed in to read and not to send.
  *
- * FOUR SCENES, in order:
+ * THREE SCENES, in order:
  *
  * 1. A link from an origin the calendar may not reach: the Allow card is drawn inside the
  *    link's own card on its line, and allowing it stores the link pasted once, which is checked
@@ -15,8 +15,7 @@
  *    the link again on the same line.
  * 2. A calendar added to the instance file by hand is drawn, and its link asked for, with no
  *    restart and no reload.
- * 3. The Drive's expired session is a sign-in to give at the box, its command behind the line.
- * 4. The Microsoft account's consent to send is a card on its line, tapped like reading's.
+ * 3. The Microsoft account's consent to send is a card on its line, tapped like reading's.
  */
 
 import assert from "node:assert/strict";
@@ -91,14 +90,6 @@ app.scene("a calendar added to the instance file by hand is drawn with no restar
   writeFileSync(INSTANCE, declared.replace(one, `${one}, { name = "PLUGIN_ICS_HOME", into = "url" }`));
   await app.page.waitFor(`document.querySelector('${home} .proposal.proposal-act-secret') !== null`, { timeout: 30000 });
   assert.equal(await text(`${home} h3`), "Home");
-});
-
-app.scene("a Drive whose session expired asks for its sign-in at the box, with the command", async () => {
-  const drive = line("drive");
-  await openSettings(drive);
-  await app.page.waitFor(`document.querySelector('${drive} details.settingsatbox code') !== null`, { timeout: 20000 });
-  assert.match(await text(`${drive} .settingshealth`), /^Set up at a terminal on the box: the Drive's command line signs in/);
-  assert.match(await text(`${drive} details.settingsatbox code`), /proton-drive auth login/);
 });
 
 app.scene("a Microsoft account's consent to send is a card on its line", async () => {

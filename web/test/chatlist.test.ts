@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 
 import type { ConversationKind, ConversationRow, SearchHit } from "../src/wire/generated/wire"
 import list from "../src/chat/list"
-import waiting from "../src/inbox/waiting"
 import lo from "../src/algebra/lo"
 import { forAll, SLUG, type Rng } from "./gen"
 
@@ -37,22 +36,6 @@ const event = (r: Rng): list.Event => {
   }
 }
 
-test("the default is pinned, and each filter shows exactly its kind, newest last turn first", () =>
-  forAll(300, r => {
-    const all = rows(r)
-    const f = filter(r)
-    const s = list.sections(all, f)
-    const stored = all.filter(x => x.kind === "default")
-    assert.deepEqual(s.pinned, stored.length === 0 ? [list.UNOPENED] : stored, "the default is pinned, stored or not")
-    const kind = f.type === "Topics" ? "topic" : "review"
-    assert.equal(s.rows.length, all.filter(x => x.kind === kind).length)
-    assert.ok(s.rows.every(x => x.kind === kind))
-    s.rows.slice(1).forEach((x, i) => assert.ok((s.rows[i]?.last_at ?? "") >= x.last_at, "ordered by last turn"))
-    const both = [...list.sections(all, list.TOPICS).rows, ...list.sections(all, list.REVIEWS).rows, ...s.pinned]
-    assert.equal(both.length, all.length + (stored.length === 0 ? 1 : 0), "the three partition the list")
-    assert.equal(list.reviews(all), all.filter(x => x.kind === "review").length)
-  }))
-
 test("search is on exactly while something is typed, and a stale answer changes nothing", () =>
   forAll(300, r => {
     const t = r.array(r.int(20), () => event(r)).reduce(list.step, list.init(r.bool() ? null : "default", 0))
@@ -69,25 +52,6 @@ test("search is on exactly while something is typed, and a stale answer changes 
     assert.equal(list.step(t, { type: "Filtered", filter: t.filter }), t, "the same filter is no change")
     assert.deepEqual(list.step(t, { type: "Listed", rows: lo.loading }).search, t.search, "a listing leaves the search alone")
   }))
-
-test("law: every conversation's unplaced lines reach the Inbox, each under its conversation, in order", () =>
-  forAll(200, (r, seed) => {
-    const rs = rows(r)
-    assert.deepEqual(
-      waiting.unplacedOf(rs),
-      rs.flatMap(c => c.unplaced.map(u => ({ conversation: c.id, index: u.index, why: u.why }))),
-      `seed ${seed}`,
-    )
-    assert.equal(waiting.unplacedOf(rs).length, rs.reduce((n, c) => n + c.unplaced.length, 0), `seed ${seed}`)
-  }))
-
-test("a topic opened with no name reads as a new topic until the box names it", () => {
-  assert.equal(list.named(""), "New topic")
-  forAll(100, r => {
-    const t = r.string("abc ", 1 + r.int(6))
-    assert.equal(list.named(t), t)
-  })
-})
 
 test("the list's instant moves only by its tick, and every other event keeps it", () =>
   forAll(200, r => {

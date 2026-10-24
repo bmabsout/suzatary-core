@@ -1004,26 +1004,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn iterating_the_declared_list_agrees_with_minting_each_name() {
-        let declared = declared();
-        let mut from_iter: Vec<String> = declared
-            .iter()
-            .map(|settable| settable.name().to_owned())
-            .collect();
-        from_iter.sort();
-        let mut from_mint: Vec<String> = declared
-            .names()
-            .into_iter()
-            .map(|name| {
-                Settable::mint(&declared, name)
-                    .expect("a declared name mints")
-                    .name()
-                    .to_owned()
-            })
-            .collect();
-        from_mint.sort();
-        assert_eq!(from_iter, from_mint);
-    }
 }

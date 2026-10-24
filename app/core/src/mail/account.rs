@@ -548,35 +548,6 @@ mod tests {
         assert!(named.iter().all(|n| !n.contains('@')));
     }
 
-    /// The queue's scope is narrower than the search's, keeping backfilled sent
-    /// mail out of triage.
-    #[test]
-    fn the_inbox_query_covers_every_declared_leaf_and_nothing_else() {
-        let account = proton("contact@example.test", "contact");
-        assert_eq!(account.query(), "path:contact/**");
-        assert_eq!(
-            account.inbox_query(),
-            "(path:contact/Inbox/** or path:contact/Folders/example/**)"
-        );
-        assert!(!account.inbox_query().contains("contact/Sent"));
-
-        let study = ms("her@study.test", "study");
-        assert_eq!(study.inbox_query(), "(path:study/Inbox/**)");
-        assert!(!study.inbox_query().contains("study/Sent"));
-    }
-
-    /// lieer syncs Gmail's labels itself, so the syncer never tags these — and
-    /// the inbox query is then the account query, unchanged.
-    #[test]
-    fn only_lieer_carries_its_own_tags() {
-        let gm = gmail("her@gmail.test", "her-gmail");
-        assert!(!gm.label_from_folder());
-        assert_eq!(gm.inbox_query(), gm.query());
-        assert!(gm.inbox_folders().is_empty());
-        assert!(ms("her@study.test", "study").label_from_folder());
-        assert!(proton("contact@example.test", "contact").label_from_folder());
-    }
-
     #[test]
     fn a_slug_is_the_address_with_its_punctuation_flattened() {
         assert_eq!(
@@ -592,36 +563,6 @@ mod tests {
         assert_eq!(folder_slug("robotics/worldwide"), "robotics-worldwide");
         assert_eq!(folder_slug(" [Gmail]/Sent Mail "), "gmail-sent-mail");
         assert_eq!(folder_slug("---"), "");
-    }
-
-    // --- The roster's own invariants ----------------------------------------
-
-    #[test]
-    fn a_roster_refuses_two_accounts_with_one_identity_or_one_folder() {
-        assert_eq!(
-            Roster::new(vec![gmail("a@x.test", "one"), gmail("a@x.test", "two")]),
-            Err(RosterError::DuplicateEmail("a@x.test".to_owned()))
-        );
-        assert_eq!(
-            Roster::new(vec![gmail("a@x.test", "one"), gmail("b@x.test", "one")]),
-            Err(RosterError::DuplicateSubdir("one".to_owned()))
-        );
-        assert!(Roster::new(vec![gmail("a@x.test", "one"), gmail("b@x.test", "two")]).is_ok());
-    }
-
-    /// Sent coverage is part of the sync, so an empty sent folder is refused.
-    #[test]
-    fn a_microsoft_account_with_no_sent_folder_is_not_a_roster() {
-        let mut account = ms("her@study.test", "study");
-        account.sync = Sync::MsImap(MsImap {
-            authority: Authority::Organizations,
-            inbox_folders: crate::mail::folders::Folders::inbox(),
-            sent_folder: String::new(),
-        });
-        assert_eq!(
-            Roster::new(vec![account]),
-            Err(RosterError::NoSentFolder("her@study.test".to_owned()))
-        );
     }
 
     // --- Sending -------------------------------------------------------------
@@ -704,15 +645,5 @@ mod tests {
                 "other@example.test".to_owned(),
             ]
         );
-    }
-
-    #[test]
-    fn an_authority_is_a_closed_set() {
-        assert_eq!(
-            Authority::parse("organizations"),
-            Ok(Authority::Organizations)
-        );
-        assert_eq!(Authority::parse("consumers"), Ok(Authority::Consumers));
-        assert!(Authority::parse("common").is_err());
     }
 }

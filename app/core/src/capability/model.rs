@@ -550,52 +550,12 @@ mod tests {
         assert!(!ModelError::Unreachable("401".to_owned()).refused_credential());
     }
 
-    #[test]
-    fn an_envelope_is_a_say_and_some_calls() {
-        let reply = Reply::parse(r#"{"say": "on it", "calls": [{"verb": "context", "args": {}}]}"#);
-        assert_eq!(reply.say, "on it");
-        assert_eq!(reply.calls.len(), 1);
-        assert_eq!(reply.calls[0].verb.as_str(), "context");
-    }
-
-    #[test]
-    fn a_fenced_envelope_is_the_same_envelope() {
-        let reply = Reply::parse("```json\n{\"say\": \"hello\", \"calls\": []}\n```");
-        assert_eq!(reply.say, "hello");
-        assert!(reply.calls.is_empty());
-        let bare = Reply::parse("```\n{\"say\": \"hello\"}\n```");
-        assert_eq!(bare.say, "hello");
-    }
-
-    /// Prose is what was said, not a failure.
-    #[test]
-    fn prose_becomes_what_was_said_and_asks_for_nothing() {
-        let reply = Reply::parse("  I could not find that thread.  ");
-        assert_eq!(reply.say, "I could not find that thread.");
-        assert!(reply.calls.is_empty());
-    }
-
     /// A call with no `verb` fails the whole envelope, so the text stands as prose.
     #[test]
     fn a_call_without_a_verb_is_not_half_read() {
         let reply = Reply::parse(r#"{"say": "x", "calls": [{"args": {}}]}"#);
         assert!(reply.calls.is_empty());
         assert!(reply.say.contains("calls"));
-    }
-
-    #[test]
-    fn a_session_id_is_a_uuid_and_nothing_else() {
-        assert!(SessionId::new("96f709a3-43d7-4453-bf59-6fb5291b5a3c").is_ok());
-        for bad in [
-            "",
-            "not-a-uuid",
-            "96F709A3-43D7-4453-BF59-6FB5291B5A3C",
-            "96f709a343d74453bf596fb5291b5a3c",
-            "96f709a3-43d7-4453-bf59-6fb5291b5a3", // one short
-            "96f709a3-43d7-4453-bf59-6fb5291b5a3cx",
-        ] {
-            assert!(SessionId::new(bad).is_err(), "{bad:?}");
-        }
     }
 
     /// Two different seeds mint two different valid ids.

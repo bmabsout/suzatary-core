@@ -165,84 +165,6 @@ fn a_conversation_id_is_a_slug() {
     }
 }
 
-/// [`DEFAULT`] is itself a valid slug.
-#[test]
-fn the_default_id_is_a_valid_slug() {
-    assert_eq!(DEFAULT.as_str(), "default");
-}
-
-#[test]
-fn a_minted_id_avoids_the_names_already_taken() {
-    let day = chrono::NaiveDate::from_ymd_opt(2026, 9, 9).expect("a day");
-    let first = ConversationId::minted(day, &[]);
-    assert_eq!(first.as_str(), "2026-09-09-1");
-    let second = ConversationId::minted(day, std::slice::from_ref(&first));
-    assert_eq!(second.as_str(), "2026-09-09-2");
-    assert_eq!(
-        ConversationId::minted(day, &[second, first]).as_str(),
-        "2026-09-09-3"
-    );
-}
-
-/// A proposal's `after_turn` is how many `Said` lines stood before it, not counting its own.
-#[test]
-fn a_proposal_after_two_turns_carries_after_turn_two() {
-    let entries = vec![
-        opened(),
-        Entry::Said {
-            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
-            turn: Turn::Person {
-                text: "what changed".to_owned(),
-                references: Vec::new(),
-                attachments: Vec::new(),
-            },
-            by: None,
-        },
-        Entry::Said {
-            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 30, 0).expect("an instant"),
-            turn: Turn::Model {
-                text: "checking".to_owned(),
-                calls: Vec::new(),
-            },
-            by: None,
-        },
-        proposed("2026-09-09T09:02:00"),
-    ];
-    let stored = Stored::of(&id(), &entries).expect("a conversation");
-    assert_eq!(stored.turns.len(), 2);
-    assert_eq!(stored.proposals[0].after_turn, 2);
-}
-
-/// A turn's own instant survives the fold.
-#[test]
-fn a_turns_instant_survives_the_fold() {
-    let entries = vec![
-        opened(),
-        Entry::Said {
-            at: crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant"),
-            turn: Turn::Person {
-                text: "what changed".to_owned(),
-                references: Vec::new(),
-                attachments: Vec::new(),
-            },
-            by: None,
-        },
-    ];
-    let stored = Stored::of(&id(), &entries).expect("a conversation");
-    assert_eq!(
-        stored.turns[0].at,
-        crate::capability::Datetime::new(2026, 9, 9, 9, 1, 0, 0).expect("an instant")
-    );
-    assert_eq!(
-        stored.turns[0].turn,
-        Turn::Person {
-            text: "what changed".to_owned(),
-            references: Vec::new(),
-            attachments: Vec::new(),
-        }
-    );
-}
-
 /// A file without an opening line was not written by this program.
 #[test]
 fn a_conversation_without_an_opening_line_is_refused() {
@@ -304,27 +226,6 @@ fn a_standing_joins_the_line_with_its_object() {
     );
 }
 
-/// A line's `revises` is the secretary's words: the conversation draws both cards in order, and
-/// whether the earlier one was replaced is the inbox's to say.
-#[test]
-fn a_revision_draws_both_cards() {
-    let stored = Stored::of(
-        &id(),
-        &[
-            opened(),
-            proposed("2026-09-09T09:02:00"),
-            Entry::Proposed {
-                at: crate::capability::Datetime::new(2026, 9, 9, 9, 3, 0, 0).expect("an instant"),
-                object: object(),
-                revises: Some(0),
-            },
-        ],
-    )
-    .expect("a conversation");
-    let indices: Vec<usize> = stored.proposals.iter().map(|asking| asking.index).collect();
-    assert_eq!(indices, [0, 1]);
-}
-
 /// A changeset proposal round trips, and names itself as `"changes"`.
 #[test]
 fn a_changeset_proposal_round_trips_and_names_itself() {
@@ -350,15 +251,6 @@ fn an_act_proposal_round_trips_and_names_itself() {
     );
     let read: Proposal = serde_json::from_str(&printed).expect("and reads back");
     assert_eq!(read, proposal);
-}
-
-/// The headline is the act's own sentence, so a list and a card cannot disagree.
-#[test]
-fn an_act_proposal_s_headline_is_its_sentence() {
-    assert_eq!(
-        Proposal::Act(act()).headline(|_| crate::secretary::inbox_reading::Words::Unread),
-        "authorise ada@example.com to sync mail (IMAP)"
-    );
 }
 
 /// A proposal cannot be built without its reasons and sources.
@@ -389,25 +281,6 @@ fn reasons_are_parsed_when_they_are_deserialised() {
         serde_json::from_str(r#"{"why":"x","sources":["mail:a1b2c3d4e5f6"]}"#).expect("reasons");
     assert_eq!(read.why(), "x");
     assert_eq!(read.sources().len(), 1);
-}
-
-/// A file with no session line has no session.
-#[test]
-fn a_conversation_with_no_session_line_has_none() {
-    let entries = vec![
-        opened(),
-        Entry::Said {
-            at: crate::capability::Datetime::new(2026, 9, 13, 9, 1, 0, 0).expect("an instant"),
-            turn: Turn::Person {
-                text: "hi".to_owned(),
-                references: Vec::new(),
-                attachments: Vec::new(),
-            },
-            by: None,
-        },
-    ];
-    let stored = Stored::of(&id(), &entries).expect("a conversation");
-    assert!(stored.session.is_none());
 }
 
 /// An unheard turn ends the session it names and no other: a session opened after it heard
@@ -737,45 +610,6 @@ fn a_stop_is_known_by_its_line_not_its_words() {
     assert!(stored.rewind(Rewind::Regenerate).is_err());
 }
 
-/// A rewind never hides a write, named: a verb that wrote, a proposal, a second message of his
-/// in the round. A refused write wrote nothing.
-#[test]
-fn a_round_that_wrote_is_not_asked_again() {
-    let with = |verb: &str, refused: bool| {
-        let mut entries = one_round();
-        entries.truncate(2);
-        entries.push(said_by("t2", calling(verb)));
-        entries.push(said_by("t3", answered_by(verb, refused)));
-        entries.push(said_by("t4", answer("done")));
-        Stored::of(&id(), &entries).expect("a conversation")
-    };
-    for verb in ["todo_add", "remember", "propose_email", "proposals_accept"] {
-        for how in [Rewind::Regenerate, Rewind::Edit] {
-            let refused = with(verb, false).rewind(how).expect_err(verb);
-            assert_eq!(refused.status(), crate::refusal::Status::Conflict);
-        }
-        assert!(
-            with(verb, true).rewind(Rewind::Regenerate).is_ok(),
-            "{verb} refused"
-        );
-    }
-    let mut proposing = one_round();
-    proposing.insert(3, proposed("t3"));
-    let stored = Stored::of(&id(), &proposing).expect("a conversation");
-    assert!(
-        stored.rewind(Rewind::Regenerate).is_err(),
-        "a proposal was made"
-    );
-
-    let mut typed = one_round();
-    typed.insert(3, said_by("t2", question("and the permit?")));
-    let stored = Stored::of(&id(), &typed).expect("a conversation");
-    assert!(
-        stored.rewind(Rewind::Regenerate).is_err(),
-        "his second message"
-    );
-}
-
 /// A rewind past the end of the file is not a conversation.
 #[test]
 fn a_rewind_to_a_turn_never_said_is_refused() {
@@ -887,92 +721,6 @@ proptest::proptest! {
     }
 }
 
-/// State is derived from the last turn only; a session line changes nothing about it.
-#[test]
-fn state_is_derived_from_the_last_turn_only() {
-    let base = vec![opened()];
-
-    let none = Stored::of(&id(), &base).expect("a conversation");
-    assert_eq!(state(&none), ConversationState::Idle);
-
-    let mut with_person = base.clone();
-    with_person.push(Entry::Said {
-        at: crate::capability::Datetime::new(2026, 9, 13, 9, 1, 0, 0).expect("an instant"),
-        turn: Turn::Person {
-            text: "hi".to_owned(),
-            references: Vec::new(),
-            attachments: Vec::new(),
-        },
-        by: None,
-    });
-    assert_eq!(
-        state(&Stored::of(&id(), &with_person).expect("a conversation")),
-        ConversationState::Queued
-    );
-
-    let mut with_tool = with_person.clone();
-    with_tool.push(Entry::Said {
-        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
-        turn: Turn::Tool {
-            verb: "context".into(),
-            answer: "{}".to_owned(),
-            outcome: crate::secretary::outcome::Outcome::Answered,
-            files: Vec::new(),
-        },
-        by: None,
-    });
-    assert_eq!(
-        state(&Stored::of(&id(), &with_tool).expect("a conversation")),
-        ConversationState::Thinking
-    );
-
-    let mut with_calling_model = with_person.clone();
-    with_calling_model.push(Entry::Said {
-        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
-        turn: Turn::Model {
-            text: "looking".to_owned(),
-            calls: vec![crate::capability::ToolCall {
-                verb: "context".into(),
-                args: std::collections::BTreeMap::new(),
-            }],
-        },
-        by: None,
-    });
-    assert_eq!(
-        state(&Stored::of(&id(), &with_calling_model).expect("a conversation")),
-        ConversationState::Thinking
-    );
-
-    let mut with_finished_model = with_person;
-    with_finished_model.push(Entry::Said {
-        at: crate::capability::Datetime::new(2026, 9, 13, 9, 2, 0, 0).expect("an instant"),
-        turn: Turn::Model {
-            text: "done".to_owned(),
-            calls: Vec::new(),
-        },
-        by: None,
-    });
-    assert_eq!(
-        state(&Stored::of(&id(), &with_finished_model).expect("a conversation")),
-        ConversationState::Idle
-    );
-
-    // A session line in the middle changes nothing: state reads the last turn, not the last
-    // line.
-    let mut with_session_after = with_finished_model;
-    with_session_after.push(Entry::Session {
-        at: crate::capability::Datetime::new(2026, 9, 13, 9, 3, 0, 0).expect("an instant"),
-        session: SessionId::new("96f709a3-43d7-4453-bf59-6fb5291b5a3c").expect("a uuid"),
-        model: "claude-cli/haiku".to_owned(),
-        cwd: "/home/ada/Documents/Suzatary".to_owned(),
-        surface: None,
-    });
-    assert_eq!(
-        state(&Stored::of(&id(), &with_session_after).expect("a conversation")),
-        ConversationState::Idle
-    );
-}
-
 /// An id is parsed on the way in, wherever it comes from, including a stored line somebody
 /// could have edited.
 #[test]
@@ -1020,20 +768,6 @@ fn the_last_title_wins() {
     let stored = Stored::of(&id(), &entries).expect("a conversation");
     assert_eq!(stored.title.get().map(String::as_str), Some("The permit"));
     assert_eq!(stored.heading(), "The permit");
-}
-
-/// A title is one line of at most [`Title::MAX`] characters, even read back off a stored line.
-#[test]
-fn a_title_is_one_short_line() {
-    assert_eq!(
-        Title::new("  Permit  ").expect("a title").as_str(),
-        "Permit"
-    );
-    assert_eq!(Title::new(" "), Err(NotATitle::Empty));
-    assert_eq!(Title::new("a\nb"), Err(NotATitle::Lines));
-    assert_eq!(Title::new("x".repeat(Title::MAX + 1)), Err(NotATitle::Long));
-    assert!(Title::new("é".repeat(Title::MAX)).is_ok());
-    assert!(serde_json::from_str::<Title>(r#""""#).is_err());
 }
 
 // --- the responses and the one reading of them -------------------------

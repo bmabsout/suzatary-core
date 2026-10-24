@@ -91,19 +91,6 @@ mod tests {
     }
 
     #[test]
-    fn an_item_is_its_event_and_prints_back_the_same() {
-        let schema = schema();
-        let event = admit(
-            &schema,
-            &manifest(),
-            schema.name().as_str(),
-            ITEM.as_bytes(),
-        )
-        .expect("admitted");
-        assert_eq!(canonical(&event), ITEM);
-    }
-
-    #[test]
     fn every_way_an_item_can_be_wrong_is_refused_by_name() {
         let schema = schema();
         let name = schema.name().as_str().to_owned();

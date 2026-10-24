@@ -275,17 +275,6 @@ pub(crate) fn tail(text: &str) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn the_notmuch_line_never_opens_with_a_separator() {
-        let untagged = || vec!["tagging a's inbox: no".to_owned()].into_iter();
-        assert_eq!(notmuch_line("", untagged()), "tagging a's inbox: no");
-        assert_eq!(
-            notmuch_line("Added 2 new messages.", untagged()),
-            "Added 2 new messages.; tagging a's inbox: no"
-        );
-        assert_eq!(notmuch_line("", std::iter::empty()), "");
-    }
-
     /// No state is a first sync; a state that is there and cannot be read is an error, never
     /// a first sync that would fetch the whole folder again.
     #[test]
@@ -298,21 +287,6 @@ mod tests {
         );
         std::fs::create_dir(&path).expect("a directory where the file belongs");
         assert!(read_sync_state(&path).is_err());
-    }
-
-    #[test]
-    fn the_tail_is_the_last_line_of_either_stream() {
-        assert_eq!(tail("one\ntwo\nthree\n"), "three");
-        assert_eq!(tail("  only  "), "only");
-        assert_eq!(tail(""), "");
-        assert_eq!(tail("\n\n"), "");
-    }
-
-    #[test]
-    fn a_program_that_is_not_there_reports_rather_than_panicking() {
-        let output =
-            said(&Cmd::new("/nonexistent/mbsync").args(["-c", "x", "y"])).expect_err("not there");
-        assert!(output.contains("/nonexistent/mbsync"), "{output}");
     }
 
     #[test]

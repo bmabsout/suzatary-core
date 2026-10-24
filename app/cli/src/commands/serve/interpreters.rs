@@ -1179,106 +1179,62 @@ mod pick_entry_tests {
         .map(|(entry, ())| entry)
     }
 
+    /// The first entry of an order that is usable wins: the subscription while no reading puts
+    /// its allowance over the reserve's line (a rate limit with no remembered reading, one
+    /// remembered under the line and an unknown allowance all leave it usable), and a keyed
+    /// backend, a declared provider or the Messages API, exactly when its key resolves, whatever
+    /// the window holds.
     #[test]
-    fn an_empty_order_picks_nothing() {
-        assert!(
-            usable_by(
-                &[],
-                &suzatary_core::usage::Allowance::Unknown,
-                share(0.30),
-                |_| { true }
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn the_subscription_is_usable_exactly_under_the_reserve() {
-        let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        let allowance = reported(0.69);
-        assert_eq!(
-            usable_by(&order, &allowance, share(0.30), |_| false),
-            Some(&order[0])
-        );
-        let allowance = reported(0.71);
-        assert_eq!(usable_by(&order, &allowance, share(0.30), |_| false), None);
-    }
-
-    /// The subscription is usable unless a reading says its allowance is past the line: a rate
-    /// limit with no remembered reading, one remembered under the line and an unknown allowance
-    /// all leave it usable, and one remembered over the line does not.
-    #[test]
-    fn the_subscription_is_usable_unless_a_reading_puts_it_over_the_line() {
-        let order = [entry(SUBSCRIPTION, "claude-opus-5")];
-        for (allowance, usable) in [
-            (rate_limited(), true),
-            (rate_limited_with(0.2), true),
-            (suzatary_core::usage::Allowance::Unknown, true),
-            (rate_limited_with(0.9), false),
+    fn the_first_usable_entry_of_an_order_wins() {
+        let subscription = entry(SUBSCRIPTION, "claude-opus-5");
+        let phala = entry("phala", "deepseek-v4-flash");
+        let api = entry(suzatary_core::models::ANTHROPIC, "claude-sonnet-5");
+        let unknown = suzatary_core::usage::Allowance::Unknown;
+        let no_key: fn(&Backend) -> bool = |_| false;
+        let every_key: fn(&Backend) -> bool = |_| true;
+        let phala_key: fn(&Backend) -> bool = |backend| backend.as_str() == "phala";
+        let api_key: fn(&Backend) -> bool = |backend| *backend == Backend::AnthropicApi;
+        for (order, allowance, resolves, picked) in [
+            (vec![], unknown.clone(), every_key, None),
+            (vec![subscription.clone()], reported(0.69), no_key, Some(0)),
+            (vec![subscription.clone()], reported(0.71), no_key, None),
+            (vec![subscription.clone()], rate_limited(), no_key, Some(0)),
+            (
+                vec![subscription.clone()],
+                rate_limited_with(0.2),
+                no_key,
+                Some(0),
+            ),
+            (vec![subscription.clone()], unknown.clone(), no_key, Some(0)),
+            (
+                vec![subscription.clone()],
+                rate_limited_with(0.9),
+                no_key,
+                None,
+            ),
+            (vec![phala.clone()], rate_limited(), phala_key, Some(0)),
+            (vec![phala.clone()], rate_limited(), no_key, None),
+            (vec![api.clone()], rate_limited_with(0.99), api_key, Some(0)),
+            (vec![api], unknown, no_key, None),
+            (
+                vec![subscription.clone(), phala.clone()],
+                rate_limited_with(0.9),
+                phala_key,
+                Some(1),
+            ),
+            (
+                vec![subscription, phala],
+                rate_limited_with(0.9),
+                no_key,
+                None,
+            ),
         ] {
             assert_eq!(
-                usable_by(&order, &allowance, share(0.30), |_| false),
-                usable.then_some(&order[0]),
-                "{allowance:?}"
+                usable_by(&order, &allowance, share(0.30), resolves),
+                picked.map(|at| &order[at]),
+                "{order:?} {allowance:?}"
             );
         }
-    }
-
-    #[test]
-    fn a_declared_provider_is_usable_when_its_key_resolves() {
-        let order = [entry("phala", "deepseek-v4-flash")];
-        assert_eq!(
-            usable_by(&order, &rate_limited(), share(0.30), |backend| backend
-                .as_str()
-                == "phala"),
-            Some(&order[0])
-        );
-        assert!(usable_by(&order, &rate_limited(), share(0.30), |_| false).is_none());
-    }
-
-    #[test]
-    fn the_messages_api_is_usable_exactly_when_its_key_resolves() {
-        let order = [entry(suzatary_core::models::ANTHROPIC, "claude-sonnet-5")];
-        let api = |backend: &Backend| *backend == Backend::AnthropicApi;
-        assert_eq!(
-            usable_by(&order, &rate_limited_with(0.99), share(0.30), api),
-            Some(&order[0]),
-            "a full window does not stop a keyed backend"
-        );
-        assert!(
-            usable_by(
-                &order,
-                &suzatary_core::usage::Allowance::Unknown,
-                share(0.30),
-                |_| false
-            )
-            .is_none(),
-            "room in the window does not make the API usable without its key"
-        );
-    }
-
-    #[test]
-    fn the_first_usable_entry_wins_in_order() {
-        let order = [
-            entry(SUBSCRIPTION, "claude-opus-5"),
-            entry("phala", "deepseek-v4-flash"),
-        ];
-        let allowance = rate_limited_with(0.9);
-        let picked = usable_by(&order, &allowance, share(0.30), |backend| {
-            backend.as_str() == "phala"
-        })
-        .expect("phala resolves once the subscription's remembered reading is over the line");
-        assert_eq!(picked, &order[1]);
-    }
-
-    #[test]
-    fn nothing_usable_is_none() {
-        let order = [
-            entry(SUBSCRIPTION, "claude-opus-5"),
-            entry("phala", "deepseek-v4-flash"),
-        ];
-        let allowance = rate_limited_with(0.9);
-        assert!(usable_by(&order, &allowance, share(0.30), |_| false).is_none());
     }
 }
 
@@ -1397,40 +1353,25 @@ reserve = 0.30
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// An order with nothing usable answers with the one fallback, the subscription at the
+    /// secretary's model, whichever job asks.
     #[test]
-    fn an_empty_order_answers_with_the_subscription_at_the_secretary_model() {
-        let (dir, instance) = fixture_instance();
-        let secrets =
-            suzatary_io::secrets::Secretspec::new(PathBuf::from("/does/not/exist/secretspec.toml"));
-        let picked = brain_for(
-            &instance,
-            &instance.providers,
-            &instance.models,
-            Job::Review,
-            &reported(0.99),
-            &secrets,
-        );
-        assert_eq!(
-            picked.1.name(),
-            format!("claude-cli/{}", instance.secretary.model.as_str())
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn an_unusable_order_answers_review_the_same_way_as_secretary() {
+    fn an_order_with_nothing_usable_answers_with_the_fallback_for_every_job() {
         let (dir, instance) = fixture_instance();
         let secrets =
             suzatary_io::secrets::Secretspec::new(PathBuf::from("/does/not/exist/secretspec.toml"));
         let empty = Models::default();
         let allowance = reported(0.99);
-        let picked = |job| brain_for(&instance, &[], &empty, job, &allowance, &secrets).1;
-        let (secretary, review) = (picked(Job::Secretary), picked(Job::Review));
-        assert_eq!(secretary.name(), review.name());
-        assert_eq!(
-            review.name(),
-            format!("claude-cli/{}", instance.secretary.model.as_str())
-        );
+        let fallback = format!("claude-cli/{}", instance.secretary.model.as_str());
+        let none: &[DeclaredProvider] = &[];
+        for (providers, models, job) in [
+            (&instance.providers[..], &instance.models, Job::Review),
+            (none, &empty, Job::Secretary),
+            (none, &empty, Job::Review),
+        ] {
+            let picked = brain_for(&instance, providers, models, job, &allowance, &secrets);
+            assert_eq!(picked.1.name(), fallback, "{job:?}");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 

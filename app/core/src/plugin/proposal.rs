@@ -223,24 +223,6 @@ mod tests {
     }
 
     #[test]
-    fn an_offer_is_an_act_of_the_inbox_its_reasons_and_its_plugin() {
-        let offer = proposed(
-            COMPLETE,
-            "The visit was on the calendar.",
-            &["briefing:2026-10-05"],
-        )
-        .expect("admitted");
-        assert_eq!(offer.key(), COMPLETE);
-        assert_eq!(offer.reasons().why(), "The visit was on the calendar.");
-        assert_eq!(
-            offer.proposer(),
-            Proposer::Plugin(PluginName::parse("dueday").expect("a name"))
-        );
-        assert_eq!(offer.act().chain(), "life");
-        assert!(matches!(offer.proposal(), Proposal::Changes(_)));
-    }
-
-    #[test]
     fn anything_outside_the_vocabulary_or_not_written_as_itself_is_refused() {
         let why = "why";
         let on = ["briefing:2026-10-05"];

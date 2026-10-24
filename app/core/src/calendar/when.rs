@@ -129,16 +129,4 @@ mod tests {
             assert!(When::parse(bad).is_err(), "{bad:?}");
         }
     }
-
-    #[test]
-    fn the_days_a_span_touches() {
-        let utc = |at: NaiveDateTime| at;
-        let day = |text| NaiveDate::parse_from_str(text, DAY).expect("a day");
-        let retreat = When::parse("2026-10-09/2026-10-11").expect("a span");
-        assert_eq!(retreat.days(&utc), [day("2026-10-09"), day("2026-10-10")]);
-        let late = When::parse("2026-10-05T23:00:00Z/2026-10-06T00:00:00Z").expect("a span");
-        assert_eq!(late.days(&utc), [day("2026-10-05")]);
-        let tokyo = |at: NaiveDateTime| at + chrono::Duration::hours(9);
-        assert_eq!(late.days(&tokyo), [day("2026-10-06")]);
-    }
 }

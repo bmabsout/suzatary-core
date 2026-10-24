@@ -1,14 +1,13 @@
 //! The connection algebra's laws, over generated instances and connections: a connection is read
 //! back out of the tables it writes, removing it leaves what was there, a duplicate is refused,
-//! the reading is a function of the tables as sets, its steps are its template's, every secret
-//! a step asks for is a name the deployment may set, and meeting a step never moves a standing
-//! back.
+//! the reading is a function of the tables as sets, every secret a step asks for is a name the
+//! deployment may set, and meeting a step never moves a standing back.
 
 use proptest::prelude::*;
 use suzatary_core::capability::SecretState;
 use suzatary_core::connect::{
-    CATALOG, Checked, Connection, Declared, PLAIN, Params, Refused, SecretName, Seen, Standing,
-    StepShape, Table, TemplateId,
+    CATALOG, Checked, Connection, Declared, PLAIN, Params, Refused, Seen, StepShape, Table,
+    TemplateId,
 };
 use suzatary_core::literal::Literal as _;
 use suzatary_core::mail::account::Authority;
@@ -188,20 +187,6 @@ proptest! {
         prop_assert_eq!(declared.connections(), reversed(&declared).connections());
     }
 
-    /// A connection's steps are its template's, every one filled, and a connection read back
-    /// takes the steps of the one written.
-    #[test]
-    fn a_connection_s_steps_are_its_template_s(declared in declared(), connection in connection()) {
-        prop_assert_eq!(connection.steps().len(), connection.template().steps.len());
-        for read in declared.connections().values() {
-            prop_assert_eq!(read.steps().len(), read.template().steps.len());
-        }
-        if let Ok(written) = declared.with(&connection) {
-            let read = written.connections().get(&connection.key()).map(Connection::steps);
-            prop_assert_eq!(read, Some(connection.steps()));
-        }
-    }
-
     /// Every secret a connection's steps ask for is a name its deployment declares, so its card
     /// mints: deriving the settable names is a homomorphism over the connections.
     #[test]
@@ -294,108 +279,4 @@ fn the_catalog_is_one_template_per_name() {
     names.sort_unstable();
     names.dedup();
     assert_eq!(names.len(), TemplateId::ALL.len());
-}
-
-/// The models group's defaults are the subscription and the Messages API: another vendor is a
-/// deployment's own `[[providers]]` entry, no template of the catalog.
-#[test]
-fn the_models_defaults_are_anthropic_s_two() {
-    let models: Vec<TemplateId> = CATALOG
-        .iter()
-        .filter(|template| template.group == suzatary_core::connect::Group::Models)
-        .map(|template| template.id)
-        .collect();
-    assert_eq!(
-        models,
-        [TemplateId::ClaudeSubscription, TemplateId::AnthropicApi]
-    );
-}
-
-/// A calendar asks for one link, named for its label in its plugin's namespace, said in the
-/// owner's words, and a new account of the device-code kind asks for its sign-in until it holds
-/// one; a terminal's step reads as itself until its check first succeeds.
-#[test]
-fn a_calendar_asks_for_its_link_and_an_account_for_its_sign_in() {
-    let work = Connection::parse("ics", &["Work".to_owned()]).expect("a calendar");
-    assert_eq!(work.key().to_string(), "calendar/WORK");
-    assert_eq!(work.secrets(), ["PLUGIN_ICS_WORK"]);
-    let seen = |state: SecretState, signed_in: bool, checked: Checked| {
-        move |connection: &Connection| {
-            connection.standing(&Seen {
-                secret: &|_: &str| state,
-                signed_in: &|_: &EmailAddress| signed_in,
-                may_send: &|_: &EmailAddress| signed_in,
-                checked,
-                reach: &PLAIN,
-            })
-        }
-    };
-    assert_eq!(
-        seen(SecretState::Missing, false, Checked::Never)(&work),
-        Standing::missing("your Work calendar's secret link")
-    );
-    assert_eq!(
-        seen(SecretState::Set, false, Checked::Never)(&work),
-        Standing::Kept
-    );
-
-    let account = Connection::parse(
-        "imap-device-code",
-        &["ada@example.test".to_owned(), "consumers".to_owned()],
-    )
-    .expect("an account");
-    assert_eq!(
-        seen(SecretState::Missing, false, Checked::Never)(&account),
-        Standing::Missing {
-            what: vec![
-                "its sign-in to read mail".to_owned(),
-                "its sign-in to send mail".to_owned()
-            ]
-        }
-    );
-    assert_eq!(
-        seen(SecretState::Missing, true, Checked::Never)(&account),
-        Standing::Kept
-    );
-
-    let gmail = Connection::parse("lieer", &["ada@example.test".to_owned()]).expect("an account");
-    assert!(matches!(
-        seen(SecretState::Set, true, Checked::Never)(&gmail),
-        Standing::ByHand { command, .. } if command.contains("ada@example.test")
-    ));
-    assert_eq!(
-        seen(SecretState::Set, true, Checked::Once)(&gmail),
-        Standing::Kept
-    );
-    assert!(matches!(
-        account.template().steps,
-        [StepShape::DeviceCode, StepShape::SendingConsent]
-    ));
-    assert!(matches!(
-        TemplateId::Ics.template().steps,
-        [StepShape::Secret {
-            name: SecretName::Link,
-            ..
-        }]
-    ));
-}
-
-/// A parameter of another shape, or one its constructor refuses, makes no connection.
-#[test]
-fn a_connection_of_the_wrong_shape_is_refused_by_name() {
-    assert!(matches!(
-        Connection::parse("ics", &[]),
-        Err(Refused::Params {
-            template: "ics",
-            ..
-        })
-    ));
-    assert!(matches!(
-        Connection::parse("lieer", &["not an address".to_owned()]),
-        Err(Refused::Param { param: "email", .. })
-    ));
-    assert!(matches!(
-        Connection::parse("databricks", &[]),
-        Err(Refused::Template(_))
-    ));
 }

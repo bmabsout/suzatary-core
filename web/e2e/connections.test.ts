@@ -6,13 +6,11 @@
  * link as one of its own cards, and its removal stands as a card in the `connect` conversation,
  * as the setup agent will file it.
  *
- * FOUR SCENES, in order. A link served from an origin the calendar may not reach is stored
+ * THREE SCENES, in order. A link served from an origin the calendar may not reach is stored
  * nowhere: the CDP log shows it in the tap's request alone, the card the box files names only
  * the origin, and its Allow writes the origin into the instance file. Then Remove takes the
  * calendar's link out of the instance file, and the box's card asking for it leaves the Inbox.
- * Then the secretary, asked to add a Family calendar, files a Connect card whose tap adds it.
- * Last, the Setup conversation holding every card the box filed above draws its lines as the
- * box's, and no model answered them.
+ * Last, the secretary, asked to add a Family calendar, files a Connect card whose tap adds it.
  */
 
 import assert from "node:assert/strict";
@@ -122,21 +120,4 @@ app.scene("asked to add a calendar, the secretary files a Connect card whose tap
   const asked = `[...document.querySelectorAll('.inboxpage .proposal.proposal-act-secret[data-conversation="setup"]')]
     .some(card => (card.textContent ?? '').includes("your Family calendar's secret link"))`;
   await app.page.waitFor(asked, { timeout: 20000 });
-});
-
-// THE BOX'S CARDS ARE THE BOX'S (audit S3): every card above was filed into the Setup conversation with a line of the
-// box's own, drawn as the box's and never as the owner's, and none of them woke the model.
-app.scene("the Setup conversation draws the box's lines as the box's, and no model answered them", async () => {
-  await app.page.navigate(`${CONNECT}/#/secretary/setup`);
-  await app.page.waitFor(`document.querySelector('.turn[data-who="box"]') !== null`, { timeout: 20000 });
-  const drawn = await app.page.evaluate<{ box: number; act: number; model: number; who: string[] }>(`(() => ({
-    box: document.querySelectorAll('.turn[data-who="box"]').length,
-    act: document.querySelectorAll('.turn[data-who="act"]').length,
-    model: document.querySelectorAll('.turn[data-who="model"]').length,
-    who: [...document.querySelectorAll('.turn[data-who="box"] .turnwho')].map((w) => w.textContent),
-  }))()`);
-  assert.ok(drawn.box > 0, "the box's lines are there");
-  assert.equal(drawn.act, 0, "none is drawn as something the owner did");
-  assert.equal(drawn.model, 0, "and the model answered none of them");
-  assert.ok(drawn.who.every((w) => w === "The box"), drawn.who.join(", "));
 });

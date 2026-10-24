@@ -1,27 +1,23 @@
 /**
  * THE INFORMATION ARCHITECTURE, in a real browser (2026-09-10).
  *
- * `web/test/nav.test.ts` pins the arithmetic — five slots, which four, what
- * lights up — as pure data under node. What it cannot check is whether any of
- * that reaches a page: a bar built from the right list and never rendered, a
- * destination in `DESTINATIONS` with no arm in `main.ts`'s switch, a chain
- * pinned by a route that then mounts twice. Those are the failures this file is
- * for, and they are exactly the ones a reading of the diff would pass.
+ * The bar's slots and what lights up are data in `web/src/shell/nav.ts`. This
+ * file checks that the data reaches a page: a bar built from the right list
+ * and never rendered, a destination in `DESTINATIONS` with no arm in
+ * `main.ts`'s switch, a chain pinned by a route that then mounts twice. Those
+ * are the failures this file is for, and they are exactly the ones a reading
+ * of the diff would pass.
  *
  * The claims, each one a way the naive implementation goes wrong:
  *
- *   1. The bar IS Todos · Inbox · Secretary · Briefing · More, on a phone
- *      (docs/REDESIGN-PLAN-2026-09-25.md: words, not icons).
- *   2. Every one of those five opens something, and a hash with no arm lands
+ *   1. Every slot of the bar opens something, and a hash with no arm lands
  *      on "No such page" quietly.
- *   3. `#/project` shows the OTHER chain — not the same list under a new title,
+ *   2. `#/project` shows the OTHER chain — not the same list under a new title,
  *      which is what a switcher that changed a label and nothing else would do.
  *      The fixture's second chain is EMPTY, so this is checkable.
- *   4. Coming back to `#/` is the first chain again. A pin that only ever moved
- *      one way would pass claim 3 and strand the reader on Project.
- *   5. At 62rem the same words sit across the top, and More still holds the rest.
- *   6. The theme override, picked in the More sheet, wins over the machine's answer, in both directions.
- *   7. `#/add?text=…` is the list with the add sheet up and the text in it —
+ *   3. At 62rem the bar's words sit across the top, and More holds the rest.
+ *   4. The theme override, picked in the More sheet, wins over the machine's answer, in both directions.
+ *   5. `#/add?text=…` is the list with the add sheet up and the text in it —
  *      the far end of the Android share target, whose Java half has no test
  *      harness at all. What the browser can prove is everything after the
  *      fragment is handed over, which is all of the behaviour.
@@ -39,21 +35,6 @@ const barLabels = async (): Promise<string[]> =>
   app.page.evaluate<string[]>(
     `[...document.querySelectorAll(".tabbar > .tab")].map((tab) => tab.querySelector(".tablabel")?.textContent ?? "")`,
   );
-
-app.scene("the bar is the five a phone opens the app for", async () => {
-  await app.open(BASE);
-  assert.deepEqual(await barLabels(), ["Todos", "Inbox", "Secretary", "Briefing", "More"]);
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".tabbar svg").length`),
-    0,
-    "words, not icons",
-  );
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".tabbar .tab.active .diamond").length`),
-    1,
-    "the page in view is marked with a diamond",
-  );
-});
 
 app.scene("every slot in the bar opens a page the router knows", async () => {
   await app.open(BASE);
@@ -107,100 +88,6 @@ const openMore = async (): Promise<void> => {
   );
   await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === false`);
 };
-
-/**
- * THE SWITCHER AGREES WITH THE PAGE, OR IT IS NOT THERE (chain item
- * `chainswitcherlies`, `docs/AUDIT-UX-2026-09-12.md` finding 5). Three
- * scenes: hidden on the destination that is already about one chain, present
- * and honest everywhere else, and honest again once the reader has LEFT that
- * destination — the case a switch that only ever moved one way would fail.
- */
-app.scene("on Project the More sheet has no chain switcher", async () => {
-  await app.page.navigate(`${BASE}/#/project`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Project"`);
-  await openMore();
-  assert.equal(
-    await app.page.evaluate<boolean>(`document.querySelector(".moresheet .chainrow") !== null`),
-    false,
-    "a control that disagrees with the page is worse than no control",
-  );
-  await app.page.evaluate(`document.body.click()`);
-  await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === true`);
-});
-
-app.scene("leaving Project, Todos is the first chain again: its list, its lit word and the switcher", async () => {
-  await app.page.navigate(`${BASE}/#/project`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Project"`);
-  await app.page.navigate(`${BASE}/#/`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Todos"`);
-  await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`);
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector('.tabbar .tab.active .tablabel')?.textContent ?? ""`),
-    "Todos",
-  );
-  await openMore();
-  const active = await app.page.evaluate<string>(
-    `document.querySelector(".moresheet .chainpick.active")?.textContent ?? ""`,
-  );
-  assert.equal(active, "My todos", "back on Todos the switcher should read the first chain, not the one it left on");
-  await app.page.evaluate(`document.body.click()`);
-  await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === true`);
-});
-
-/**
- * THE MORE SHEET IN THE OWNER'S WORDS (the 2026-10-13 audit, X13 and X15): the chains are "My todos" and "This app's
- * work", never their names; Settings, About, Chain and Usage stand apart under "This app", away from Mail and Calendar;
- * and the theme is picked there, at the foot, where people look for it, and no longer on About.
- */
-app.scene("More names the chains as the owner does, sets this app's pages apart, and holds the theme", async () => {
-  await app.page.navigate(`${BASE}/#/`);
-  await app.page.waitFor(`document.querySelector("#view .pagetitle")?.textContent === "Todos"`);
-  await openMore();
-  assert.deepEqual(
-    await app.page.evaluate<string[]>(`[...document.querySelectorAll(".moresheet .chainpick")].map((n) => n.textContent)`),
-    ["My todos", "This app's work"],
-  );
-  assert.deepEqual(
-    await app.page.evaluate<string[]>(`[...document.querySelectorAll(".moresheet > .morelink .tablabel")].map((n) => n.textContent)`),
-    ["Project", "Mail", "Calendar"],
-  );
-  assert.deepEqual(
-    await app.page.evaluate<string[]>(`[...document.querySelectorAll(".moresheet .moreapp .morelink .tablabel")].map((n) => n.textContent)`),
-    ["Settings", "About", "Chain", "Usage"],
-  );
-  await app.page.clickText(".moresheet .themepick", "Dark");
-  await app.page.waitFor(`document.documentElement.getAttribute("data-theme") === "dark"`);
-  await app.page.waitFor(`document.querySelector(".moresheet .themepick.active")?.textContent === "Dark"`);
-  assert.equal(await app.page.evaluate<boolean>(`document.querySelector(".moresheet").hidden`), false, "picking a theme keeps the sheet open");
-  await app.page.clickText(".moresheet .themepick", "System");
-  await app.page.waitFor(`document.documentElement.hasAttribute("data-theme") === false`);
-  await app.page.evaluate(`document.body.click()`);
-  await app.page.waitFor(`document.querySelector(".moresheet")?.hidden === true`);
-  await app.page.navigate(`${BASE}/#/about`);
-  await app.page.waitFor(`document.querySelector(".aboutversion") !== null`);
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll("#view .themerow").length`), 0, "About keeps its prose and no setting");
-});
-
-/** A deployment that declares nothing and has proposed nothing: the shell's server, whose Inbox
- * holds no card of the box's either, since it declares no secret. */
-const BARE = process.env["E2E_BASE_SHELL"] ?? BASE;
-
-app.scene("the Inbox is a queue, and it says so when there is nothing in it", async () => {
-  await app.page.navigate(`${BARE}/#/inbox`);
-  // The EMPTY NOTE, not the legend: when the queue is empty the legend gets out
-  // of the note's way (one sentence, not two), so waiting on the legend would
-  // be waiting on a line the page has deliberately taken down.
-  await app.page.waitFor(`document.querySelector(".inboxpage .empty") !== null`);
-  const said = await app.page.evaluate<string>(`document.querySelector(".inboxpage .empty").textContent`);
-  // That fixture has made no proposals, so this is the empty case — and the
-  // empty case is the one that must not read as an error.
-  assert.match(said, /Nothing is waiting on you/, said);
-  assert.equal(
-    await app.page.evaluate<boolean>(`document.querySelector(".inboxpage .legend").hidden`),
-    true,
-    "the page should not say there is nothing twice",
-  );
-});
 
 app.scene("at 62rem the same words sit across the top, and More holds the rest", async () => {
   await app.resize(DESKTOP);

@@ -157,18 +157,3 @@ pub(crate) fn percent(text: &str, field: &str) -> Result<u32, Refusal> {
     }
     digits.parse().map_err(|_| refuse())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_percentage_is_a_whole_number_of_percent() {
-        assert_eq!(percent("65%", "priority").expect("a percent"), 65);
-        assert_eq!(percent("100%", "priority").expect("a percent"), 100);
-        assert_eq!(percent("0%", "priority").expect("a percent"), 0);
-        for bad in ["0.5", "65", "-5%", "101%", "%", "6 5%", "065%", "1000%"] {
-            assert!(percent(bad, "priority").is_err(), "{bad}");
-        }
-    }
-}

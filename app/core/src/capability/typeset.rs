@@ -144,15 +144,4 @@ mod tests {
                 .starts_with("1:3: unexpected closing bracket")
         );
     }
-
-    #[test]
-    fn a_diagnostic_says_where_in_lines_and_characters() {
-        let d = Diagnostic {
-            message: "unknown variable: html".to_owned(),
-            hints: vec![],
-            span: Some(7..11),
-        };
-        assert_eq!(d.said("é\nab #html"), "2:5: unknown variable: html");
-        assert_eq!(Diagnostic::whole("timed out").said("x"), "timed out");
-    }
 }

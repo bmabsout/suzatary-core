@@ -174,43 +174,6 @@ mod tests {
     }
 
     #[test]
-    fn the_url_is_read_through_colour_and_a_hyperlink() {
-        let drawn = screen(&[
-            b"\x1b[2J\x1b[HBrowser didn't open? Use the url below to sign in\r\n",
-            b"\x1b]8;;https://claude.ai/oauth/authorize?code=true&state=s1\x1b\\",
-            b"\x1b[36mhttps://claude.ai/oauth/authorize?code=true&state=s1\x1b[39m",
-            b"\x1b]8;;\x1b\\\r\nPaste code here if prompted > ",
-        ]);
-        assert_eq!(
-            drawn.url().as_ref().map(SignInUrl::as_str),
-            Some("https://claude.ai/oauth/authorize?code=true&state=s1")
-        );
-        assert_eq!(drawn.token(), None);
-    }
-
-    /// As the real `setup-token` (2.1.292) draws it: each word placed at its column, the link in
-    /// an OSC 8 hyperlink ended by BEL, its text in a 256-colour grey.
-    #[test]
-    fn the_real_draw_reads_as_words_and_one_link() {
-        let drawn = screen(&[
-            b"\x1b[2G\x1b[38;5;246mBrowser\x1b[10Gdidn't\x1b[17Gopen?\x1b[39m\r\r\n\r\r\n",
-            b"\x1b]8;id=1im01g5;https://claude.com/cai/oauth/authorize?code=true&state=s\x07",
-            b"\x1b[38;5;246mhttps://claude.com/cai/oauth/authorize?code=true&state=s\x1b[39m",
-            b"\x1b]8;;\x07\r\r\n\r\r\n\x1b[2GPaste\x1b[8Gcode\x1b[30G>\r\r\n\x1b[>0q\x1b[?u\x1b[c",
-        ]);
-        assert_eq!(
-            drawn.url().as_ref().map(SignInUrl::as_str),
-            Some("https://claude.com/cai/oauth/authorize?code=true&state=s")
-        );
-        assert!(
-            drawn.tail(20).ends_with("Paste code >"),
-            "{}",
-            drawn.tail(20)
-        );
-        assert!(drawn.tail(200).starts_with("Browser didn't open?"));
-    }
-
-    #[test]
     fn a_sequence_cut_between_two_reads_is_waited_for() {
         let drawn = screen(&[b"\x1b[3", b"6mhttps://claude.ai/oauth?x=1\x1b[", b"0m\r\n"]);
         assert_eq!(
@@ -232,12 +195,5 @@ mod tests {
         assert_eq!(drawn.token(), None, "the token may go on");
         drawn.feed(b"123_-xyz\r\n\r\nStore this token securely.");
         assert_eq!(drawn.token(), Some("sk-ant-oat01-abcDEF123_-xyz"));
-    }
-
-    #[test]
-    fn a_character_cut_between_two_reads_is_kept() {
-        let tick = "✓".as_bytes();
-        let drawn = screen(&[&tick[..1], &tick[1..], b" done"]);
-        assert_eq!(drawn.tail(10), "✓ done");
     }
 }

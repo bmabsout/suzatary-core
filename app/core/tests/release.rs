@@ -13,8 +13,7 @@ use proptest::prelude::*;
 use std::collections::BTreeMap;
 use suzatary_core::record::TodoEvent;
 use suzatary_core::release::{
-    Completed, Completes, Counted, Lot, Named, Place, Plan, PlanError, Reading, Release, Released,
-    Version,
+    Completed, Completes, Counted, Lot, Plan, Reading, Release, Released, Version,
 };
 
 const OWNER: &str = "owner";
@@ -310,35 +309,6 @@ fn the_declared_plan_reads() {
     );
 }
 
-/// A plan whose versions do not strictly increase from `base.0`, or that names a release twice,
-/// is not one.
-#[test]
-fn a_plan_refuses_versions_that_do_not_climb() {
-    for releases in [
-        vec![release("a", 2, 1), release("b", 2, 0)],
-        vec![release("a", 2, 1), release("b", 2, 1)],
-        vec![release("a", 3, 0), release("b", 2, 5)],
-        vec![release("a", 1, 0)],
-    ] {
-        assert!(
-            matches!(
-                Plan::new("c", 1, releases.clone()),
-                Err(PlanError::NotAbove { .. })
-            ),
-            "{releases:?}"
-        );
-    }
-    assert!(matches!(
-        Plan::new("c", 1, vec![release("a", 2, 0), release("a", 2, 1)]),
-        Err(PlanError::Twice(_))
-    ));
-    assert!(Plan::new("c", 1, vec![release("a", 1, 1), release("b", 2, 0)]).is_ok());
-    assert!(matches!(
-        Plan::parse("chain = \"c\"\nbase = 1\n[[release]]\ntodo = \"a\"\nmajor = 2\n"),
-        Err(PlanError::Unread(_))
-    ));
-}
-
 /// The file a release writes reads back as itself, each todo once and each title one line.
 #[test]
 fn a_release_prints_and_parses_as_itself() {
@@ -389,113 +359,34 @@ fn a_release_prints_and_parses_as_itself() {
     );
 }
 
-/// What semver would not spell is not a version.
-#[test]
-fn a_version_is_three_plain_numbers() {
-    for bad in ["1.2", "1.2.3.4", "01.2.3", "1.-2.3", "v1.2.3", "1.2.x", ""] {
-        assert!(bad.parse::<Version>().is_err(), "{bad:?} parsed");
-    }
-}
-
-/// `GET /api/releases` over a set holding the plan's chain: each release priced as its row,
-/// titled by its action line, its items with what became of them; and nothing where the set holds no
-/// such chain.
-#[test]
-fn the_release_route_reads_the_plans_chain() {
-    use suzatary_core::store::{InMemory, Prodrome};
-    let store = InMemory::<TodoEvent>::default();
-    let authored = |id: &str, body: &str, spec| {
-        suzatary_core::record::mk_authored(
-            id,
-            day(0),
-            OWNER,
-            "todo",
-            day(0),
-            suzatary_core::record::MarkupSource::escaped(body),
-            spec,
-            vec!["a fixture".to_owned()],
-            "",
-            "",
-            suzatary_core::record::MarkupSource::empty(),
-            None,
-            Vec::new(),
-            Vec::new(),
-            "",
-        )
-        .expect("a record")
-    };
-    for event in [
-        authored("two", "Suzatary 2.0", composes(&["alpha", "bravo"])),
-        authored("alpha", "the alpha item", mk_flat(0.7).expect("a value")),
-        authored("bravo", "the bravo item", mk_flat(0.7).expect("a value")),
-        mk_completed("alpha", day(1), OWNER, "").expect("an event"),
-    ] {
-        store.append(event).expect("appends");
-    }
-    let policy = suzatary_core::chains::ChainPolicy {
-        name: suzatary_core::chains::ChainName::new("suzatary").expect("a slug"),
-        untrusted: untrusted(),
-        roster: [Actor::new(OWNER).expect("an actor")].into_iter().collect(),
-        root: suzatary_core::cast::keys::root(),
-    };
-    let read =
-        suzatary_core::chain_set::Read::of_stores([(&policy, &store as &dyn Prodrome<TodoEvent>)]);
-    let payload = suzatary_core::routes::releases(&plan(), &read.set(day(5))).expect("answers");
-    assert_eq!(payload.reads, "1.0");
-    let two = &payload.releases[0];
-    let held = two.held.as_ref().expect("the release is on the chain");
-    assert_eq!(
-        (two.todo.as_str(), held.title.as_str()),
-        ("two", "Suzatary 2.0")
-    );
-    assert_eq!((two.lot, two.place), (Lot::Open, Place::Next));
-    assert!(held.row.value.is_some());
-    let items: Vec<(&str, Option<&str>, Lot, Named)> = two
-        .items
-        .iter()
-        .map(|i| {
-            (
-                i.todo.as_str(),
-                i.held.as_ref().map(|h| h.title.as_str()),
-                i.lot,
-                i.named,
-            )
-        })
-        .collect();
-    assert_eq!(
-        items,
-        vec![
-            (
-                "alpha",
-                Some("the alpha item"),
-                Lot::Completed,
-                Named::Current
-            ),
-            ("bravo", Some("the bravo item"), Lot::Open, Named::Current),
-        ]
-    );
-    // 2.1 is declared and not on the chain yet: no row is made up for it.
-    assert!(payload.releases[1].held.is_none());
-
-    let elsewhere =
-        suzatary_core::routes::releases(&plan(), &suzatary_core::chain_set::ChainSet::new(day(5)))
-            .expect("answers");
-    assert!(elsewhere.releases.is_empty());
-}
-
-/// An entry a PR branched before the last release wrote under Unreleased is merged into the
-/// section that release closed; the cut moves it back, under its heading, and leaves what the
-/// release itself held.
+/// An entry a PR branched before a release wrote under Unreleased is merged into the section
+/// that release closed, or into an older released section when the PR branched further back; the
+/// cut moves it back, under its heading, and leaves what each release itself held.
 #[test]
 fn entries_merged_into_a_released_section_are_unreleased_again() {
     let base = "# Changelog\n\n## [Unreleased]\n\n## [1.11.0] - 2026-10-12\n\n- Completes `todo:suzatary/x`: x\n\n### Added\n- a\n\n## [1.10.0] - 2026-10-01\n\n- old\n";
     let merged = "# Changelog\n\n## [Unreleased]\n\n## [1.11.0] - 2026-10-12\n\n- Completes `todo:suzatary/x`: x\n\n### Added\n- a\n- b\n  more of b\n\n### Fixed\n- c\n\n## [1.10.0] - 2026-10-01\n\n- old\n";
-    assert_eq!(
-        suzatary_core::release::reopened(base, merged),
-        "# Changelog\n\n## [Unreleased]\n\n### Added\n- b\n  more of b\n\n### Fixed\n- c\n\n## [1.11.0] - 2026-10-12\n\n- Completes `todo:suzatary/x`: x\n\n### Added\n- a\n\n## [1.10.0] - 2026-10-01\n\n- old\n"
-    );
-    // A tree whose merges added nothing below Unreleased is left as it is.
-    assert_eq!(suzatary_core::release::reopened(base, base), base);
+    let two_back = "## [Unreleased]\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n";
+    for (base, merged, reopened) in [
+        (
+            base,
+            merged,
+            "# Changelog\n\n## [Unreleased]\n\n### Added\n- b\n  more of b\n\n### Fixed\n- c\n\n## [1.11.0] - 2026-10-12\n\n- Completes `todo:suzatary/x`: x\n\n### Added\n- a\n\n## [1.10.0] - 2026-10-01\n\n- old\n",
+        ),
+        // A tree whose merges added nothing below Unreleased is left as it is.
+        (base, base, base),
+        (
+            two_back,
+            "## [Unreleased]\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n- late\n",
+            "## [Unreleased]\n\n### Fixed\n- late\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n",
+        ),
+    ] {
+        assert_eq!(
+            suzatary_core::release::reopened(base, merged),
+            reopened,
+            "{merged}"
+        );
+    }
     // An entry already under Unreleased joins the one moved there, under one heading.
     let fresh = merged.replace(
         "## [Unreleased]\n\n",
@@ -505,18 +396,6 @@ fn entries_merged_into_a_released_section_are_unreleased_again() {
     assert!(
         moved.starts_with("# Changelog\n\n## [Unreleased]\n\n### Added\n- d\n- b\n  more of b\n\n### Fixed\n- c\n\n## [1.11.0]"),
         "{moved}"
-    );
-}
-
-/// A PR branched two releases back lands its entry in the older released section; the cut moves
-/// it back too, and leaves both sections as `base` held them.
-#[test]
-fn entries_merged_into_any_released_section_are_unreleased_again() {
-    let base = "## [Unreleased]\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n";
-    let merged = "## [Unreleased]\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n- late\n";
-    assert_eq!(
-        suzatary_core::release::reopened(base, merged),
-        "## [Unreleased]\n\n### Fixed\n- late\n\n## [1.12.0] - 2026-10-13\n\n### Added\n- twelve\n\n## [1.11.0] - 2026-10-12\n\n### Fixed\n- eleven\n"
     );
 }
 

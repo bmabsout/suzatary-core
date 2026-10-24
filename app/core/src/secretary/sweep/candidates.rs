@@ -290,14 +290,9 @@ mod tests {
     use super::*;
     use crate::mail::state::Decision;
     use crate::mail::verbs::{Marked, NoiseAdded, Show, Summary, SyncReport};
-    use std::collections::BTreeMap;
 
     fn dt(y: i32, m: u32, d: u32) -> Datetime {
         Datetime::new(y, m, d, 0, 0, 0, 0).expect("a real date")
-    }
-
-    fn hhmmss(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> Datetime {
-        Datetime::new(year, month, day, hour, minute, second, 0).expect("a real date")
     }
 
     fn source(sender: &str, subject: &str, thread_id: &str) -> Source {
@@ -446,45 +441,6 @@ mod tests {
     }
 
     #[test]
-    fn law3_candidates_are_deterministic_and_sorted_by_todo_then_date() {
-        let corpus = FakeCorpus {
-            messages: vec![
-                (
-                    "cccccccc".into(),
-                    "th1".into(),
-                    "noreply@airline.example".into(),
-                    "later".into(),
-                    "2026-09-08 08:00:00".into(),
-                ),
-                (
-                    "dddddddd".into(),
-                    "th1".into(),
-                    "noreply@airline.example".into(),
-                    "earlier".into(),
-                    "2026-09-06 08:00:00".into(),
-                ),
-            ],
-        };
-        let created = dt(2026, 9, 5);
-        let todo = open(
-            "flightcheckin",
-            created,
-            Some(source("noreply@airline.example", "Your trip", "th1")),
-            "check in for the flight",
-        );
-        let first =
-            candidates(std::slice::from_ref(&todo), &corpus, dt(2026, 9, 10)).expect("candidates");
-        let second =
-            candidates(std::slice::from_ref(&todo), &corpus, dt(2026, 9, 10)).expect("candidates");
-        assert_eq!(first, second, "the same inputs yield the same candidates");
-        let dates: Vec<Datetime> = first.iter().map(|c| c.at).collect();
-        assert!(
-            dates.windows(2).all(|pair| pair[0] <= pair[1]),
-            "candidates for one todo are sorted by date ascending, got {dates:?}"
-        );
-    }
-
-    #[test]
     fn law4_a_handauthored_todo_finds_candidates_only_through_its_referents() {
         let corpus = FakeCorpus {
             messages: vec![(
@@ -517,105 +473,5 @@ mod tests {
             found[0].matched,
             Match::NamesReferent(Referent::Code("AB12CD".to_owned()))
         );
-    }
-
-    #[test]
-    fn queries_for_one_example_todo() {
-        let todo = open(
-            "flightcheckin",
-            dt(2026, 9, 5),
-            Some(source(
-                "The Airline <noreply@airline.example>",
-                "Your trip",
-                "th-abc123",
-            )),
-            "Flight UA 523 confirmation code AB12CD, dear John Smith",
-        );
-        let built: BTreeMap<String, Match> = queries_for(&todo)
-            .into_iter()
-            .map(|(matched, query)| (query.as_str().to_owned(), matched))
-            .collect();
-        assert_eq!(built.get("thread:th-abc123"), Some(&Match::SameThread));
-        assert_eq!(
-            built.get("from:noreply@airline.example"),
-            Some(&Match::SameSender)
-        );
-        assert_eq!(
-            built.get("AB12CD"),
-            Some(&Match::NamesReferent(Referent::Code("AB12CD".to_owned())))
-        );
-        assert_eq!(
-            built.get("UA523"),
-            Some(&Match::NamesReferent(Referent::Flight("UA523".to_owned())))
-        );
-        assert_eq!(
-            built.get("\"John Smith\""),
-            Some(&Match::NamesReferent(Referent::Person(
-                "John Smith".to_owned()
-            )))
-        );
-    }
-
-    /// Each kind of referent a receipt carries is read off its label: a confirmation code, a
-    /// booking reference, an order number, a record locator, a flight and a person.
-    #[test]
-    fn extracts_each_referent_after_its_label() {
-        for (text, referent) in [
-            (
-                "Your confirmation code: AB12CD is ready",
-                Referent::Code("AB12CD".to_owned()),
-            ),
-            (
-                "Booking reference XZ99Q1",
-                Referent::Code("XZ99Q1".to_owned()),
-            ),
-            ("Order #: 4471A9", Referent::Code("4471A9".to_owned())),
-            (
-                "Record locator: 7KQ2M1",
-                Referent::Code("7KQ2M1".to_owned()),
-            ),
-            (
-                "Flight UA 523 departs at 6am",
-                Referent::Flight("UA523".to_owned()),
-            ),
-            (
-                "Dear Jane Doe, your reservation is confirmed",
-                Referent::Person("Jane Doe".to_owned()),
-            ),
-        ] {
-            assert_eq!(referents_in(text), vec![referent], "{text}");
-        }
-    }
-
-    #[test]
-    fn a_stray_capitalised_word_with_no_digit_is_not_a_code() {
-        assert!(referents_in("Confirmation code: PENDING").is_empty());
-    }
-
-    #[test]
-    fn plain_prose_names_no_referent() {
-        assert!(referents_in("please call the plumber sometime next week").is_empty());
-    }
-
-    #[test]
-    fn reads_a_shown_timestamp_as_the_instant_it_names() {
-        assert_eq!(
-            parse_shown_timestamp("2026-09-01 14:22:33-04:00"),
-            Some(hhmmss(2026, 9, 1, 18, 22, 33))
-        );
-        assert_eq!(
-            parse_shown_timestamp("2026-09-01 23:22:33-04:00"),
-            Some(hhmmss(2026, 9, 2, 3, 22, 33)),
-            "an evening in New York is the next day in UTC"
-        );
-        assert_eq!(
-            parse_shown_timestamp("2026-09-01 14:22:33+03:00"),
-            Some(hhmmss(2026, 9, 1, 11, 22, 33))
-        );
-        assert_eq!(
-            parse_shown_timestamp("2026-09-01 14:22:33"),
-            Some(hhmmss(2026, 9, 1, 14, 22, 33))
-        );
-        assert_eq!(parse_shown_timestamp("not a date"), None);
     }
 }

@@ -404,237 +404,225 @@ mod tests {
         .collect()
     }
 
-    // The RFC's own examples (§3.8.5.3), each against the list it prints.
-
+    /// The RFC's own examples (§3.8.5.3 and §3.3.10's two week starts), each against the list it
+    /// prints, and the cases its prose names: a day a month or a year does not have is skipped,
+    /// never rolled; week one may begin in December; `DTSTART` is the first instance even when
+    /// the rule would not make it. Each row is a rule, its `DTSTART`, how many instances it makes
+    /// until 2030, and runs of them from a position.
     #[test]
-    fn daily_for_ten_occurrences() {
-        assert_eq!(expand("FREQ=DAILY;COUNT=10", "1997-09-02 09:00").len(), 10);
-        assert_eq!(
-            expand("FREQ=DAILY;COUNT=10", "1997-09-02 09:00")[9],
-            "1997-09-11 09:00"
-        );
-    }
-
-    #[test]
-    fn every_other_day_until_and_until_is_inclusive() {
-        let got = expand(
-            "FREQ=DAILY;INTERVAL=2;UNTIL=19970912T090000",
-            "1997-09-02 09:00",
-        );
-        assert_eq!(
-            got,
-            [
+    #[allow(clippy::too_many_lines, reason = "one row per example the RFC prints")]
+    fn each_rule_makes_the_instances_the_rfc_prints() {
+        type Runs<'a> = &'a [(usize, &'a [&'a str])];
+        let rows: &[(&str, &str, usize, Runs<'_>)] = &[
+            (
+                "FREQ=DAILY;COUNT=10",
                 "1997-09-02 09:00",
-                "1997-09-04 09:00",
-                "1997-09-06 09:00",
-                "1997-09-08 09:00",
-                "1997-09-10 09:00",
-                "1997-09-12 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn weekly_on_tuesday_and_thursday_for_five_weeks() {
-        let got = expand(
-            "FREQ=WEEKLY;UNTIL=19971007T000000;WKST=SU;BYDAY=TU,TH",
-            "1997-09-02 09:00",
-        );
-        assert_eq!(got.len(), 10);
-        assert_eq!(
-            got[..3],
-            ["1997-09-02 09:00", "1997-09-04 09:00", "1997-09-09 09:00"]
-        );
-        assert_eq!(got[9], "1997-10-02 09:00");
-    }
-
-    #[test]
-    fn every_other_week_depends_on_wkst() {
-        // §3.3.10's own example: the same rule, two week starts, two answers.
-        let monday = expand(
-            "FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=MO",
-            "1997-08-05 09:00",
-        );
-        assert_eq!(
-            monday,
-            [
+                10,
+                &[(9, &["1997-09-11 09:00"])],
+            ),
+            (
+                "FREQ=DAILY;INTERVAL=2;UNTIL=19970912T090000",
+                "1997-09-02 09:00",
+                6,
+                &[(
+                    0,
+                    &[
+                        "1997-09-02 09:00",
+                        "1997-09-04 09:00",
+                        "1997-09-06 09:00",
+                        "1997-09-08 09:00",
+                        "1997-09-10 09:00",
+                        "1997-09-12 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=WEEKLY;UNTIL=19971007T000000;WKST=SU;BYDAY=TU,TH",
+                "1997-09-02 09:00",
+                10,
+                &[
+                    (
+                        0,
+                        &["1997-09-02 09:00", "1997-09-04 09:00", "1997-09-09 09:00"],
+                    ),
+                    (9, &["1997-10-02 09:00"]),
+                ],
+            ),
+            (
+                "FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=MO",
                 "1997-08-05 09:00",
-                "1997-08-10 09:00",
-                "1997-08-19 09:00",
-                "1997-08-24 09:00"
-            ]
-        );
-        let sunday = expand(
-            "FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=SU",
-            "1997-08-05 09:00",
-        );
-        assert_eq!(
-            sunday,
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "1997-08-05 09:00",
+                        "1997-08-10 09:00",
+                        "1997-08-19 09:00",
+                        "1997-08-24 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=SU",
                 "1997-08-05 09:00",
-                "1997-08-17 09:00",
-                "1997-08-19 09:00",
-                "1997-08-31 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn monthly_on_the_first_and_last_sunday() {
-        let got = expand(
-            "FREQ=MONTHLY;INTERVAL=2;COUNT=10;BYDAY=1SU,-1SU",
-            "1997-09-07 09:00",
-        );
-        assert_eq!(
-            got[..4],
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "1997-08-05 09:00",
+                        "1997-08-17 09:00",
+                        "1997-08-19 09:00",
+                        "1997-08-31 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=MONTHLY;INTERVAL=2;COUNT=10;BYDAY=1SU,-1SU",
                 "1997-09-07 09:00",
+                10,
+                &[(
+                    0,
+                    &[
+                        "1997-09-07 09:00",
+                        "1997-09-28 09:00",
+                        "1997-11-02 09:00",
+                        "1997-11-30 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=MONTHLY;BYMONTHDAY=-3;COUNT=4",
                 "1997-09-28 09:00",
-                "1997-11-02 09:00",
-                "1997-11-30 09:00"
-            ]
-        );
-        assert_eq!(got.len(), 10);
-    }
-
-    #[test]
-    fn monthly_on_the_third_to_last_day() {
-        let got = expand("FREQ=MONTHLY;BYMONTHDAY=-3;COUNT=4", "1997-09-28 09:00");
-        assert_eq!(
-            got,
-            [
-                "1997-09-28 09:00",
-                "1997-10-29 09:00",
-                "1997-11-28 09:00",
-                "1997-12-29 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn a_day_that_a_month_does_not_have_is_skipped_never_rolled() {
-        let got = expand("FREQ=MONTHLY;BYMONTHDAY=31;COUNT=4", "2026-01-31 09:00");
-        assert_eq!(
-            got,
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "1997-09-28 09:00",
+                        "1997-10-29 09:00",
+                        "1997-11-28 09:00",
+                        "1997-12-29 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=MONTHLY;BYMONTHDAY=31;COUNT=4",
                 "2026-01-31 09:00",
-                "2026-03-31 09:00",
-                "2026-05-31 09:00",
-                "2026-07-31 09:00"
-            ]
-        );
-        let leap = expand("FREQ=YEARLY;COUNT=3", "2024-02-29 09:00");
-        assert_eq!(leap, ["2024-02-29 09:00", "2028-02-29 09:00"]);
-    }
-
-    #[test]
-    fn the_last_weekday_of_the_month_by_setpos() {
-        let got = expand(
-            "FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;COUNT=3",
-            "1997-09-30 09:00",
-        );
-        assert_eq!(
-            got,
-            ["1997-09-30 09:00", "1997-10-31 09:00", "1997-11-28 09:00"]
-        );
-    }
-
-    #[test]
-    fn yearly_in_june_and_july() {
-        let got = expand("FREQ=YEARLY;COUNT=10;BYMONTH=6,7", "1997-06-10 09:00");
-        assert_eq!(
-            got[..4],
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "2026-01-31 09:00",
+                        "2026-03-31 09:00",
+                        "2026-05-31 09:00",
+                        "2026-07-31 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=YEARLY;COUNT=3",
+                "2024-02-29 09:00",
+                2,
+                &[(0, &["2024-02-29 09:00", "2028-02-29 09:00"])],
+            ),
+            (
+                "FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;COUNT=3",
+                "1997-09-30 09:00",
+                3,
+                &[(
+                    0,
+                    &["1997-09-30 09:00", "1997-10-31 09:00", "1997-11-28 09:00"],
+                )],
+            ),
+            (
+                "FREQ=YEARLY;COUNT=10;BYMONTH=6,7",
                 "1997-06-10 09:00",
-                "1997-07-10 09:00",
-                "1998-06-10 09:00",
-                "1998-07-10 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn the_monday_of_week_twenty() {
-        let got = expand(
-            "FREQ=YEARLY;BYWEEKNO=20;BYDAY=MO;COUNT=3",
-            "1997-05-12 09:00",
-        );
-        assert_eq!(
-            got,
-            ["1997-05-12 09:00", "1998-05-11 09:00", "1999-05-17 09:00"]
-        );
-    }
-
-    #[test]
-    fn week_one_may_begin_in_december() {
-        // Week 1 of 2026 under Monday starts on 2025-12-29.
-        let got = expand(
-            "FREQ=YEARLY;BYWEEKNO=1;BYDAY=MO;COUNT=2",
-            "2024-12-30 09:00",
-        );
-        assert_eq!(got, ["2024-12-30 09:00", "2025-12-29 09:00"]);
-    }
-
-    #[test]
-    fn every_hundredth_day_of_the_year_and_the_last() {
-        let got = expand("FREQ=YEARLY;BYYEARDAY=1,100,-1;COUNT=4", "2026-01-01 09:00");
-        assert_eq!(
-            got,
-            [
+                10,
+                &[(
+                    0,
+                    &[
+                        "1997-06-10 09:00",
+                        "1997-07-10 09:00",
+                        "1998-06-10 09:00",
+                        "1998-07-10 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=YEARLY;BYWEEKNO=20;BYDAY=MO;COUNT=3",
+                "1997-05-12 09:00",
+                3,
+                &[(
+                    0,
+                    &["1997-05-12 09:00", "1998-05-11 09:00", "1999-05-17 09:00"],
+                )],
+            ),
+            // Week 1 of 2026 under Monday starts on 2025-12-29.
+            (
+                "FREQ=YEARLY;BYWEEKNO=1;BYDAY=MO;COUNT=2",
+                "2024-12-30 09:00",
+                2,
+                &[(0, &["2024-12-30 09:00", "2025-12-29 09:00"])],
+            ),
+            (
+                "FREQ=YEARLY;BYYEARDAY=1,100,-1;COUNT=4",
                 "2026-01-01 09:00",
-                "2026-04-10 09:00",
-                "2026-12-31 09:00",
-                "2027-01-01 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn friday_the_thirteenth() {
-        let got = expand(
-            "FREQ=MONTHLY;BYDAY=FR;BYMONTHDAY=13;COUNT=4",
-            "1997-09-02 09:00",
-        );
-        // DTSTART is the first instance even though the rule would not make it.
-        assert_eq!(
-            got,
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "2026-01-01 09:00",
+                        "2026-04-10 09:00",
+                        "2026-12-31 09:00",
+                        "2027-01-01 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=MONTHLY;BYDAY=FR;BYMONTHDAY=13;COUNT=4",
                 "1997-09-02 09:00",
-                "1998-02-13 09:00",
-                "1998-03-13 09:00",
-                "1998-11-13 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn several_times_a_day() {
-        let got = expand(
-            "FREQ=DAILY;BYHOUR=9,17;BYMINUTE=0,30;COUNT=5",
-            "2026-10-05 09:00",
-        );
-        assert_eq!(
-            got,
-            [
+                4,
+                &[(
+                    0,
+                    &[
+                        "1997-09-02 09:00",
+                        "1998-02-13 09:00",
+                        "1998-03-13 09:00",
+                        "1998-11-13 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=DAILY;BYHOUR=9,17;BYMINUTE=0,30;COUNT=5",
                 "2026-10-05 09:00",
-                "2026-10-05 09:30",
-                "2026-10-05 17:00",
-                "2026-10-05 17:30",
-                "2026-10-06 09:00"
-            ]
-        );
-    }
-
-    #[test]
-    fn every_ninety_minutes_on_weekdays_only() {
-        let got = expand(
-            "FREQ=MINUTELY;INTERVAL=90;BYDAY=MO;COUNT=3",
-            "2026-10-05 09:00",
-        );
-        assert_eq!(
-            got,
-            ["2026-10-05 09:00", "2026-10-05 10:30", "2026-10-05 12:00"]
-        );
+                5,
+                &[(
+                    0,
+                    &[
+                        "2026-10-05 09:00",
+                        "2026-10-05 09:30",
+                        "2026-10-05 17:00",
+                        "2026-10-05 17:30",
+                        "2026-10-06 09:00",
+                    ],
+                )],
+            ),
+            (
+                "FREQ=MINUTELY;INTERVAL=90;BYDAY=MO;COUNT=3",
+                "2026-10-05 09:00",
+                3,
+                &[(
+                    0,
+                    &["2026-10-05 09:00", "2026-10-05 10:30", "2026-10-05 12:00"],
+                )],
+            ),
+        ];
+        for &(rule, dtstart, made, runs) in rows {
+            let got = expand(rule, dtstart);
+            assert_eq!(got.len(), made, "{rule}: {got:?}");
+            for &(from, run) in runs {
+                assert_eq!(got[from..from + run.len()], *run, "{rule}");
+            }
+        }
     }
 
     #[test]

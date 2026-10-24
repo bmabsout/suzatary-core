@@ -87,7 +87,7 @@ fn fake_routine() -> (String, std::thread::JoinHandle<(Vec<String>, String)>) {
 
 const TASK: &str = "Retitle the CV to Principal investigator.\\nRun the gates.";
 
-fn scene(tag: &str, firing: Option<Firing>) -> (String, Arc<Fakes>) {
+fn scene(tag: &str, firing: Firing) -> (String, Arc<Fakes>) {
     let fakes = Arc::new(
         Fakes::new(tag)
             .whois(common::FakeWhois::new().naming(common::v4(), owner()))
@@ -103,16 +103,14 @@ fn scene(tag: &str, firing: Option<Firing>) -> (String, Arc<Fakes>) {
                 r#"{"say": "Proposed."}"#,
             ])),
     );
-    let server = common::Server::new(Arc::clone(&fakes), deployment(), Vec::new()).real_acts(
-        tag,
-        "her@study.test",
-        common::again(&fakes.conversations),
-        common::ScriptedOauth::new(Vec::new()),
-    );
-    let server = match firing {
-        Some(firing) => server.firing(firing),
-        None => server,
-    };
+    let server = common::Server::new(Arc::clone(&fakes), deployment(), Vec::new())
+        .real_acts(
+            tag,
+            "her@study.test",
+            common::again(&fakes.conversations),
+            common::ScriptedOauth::new(Vec::new()),
+        )
+        .firing(firing);
     (server.start().base, fakes)
 }
 
@@ -206,11 +204,11 @@ fn a_tapped_session_fires_the_routine_with_the_task_alone() {
     let (routine, served) = fake_routine();
     let (base, _fakes) = scene(
         "coding-fire",
-        Some(Firing::Endpoint {
+        Firing::Endpoint {
             base: routine,
             routine: "trig_01fake".parse().expect("a routine id"),
             secrets: Arc::new(Holding),
-        }),
+        },
     );
     let (id, payload) = proposed(&base);
     let proposal = &payload["proposals"][0];
@@ -250,25 +248,6 @@ fn a_tapped_session_fires_the_routine_with_the_task_alone() {
     );
 }
 
-/// With no routine declared, a tap is an outcome in words, and nothing runs.
-#[test]
-fn with_no_routine_a_tap_fails_in_words() {
-    let (base, _fakes) = scene("coding-undeclared", None);
-    let (id, _) = proposed(&base);
-    let (status, after) = answer(&base, &id, "tap", &serde_json::json!({}));
-    assert_eq!(status, 200, "{after}");
-    let proposal = &after["proposals"][0];
-    assert_eq!(proposal["state"], "failed");
-    assert!(
-        proposal["outcome"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("[coding]"),
-        "{proposal}"
-    );
-    assert_eq!(proposal["coding"], serde_json::Value::Null);
-}
-
 fn git(dir: &std::path::Path, args: &[&str]) {
     let out = std::process::Command::new("git")
         .current_dir(dir)
@@ -291,11 +270,11 @@ fn a_session_is_reported_handed_over_once_and_merged() {
     let (routine, served) = fake_routine();
     let (base, fakes) = scene(
         "coding-life",
-        Some(Firing::Endpoint {
+        Firing::Endpoint {
             base: routine,
             routine: "trig_01fake".parse().expect("a routine id"),
             secrets: Arc::new(Holding),
-        }),
+        },
     );
     let (id, _) = proposed(&base);
     assert_eq!(answer(&base, &id, "tap", &serde_json::json!({})).0, 200);
@@ -386,11 +365,11 @@ fn a_fired_session_is_dropped_with_a_reason() {
     let (routine, served) = fake_routine();
     let (base, _fakes) = scene(
         "coding-drop",
-        Some(Firing::Endpoint {
+        Firing::Endpoint {
             base: routine,
             routine: "trig_01fake".parse().expect("a routine id"),
             secrets: Arc::new(Holding),
-        }),
+        },
     );
     let (id, _) = proposed(&base);
     assert_eq!(answer(&base, &id, "tap", &serde_json::json!({})).0, 200);

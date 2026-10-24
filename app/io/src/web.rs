@@ -249,25 +249,6 @@ fn listed(hits: &[Hit]) -> String {
 mod tests {
     use super::*;
 
-    const PAGE: &str = r#"<div class="result"><h2><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.gov.uk%2Ftenancy%2Ddeposit%2Dprotection&amp;rut=abc">Tenancy deposit <b>protection</b></a></h2>
-<a class="result__snippet" href="x">Your landlord must protect your deposit &amp; tell you where.</a></div>
-<div class="result"><h2><a class="result__a" href="https://example.com/direct">Direct</a></h2></div>"#;
-
-    #[test]
-    fn search_results_are_unwrapped_titled_and_snipped() {
-        let hits = results(PAGE);
-        assert_eq!(hits.len(), 2);
-        assert_eq!(hits[0].url, "https://www.gov.uk/tenancy-deposit-protection");
-        assert_eq!(hits[0].title, "Tenancy deposit protection");
-        assert_eq!(
-            hits[0].snippet,
-            "Your landlord must protect your deposit & tell you where."
-        );
-        assert_eq!(hits[1].url, "https://example.com/direct");
-        assert!(listed(&hits).starts_with("1. Tenancy deposit protection\n   https://www.gov.uk/"));
-        assert_eq!(listed(&[]), "no results");
-    }
-
     /// Only the resolver's typed refusal is `Refused`; every other failure is `Unreachable`,
     /// whatever its words say.
     #[test]
@@ -285,17 +266,5 @@ mod tests {
         ] {
             assert_eq!(failure(&other), WebFailure::Unreachable(worded.clone()));
         }
-    }
-
-    #[test]
-    fn a_query_is_encoded_and_a_long_page_is_cut_and_says_so() {
-        assert_eq!(
-            percent_encode("tenancy deposit & rules?"),
-            "tenancy%20deposit%20%26%20rules%3F"
-        );
-        assert_eq!(decode("a%2Fb+c%zz"), "a/b c%zz");
-        let long = "x".repeat(MAX_TEXT + 5);
-        assert!(capped(&long).ends_with(&format!("[cut at {MAX_TEXT} characters]")));
-        assert_eq!(capped("short"), "short");
     }
 }

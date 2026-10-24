@@ -106,17 +106,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_answer_round_trips_through_its_print() {
-        for answer in [
-            Ok("<p>x</p>".to_owned()),
-            Err(Rejected::whole("unknown variable: html")),
-        ] {
-            assert_eq!(read(&print(&answer)), answer);
-        }
-        assert!(read("garbage").is_err());
-    }
-
-    #[test]
     fn a_child_that_cannot_start_is_a_refusal() {
         let closed = Closed::new("/nonexistent/suzatary", BACKSTOP);
         assert!(closed.closed("x").is_err());

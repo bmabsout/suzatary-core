@@ -8,8 +8,7 @@
  * ONE SCENE, in order, because each answer changes what the next can see: the
  * card shows the branch, the diff stat's total and the report whole; "Hand to
  * the main session" writes its todo on the project chain and the card then
- * links it; dropping needs a reason and ends the session. The Settings page
- * lists the routine's token because this deployment declares `[coding]`.
+ * links it; dropping needs a reason and ends the session.
  */
 
 import assert from "node:assert/strict";
@@ -91,16 +90,3 @@ app.scene("a reported session shows its report, is handed over once, then droppe
   });
   assert.equal(await text(`${SESSION} .codinghead`), "Dropped: done by hand");
 }, PROBE);
-
-app.scene("Settings lists the routine once [coding] declares one, in words", async () => {
-  await app.page.navigate(`${WRITE_BASE}/#/settings`);
-  await app.page.reload();
-  const routine = '.settingsgroup[data-group="coding"] .settingsline[data-line="routine"]';
-  await app.page.waitFor(`document.querySelector('${routine}') !== null`, { timeout: 15000 });
-  // The line's own words; a card drawn on it keeps the stored name in its details fold.
-  const said = await app.page.evaluate<string>(
-    `[...document.querySelector('${routine}').children].filter((n) => !n.classList.contains("proposal")).map((n) => n.textContent).join(" ")`,
-  );
-  assert.match(said, /Coding sessions.*fires the routine/, said);
-  assert.equal(said.includes("SUZATARY_ROUTINE_TOKEN"), false, "the token's name is not drawn");
-});

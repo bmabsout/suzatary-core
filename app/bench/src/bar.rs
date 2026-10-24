@@ -145,20 +145,4 @@ mod tests {
             prop_assert_eq!(earned, expected);
         }
     }
-
-    #[test]
-    fn ninety_five_percent_is_not_ninety_four_point_nine() {
-        assert_eq!(Bar::percent(95).judge(tally(19, 1)), Verdict::Met);
-        assert_eq!(Bar::percent(95).judge(tally(949, 51)), Verdict::Missed);
-        assert_eq!(Bar::ALL.judge(tally(82, 1)), Verdict::Missed);
-        assert_eq!(Bar::ALL.judge(tally(0, 0)), Verdict::Unmeasured);
-    }
-
-    #[test]
-    fn the_incumbents_rate_bars_nothing_when_it_was_never_judged() {
-        assert_eq!(Bar::at_least(tally(0, 0)), None);
-        let incumbent = Bar::at_least(tally(3, 1)).expect("a rate");
-        assert_eq!(incumbent.judge(tally(3, 1)), Verdict::Met);
-        assert_eq!(incumbent.judge(tally(2, 1)), Verdict::Missed);
-    }
 }

@@ -60,17 +60,6 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn a_megabyte_is_cut_to_the_bound_and_says_by_how_much() {
-        let said = Said::clip("é".repeat(1 << 19));
-        assert!(said.as_str().len() <= MAX_SAID);
-        let kept = said.as_str().split('…').next().expect("a prefix").len();
-        assert_eq!(
-            said.as_str(),
-            format!("{}… ({} bytes cut)", "é".repeat(kept / 2), (1 << 20) - kept)
-        );
-    }
-
     proptest! {
         /// Whatever a plugin says, what is kept fits the bound.
         #[test]

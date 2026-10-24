@@ -6,9 +6,6 @@ import { el } from "./dom";
 /** What travels: `""` when there is nothing to say, trimmed otherwise. */
 export const noteOf = (value: string): string => value.trim();
 
-/** Is there something to say? */
-export const hasNote = (value: string): boolean => noteOf(value) !== "";
-
 const PLACEHOLDER = "Why, or what next";
 
 /** The field itself, sharing placeholder, label and class across every act. */

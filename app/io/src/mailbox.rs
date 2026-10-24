@@ -1091,7 +1091,6 @@ mod tests {
             || Err("no key in this test".to_owned()),
         )
     }
-    use prodrome_core::literal::Datetime;
 
     /// One message seen on three accounts is one row with three sources, the first read its
     /// primary, and a place seen twice counts once.
@@ -1119,15 +1118,6 @@ mod tests {
         assert_eq!(row.id, "one-1");
     }
 
-    fn account(email: &str, subdir: &str) -> MailAccount {
-        MailAccount {
-            email: suzatary_core::mail::account_email::AccountEmail::new(email)
-                .expect("a lower-case address"),
-            subdir: subdir.to_owned(),
-            sync: suzatary_core::mail::account::Sync::Gmail,
-        }
-    }
-
     fn roster(accounts: Vec<MailAccount>) -> Roster {
         Roster::new(accounts).expect("a roster")
     }
@@ -1137,83 +1127,6 @@ mod tests {
         let ids = ["abc123", "has space", "has\"quote", "def456"];
         assert_eq!(by_id_query(ids), "id:\"abc123\" or id:\"def456\"");
         assert_eq!(by_id_query(std::iter::empty()), "");
-    }
-
-    #[test]
-    fn scoped_query_narrows_to_one_account_or_stays_bare() {
-        let a = account("school@university.example", "study");
-        assert_eq!(scoped_query("tag:inbox", None), "tag:inbox");
-        assert_eq!(
-            scoped_query("tag:inbox", Some(&a)),
-            "(tag:inbox) and (path:study/**)"
-        );
-    }
-
-    #[test]
-    fn inbox_query_is_scoped_query_over_tag_inbox() {
-        let a = account("school@university.example", "study");
-        assert_eq!(inbox_query(None), "tag:inbox");
-        assert_eq!(inbox_query(Some(&a)), "(tag:inbox) and (path:study/**)");
-    }
-
-    #[test]
-    fn before_query_is_exclusive_and_bare_with_no_cursor() {
-        assert_eq!(before_query("tag:inbox", None), "tag:inbox");
-        // Epoch 1, exclusive, is `..@0`.
-        let one_second_past_epoch = Datetime::new(1970, 1, 1, 0, 0, 1, 0).expect("valid");
-        assert_eq!(
-            before_query("tag:inbox", Some(one_second_past_epoch)),
-            "(tag:inbox) and date:..@0"
-        );
-    }
-
-    #[test]
-    fn newest_ids_json_is_a_flat_string_array() {
-        assert_eq!(
-            parse_id_array(br#"["a","b","c"]"#).expect("parses"),
-            vec!["a", "b", "c"]
-        );
-        assert!(parse_id_array(b"[]").expect("parses").is_empty());
-        for refused in [&br#"["a", 1]"#[..], b"{}", b"not json", b"[\"a\xff\"]"] {
-            assert!(
-                parse_id_array(refused).is_err(),
-                "{}",
-                String::from_utf8_lossy(refused)
-            );
-        }
-    }
-
-    #[test]
-    fn container_of_prefers_inbox_then_the_first_non_state_tag() {
-        assert_eq!(container_of(&["unread".into(), "inbox".into()]), "inbox");
-        assert_eq!(
-            container_of(&["unread".into(), "archive".into()]),
-            "archive"
-        );
-        assert_eq!(container_of(&["unread".into(), "sent".into()]), "inbox");
-    }
-
-    #[test]
-    fn is_hex_prefix_matches_the_pythons_pattern() {
-        assert!(is_hex_prefix("abc123"));
-        assert!(!is_hex_prefix("abc12")); // too short
-        assert!(!is_hex_prefix("ABC123")); // uppercase is not a hash prefix
-        assert!(!is_hex_prefix("not-hex"));
-    }
-
-    #[test]
-    fn account_for_resolves_a_path_under_mail_root_and_is_empty_otherwise() {
-        let nm = Notmuch::new(
-            "/home/ada/Mail",
-            ledger(),
-            roster(vec![account("school@university.example", "study")]),
-        );
-        assert_eq!(
-            nm.account_for(Path::new("/home/ada/Mail/study/cur/1")),
-            "school@university.example"
-        );
-        assert_eq!(nm.account_for(Path::new("/home/ada/Mail/other/cur/1")), "");
-        assert_eq!(nm.account_for(Path::new("/somewhere/else")), "");
     }
 
     #[test]

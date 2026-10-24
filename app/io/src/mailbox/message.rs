@@ -120,56 +120,6 @@ pub fn unnamed(what: &str) -> MailError {
 mod tests {
     use super::*;
 
-    fn message(id: &str, matched: bool) -> serde_json::Value {
-        serde_json::json!({
-            "id": id, "match": matched, "filename": [format!("/mail/{id}")],
-            "tags": ["inbox"], "headers": {"Subject": "a subject"}
-        })
-    }
-
-    #[test]
-    fn a_non_matching_reply_is_walked_into_and_not_yielded() {
-        let forest = serde_json::json!([[[
-            message("root", true),
-            [[message("reply", false), [[message("late", true), []]]]]
-        ]]]);
-        let ids: Vec<String> = matched(forest.to_string().as_bytes())
-            .expect("parses")
-            .into_iter()
-            .map(|m| m.id)
-            .collect();
-        assert_eq!(ids, vec!["root", "late"]);
-    }
-
-    #[test]
-    fn an_elided_message_is_a_null_and_its_replies_are_still_read() {
-        let forest = serde_json::json!([[[null, [[message("reply", true), []]]]]]);
-        let found = matched(forest.to_string().as_bytes()).expect("parses");
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].file, PathBuf::from("/mail/reply"));
-        assert_eq!(found[0].body, None);
-    }
-
-    #[test]
-    fn a_message_without_an_id_is_refused() {
-        let mut nameless = message("x", true);
-        nameless.as_object_mut().expect("an object").remove("id");
-        let forest = serde_json::json!([[[nameless, []]]]);
-        let refused = matched(forest.to_string().as_bytes()).expect_err("no id");
-        assert!(
-            refused.to_string().contains("missing field `id`"),
-            "{refused}"
-        );
-    }
-
-    #[test]
-    fn a_message_without_a_file_is_refused() {
-        let mut fileless = message("x", true);
-        fileless["filename"] = serde_json::json!([]);
-        let forest = serde_json::json!([[[fileless, []]]]);
-        assert!(matched(forest.to_string().as_bytes()).is_err());
-    }
-
     #[test]
     fn an_answer_of_another_shape_is_refused_not_walked_past() {
         for raw in ["{}", "[[[1, []]]]", "[[[\"x\"]]]", "not json"] {

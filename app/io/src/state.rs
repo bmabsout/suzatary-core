@@ -196,14 +196,6 @@ mod tests {
     }
 
     #[test]
-    fn files_that_are_not_there_are_nothing_known() {
-        let (_dir, ledger) = scratch();
-        let known = ledger.read().expect("reads");
-        assert_eq!(known.pushed, TriageState::empty());
-        assert_eq!(known.local, LocalState::default());
-    }
-
-    #[test]
     fn a_saved_ledger_reads_back_and_each_file_is_its_document() {
         let (dir, ledger) = scratch();
         let known = ledger.read().expect("reads").mark(

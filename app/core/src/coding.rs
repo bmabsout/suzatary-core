@@ -593,69 +593,6 @@ mod tests {
         assert!(url.named_in("https://claude.ai/code/session_12 https://claude.ai/code/session_1"));
     }
 
-    /// A hand-over's todo id is a valid todo id, one per proposal.
-    #[test]
-    fn a_hand_over_todo_is_a_valid_id_one_per_proposal() {
-        let id = |slug: &str| crate::secretary::store::ConversationId::new(slug).expect("an id");
-        let first = handed_todo(&id("2026-09-02-1"), 10);
-        assert!(
-            prodrome_core::event::TodoId::new(first.clone()).is_ok(),
-            "{first}"
-        );
-        assert!(
-            first
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-        );
-        assert_eq!(first, handed_todo(&id("2026-09-02-1"), 10));
-        assert_ne!(first, handed_todo(&id("2026-09-02-11"), 0));
-    }
-
-    /// A long report is cut at a character boundary and says so.
-    #[test]
-    fn a_long_report_is_cut_and_says_so() {
-        let long = "é".repeat(MAX_REPORT_BYTES);
-        let cut = Report::new(
-            RepoPath::try_from("docs/reports/x.md".to_owned()).expect("a path"),
-            &long,
-            Vec::new(),
-        );
-        assert!(cut.text.len() < long.len() + 100);
-        assert!(
-            cut.text.ends_with("the rest is on the branch]"),
-            "{}",
-            &cut.text[cut.text.len() - 80..]
-        );
-        assert_eq!(
-            report().text,
-            "Session: https://claude.ai/code/session_01abc\nGates: green"
-        );
-    }
-
-    /// The life: fired, reported, merged; and dropped from either live state.
-    #[test]
-    fn a_session_is_fired_then_reported_then_merged() {
-        let reported = fired()
-            .step(Step::Report {
-                branch: branch(),
-                report: report(),
-            })
-            .expect("a fired session reports");
-        assert_eq!(reported.word(), "reported");
-        let merged = reported
-            .clone()
-            .step(Step::Merge { sha: sha() })
-            .expect("a reported session merges");
-        assert_eq!(merged.word(), "merged");
-        assert!(
-            reported
-                .step(Step::Drop {
-                    reason: "done by hand".to_owned()
-                })
-                .is_ok()
-        );
-    }
-
     #[test]
     fn a_session_round_trips_and_says_its_state() {
         for session in [

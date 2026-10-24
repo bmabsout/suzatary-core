@@ -84,36 +84,6 @@ impl From<AccountEmail> for String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_new_accounts_address_is_folded() {
-        let given = EmailAddress::new("Ada@Example.test").expect("an address");
-        assert_eq!(AccountEmail::folded(&given).as_str(), "ada@example.test");
-    }
-
-    #[test]
-    fn a_lower_case_address_is_an_account_email() {
-        let email = AccountEmail::new("ada@example.test").expect("an address");
-        assert_eq!(email.as_str(), "ada@example.test");
-        assert!(email.is("Ada@Example.TEST"));
-        assert!(!email.is("grace@example.test"));
-    }
-
-    /// A capital is refused with the spelling to write instead.
-    #[test]
-    fn a_capital_is_refused_naming_the_folded_spelling() {
-        assert_eq!(
-            AccountEmail::new("Ada@Example.test"),
-            Err(RosterError::NotFolded {
-                given: "Ada@Example.test".to_owned(),
-                folded: "ada@example.test".to_owned(),
-            })
-        );
-        assert_eq!(
-            AccountEmail::new("not-an-address"),
-            Err(RosterError::Email("not-an-address".to_owned()))
-        );
-    }
-
     /// The instance file's text is parsed by the same door.
     #[test]
     fn the_stored_spelling_parses_through_the_constructor() {

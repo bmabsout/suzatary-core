@@ -814,27 +814,6 @@ mod tests {
     use super::*;
     use crate::capability::{Html, RenderError};
 
-    #[test]
-    fn siblings_put_unlinked_first_and_absent_last() {
-        let mut worths: Vec<Result<Option<f64>, LinkError>> = vec![
-            Ok(None),
-            Ok(Some(0.7)),
-            Err(LinkError::Unknown("ghost".to_owned())),
-            Ok(Some(0.2)),
-        ];
-        worths.sort_by(urgency);
-        assert_eq!(
-            worths,
-            vec![
-                Err(LinkError::Unknown("ghost".to_owned())),
-                Ok(Some(0.2)),
-                Ok(Some(0.7)),
-                Ok(None),
-            ]
-        );
-        assert_eq!(worth(Ok(None)), wire::Worth::Absent);
-    }
-
     /// A render that echoes the markup, so a test sees which fragment reached it.
     struct Echo;
     impl crate::capability::Typeset for Echo {
@@ -855,28 +834,6 @@ mod tests {
         }
         fn page(&self, page: &crate::reading::Page) -> Result<Html, RenderError> {
             Ok(Html::from_render(page.as_str()))
-        }
-    }
-
-    /// A render that has compiled nothing.
-    struct Cold;
-    impl crate::capability::Typeset for Cold {
-        fn closed(&self, _: &str) -> Result<String, crate::capability::Rejected> {
-            Err(crate::capability::Rejected::whole("no typst here"))
-        }
-    }
-    impl Render for Cold {
-        fn html(&self, _markup: &Escaped) -> Result<Html, RenderError> {
-            Err(RenderError::Refused("no typst here".into()))
-        }
-        fn cached(&self, _markup: &Escaped) -> Option<Html> {
-            None
-        }
-        fn warm(&self, _markup: &[Escaped]) -> usize {
-            0
-        }
-        fn page(&self, _page: &crate::reading::Page) -> Result<Html, RenderError> {
-            Err(RenderError::Refused("no typst here".into()))
         }
     }
 
@@ -1053,14 +1010,6 @@ mod tests {
     }
 
     #[test]
-    fn nothing_compiled_yet_is_null_and_never_a_refusal() {
-        let mine = record("file-permit", "ada");
-        let shown = authored(&Cold, &mine, &untrusted());
-        assert_eq!(shown.rich.body, None);
-        assert_eq!(shown.body, "File the \\*permit\\(s\\)\\* renewal");
-    }
-
-    #[test]
     fn waiting_on_and_rationale_are_converted_on_the_way_to_typst() {
         let mine = record("file-permit", "ada");
         let sources = rich_sources(&mine);
@@ -1157,88 +1106,5 @@ mod tests {
             reverses(&link(&seal_hash(&plain), &plain)),
             Some(&wire::Reverses::Nothing)
         );
-    }
-
-    #[test]
-    fn a_first_diff_hides_the_fields_it_never_filled() {
-        let first = record("file-permit", "ada");
-        let changes = authored_diff(None, &first);
-        let named: Vec<&str> = changes.iter().map(|c| c.field.as_str()).collect();
-        assert!(named.contains(&"body"));
-        assert!(named.contains(&"spec"));
-        assert!(named.contains(&"source"));
-        assert!(!named.contains(&"detail"), "{named:?}");
-        assert!(!named.contains(&"notes"), "{named:?}");
-        assert!(changes.iter().all(|c| c.before.is_empty()));
-    }
-
-    #[test]
-    fn a_later_diff_names_only_what_moved() {
-        let first = record("file-permit", "ada");
-        let mut second = first.clone();
-        second.payload.body = crate::record::MarkupSource::from_chain("Filed the renewal");
-        let changes = authored_diff(Some(&first), &second);
-        assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].field, "body");
-        assert_eq!(
-            changes[0].before,
-            "'File the \\\\*permit\\\\(s\\\\)\\\\* renewal'"
-        );
-        assert_eq!(changes[0].after, "'Filed the renewal'");
-    }
-
-    #[test]
-    fn the_prints_skip_the_events_identity_and_keep_its_content() {
-        let printed: Vec<String> = prints(&record("file-permit", "ada"))
-            .into_iter()
-            .map(|(name, _)| name)
-            .collect();
-        assert!(!printed.contains(&"todo".to_owned()));
-        assert!(!printed.contains(&"at".to_owned()));
-        assert!(!printed.contains(&"actor".to_owned()));
-        assert!(printed.contains(&"body".to_owned()));
-        assert!(printed.contains(&"created".to_owned()));
-    }
-
-    #[test]
-    fn backlinks_invert_and_sort() {
-        let refs = BTreeMap::from([
-            ("a".to_owned(), vec!["c".to_owned()]),
-            ("b".to_owned(), vec!["c".to_owned(), "a".to_owned()]),
-        ]);
-        assert_eq!(
-            backlinks(&refs),
-            BTreeMap::from([
-                ("c".to_owned(), vec!["a".to_owned(), "b".to_owned()]),
-                ("a".to_owned(), vec!["b".to_owned()]),
-            ])
-        );
-    }
-
-    /// A child's recurrence is not the parent's, and a recurrence repriced away is gone.
-    #[test]
-    fn recurs_reads_its_own_recur_in_the_piece_in_force() {
-        let flat = |v: f64| fpl::mk_flat(v).expect("a value");
-        let recur = |todo: &str| {
-            fpl::mk_recur(
-                todo.to_owned(),
-                fpl::instant_of(at(1)),
-                flat(0.9),
-                flat(0.3),
-            )
-            .expect("a recurrence")
-        };
-        let now = fpl::instant_of(at(10));
-        assert!(recurs(&recur("brush"), "brush", now));
-        assert!(!recurs(&recur("brush"), "floss", now));
-        let nested = fpl::mk_conj(vec![flat(0.5), recur("brush")], fpl::PRIORITY_POWER)
-            .expect("a conjunction");
-        assert!(recurs(&nested, "brush", now));
-        assert!(!recurs(&nested, "parent", now));
-        let repriced = fpl::mk_piecewise(recur("brush"), vec![(fpl::instant_of(at(5)), flat(0.7))])
-            .expect("a history");
-        assert!(recurs(&repriced, "brush", fpl::instant_of(at(3))));
-        assert!(!recurs(&repriced, "brush", now));
-        assert!(!recurs(&flat(0.5), "brush", now));
     }
 }

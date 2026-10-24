@@ -90,7 +90,6 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
         model,
         connected,
         configuring,
-        calendar,
         connections,
     } = args;
     let lapsed = *connections == Connections::Lapsed;
@@ -134,7 +133,7 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
     let read = crate::instance::Instance::open(&root.join("instance.toml"))?;
     answers(&read, no_model)?;
     if settings {
-        a_calendar(&read, repo, *calendar)?;
+        a_calendar(&read, repo)?;
     }
     if lapsed {
         reading_not_sending(&read, root)?;
@@ -707,14 +706,7 @@ fn a_configure_card(root: &Path) -> anyhow::Result<()> {
 /// The calendar `--settings` declares as one that synced once and then lost its link: its store
 /// begun at the reference plugin's schema, so the calendar reads it, and its ledger's last run a
 /// success, so storing the link again makes its line healthy without a sync.
-///
-/// A revoked one's service then refused the link with a 401, so its line names the class and
-/// the box's card for the link says it was rotated or revoked.
-fn a_calendar(
-    read: &crate::instance::Instance,
-    repo: &Path,
-    calendar: Calendar,
-) -> anyhow::Result<()> {
+fn a_calendar(read: &crate::instance::Instance, repo: &Path) -> anyhow::Result<()> {
     use suzatary_core::plugin::{Answer, Came, LastRun, Ledger, PluginName};
     let name = PluginName::parse("ics")?;
     let text = std::fs::read_to_string(repo.join("app/plugin-ics/ics.schema"))
@@ -736,11 +728,7 @@ fn a_calendar(
         })
     };
     let link = |answer| [(SETTINGS_CALENDAR_LINK.to_owned(), answer)];
-    let mut ledger = Ledger::default().after(run(9)?, &link(Answer::Status(200)));
-    match calendar {
-        Calendar::Synced => {}
-        Calendar::Revoked => ledger = ledger.after(run(10)?, &link(Answer::Status(401))),
-    }
+    let ledger = Ledger::default().after(run(9)?, &link(Answer::Status(200)));
     std::fs::write(
         read.plugins.beside(&name).join("ledger.json"),
         serde_json::to_vec(&ledger)?,
@@ -1025,7 +1013,6 @@ fn fake_drive(root: &Path) -> anyhow::Result<()> {
          \x20   case \"$4\" in\n\
          \x20     /) echo '[{{\"path\":\"/my-files\"}}]' ;;\n\
          \x20     /my-files|/my-files/Suzatary) echo '[]' ;;\n\
-         \x20     /my-files/Docs) echo \"session expired. Run 'proton-drive auth login' to sign in again.\" >&2; exit 1 ;;\n\
          \x20     *) echo \"not found: $4\" >&2; exit 3 ;;\n\
          \x20   esac ;;\n\
          \x20 'filesystem create-folder') ;;\n\
@@ -1175,7 +1162,7 @@ fn build_chain(root: &Path) -> anyhow::Result<Option<Hash>> {
         }
     }
     // Written as every other todo is, with FPL's `Absent` for its spec: the one spelling of
-    // "nothing prices it", so the list draws it unpriced, after every priced line.
+    // "nothing prices it", so the fixture's list holds a todo with no value.
     let unpriced = &CAST.unpriced;
     append_to(
         &store,
@@ -1330,11 +1317,6 @@ fn instance_file(
             // A fake that keeps a private upload and refuses every other read, never the box's
             // Drive.
             drive_cli: Some(root.join(FAKE_DRIVE)),
-            drive_allow: if lapsed {
-                vec![LINKS_FOLDER.parse().expect("a Drive path")]
-            } else {
-                Vec::new()
-            },
             ..Secretary::default()
         },
         persona: suzatary_core::persona::Persona::default(),
@@ -1404,13 +1386,8 @@ pub struct Args {
     /// What a card standing changes: `order` changes Review's model order.
     #[arg(long, value_enum, default_value_t = Configuring::Nothing, requires = "settings")]
     configuring: Configuring,
-    /// What the calendar's service last answered: `revoked` refused its link with a 401 after
-    /// it synced, so the box files the link's card by its class.
-    #[arg(long, value_enum, default_value_t = Calendar::Synced, requires = "settings")]
-    calendar: Calendar,
-    /// What the connections beyond the fixture's own stand at: `lapsed` adds a Drive folder
-    /// whose CLI says its session expired, and a Microsoft account that reads its mail and
-    /// holds no grant to send.
+    /// What the connections beyond the fixture's own stand at: `lapsed` adds a Microsoft
+    /// account that reads its mail and holds no grant to send.
     #[arg(long, value_enum, default_value_t = Connections::Fresh, requires = "settings")]
     connections: Connections,
 }
@@ -1420,14 +1397,12 @@ pub struct Args {
 pub enum Connections {
     /// None beyond the fixture's own.
     Fresh,
-    /// A Drive whose session expired and an account signed in to read and not to send.
+    /// An account signed in to read and not to send.
     Lapsed,
 }
 
 /// The Microsoft account `--connections lapsed` adds, signed in to read and not to send.
 pub const LINKS_ACCOUNT: &str = "ada-work@example.test";
-/// The Drive folder `--connections lapsed` allows, which the fixture's CLI answers with an expired session.
-pub const LINKS_FOLDER: &str = "/my-files/Docs";
 
 /// What a fixture's standing card changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -1436,15 +1411,6 @@ pub enum Configuring {
     Nothing,
     /// Review's model order.
     Order,
-}
-
-/// What the `--settings` calendar's service last answered.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-pub enum Calendar {
-    /// Its link, with a 200.
-    Synced,
-    /// A 401, after it had synced.
-    Revoked,
 }
 
 /// What a fixture has connected beyond its own tables.
@@ -1725,19 +1691,6 @@ mod tests {
             anchored.starts_with(&cwd),
             "anchored to the working directory, never $HOME"
         );
-    }
-
-    #[test]
-    fn the_notice_is_seeded_carrying_its_pdf() {
-        let cur = scratch("notice");
-        write_notice(&cur, &CAST.notice).expect("written");
-        let bytes = std::fs::read(cur.join(format!("{}:2,S", CAST.notice.mail.msgid)))
-            .expect("the message is on disk");
-        let (mime, content) =
-            suzatary_io::mailbox::attachments::find(&bytes, CAST.notice.file.name)
-                .expect("the message carries the notice");
-        assert_eq!(mime, CAST.notice.file.media);
-        assert_eq!(content, CAST.notice.file.content.as_bytes());
     }
 
     #[test]

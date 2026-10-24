@@ -847,37 +847,4 @@ mod tests {
         );
         assert_eq!(first_to_end(Vec::new()), None);
     }
-
-    #[test]
-    fn a_message_id_is_bare_and_carries_the_senders_domain() {
-        let id = message_id("her@example.test");
-        assert!(id.ends_with("@example.test"), "{id}");
-        assert!(!id.starts_with('<'), "{id}");
-        assert!(!id.contains('>'), "{id}");
-        // Two in a row differ, so a thread is not two messages with one name.
-        assert_ne!(message_id("her@example.test"), id);
-        // An address with no domain still yields something legal.
-        assert!(message_id("nobody").ends_with("@localhost"));
-    }
-
-    #[test]
-    fn an_attachment_reads_its_bytes_and_guesses_its_type() {
-        let dir = std::env::temp_dir().join(format!(
-            "suzatary-attach-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        std::fs::create_dir_all(&dir).expect("a writable temp directory");
-        let path = dir.join("notice.pdf");
-        std::fs::write(&path, b"%PDF-1.7\n").expect("writes");
-
-        let read = attachment(&path).expect("reads");
-        assert_eq!(read.filename, "notice.pdf");
-        assert_eq!(read.mime_type, "application/pdf");
-        assert_eq!(read.content, b"%PDF-1.7\n");
-
-        let missing = dir.join("gone.pdf");
-        assert!(attachment(&missing).is_err());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
 }

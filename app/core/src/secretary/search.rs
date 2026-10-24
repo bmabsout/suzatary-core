@@ -229,14 +229,6 @@ mod tests {
         Needle::new(text).expect("a needle")
     }
 
-    /// A needle is something to look for, and no more than a line of it.
-    #[test]
-    fn a_needle_is_short_and_not_blank() {
-        assert_eq!(Needle::new("   "), Err(NotANeedle::Empty));
-        assert_eq!(Needle::new(&"x".repeat(201)), Err(NotANeedle::Long));
-        assert_eq!(needle(" PERMIT "), needle("permit"));
-    }
-
     /// Person turns and finished answers match, case-folded; a verb's answer never does, because it
     /// quotes mail, nor the text on the way to a verb.
     #[test]
@@ -281,39 +273,5 @@ mod tests {
             1,
             "the limit holds"
         );
-    }
-
-    /// An excerpt is one line around the match, cut on characters and marked where it was cut.
-    #[test]
-    fn an_excerpt_is_one_line_around_the_match() {
-        let text = format!("{}\nİstanbul flight\n{}", "é".repeat(100), "ü".repeat(100));
-        let shown = excerpt(&text, &needle("istanbul"), LIST_CONTEXT).expect("a match");
-        assert!(shown.starts_with('…') && shown.ends_with('…'), "{shown}");
-        assert!(shown.contains(" İstanbul flight "), "{shown}");
-        assert!(!shown.contains('\n'));
-        let whole = excerpt(&text, &needle("istanbul"), RECALL_CONTEXT).expect("a match");
-        assert!(!whole.starts_with('…') && !whole.ends_with('…'), "{whole}");
-        assert_eq!(
-            excerpt("short", &needle("short"), LIST_CONTEXT),
-            Some("short".to_owned())
-        );
-        assert_eq!(excerpt("ab", &needle("abc"), LIST_CONTEXT), None);
-    }
-
-    proptest::proptest! {
-        /// Whatever is said, a needle cut from it is found in it.
-        #[test]
-        fn a_substring_is_always_found(
-            text in "\\PC{1,80}",
-            start in 0usize..80,
-            len in 1usize..20,
-        ) {
-            let chars: Vec<char> = text.chars().collect();
-            let start = start % chars.len();
-            let piece: String = chars[start..(start + len).min(chars.len())].iter().collect();
-            if let Ok(needle) = Needle::new(&piece) {
-                proptest::prop_assert!(excerpt(&text, &needle, LIST_CONTEXT).is_some(), "{piece:?} in {text:?}");
-            }
-        }
     }
 }

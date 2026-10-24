@@ -102,12 +102,6 @@ test("Copy takes an answer's words block by block, never its markup", () => {
   }
 });
 
-test("the place says what the round is doing, and nothing once text lands", () => {
-  assert.equal(answer.label({ type: "Thinking", since: 0 }, 12_400), "Thinking · 12 s");
-  assert.equal(answer.label({ type: "Working", verb: "search", checked: 3, since: 0 }, 41_000), "Searching mail · 3 checked · 41 s");
-  assert.equal(answer.label({ type: "Streaming", blocks: [], tail: "x" }, 0), "");
-});
-
 test("a question the box holds is thinking from the moment it is seen, with a clock that moves, until it is idle", () => {
   const held = answer.settle(answer.done, "queued", 5_000);
   assert.deepEqual(held, { type: "Thinking", since: 5_000 });

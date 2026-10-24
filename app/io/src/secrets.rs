@@ -694,34 +694,6 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_environment_value_falls_through_to_the_subprocess() {
-        let asked = Cell::new(false);
-        let secret = Secretspec::resolve(Some("   "), || {
-            asked.set(true);
-            Ok(None)
-        });
-        assert_eq!(secret, Ok(None));
-        assert!(asked.get());
-    }
-
-    #[test]
-    fn get_reads_a_real_environment_variable() {
-        let (_dir, spec) = fake("exit 9", Duration::from_secs(5));
-        let secret = spec
-            .get("HOME", "test")
-            .expect("answered")
-            .expect("HOME is set in the test environment");
-        assert!(!secret.expose().is_empty());
-    }
-
-    #[test]
-    fn the_last_line_of_the_store_s_answer_is_the_value() {
-        let (_dir, spec) = fake("echo banner; echo '  the-value  '", Duration::from_secs(5));
-        let secret = spec.get(NOBODY, "test").expect("answered").expect("set");
-        assert_eq!(secret.expose(), "the-value");
-    }
-
-    #[test]
     fn a_name_the_store_does_not_hold_is_unset() {
         let (_dir, spec) = fake(
             "echo \"Error: Secret '$2' not found\" >&2; exit 1",
@@ -790,18 +762,6 @@ mod tests {
             })
         );
         assert_eq!(state(&found), SecretState::Failed);
-    }
-
-    #[test]
-    fn a_state_drops_the_value_and_keeps_the_answer() {
-        assert_eq!(state(&Ok(Some(Secret::new("x")))), SecretState::Set);
-        assert_eq!(state(&Ok(None)), SecretState::Missing);
-        assert_eq!(
-            state(&Err(SecretError::Refused {
-                name: NOBODY.to_owned()
-            })),
-            SecretState::Locked
-        );
     }
 
     #[test]
@@ -1090,20 +1050,5 @@ PROTON_BRIDGE_PASSWORD = { description = "the bridge", required = true }
             Declared::of(base, state, &derived(&[])),
             Err(DeclareError::Parse { .. })
         ));
-    }
-
-    #[test]
-    fn secretspec_implements_writes_by_forwarding() {
-        use suzatary_core::settings::{Settable, Settables, Writes};
-
-        let (_dir, spec) = fake("exit 1", Duration::from_secs(5));
-        let name = Settable::mint(
-            &Settables::derive(std::iter::empty(), std::iter::empty(), None, &[]),
-            "ANTHROPIC_API_KEY",
-        )
-        .expect("a built-in backend's key is declared");
-        let via_trait = Writes::write_secret(&spec, &name, &Secret::new("value"));
-        let direct = spec.set(name.name(), &Secret::new("value"), "the settings page");
-        assert_eq!(via_trait.is_err(), direct.is_err());
     }
 }

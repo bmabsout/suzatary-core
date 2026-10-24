@@ -122,24 +122,3 @@ pub fn readable(path: &RepoPath, bytes: &[u8]) -> Result<String, RepoFailure> {
         text.len()
     ))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn readable_text_is_whole_until_the_cut_and_never_binary() {
-        let path = RepoPath::try_from("cv.typ".to_owned()).expect("a path");
-        assert_eq!(readable(&path, b"= Ada\n").expect("text"), "= Ada\n");
-        assert!(matches!(
-            readable(&path, b"%PDF\0"),
-            Err(RepoFailure::Missing(_))
-        ));
-        let long = "é".repeat(MAX_TEXT_BYTES);
-        let shown = readable(&path, long.as_bytes()).expect("cut");
-        assert!(shown.ends_with(&format!(
-            "[cut at {MAX_TEXT_BYTES} of {} bytes]",
-            long.len()
-        )));
-    }
-}

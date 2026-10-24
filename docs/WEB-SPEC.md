@@ -128,12 +128,12 @@ real browser); each section says which.
   dispatches nothing…" and "law: the field holding the keyboard hands it to
   its counterpart, typed into or not", `form.test.ts` "law: a form drawn
   again mounts on what was typed into the one shown…", "law: a form no
-  longer shown writes nothing to the draft…", "law: a form no longer shown
-  that sent and clears clears the draft…" and "law: whatever is drawn, left and put back, every keystroke into the form
+  longer shown writes nothing to the draft…", "law: a clearing form gives
+  up what it sends as it sends it…" and "law: whatever is drawn, left and put back, every keystroke into the form
   shown is its draft, at a bounded cost", `islands.test.ts` "law: a
   change to what is behind
   alone draws the status line…", `writes.test.ts` "ticking a subtodo moves
-  the chip" (one write, it stays ticked), `inbox.test.ts` "a batch and a
+  the chip" (one write, it stays ticked), `e2e/inbox.test.ts` "a batch and a
   changeset open on their summary…" (one pick, at most three draws) and "a
   reason being typed stays in its own card while the card above it goes".
 - **A page waiting says nothing.** Until its first value, and while a
@@ -156,10 +156,8 @@ real browser); each section says which.
   token roles. — `islands.test.ts` "law: while a page waits it draws its
   placeholder…" and "law: a value that still waits keeps the placeholder…";
   `e2e/waiting.test.ts` "a page on its way shows its placeholder after
-  300 ms with no words, still with reduced motion, in both themes", "a
-  page waiting on a search keeps its whole column…", "the
-  Inbox never starts a second placeholder…" and "a todo's title is never
-  its id…".
+  300 ms with no words, still with reduced motion, in both themes" and "a
+  page waiting on a search keeps its whole column…".
   A page may
   declare named **islands** (`frame.Island<S>`: a `node`, `update(value)`,
   `destroy`) beside its body: built once when the page mounts, handed each
@@ -335,23 +333,15 @@ which answered last.
   the conversation is queued or running, the answer's place reads "Thinking ·
   N s" beside Stop, its count drawn again each second, and a person's turn
   carries no queued mark. — `answer.test.ts` "a question the box holds is
-  thinking from the moment it is seen…"; `e2e/waiting.test.ts` "a sent
-  question reads Thinking with its count…".
-- **A turn at rest is its words, Reply and one "…".** The menu holds Copy,
-  Copy Typst, Show as text and Erase, and a finished round's calls; it stays
-  open while an erasure is being confirmed or asked. A round still going, or
-  one with a refused call, shows its calls in plain sight. —
-  `e2e/waiting.test.ts` "an answer at rest shows Reply and one menu…".
+  thinking from the moment it is seen…".
 - **One field above the conversations.** The search, with New topic beside
   it, which opens a conversation at once; a topic with no name reads "New
   topic" until the box names it, and a last turn is its minute today,
   "yesterday", or its day, read against an instant the list holds and
   moves when the owner's day turns. No placeholder is cut at 390 or 1440
-  px. — `chatlist.test.ts` "a topic opened with no name…" and "the list's
-  instant moves…"; `format.test.ts` "a
-  conversation's last turn reads as…"; `e2e/waiting.test.ts` "the
-  conversations have one field above them…" and "New topic opens a
-  conversation at once…".
+  px. — `chatlist.test.ts` "the list's instant moves…";
+  `e2e/waiting.test.ts` "the conversations have one field above them, and
+  no placeholder is cut, at 390 and 1440 px".
 - **A write's answer is never drawn.** A person's turn, Stop, Regenerate, an
   edit and a card's answer are intents (§3.15); the page reads the replicas
   once they hold them. — `source.test.ts` "say reads the window again once
@@ -367,17 +357,10 @@ which answered last.
 - **Draw is keyed.** A new round appends; earlier rounds' nodes are the
   same nodes. — `web/e2e/secretary.test.ts` (node identity across an
   answer).
-- **The More sheet speaks the owner's words.** The chains are "My todos"
-  and "This app's work" (`chain.said`), Settings, About, Chain and Usage
-  stand apart under "This app", and the theme is picked at the sheet's
-  foot, not on About. — `nav.test.ts` "the sheet sets this app's own pages
-  apart…" and "the theme is offered in the sheet…";
-  `web/e2e/destinations.test.ts` "More names the chains as the owner does…".
 - **One door to the secretary on each width.** On a phone the Secretary tab
   and a page's own "Ask the secretary"; at 62rem and up the panel, whose
   toggle carries what the page shows, and no page link. — `chrome.test.ts`
-  "law: one door to the secretary on each width…"; `web/e2e/secretary.test.ts`
-  "one door to the secretary on each width…".
+  "law: one door to the secretary on each width…".
 - **A frame scrolls its own box.** Mounting a panel leaves the
   document's scroll where it was. — `web/e2e/secretary.test.ts` (the panel
   scene's scroll assertion).
@@ -411,8 +394,7 @@ which answered last.
   status line (`app.reach`) naming what this device may do and where to
   write from, with a link to Settings for a key the chain does not trust or
   has revoked, and nothing before `/api/me` answers. — `app.test.ts` "a tab
-  that may not write says so…"; `web/e2e/desktop.test.ts` "a login that
-  reads…" and "a writer whose browser key the chain does not trust…".
+  that may not write says so…".
 - **A conditional rule never loses the cascade.** A property an `@media`,
   `@supports` or `@container` block sets is not set again, by itself or by
   a shorthand of it, for the same selector by a later base rule. —
@@ -442,12 +424,6 @@ which answered last.
   whatever held it; the page's settles nothing"; `web/e2e/secretary.test.ts`
   "content drawn above a held question keeps it held, and the reader's
   scroll up drifts for good".
-- **The palette reads the conversations as the replica moves.** Its group
-  is `conversations.rows`, the Secretary page's own reading, heard while
-  the palette is open and let go when it closes, so a conversation the
-  replica takes in meanwhile is found with nothing typed again. —
-  `e2e/keyboard.test.ts` "the palette finds a conversation and Enter opens
-  it" (made after the palette opened).
 - **A set-aside turn is drawn once, in its round's earlier attempt.** —
   `rounds.test.ts` "law: every turn is drawn once…".
 - **A draft reads back what was written, per conversation; a store that
@@ -527,9 +503,7 @@ which answered last.
 
 - **A value read replaces whatever was shown.** `step(s, read(val(v))) =
   val(v)`, after a failure included. — `pageframe.test.ts` "law: a value read
-  replaces whatever was shown"; examples: "a value read shows, and a failure
-  or a wait before any value is the page's state", "a value read after a
-  failure lands".
+  replaces whatever was shown".
 - **A failed or waiting reading never takes a value off the screen.** —
   `pageframe.test.ts` "law: a failed or waiting reading never takes a value
   off the screen".
@@ -593,8 +567,8 @@ which answered last.
   answer stood, or one is slow, dated by that answer.** — `asked.test.ts`
   "law: what is held is behind exactly when…".
 - **An ask the box never answers is said slow, then fails at the limit, and
-  what stood still stands.** — `asked.test.ts` "an ask the box never
-  answers…".
+  what stood still stands.** — `asked.test.ts` "an ask long on its way is
+  said slow, and one that fails leaves what stood…".
 - **An answer equal to the one standing wakes nobody**, by the register's
   equality, which is the data's own (`web/src/algebra/data.ts`, field by
   field) unless the register names one. — `asked.test.ts` "an answer equal to
@@ -616,24 +590,10 @@ The pages' sums:
   a day with the constructors rebuilds it".
 - **The brief wins.** A day the secretary briefed is its first brief for
   that date, wherever it stands in the list, whatever the saved files say.
-  — `briefing.test.ts` "law: a day the secretary briefed is its first
-  brief, whatever the saved files say".
 - **A 404 is an answer; nothing else is.** No brief reads the saved file,
   a 404 for it is `none`, any other failure is rethrown for the frame's
-  Retry. — `briefing.test.ts` "a day with no brief is the saved file, and a
-  404 for it is no briefing", "any other failure is a failure, so the frame
+  Retry. — `briefing.test.ts` "a 404 is no briefing", "any other failure is a failure, so the frame
   offers Retry".
-- **`usage.credits.Credits`' fold is the sum.** — `usage.test.ts` "law: folding
-  credits with the constructors rebuilds them".
-- **Credits decide in order.** Disabled at the organisation wins whatever
-  was spent; enabled is `spent` with the tokens and the refusal they follow,
-  or `unspent`. — `usage.test.ts` "credits: disabled at the organisation
-  wins, whatever was spent", "credits: enabled and spent names the tokens
-  and the refusal they follow".
-- **`compact` is exact below a thousand,** and a larger count never prints
-  a smaller unit, over values clear of the known `999_950` → `"1000k"`
-  rounding. — `usage.test.ts`, example: "compact keeps small counts exact
-  and never drops a unit as counts grow".
 
 ### 3.9 The Todos tree
 
@@ -660,8 +620,7 @@ term, and the Prodrome wasm links and evaluates it.
   the one the tab's own pies are drawn in, the package's scale".
 - **A pie's filled share is its value,** from twelve o'clock, in the value's
   colour. — `fulfillment.test.ts` "law: the pie's filled share is the value,
-  in the value's colour"; in a browser, `web/e2e/list.test.ts` "a line's pie
-  fills to its number, in its value's colour".
+  in the value's colour".
 
 `curve` (`docs/DESIGN-DECISIONS-2026-09-25.md` §F): a todo's thirty days, 15
 back and 15 ahead, as the core's knots, and the one line that draws them. A
@@ -681,8 +640,7 @@ a window.
   now's colour. — `curve.test.ts` "law: the stroke's colour at a height is the
   colour of the value there, red at 0 and green at 1".
 - **The dates are short and never touch:** each is the locale's short day,
-  and at phone width no two labels' boxes overlap. — `curve.test.ts` "a date
-  label is the locale's short day, with no year"; `web/e2e/list.test.ts` "at
+  and at phone width no two labels' boxes overlap. — `web/e2e/list.test.ts` "at
   phone width the thirty days' dates are short and no two overlap".
 - **The first crossing below a threshold is at the first sample that is
   worse,** met on the straight line from the sample before it (the line's
@@ -695,9 +653,8 @@ term is one of its folds):
 
 - **A Piecewise's children are its head and every piece's term.** —
   `term.test.ts` "a Piecewise's children are its head and every piece's
-  term; a curve's rows hold none"; the walks it fixed, `todos.test.ts`
-  "dated finds a Decay inside a deferral's piece, a row of its Piecewise" and
-  `grouping.test.ts` "a reference inside a deferral's piece is a child, as
+  term; a curve's rows hold none"; the walk it fixed, `grouping.test.ts`
+  "a reference inside a deferral's piece is a child, as
   tree::refs reads every piece".
 - **`nodes` is the cata that lists, root first.** — `term.test.ts` "law:
   nodes is the cata that lists, root first, and every node is reached
@@ -778,21 +735,10 @@ term is one of its folds):
   viewer's".
 - **Keys visit each line once.** — `row.test.ts` "law: the stops are each
   card's head then its visible lines, every key once".
-- **A line prints its number beside its pie,** the whole percent, and its
-  title in words: the core's `markup_text` of its markup, never rendered, so
-  an unconfirmed line shows no markup character and is still marked, while
-  its own page shows the source until it is confirmed. — `todos.test.ts` "a
-  line's headline is the core's words for its markup, never the markup";
-  `web/e2e/list.test.ts` "every line prints its number beside its pie…", "an
-  unconfirmed line reads as words…".
-- **A line opened in place does not print its title again.** —
-  `web/e2e/list.test.ts` "a line opened in place does not print its title a
-  second time".
 - **One control searches, filters and groups:** the magnifier in the title
   row, shut until asked for, saying what narrows the list while shut and
   nothing for the default. — `todos.state.test.ts` "the search, the filters
-  and the grouping start shut…"; `todos.test.ts` "a filter says what narrows
-  the list, and the default says nothing"; `web/e2e/list.test.ts` "on a phone
+  and the grouping start shut…"; `web/e2e/list.test.ts` "on a phone
   the first line starts in the top third…".
 
 ### 3.10 The Inbox
@@ -823,7 +769,7 @@ algebra over both), and the card is how the owner answers it.
   press is an act's running flow (`started`), which ends itself by its own
   expiry, or at a restart. — `app/core/src/secretary/store/tests.rs`
   "a_proposal_waits_exactly_until_its_completion_is_recorded" (every
-  `Outcome` arm, `every_outcome_is_every_arm` keeping the list whole);
+  `Outcome` arm);
   `vectors.test.ts` "law: every open proposal's card offers an answer, runs
   its own act or asks for his check, and no closed one does" over
   `app/core/tests/web/proposals.json`; `stage.test.ts` "law: whatever may be
@@ -842,7 +788,7 @@ algebra over both), and the card is how the owner answers it.
   `app/cli/tests/secretary.rs`
   "a_send_that_may_have_gone_waits_until_acknowledged_and_never_sends_again"
   and "the_same_email_proposed_twice_is_one_object_and_sends_once";
-  `web/e2e/inbox.test.ts` scenes 9 and 10.
+  `web/e2e/inbox.test.ts` scenes 6 and 7.
 
 - **A diff opens on its summary, and nothing decided from is folded.** A
   changeset's rows are under its card's Details and a held batch's behind its
@@ -850,12 +796,11 @@ algebra over both), and the card is how the owner answers it.
   rows alone: every act of
   the diff appears in it, grouped in the order the acts first appear, every
   object counted. A changeset that no longer applies, a price at or under the
-  review's 45%, a todo waiting on another batch and a batch's picks out of its
-  objects are said in that overview, never only in the rows, and the acts
-  (Confirm, Accept, Reject) stay outside the fold, acting on what they did
-  before. — `digest.test.ts` "law: `of` is a monoid homomorphism" and "law:
+  review's 45% and a batch's picks out of its objects are said in that
+  overview, never only in the rows, and the acts (Confirm, Accept, Reject)
+  stay outside the fold, acting on what they did before. — `digest.test.ts` "law: `of` is a monoid homomorphism" and "law:
   every act and every named todo of the rows is in the line" (seeded);
-  `inbox.state.test.ts` "expanded: …"; `web/e2e/inbox.test.ts` scene 11 and
+  `inbox.state.test.ts` "expanded: …"; `web/e2e/inbox.test.ts` scene 8 and
   `secretary.test.ts` "a changeset card shows the diff, and Confirm applies
   it". A batch's own line is its count of changes and its date; the chain it
   is held on, who wrote it and its name are inside its diff. —
@@ -869,9 +814,7 @@ algebra over both), and the card is how the owner answers it.
   exactly what is on screen. Every card says no as Dismiss; the yes keeps its
   own verb. A source is named in words, a todo by its title when the device
   holds it. — `cardui.test.ts` "a card is drawn with its details hidden, and
-  asking any yes shows them…"; `inbox.test.ts` "a card's tag names who
-  asked…", "law: a card's source is named in words…";
-  `web/e2e/inbox.test.ts` "a card is drawn closed, and asking Send opens it
+  asking any yes shows them…"; `web/e2e/inbox.test.ts` "a card is drawn closed, and asking Send opens it
   whole before the question"; `secretary.test.ts` "a changeset card shows the
   diff, and Confirm applies it" (Dismiss, not Deny).
 - **The setup cards are one row, after the work.** A secret the box asks for
@@ -883,9 +826,7 @@ algebra over both), and the card is how the owner answers it.
   that names a setup card unfolds the row once, in the page's state; from
   then on it is the reader's. — `inbox.test.ts` "law: only the setup cards
   go after the work…"; `inbox.state.test.ts` "a link to a setup card unfolds
-  the Setup row once…"; `proposer.rs` "only_a_secret_asked_in_setup_is_a_setup_card";
-  `web/e2e/inbox.test.ts` "the box's setup cards are one closed row after
-  the work…".
+  the Setup row once…".
 - **A card is a function of its value.** It names its sources from the
   titles its page hands it (`ProposalFrame.titles`), never from the fold on
   screen. The Inbox reads those titles as one of its inputs
@@ -1146,14 +1087,8 @@ over `gen.ts`:
 - **A refusal is said beside what it is about:** on the line of the field
   it names when the form placed one (`saidBy`), else on the form's line, and
   the box's refusal is about the whole. — "a refusal is said on the line of
-  the field it is about…"; the add sheet's reading names the field of each
-  refusal, `draft.test.ts` "an incomplete draft is a sentence about the field
-  it names…", and in a browser no refusal lands under the tab bar,
-  `web/e2e/list.test.ts` "the add sheet starts in a category…".
-- **A choice says what it asks for while none is lit,** in place, before
-  anything is sent. — "a choice's chips say what they ask for while none is
-  lit…"; the add sheet starts in the category the list is narrowed to, else
-  the last one used, `draft.test.ts` "a new todo starts in the category…".
+  the field it is about…". The add sheet's reading names the field of each
+  refusal, and no refusal lands under the tab bar.
 - **An act is a change over its todo's heads,** named by the sha256 of its
   print, and a twin writes nothing; several heads are no reason to refuse. —
   `append.test.ts` "an act is a Change over its todo's heads…", "a twin of a
@@ -1209,8 +1144,7 @@ compiled by the tab's own typst-wasm under node), over `gen.ts`:
 
 **The draw is one memoised fold** (stage 4; the Prodrome's `memo`, design
 §6.2), for a page drawn by a Typst view (`web/src/typst/page.ts`; the list
-is the one such page, the list's placeholder until Typst has drawn it,
-`e2e/waiting.test.ts` "the Typst list shows the list's placeholder…"): a view
+is the one such page, the list's placeholder until Typst has drawn it): a view
 names its kit module and its state's tree of `draw.Part`s, named by the
 core's `memo_name`; `memo.fold` folds the kit's algebra (`draw.algebra`)
 over it, tabulated in a `table` by (the kit's name, the node's name), a key
@@ -1349,7 +1283,7 @@ the same fact: `excluded.Left` is both, objects and chains.
   could read, and the shell's one line, the only one, says "N objects on this
   device could not be read and were left out (M resting on them)" and names
   each chain that could not be read, opened to each name and why. —
-  `excluded.test.ts` "the line counts …"; `web/e2e/excluded.test.ts`.
+  `web/e2e/excluded.test.ts`.
 
 ### 3.17 The ui as registers
 
@@ -1404,8 +1338,7 @@ place. The storage keys the registers replaced are swept once at start
   proposal's registers read as the box's fold counts them; a register is a
   conflict exactly when that reading says so. — `candidates.test.ts` "the
   one reading of a row's candidate values …"; `proposals.test.ts` "a
-  proposal's registers read by the tab's one reading …";
-  `conflicts.test.ts`.
+  proposal's registers read by the tab's one reading …".
 - **A cut changes no verdict.** A Device register stored cut reads the
   same, and so does its join with any write resting on it; its stored past
   names only its frontier's replicas however many tabs wrote it. —
@@ -1444,7 +1377,8 @@ place. The storage keys the registers replaced are swept once at start
   a hash typed by hand is a going, and a place with nothing behind it goes
   back to its fallback in its stead. A route that only forwards is never a
   place. — `scripts/web-static.sh` "the address has one writer";
-  `routelog.test.ts` "a route that only forwards …"; `web/e2e/history.test.ts`.
+  `web/e2e/history.test.ts` "a hash typed by hand is a place in the log, and
+  a page that only forwards is never one".
 
 ### 3.18 The replica
 
@@ -1611,8 +1545,7 @@ under in every larger union and never wins.
   pull up again…"; `stores.test.ts` "a reset is a step even of a row that
   holds nothing…"; `linekeys.test.ts` "a key the box's pull says is erased is
   forgotten…"; `e2e/secretary.test.ts` "a new request pops up in an open
-  app…"; `app/cli/tests/stores.rs` "the badge is counted without the
-  conversations"; `e2e/lines.test.ts` "the list draws and the badge is
+  app…"; `e2e/lines.test.ts` "the list draws and the badge is
   counted with no request for the lines…".
 - **The lines are a skeleton, and their content is fetched by name.** The
   lines' row holds the skeleton (`GET /api/stores/lines/skeleton`, pulled by
@@ -1694,7 +1627,8 @@ Each pattern written once, in `web/src/algebra/once.ts`, `latest.ts`,
   key held again, a renewed one's included, moves the tab back to writing
   (`App`'s `Signs`). — `signer.test.ts` "law: an unreadable signer row never mints a
   key"; `device.test.ts` "an unreadable key row is offered a new key…";
-  `app.test.ts` "a renewed key writes again without a reload…".
+  `app.test.ts` "a renewed or newly trusted key writes again without a
+  reload".
 - **A replica row is read in one form:** the database's upgrade drops every
   row an earlier version kept (version 2's and version 1's alike, and
   version 4's lines, kept as literals, with their pieces), the tab
@@ -1709,8 +1643,8 @@ Each pattern written once, in `web/src/algebra/once.ts`, `latest.ts`,
   chain's check is `Reached`, or `Unreached` with every problem, never an
   empty list beside a flag (`verify.Found`); the core's flag-and-depth and
   flag-and-list are read into those once, at its decoder, which refuses a
-  pair that contradicts itself. — `verify.test.ts` "what a check found is
-  Reached for no problem…", "a parent that names nothing breaks the walk…".
+  pair that contradicts itself. — `verify.test.ts` "a parent that names
+  nothing breaks the walk…".
 
 ## 4. The vectors
 

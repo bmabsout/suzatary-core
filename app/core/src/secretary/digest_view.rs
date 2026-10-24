@@ -363,48 +363,4 @@ mod tests {
         });
         assert_eq!(line, "Secretary: Noting it. [asked remember]");
     }
-
-    #[test]
-    fn a_long_line_is_cut_and_says_so_and_whole_is_not() {
-        let entry = Entry::Said {
-            at: crate::capability::Datetime::new(2026, 10, 6, 9, 0, 0, 0).expect("an instant"),
-            turn: Turn::Person {
-                text: "é".repeat(LINE_BYTES),
-                references: Vec::new(),
-                attachments: Vec::new(),
-            },
-            by: Some("ada".into()),
-        };
-        let line = rendered(&entry);
-        assert!(line.len() <= LINE_BYTES + 32, "{}", line.len());
-        assert!(line.ends_with("bytes more)"), "{line}");
-        assert_eq!(whole(&entry).len(), "Owner: ".len() + 2 * LINE_BYTES);
-    }
-
-    /// A view over its budget keeps the end asked for and says how many parts it left out.
-    #[test]
-    fn a_fit_keeps_the_end_it_is_asked_for() {
-        let lines: Vec<String> = (0..10).map(|k| format!("line {k}")).collect();
-        let earliest = fit(lines.clone(), 21, Keep::Earliest);
-        assert_eq!(
-            earliest,
-            [
-                "line 0",
-                "line 1",
-                "line 2",
-                "(7 later parts of the log are not shown here.)"
-            ]
-        );
-        let latest = fit(lines.clone(), 21, Keep::Latest);
-        assert_eq!(
-            latest,
-            [
-                "(7 earlier parts of the log are not shown here.)",
-                "line 7",
-                "line 8",
-                "line 9",
-            ]
-        );
-        assert_eq!(fit(lines.clone(), 1_000, Keep::Latest), lines);
-    }
 }

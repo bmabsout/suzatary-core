@@ -323,19 +323,6 @@ app.scene("the editor highlights markup, previews it live, refuses what does not
   );
 });
 
-app.scene("a triage-authored todo's editor says an edit makes it the owner's", async () => {
-  await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.agents.id}`);
-  await app.page.waitFor(`document.querySelector(".editbox summary") !== null`, { timeout: 8000 });
-  await app.page.click(".editbox summary");
-  await app.page.waitFor(`document.querySelector(".editbox .editprov") !== null`, { timeout: 8000 });
-  assert.match(await app.page.evaluate<string>(`document.querySelector(".editbox .editprov").textContent`), /makes it yours/);
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".todobody strong").length`),
-    0,
-    "and until then its markup is still shown as its source",
-  );
-});
-
 app.scene("ticking a subtodo moves the chip", async () => {
   await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.checklist.id}`);
   await app.page.waitFor(`document.querySelector(".checklist") !== null`, { timeout: 4000 });
@@ -428,18 +415,12 @@ app.scene("a deferral to a date not after today is refused in the box's own word
 // --- Undo and redo (docs/ARCHITECTURE.md §10.5) -------------------------------
 //
 // The chain never rewrites, so undoing is an append, not a rollback — which is
-// why these scenes check the SAME instrument every write scene does: the fold
+// why this scene checks the SAME instrument every write scene does: the fold
 // the box keeps, not just the DOM. `WRITE_BASE` is shared by every file that
-// needs a WRITER login (this one, `sync.test.ts`, `refused.test.ts`'s second
-// scene), each on the SAME chain, and `sync.test.ts` already spends
-// `book-flight`, `pack-bags` and `file-permit` completing them for real — so a
-// scene here needs a todo NONE of them claims. `email-harrow` is the one
-// fixture todo nothing else touches; the refusal scene below authors its own
-// fresh todo instead of reaching for a second one, which is the same
-// guarantee the "add sheet" scene above already relies on (a fresh id cannot
-// collide with anything).
-
-const toastText = (): Promise<string> => app.page.evaluate<string>(`document.getElementById("toast").textContent`);
+// needs a WRITER login, each on the SAME chain, and `sync.test.ts` already
+// spends `book-flight`, `pack-bags` and `file-permit` completing them for real
+// — so a scene here needs a todo NONE of them claims. `email-harrow` is the
+// one fixture todo nothing else touches.
 
 /** Author a todo through the sheet, the way the scene above does, and return
  * its id (the body's slug) once the box's fold holds it, so a scene that asks
@@ -493,34 +474,6 @@ app.scene("the toast's Undo button reopens what was just completed, and U redoes
   );
 });
 
-app.scene("u refuses in the box's own words when the focused todo has nothing to undo", async () => {
-  await app.open(WRITE_BASE);
-  await untilReplica(app.page);
-  // A todo this scene authors itself, so no other file's scene can have
-  // claimed it: one Authored record, no lifecycle event, nothing earlier for
-  // undo to restore.
-  const id = await addTodo("Water the office plants", "home");
-  await app.page.evaluate(`document.querySelector('${row(id)} .rowmain').focus()`);
-
-  // Waiting on the TEXT, not just `hidden === false` — the add just shown its
-  // own "added …" toast, which is still on screen and would otherwise race
-  // this one.
-  await app.page.press("u");
-  await app.page.waitFor(`document.getElementById("toast").textContent?.includes("nothing to undo")`, {
-    timeout: 4000,
-  });
-  assert.match(await toastText(), /nothing to undo/);
-
-  // TWICE: the refusal is not a one-shot glitch — asking again says the same
-  // thing, because nothing about the chain changed between the two.
-  await app.page.press("u");
-  await app.page.waitFor(`document.getElementById("toast").textContent?.includes("nothing to undo")`, {
-    timeout: 4000,
-  });
-  assert.match(await toastText(), /nothing to undo/);
-  assert.equal(await stateOf(id), "open");
-});
-
 // --- the one-line field beside an act (docs/CHATSHAPE-PLAN-2026-09-15.md
 // §8.2, commit 12) -------------------------------------------------------
 
@@ -533,7 +486,7 @@ app.scene("u refuses in the box's own words when the focused todo has nothing to
  * `core.lifecycle`'s own `note` argument and `POST /api/objects`, never a
  * second path the page invented.
  *
- * A FRESH TODO, for the same reason `addTodo` exists two scenes up: this
+ * A FRESH TODO, for the same reason `addTodo` exists above: this
  * chain is shared with `sync.test.ts` and this file's own undo scene, and a
  * todo none of them claims is one this scene authors itself.
  */

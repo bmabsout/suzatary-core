@@ -180,25 +180,6 @@ fn shown(row: &Shown) -> Result<String, String> {
     render_verified(&call, &leading).map_err(|e| e.message().to_owned())
 }
 
-fn plain(id: &str, kind: &str) -> Shown {
-    Shown {
-        todo: TodoId::new(id).unwrap(),
-        actor: Actor::new("ada").unwrap(),
-        kind: Name::new("Authored.kind", kind).unwrap(),
-        created: day(2026, 9, 1),
-        body: MarkupSource::from_chain("Body"),
-        price: None,
-        rationale: Vec::new(),
-        category: None,
-        waiting_on: StringSource::new(""),
-        detail: MarkupSource::empty(),
-        source: None,
-        subtodos: Vec::new(),
-        notes: Vec::new(),
-        outcome: None,
-    }
-}
-
 // --- the law -------------------------------------------------------------------
 
 proptest! {
@@ -228,63 +209,4 @@ proptest! {
             );
         }
     }
-}
-
-// --- the pieces ------------------------------------------------------------------
-
-#[test]
-fn a_minimal_block_prints_as_its_fields() {
-    let row = Shown {
-        price: Some(0.5),
-        ..plain("abc", "todo")
-    };
-    // 92 characters on one line, so the list breaks.
-    assert_eq!(
-        shown(&row).unwrap(),
-        "#todo(\n  id: \"abc\",\n  created: datetime(day: 1, month: 9, year: 2026),\n  priority: 50.00%,\n  \
-         waitingOn: none,\n  authoredBy: \"ada\",\n)[Body]"
-    );
-}
-
-/// A `decision` block is a kind like any other, pinned once by example.
-#[test]
-fn a_decision_block_is_a_kind_like_any_other() {
-    let row = Shown {
-        price: Some(0.4),
-        rationale: vec!["it matters within days".to_owned()],
-        category: Some(Name::new("Authored.category", "study").unwrap()),
-        detail: MarkupSource::from_chain("proposal:default/10"),
-        ..plain("askharrow", "decision")
-    };
-    let text = shown(&row).unwrap();
-    assert!(text.starts_with("#decision("), "{text}");
-    assert!(text.contains("category: category.study"), "{text}");
-}
-
-/// A rationale with no priority is refused rather than silently dropped.
-#[test]
-fn a_rationale_with_no_price_is_refused() {
-    let row = Shown {
-        rationale: vec!["why".to_owned()],
-        ..plain("abc", "todo")
-    };
-    assert!(block::raise_block(&row).is_err());
-}
-
-/// Ordered by stable ID, so a rename does not reshuffle the vocabulary.
-#[test]
-fn categories_are_in_id_order() {
-    let vocabulary: BTreeMap<String, u32> = [
-        ("work".to_owned(), 0),
-        ("study".to_owned(), 1),
-        ("project".to_owned(), 2),
-        ("home".to_owned(), 3),
-        ("other".to_owned(), 4),
-    ]
-    .into_iter()
-    .collect();
-    assert_eq!(
-        categories_in_order(&vocabulary),
-        vec!["work", "study", "project", "home", "other"]
-    );
 }

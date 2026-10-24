@@ -17,7 +17,7 @@
  */
 
 import type { Route } from "../src/shell/route";
-import type { Authored, Block, Entry, FailureClass, Group, LineStanding, Overview, OverviewLine } from "../src/wire/generated/wire";
+import type { Authored, Block, Entry, FailureClass, Group, LineStanding, OverviewLine } from "../src/wire/generated/wire";
 import lo from "../src/algebra/lo";
 import type kv from "../src/app/kv";
 
@@ -141,8 +141,8 @@ export function day(r: Rng): string {
 
 /**
  * A ROUTE, one arm at a time — every arm the sum has, so a law over routes
- * covers the whole grammar and a new arm with no case here fails to compile
- * through the exhaustive switch in `route.test.ts`'s own pin.
+ * covers the whole grammar. Nothing checks that this list is complete: a new
+ * arm of `Route` needs its case added here by hand.
  */
 export function route(r: Rng): Route {
   const id = (): string => r.string(SLUG, 1 + r.int(16));
@@ -283,7 +283,7 @@ export function memoryStore(): kv.Store & { size: () => number; keys: () => stri
 export const GROUPS: readonly Group[] = ["models", "mail", "calendar", "drive", "storage", "notifications", "coding", "plugins", "box"];
 
 /** A failure's class, every arm. */
-export function failureClass(r: Rng): FailureClass {
+function failureClass(r: Rng): FailureClass {
   return r.pick<FailureClass>([
     { kind: "revoked", status: r.pick(["unauthorized", "forbidden", "not_found"] as const) },
     { kind: "needs_login" },
@@ -296,7 +296,7 @@ export function failureClass(r: Rng): FailureClass {
 }
 
 /** A line's standing, every arm. */
-export function lineStanding(r: Rng): LineStanding {
+function lineStanding(r: Rng): LineStanding {
   const at = `2026-10-0${1 + r.int(9)}T0${r.int(10)}:00:00`;
   const words = (): string => r.string("abc ", 8);
   return r.pick<() => LineStanding>([
@@ -315,7 +315,7 @@ export function lineStanding(r: Rng): LineStanding {
 }
 
 /** A card's reference, as the box names one. */
-export function cardRef(r: Rng): string {
+function cardRef(r: Rng): string {
   return `proposal:${r.pick(["setup", "secretask", "c"])}/${r.int(6)}`;
 }
 
@@ -326,13 +326,5 @@ export function overviewLine(r: Rng): OverviewLine {
     detail: r.bool() ? null : r.string("abc ", 12),
     standing: lineStanding(r),
     cards: r.array(r.int(3), () => cardRef(r)),
-  };
-}
-
-/** An overview as the box answers one: every group once, in order, some with nothing connected. */
-export function overviewOf(r: Rng): Overview {
-  return {
-    groups: GROUPS.map((group) => ({ group, lines: r.bool(0.4) ? [] : r.array(1 + r.int(3), () => overviewLine(r)) })),
-    ask: "setup",
   };
 }

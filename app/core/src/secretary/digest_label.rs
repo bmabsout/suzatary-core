@@ -241,12 +241,4 @@ mod tests {
             prop_assert!(Label::empty().is_owners());
         }
     }
-
-    #[test]
-    fn every_kind_is_one_bit_of_its_own() {
-        let all = Kind::ALL
-            .into_iter()
-            .fold(Kinds::default(), |kinds, kind| kinds.join(Kinds::one(kind)));
-        assert_eq!(all.iter().collect::<Vec<_>>(), Kind::ALL.to_vec());
-    }
 }

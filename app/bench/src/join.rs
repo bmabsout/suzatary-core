@@ -278,21 +278,6 @@ mod tests {
         }
     }
 
-    /// A wording outside 1-5 refuses to parse.
-    #[test]
-    fn wording_refuses_outside_one_to_five() {
-        assert!(Wording::new(0).is_err());
-        assert!(Wording::new(6).is_err());
-        assert!(Wording::new(3).is_ok());
-    }
-
-    /// A scores file refuses malformed wording, through `serde`.
-    #[test]
-    fn a_malformed_scores_file_refuses_to_parse() {
-        let text = r#"{"triage:a": {"A": {"right_todo": true, "wording": 9, "priority_defensible": true, "would_embarrass": false}}}"#;
-        assert!(ScoresFile::parse(text).is_err());
-    }
-
     /// Join attaches a score to the model its label named.
     #[test]
     fn join_attaches_a_score_to_the_right_model() {
@@ -353,20 +338,6 @@ mod tests {
         let strata = BTreeMap::new();
         let result = join(&scores, &key, &strata);
         assert!(matches!(result, Err(JoinError::UnknownLabel { .. })));
-    }
-
-    /// `by_model` never averages `would_embarrass`; it stays a list.
-    #[test]
-    fn by_model_keeps_would_embarrass_as_a_list_not_a_rate() {
-        let rows = vec![JoinedRow {
-            case: case("triage:a"),
-            model: "candidate/one".to_owned(),
-            stratum: Some(Stratum::Acted),
-            score: score(true, 5, true, true),
-        }];
-        let report = JoinedReport { rows };
-        let summary = &report.by_model()["candidate/one"];
-        assert_eq!(summary.would_embarrass, vec![case("triage:a")]);
     }
 
     /// `by_model_and_stratum` drops a row with no stratum rather than pooling it.

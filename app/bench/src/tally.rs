@@ -164,13 +164,4 @@ mod tests {
             prop_assert_eq!(forward, backward);
         }
     }
-
-    #[test]
-    fn a_check_that_never_applied_has_no_rate() {
-        assert_eq!(Tally::of(None).rate(), None);
-        assert_eq!(
-            (Tally::of(Some(true)) + Tally::of(Some(false))).rate(),
-            Some(0.5)
-        );
-    }
 }

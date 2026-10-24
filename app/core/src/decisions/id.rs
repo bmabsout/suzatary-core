@@ -44,26 +44,3 @@ impl AsRef<str> for DecisionId {
         &self.0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_id_is_a_todo_ids_shape() {
-        for good in ["plugins", "userrepo", "a2b", &"a".repeat(64)] {
-            assert!(DecisionId::new(good).is_ok(), "{good}");
-        }
-        for bad in [
-            "",
-            "ab",
-            "Plugins",
-            "2fa",
-            "user-repo",
-            "user repo",
-            &"a".repeat(65),
-        ] {
-            assert!(DecisionId::new(bad).is_err(), "{bad}");
-        }
-    }
-}

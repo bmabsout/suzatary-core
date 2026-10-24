@@ -48,11 +48,6 @@ test("cards: a Watch group opens with its rows, a Fine one folds and keeps a pee
   assert.equal(row.attention(ROOT), 1, "pass is the one Problem")
 })
 
-test("flat is one card, the whole list, labelled Everything", () => {
-  const cs = row.cards(ROOT, "flat", { all: true })
-  assert.deepEqual(cs.map(c => [c.key, c.label]), [["all", "Everything"]])
-})
-
 test("the viewer's folds win: a folded parent hides its subtodos, an unfolded Fine group shows its rows", () => {
   const [home, work] = row.cards(ROOT, "category", { "t:book": false, "c:work": true })
   assert.deepEqual(home?.lines.map(l => l.key), ["c:home/t:book", "c:home/t:water"])

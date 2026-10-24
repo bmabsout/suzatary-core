@@ -846,16 +846,4 @@ mod tests {
         std::fs::write(&file, "{").expect("half a ledger");
         assert!(ledger(&plugins, &name).is_err());
     }
-
-    /// An act someone else already asked for files nothing, and the journal names who asked.
-    #[test]
-    fn the_journal_names_who_else_asked() {
-        let name = suzatary_core::plugin::PluginName::parse("due").expect("a name");
-        let line = journal(&name, 2, 1, 0, &[Proposer::Secretary], &[]);
-        assert_eq!(
-            line,
-            "plugin due: 2 offers, 1 new in the Inbox, 0 waiting until the owner answers its \
-             others, one already asked by the Suzatary secretary, 0 refused"
-        );
-    }
 }

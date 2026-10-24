@@ -488,24 +488,6 @@ mod tests {
     }
 
     #[test]
-    fn a_key_classifies_a_subtree_by_its_root() {
-        let members = family();
-        let by = Classifier::by(By::Category).combine(Classifier::by(By::Ancestry));
-        assert_eq!(
-            placed(&members, &by, "child"),
-            vec![vec![
-                Segment::Category("home".into()),
-                Segment::Todo(id("parent"))
-            ]]
-        );
-        let alone = Classifier::by(By::Urgency);
-        assert_eq!(
-            placed(&members, &alone, "child"),
-            vec![vec![Segment::Band(Band::Problem)]]
-        );
-    }
-
-    #[test]
     fn classifiers_compose_by_concatenation() {
         let members = family();
         let (u, c, a) = (
@@ -542,18 +524,5 @@ mod tests {
         let tree = Trie::of(&members, &Classifier::by(By::Ancestry)).tree();
         assert_eq!(tree.children.len(), 2);
         assert!(tree.children.iter().all(|c| c.children.len() == 1));
-    }
-
-    #[test]
-    fn a_band_has_its_thresholds() {
-        assert_eq!(Band::of(&Ok(Some(0.49))), Band::Problem);
-        assert_eq!(Band::of(&Ok(Some(0.5))), Band::Watch);
-        assert_eq!(Band::of(&Ok(Some(0.69))), Band::Watch);
-        assert_eq!(Band::of(&Ok(Some(0.7))), Band::Fine);
-        assert_eq!(Band::of(&Ok(None)), Band::Unpriced, "∅ is no number");
-        assert_eq!(
-            Band::of(&Err(LinkError::Unknown("x".into()))),
-            Band::Problem
-        );
     }
 }

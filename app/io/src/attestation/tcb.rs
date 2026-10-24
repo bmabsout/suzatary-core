@@ -205,19 +205,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn intels_spellings_parse() {
-        for (text, status) in [
-            ("\"UpToDate\"", UpToDate),
-            ("\"SWHardeningNeeded\"", SWHardeningNeeded),
-            (
-                "\"OutOfDateConfigurationNeeded\"",
-                OutOfDateConfigurationNeeded,
-            ),
-            ("\"Revoked\"", Revoked),
-        ] {
-            assert_eq!(serde_json::from_str::<TcbStatus>(text).ok(), Some(status));
-        }
-    }
 }

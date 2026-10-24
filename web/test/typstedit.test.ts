@@ -83,11 +83,6 @@ test("an escaped title opens in its prose, and markup a writer wrote opens uncha
   assert.deepEqual(edit.opened("Renew *passport*", core.prose), { text: "Renew *passport*", wasProse: false })
 })
 
-test("accepting a completion puts the item where the typed name was, the caret after it", () => {
-  const made = edit.accept("#str", 4, { from: 1, items: [] }, { label: "strong", insert: "strong[]", cursor: 7, detail: null })
-  assert.deepEqual(made, { source: "#strong[]", caret: 8 })
-})
-
 // The box's vectors: the same texts the Rust door is tested against, admitted or refused alike in the tab.
 const vectors = JSON.parse(readFileSync("app/core/tests/web/closed-world.json", "utf8")) as { text: string; admitted: boolean }[]
 

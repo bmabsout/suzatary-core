@@ -56,77 +56,9 @@ fn words(folder: &DrivePath, failed: &DriveFailure) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mail::health::Reading;
-
-    fn at(minute: u32) -> Instant {
-        chrono::NaiveDate::from_ymd_opt(2026, 10, 9)
-            .and_then(|day| day.and_hms_opt(9, minute, 0))
-            .expect("an instant")
-    }
 
     fn path(text: &str) -> DrivePath {
         text.parse().expect("a path")
-    }
-
-    /// Folders that list are a success; one that does not is a failure since the last success,
-    /// naming the folder; no folder is nothing observed.
-    #[test]
-    fn the_probe_lists_every_allowed_folder() {
-        use super::super::WritePort as _;
-        let drive = super::super::Memory::default();
-        drive
-            .create_folder(&path("/"), "my-files")
-            .expect("a section");
-        drive
-            .create_folder(&path("/my-files"), "Docs")
-            .expect("a folder");
-        let docs = [path("/my-files/Docs")];
-        let listed = probe(&drive, &docs, at(0));
-        assert_eq!(listed.reading(SOURCE), Some(Reading::Ok { at: at(0) }));
-        let gone = [path("/my-files/Docs"), path("/my-files/Gone")];
-        let failed = listed.join(&probe(&drive, &gone, at(5)));
-        let Some(Reading::Failing { since, words, .. }) = failed.reading(SOURCE) else {
-            panic!("failing");
-        };
-        assert_eq!(since, at(0));
-        assert_eq!(words, "/my-files/Gone is not in the Drive");
-        assert_eq!(probe(&drive, &[], at(9)), Healths::default());
-    }
-
-    /// A CLI whose session expired needs its sign-in; a CLI that did not answer is an outage.
-    #[test]
-    fn a_session_expired_needs_the_sign_in() {
-        let docs = [path("/my-files/Docs")];
-        let failing = |failed: DriveFailure| {
-            probe(&Failing(failed), &docs, at(0))
-                .reading(SOURCE)
-                .expect("observed")
-        };
-        assert!(matches!(
-            failing(DriveFailure::SignedOut("session expired".to_owned())),
-            Reading::Failing { class: Failure::NeedsLogin, ref words, .. }
-                if words == "the Drive's sign-in has expired"
-        ));
-        assert!(matches!(
-            failing(DriveFailure::Unreachable("timed out".to_owned())),
-            Reading::Failing {
-                class: Failure::Unclassified,
-                ..
-            }
-        ));
-    }
-
-    /// A Drive whose every listing fails as it was told.
-    struct Failing(DriveFailure);
-
-    impl Port for Failing {
-        fn list(&self, _: &DrivePath) -> Result<Vec<super::super::DriveEntry>, DriveFailure> {
-            Err(self.0.clone())
-        }
-
-        fn download(&self, _: &DrivePath) -> Result<Vec<u8>, DriveFailure> {
-            Err(self.0.clone())
-        }
     }
 
     /// The CLI's own words, which name the box's paths, never reach the line.

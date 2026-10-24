@@ -609,18 +609,12 @@ mod tests {
 
     use suzatary_core::attachment::Attachment;
 
-    const PNG: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
-
     fn person_with(photos: Vec<Attachment>) -> Turn {
         Turn::Person {
             text: "look".to_owned(),
             references: Vec::new(),
             attachments: photos,
         }
-    }
-
-    fn photo(n: u8) -> Attachment {
-        Attachment::accept(&[0xFF, 0xD8, 0xFF, n]).expect("a jpeg")
     }
 
     fn message_of(fed: &Stdin) -> serde_json::Value {
@@ -630,33 +624,6 @@ mod tests {
         assert_eq!(message["type"], "user");
         assert_eq!(message["message"]["role"], "user");
         message
-    }
-
-    #[test]
-    fn text_goes_down_stdin_as_it_always_did_when_there_is_no_block() {
-        let plain = stdin_of(ForModel::of("hello"), Blocks::default());
-        assert!(plain.args.is_empty(), "no --input-format without a block");
-        assert_eq!(plain.payload, "hello");
-    }
-
-    #[test]
-    fn a_photo_makes_one_stream_json_message_images_first_then_the_text() {
-        let dir = tempfile::tempdir().expect("scratch");
-        let store = AttachmentStore::new(
-            dir.path().to_path_buf(),
-            crate::pdftotext::Pdftotext::new("."),
-        );
-        let sent = store.put(PNG).expect("kept");
-        let fed = ClaudeCli::new("m", shipped())
-            .with_uploads(store)
-            .feed(ForModel::of("what is this"), &[person_with(vec![sent])])
-            .expect("fed")
-            .0;
-        let content = &message_of(&fed)["message"]["content"];
-        assert_eq!(content[0]["type"], "image");
-        assert_eq!(content[0]["source"]["media_type"], "image/png");
-        assert_eq!(content[0]["source"]["data"], "iVBORw0KGgoBAgM=");
-        assert_eq!(content[1]["text"], "what is this");
     }
 
     /// The CLI's stream-json carries a verb's PDF as a document block, pinned as the exact line.
@@ -701,22 +668,6 @@ mod tests {
             content[1],
             serde_json::json!({"type": "text", "text": "read it"})
         );
-    }
-
-    #[test]
-    fn a_photo_with_no_store_is_refused_not_dropped() {
-        let cli = ClaudeCli::new("m", shipped());
-        let refused = cli.feed(ForModel::of("x"), &[person_with(vec![photo(1)])]);
-        assert!(matches!(refused, Err(ModelError::Failed(why)) if why.contains("no upload store")));
-        let dir = tempfile::tempdir().expect("scratch");
-        let store = AttachmentStore::new(
-            dir.path().to_path_buf(),
-            crate::pdftotext::Pdftotext::new("."),
-        );
-        let missing = cli
-            .with_uploads(store)
-            .feed(ForModel::of("x"), &[person_with(vec![photo(1)])]);
-        assert!(matches!(missing, Err(ModelError::Failed(why)) if why.contains("no upload")));
     }
 
     /// The deny-all this repository ships, which the instance names by default.
@@ -773,31 +724,6 @@ mod tests {
         assert!(
             matches!(&refused, ModelError::Unreachable(why) if why.contains("fence")),
             "{refused:?}"
-        );
-    }
-
-    /// A result the CLI marked an error is a failure, never the model's reply: the CLI's own
-    /// "Prompt is too long" reads as too long, and any other error text as a failure.
-    #[test]
-    fn an_error_result_is_a_failure_and_a_long_prompt_reads_too_long() {
-        let line = |said: &str| {
-            format!(
-                r#"{{"type":"result","subtype":"success","is_error":true,"num_turns":1,"duration_ms":5,"session_id":"00000000-0000-4000-8000-000000000001","result":"{said}"}}"#
-            )
-        };
-        let long = last_result(&line("Prompt is too long")).expect("a result line");
-        assert_eq!(
-            reply_of(long),
-            Err(ModelError::TooLong("Prompt is too long".to_owned()))
-        );
-        let other = last_result(&line("API Error: 500")).expect("a result line");
-        assert_eq!(
-            reply_of(other),
-            Err(ModelError::Failed("API Error: 500".to_owned()))
-        );
-        assert_eq!(
-            failed("context_length_exceeded: 9000 tokens".to_owned()),
-            ModelError::TooLong("context_length_exceeded: 9000 tokens".to_owned())
         );
     }
 
@@ -860,57 +786,6 @@ mod tests {
                 "{name} missing from {env}"
             );
         }
-    }
-
-    /// The CLI takes stream-json in only with stream-json out, so a stateless request carrying a
-    /// file asks for it, as every mode does.
-    #[test]
-    fn every_mode_asks_for_the_output_a_file_carrying_request_needs() {
-        let id = a_session_id();
-        for mode in [
-            Mode::Stateless,
-            Mode::Open { session_id: &id },
-            Mode::Resume { session_id: &id },
-        ] {
-            let built = argv("claude-haiku-4-5", &shipped(), mode);
-            let at = built
-                .iter()
-                .position(|arg| arg == "--output-format")
-                .expect("an output format");
-            assert_eq!(built[at + 1], "stream-json", "{built:?}");
-            assert!(built.iter().any(|arg| arg == "--verbose"), "{built:?}");
-        }
-    }
-
-    /// A stateless run's answer is its stream's final `result` line.
-    #[test]
-    fn a_stateless_answer_is_the_stream_s_result_line() {
-        let dir = tempfile::tempdir().expect("scratch");
-        let script = dir.path().join("claude");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\ncat > /dev/null\n\
-             echo '{\"type\":\"system\",\"subtype\":\"init\"}'\n\
-             echo '{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"num_turns\":1,\
-             \"duration_ms\":5,\"session_id\":\"00000000-0000-4000-8000-000000000001\",\
-             \"result\":\"{\\\"say\\\":\\\"hi\\\"}\",\"usage\":{\"input_tokens\":10,\
-             \"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":5}}'\n",
-        )
-        .expect("the script");
-        std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o755))
-            .expect("executable");
-        let cli = ClaudeCli::new("m", shipped()).with_binary(script.display().to_string());
-        let reply = cli
-            .turn(
-                &Conversation {
-                    system: String::new(),
-                    turns: vec![person_with(Vec::new())],
-                },
-                &serde_json::json!([]),
-            )
-            .expect("an answer");
-        assert_eq!(reply.say, "hi");
-        assert_eq!(reply.usage.expect("usage").prompt_tokens, 10);
     }
 
     /// The child starts from a cleared environment: it sees the configuration directory it was

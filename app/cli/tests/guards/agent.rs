@@ -274,40 +274,6 @@ fn the_guides_options_are_inits_own() {
     );
 }
 
-/// The guide opens with the person's own steps on one screen, before the long rules: the first
-/// section is the quick install, a table of six steps each naming where it happens.
-#[test]
-fn the_guide_opens_with_a_quick_install_of_the_persons_own_steps() {
-    let text = guide();
-    let first = text
-        .lines()
-        .find(|line| line.starts_with("## "))
-        .expect("a section");
-    assert_eq!(first, "## Quick install");
-    let section: Vec<&str> = text
-        .split("## Quick install")
-        .nth(1)
-        .and_then(|rest| rest.split("\n## ").next())
-        .expect("the section")
-        .lines()
-        .collect();
-    let steps = section
-        .iter()
-        .filter(|line| {
-            line.starts_with("| ") && line[2..].starts_with(|c: char| c.is_ascii_digit())
-        })
-        .count();
-    assert_eq!(steps, 6, "{section:#?}");
-    let words = section
-        .iter()
-        .map(|line| line.split_whitespace().count())
-        .sum::<usize>();
-    assert!(
-        words < 400,
-        "the quick install fits a screen: {words} words"
-    );
-}
-
 /// What the guide says leaves the box is what the code sends: the section is
 /// `suzatary doctor --outbound`'s output, byte for byte.
 #[test]

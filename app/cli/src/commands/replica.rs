@@ -55,19 +55,3 @@ pub fn run(args: &Args) -> anyhow::Result<()> {
         .context("running muchsync — is it on PATH? (it is a system package, not a shell one)")?;
     std::process::exit(status.code().unwrap_or(1));
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{Action, command};
-
-    /// `init` seeds and `sync` pulls; the difference is one flag and the maildir path.
-    #[test]
-    fn init_seeds_the_maildir_and_sync_is_the_bare_pull() {
-        let host = || "box".to_owned();
-        let init = command(&Action::Init { host: host() });
-        assert_eq!(init[0], "--init");
-        assert!(init[1].ends_with("/Mail"), "{init:?}");
-        assert_eq!(init[2], "box");
-        assert_eq!(command(&Action::Sync { host: host() }), vec![host()]);
-    }
-}

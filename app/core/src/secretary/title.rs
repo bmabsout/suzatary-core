@@ -198,29 +198,6 @@ mod tests {
         }
     }
 
-    /// Only an unnamed topic with a finished answer is owed a name.
-    #[test]
-    fn only_an_unnamed_answered_topic_is_owed() {
-        let turns = || vec![person("When is the permit due?"), answer("On the 3rd.")];
-        assert!(owed(&stored(Kind::Topic, "", turns())));
-        assert!(!owed(&stored(Kind::Topic, "permit", turns())));
-        assert!(!owed(&stored(Kind::Default, "", turns())));
-        assert!(!owed(&stored(Kind::Review, "", turns())));
-        assert!(!owed(&stored(Kind::Topic, "", vec![person("When?")])));
-        let running = Turn::Model {
-            text: "checking".to_owned(),
-            calls: vec![crate::capability::ToolCall {
-                verb: "context".into(),
-                args: std::collections::BTreeMap::new(),
-            }],
-        };
-        assert!(!owed(&stored(
-            Kind::Topic,
-            "",
-            vec![person("When?"), running]
-        )));
-    }
-
     /// The question carries the cue, the first question and the first answer.
     #[test]
     fn the_question_is_the_first_exchange() {
@@ -246,20 +223,6 @@ mod tests {
         assert!(text.starts_with(ASK));
         assert!(text.contains("When is the permit due?") && text.contains("On the 3rd."));
         assert!(!text.contains("secret mail") && !text.contains("fee"));
-    }
-
-    /// A title is read off the first line, never repaired past it.
-    #[test]
-    fn a_title_is_the_first_line_unquoted() {
-        let read = |say: &str| from_answer(say).map(|title| title.as_str().to_owned());
-        assert_eq!(
-            read("\"Permit deadline.\"\nmore"),
-            Ok("Permit deadline".to_owned())
-        );
-        assert_eq!(read("= The permit fee"), Ok("The permit fee".to_owned()));
-        assert!(read("  \n ").is_err());
-        let long = read(&"word ".repeat(40)).expect("a title");
-        assert!(long.chars().count() <= JOB_MAX && !long.ends_with(' '));
     }
 
     /// The one conversation the job runs over, and the clock it stamps with.

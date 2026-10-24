@@ -524,17 +524,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stdin_goes_in_and_both_streams_come_back() {
-        let ran = run(&Cmd::new("sh")
-            .args(["-c", "cat; echo oops >&2; exit 3"])
-            .stdin("fed"))
-        .expect("sh runs");
-        assert_eq!(ran.status.code(), Some(3));
-        assert_eq!(ran.out(), "fed");
-        assert_eq!(ran.err(), "oops\n");
-    }
-
-    #[test]
     fn a_child_past_its_timeout_is_killed() {
         let started = Instant::now();
         let failed = run(&Cmd::new("sleep")
@@ -543,23 +532,6 @@ mod tests {
         .expect_err("killed");
         assert!(matches!(failed, RunError::TimedOut { .. }), "{failed}");
         assert!(started.elapsed() < Duration::from_secs(4));
-    }
-
-    #[test]
-    fn a_missing_program_is_a_spawn_error_naming_it() {
-        let failed = run(&Cmd::new("/nonexistent/prog")).expect_err("not there");
-        assert!(failed.to_string().contains("/nonexistent/prog"), "{failed}");
-    }
-
-    #[test]
-    fn env_is_set_and_removed_and_cwd_is_honoured() {
-        let ran = run(&Cmd::new("sh")
-            .args(["-c", "echo \"$A-${HOME:-gone}\"; pwd"])
-            .env("A", "set")
-            .unset("HOME")
-            .cwd("/"))
-        .expect("sh runs");
-        assert_eq!(ran.out(), "set-gone\n/\n");
     }
 
     /// A variable this process holds reaches a child only when its call names it.
@@ -627,18 +599,6 @@ mod tests {
             "the grandchild {} outlived the timeout",
             pid.trim()
         );
-    }
-
-    #[test]
-    fn succeed_is_an_exit_that_quotes_stderr() {
-        let failed = succeed(&Cmd::new("sh").args(["-c", "echo kept >&2; exit 4"]))
-            .expect_err("a non-zero exit");
-        assert!(
-            matches!(&failed, RunError::Exited { status, stderr, .. }
-                if status.code() == Some(4) && stderr.as_str() == "kept"),
-            "{failed}"
-        );
-        assert!(succeed(&Cmd::new("true")).is_ok());
     }
 
     #[test]

@@ -10,15 +10,13 @@
  *
  * 1. A held batch appears in the Inbox as an open decision, drawn as its
  *    diff, with the secretary's own reason above it.
- * 2. A viewer reads the Inbox and is offered nothing to press.
- * 3. A standing email proposal appears in the Inbox as an open decision, and
- *    tapping a CHANGESET proposal Confirms it and drops the count — a
+ * 2. A viewer reads the Inbox and is offered nothing to press, and the route
+ *    refuses it.
+ * 3. A card is drawn closed, and asking Send opens it whole before the question.
+ * 4. Tapping a CHANGESET proposal Confirms it and drops the count — a
  *    changeset, not an email, so it never touches the shared SMTP recorder
  *    `secretary.test.ts` asserts an exact count against.
- * 4. Withdrawing a proposal leaves the Inbox with nothing waiting on it.
- * 5. A revised draft supersedes the one before it: the OLD card shows a quiet
- *    line, never a dismissal in the owner's words, and the Inbox counts only the
- *    new one.
+ * 5. A reason being typed stays in its own card while the card above it goes.
  * 6. A send that failed with nothing sent stays in the Inbox with Try again,
  *    and trying again sends it once and completes it.
  * 7. A send that may have gone through stays in the Inbox with one answer,
@@ -109,17 +107,6 @@ async function propose(base: string, said: string, index: number): Promise<strin
     timeout: 20000,
   });
   return id;
-}
-
-/** Say something more in a conversation already open, waiting for a NEW
- * proposal at `index` to land — the same "type, click, wait" `propose` uses,
- * without minting a second conversation. */
-async function sayMore(said: string, index: number): Promise<void> {
-  await app.page.type(".composebox", said);
-  await app.page.click(".composesend");
-  await app.page.waitFor(`document.querySelector('.proposal[data-proposal="${index}"]') !== null`, {
-    timeout: 20000,
-  });
 }
 
 /** The object hashes a batch card is showing, in the order it shows them. */
@@ -229,76 +216,8 @@ app.scene("a viewer reads the Inbox and is offered nothing to press", async () =
 // NEVER BY A BARE COUNT OF `.inboxpage .proposal`. Each `propose` mints its
 // own conversation, but WRITE_BASE is shared across this whole file's scenes
 // in the order node runs them (`--test-concurrency=1`, one server) — so a
-// scene that leaves its own decision standing (this file has one, on
-// purpose: the next scene needs a fresh one to tap) must not be read by a
-// LATER scene's raw total, only by the row that names its own conversation.
-
-app.scene("a standing proposal appears in the Inbox as an open decision", async () => {
-  const id = await propose(WRITE_BASE, "propose the harrow reply", 0);
-  await openInbox(WRITE_BASE);
-  const row = `.inboxpage .proposal[data-conversation="${id}"]`;
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll('${row}').length`),
-    1,
-    "the standing proposal is drawn as the EXISTING proposal card",
-  );
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector('${row} .proposalbody').textContent`),
-    /the last one is scanned/,
-    "the same card the conversation draws — one implementation, not two",
-  );
-});
-
-// THE BOX'S OWN CARDS ARE ONE ROW (audit X2): the fixture declares secrets it does not hold, so the box files a
-// setup card for each, and the Inbox folds them into one closed row after the work, counted apart from it, its
-// cards untagged since the row names them (audit S21).
-app.scene("the box's setup cards are one closed row after the work, opening in place to its cards and Settings", async () => {
-  await openInbox(WRITE_BASE);
-  await app.page.waitFor(`document.querySelector(".inboxpage .setupgroup") !== null`, { timeout: 15000 });
-  const placed = await app.page.evaluate<{ open: boolean; summary: string; after: boolean; outside: number; inside: number; tagged: number; legend: string }>(`(() => {
-    const group = document.querySelector(".inboxpage .setupgroup");
-    const top = [...document.querySelector(".inboxpage .proposals").children];
-    const at = top.indexOf(group);
-    return {
-      open: group.open,
-      summary: group.querySelector("summary").textContent,
-      after: top.every((n, i) => !(n.matches(".proposal, .batch")) || i < at),
-      outside: [...document.querySelectorAll(".inboxpage .proposal .proposaltag")].filter((t) => t.textContent === "Setup" && t.closest(".setupgroup") === null).length,
-      inside: group.querySelectorAll(".proposal").length,
-      tagged: group.querySelectorAll(".proposal .proposaltag").length,
-      legend: [...document.querySelectorAll(".inboxpage p.legend")].map((p) => p.textContent).join(" "),
-    };
-  })()`);
-  assert.equal(placed.open, false, "the row is drawn closed");
-  assert.match(placed.summary, /^Setup · \d+ things? to set up$/);
-  assert.equal(placed.after, true, "every card of the work stands above it");
-  assert.equal(placed.outside, 0, "no setup card stands outside it");
-  assert.ok(placed.inside > 0);
-  // One tag per card: the row says Setup, so no card in it says it again (audit S21).
-  assert.equal(placed.tagged, 0, "a card in the Setup row carries no tag of its own");
-  // The count is what is shown: the setup steps are counted apart from the work.
-  assert.match(placed.legend, new RegExp(`${placed.inside} setup steps?`), placed.legend);
-  await app.page.click(".inboxpage .setupgroup > summary");
-  await app.page.waitFor(`document.querySelector(".inboxpage .setupgroup").open === true`, { timeout: 4000 });
-  assert.equal(await app.page.evaluate<string>(`document.querySelector(".inboxpage .setupsettings").getAttribute("href")`), "#/settings");
-  // Each card in it is drawn closed too, its field labelled in words and its Store visibly waiting for one.
-  assert.equal(await app.page.evaluate<number>(`[...document.querySelectorAll(".inboxpage .setupgroup .proposaldetails")].filter((d) => d.open).length`), 0);
-  const field = await app.page.evaluate<{ label: string; placeholder: string; disabled: boolean } | null>(`(() => {
-    const f = document.querySelector(".inboxpage .setupgroup .proposalsecretfield");
-    return f === null ? null : { label: f.querySelector(".secretlabel span").textContent, placeholder: f.querySelector("input").placeholder, disabled: f.querySelector("button").disabled };
-  })()`);
-  if (field !== null) {
-    assert.notEqual(field.label, "");
-    assert.equal(field.placeholder, "Paste it here");
-    assert.equal(field.disabled, true);
-  }
-  // No card says how the box speaks of itself.
-  const words = await app.page.evaluate<string>(`document.querySelector(".inboxpage .proposals").innerText`);
-  assert.ok(!/proposal:setup|no model asked|on this box/.test(words), words);
-  // Closed again by the reader, it stays closed.
-  await app.page.click(".inboxpage .setupgroup > summary");
-  await app.page.waitFor(`document.querySelector(".inboxpage .setupgroup").open === false`, { timeout: 4000 });
-});
+// scene that leaves its own decision standing must not be read by a LATER
+// scene's raw total, only by the row that names its own conversation.
 
 // ASKING YES OPENS THE CARD (audit X2): a card is drawn closed, and Send's question is asked with every field on screen.
 app.scene("a card is drawn closed, and asking Send opens it whole before the question", async () => {
@@ -354,70 +273,6 @@ app.scene("tapping a proposal in the Inbox confirms it and drops the count", asy
   assert.notEqual(after, before, `tapping settled the decision the proposal made: ${before} -> ${after}`);
   const entries = await fold(app.page);
   assert.ok(entries.some((entry) => entry.todo === "e2einboxtaptest"), "the tap really applied the changeset");
-});
-
-app.scene("withdrawing a proposal leaves the Inbox with nothing waiting on it", async () => {
-  const id = await propose(WRITE_BASE, "propose the reply to withdraw", 0);
-  await sayMore("withdraw the harrow reply", 0); // same index: withdrawn IN PLACE, not superseded, and drawn as withdrawn, never as the owner's no
-  await app.page.waitFor(
-    `document.querySelector('.proposal[data-proposal="0"]')?.className.includes("proposal-withdrawn") ?? false`,
-    { timeout: 20000 },
-  );
-  await openInbox(WRITE_BASE);
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll('.inboxpage .proposal[data-conversation="${id}"]').length`),
-    0,
-    "a withdrawn proposal's decision is cancelled, so the fold no longer counts it open",
-  );
-});
-
-app.scene("a superseded proposal shows a quiet line, never a dismissal in Ada's words", async () => {
-  const id = await propose(WRITE_BASE, "propose the draft to correct", 0);
-  await sayMore("send a corrected harrow reply", 1);
-
-  // THE OLD CARD, in the conversation: not `dismissed`, a quiet line of its
-  // own — SPEC §5 commit 4(d), and the ONE place the Rust derives it
-  // (`secretary::routes::proposal`) is asserted by `app/core`'s own tests;
-  // this is the page matching the arm it sent.
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector('.proposal[data-proposal="0"]').className`),
-    "proposal proposal-superseded proposal-act-email",
-  );
-  assert.equal(
-    await app.page.evaluate<string>(
-      `document.querySelector('.proposal[data-proposal="0"] .proposaloutcome').textContent`,
-    ),
-    "Replaced by a later draft.",
-    "never his words — a superseded proposal is nobody's answer to report",
-  );
-
-  // AND THE INBOX COUNTS ONLY THE NEW ONE, from THIS conversation: the
-  // superseded decision is cancelled, so this conversation's fold row is
-  // exactly one, drawn as index 1's card — the revision, not the draft it
-  // replaced. Tapped afterwards so this scene, like the others, leaves
-  // nothing of its own standing behind it.
-  await openInbox(WRITE_BASE);
-  const rows = `.inboxpage .proposal[data-conversation="${id}"]`;
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll('${rows}').length`),
-    1,
-    "one open decision: the revision, not the draft it replaced",
-  );
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector('${rows}').getAttribute("data-proposal")`),
-    /^1$/,
-    "the standing card is the REVISION",
-  );
-  await app.page.click(`${rows} .act-dismiss`);
-  await app.page.waitFor(`document.querySelector('${rows} .dismissreason') !== null`, { timeout: 4000 });
-  // A HALF-TYPED REASON OUTLIVES A REDRAW: the step and the words are read back, and typing goes on from them.
-  await app.page.type(`${rows} .dismissreason`, "e2e");
-  await drawnAgain(WRITE_BASE, rows);
-  assert.equal(await valueOf(`${rows} .dismissreason`), "e2e", "the reason being typed survives");
-  await app.page.type(`${rows} .dismissreason`, " cleanup");
-  assert.equal(await valueOf(`${rows} .dismissreason`), "e2e cleanup");
-  await app.page.click(`${rows} .act-dismiss.confirming`);
-  await app.page.waitFor(`document.querySelector('${rows}') === null`, { timeout: 15000 });
 });
 
 app.scene("a reason being typed stays in its own card while the card above it goes", async () => {

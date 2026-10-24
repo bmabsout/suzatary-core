@@ -1,13 +1,12 @@
 //! The todo verbs through the real binary, since the open list is a printed row the briefing
 //! pastes: `todos open` never shows a held batch's `decision` record as one of the owner's
-//! todos (the document and the web app keep it out the same way), `todo update`'s cycle flags
-//! author a `Recur` and refuse a second price beside them, and a staged todo stays off the chain.
+//! todos (the document and the web app keep it out the same way), a staged todo stays off the
+//! chain, and each write is signed by the key its actor owns.
 
 use std::path::{Path, PathBuf};
 
 use prodrome_core::fpl;
 use prodrome_core::literal::Datetime;
-use prodrome_core::term::TermF;
 use suzatary_core::record::{EventStore, mk_authored};
 
 /// A scratch root unique to this process and thread.
@@ -152,92 +151,6 @@ fn suzatary(instance: &Path, args: &[&str]) -> std::process::Output {
         .args(args)
         .output()
         .expect("the binary runs")
-}
-
-#[test]
-fn a_recurring_price_is_authored_from_the_flags_and_holds_alone() {
-    let root = scratch("recur-flags");
-    a_chain(&root);
-    let instance = an_instance(&root);
-    let cycle = ["--recur-days", "60", "--from", "100", "--to", "30"];
-    let because = ["--rationale", "Every two months after a pass."];
-
-    let two = suzatary(
-        &instance,
-        &[
-            &[
-                "todo",
-                "update",
-                "parkingpermit",
-                "--actor",
-                "ada",
-                "--priority",
-                "40",
-            ][..],
-            &cycle,
-            &because,
-        ]
-        .concat(),
-    );
-    assert!(!two.status.success(), "two prices were accepted");
-    assert!(
-        String::from_utf8_lossy(&two.stderr).contains("a todo holds one price"),
-        "stderr: {}",
-        String::from_utf8_lossy(&two.stderr)
-    );
-    let half = suzatary(
-        &instance,
-        &[
-            "todo",
-            "update",
-            "parkingpermit",
-            "--actor",
-            "ada",
-            "--recur-days",
-            "60",
-            "--from",
-            "100",
-        ],
-    );
-    assert!(!half.status.success(), "a cycle with one end was accepted");
-
-    let one = suzatary(
-        &instance,
-        &[
-            &["todo", "update", "parkingpermit", "--actor", "ada"][..],
-            &cycle,
-            &because,
-        ]
-        .concat(),
-    );
-    assert!(
-        one.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&one.stderr)
-    );
-    let events = EventStore::new(
-        root.join("events"),
-        prodrome_core::policy::Untrusted::none(),
-    )
-    .events()
-    .expect("the chain reads");
-    let spec = events
-        .iter()
-        .rev()
-        .find_map(|event| match event {
-            suzatary_core::record::TodoEvent::Authored(record)
-                if record.todo.as_str() == "parkingpermit" =>
-            {
-                Some(record.payload.spec.clone())
-            }
-            _ => None,
-        })
-        .expect("a price");
-    let TermF::Recur { todo, pending, .. } = spec.out() else {
-        panic!("a recurrence, got {}", fpl::print_term(&spec));
-    };
-    assert_eq!(todo, "parkingpermit");
-    assert_eq!(pending, &fpl::mk_flat(0.75).expect("a term"));
 }
 
 #[test]

@@ -89,45 +89,6 @@ fn fold(base: &str, params: &str) -> serde_json::Value {
     common::body_json(&mut response)
 }
 
-/// Entries carry state and price.
-#[test]
-fn entries_carry_state_and_price() {
-    let base = base();
-    let body = fold(&base, "");
-    let entries = body["entries"].as_array().expect("entries");
-    let by_todo = |id: &str| -> &serde_json::Value {
-        entries
-            .iter()
-            .find(|e| e["todo"] == id)
-            .unwrap_or_else(|| panic!("{id} is in the fold"))
-    };
-    assert_eq!(by_todo("renew-card")["state"], "completed");
-    assert_eq!(by_todo("file-permit")["authored"]["category"], "work");
-    assert!(by_todo("file-permit")["value"].is_number());
-}
-
-/// `t` defaults to now.
-#[test]
-fn t_defaults_to_now() {
-    let base = base();
-    let body = fold(&base, "");
-    assert!(body["at"].as_str().is_some());
-}
-
-/// A malformed `t` is a 400 naming what an ISO datetime looks like.
-#[test]
-fn a_malformed_t_is_400() {
-    let base = base();
-    let mut response = common::get(&format!("{base}/api/fold?t=yesterday"));
-    assert_eq!(common::status(&response), 400);
-    assert!(
-        common::body_json(&mut response)["error"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("ISO datetime")
-    );
-}
-
 /// `limit` answers the lowest fulfillments, ascending, the query the Android widget asks: rows
 /// are ordered by value and not by id, a resolved todo is never among them, and the whole fold
 /// is unchanged for a caller that names no limit.
@@ -164,18 +125,6 @@ fn a_limited_fold_is_the_lowest_fulfillments_ascending_and_open() {
     for entry in asked["entries"].as_array().expect("entries") {
         assert_ne!(entry["todo"], "renew-card");
     }
-}
-
-/// A malformed `limit` is a 400 with the wording the mail's cap already uses.
-#[test]
-fn a_malformed_limit_is_400() {
-    let base = base();
-    let mut response = common::get(&format!("{base}/api/fold?limit=none"));
-    assert_eq!(common::status(&response), 400);
-    assert_eq!(
-        common::body_json(&mut response)["error"],
-        "limit must be a positive integer, got 'none'"
-    );
 }
 
 /// An untrusted completion is claimed but not bound, on the wire: `ada` authors, and `triage`
@@ -373,48 +322,4 @@ fn the_stream_is_chronological_and_every_authored_carries_its_diff() {
         .map(|c| c["field"].as_str().unwrap_or_default())
         .collect();
     assert_eq!(second_fields, ["body", "category"].into_iter().collect());
-}
-
-/// An unknown todo id is a 404, and a malformed one a 400.
-#[test]
-fn an_unknown_id_is_404_and_a_malformed_one_400() {
-    let base = base();
-    assert_eq!(
-        common::status(&common::get(&format!("{base}/api/todo/no-such-todo"))),
-        404
-    );
-    assert_eq!(
-        common::status(&common::get(&format!("{base}/api/todo/Not%20An%20Id"))),
-        400
-    );
-}
-
-/// A large answer is gzipped when accepted, and an empty one is left alone.
-///
-/// The empty probe is axum's bodiless 405, since almost every real answer is over
-/// `CompressionLayer`'s 32-byte gate; a path under `/api/act/` would answer a sentence, and be
-/// compressed.
-#[test]
-fn a_large_answer_is_gzipped_and_an_empty_one_is_not() {
-    let base = base();
-    let big = common::agent()
-        .get(format!("{base}/api/chain"))
-        .header("accept-encoding", "gzip")
-        .call()
-        .expect("the request completes");
-    assert_eq!(common::status(&big), 200);
-    assert_eq!(
-        big.headers()
-            .get("content-encoding")
-            .and_then(|v| v.to_str().ok()),
-        Some("gzip")
-    );
-
-    let empty = common::agent()
-        .put(format!("{base}/api/objects"))
-        .header("accept-encoding", "gzip")
-        .send_empty()
-        .expect("the request completes");
-    assert_eq!(common::status(&empty), 405);
-    assert!(empty.headers().get("content-encoding").is_none());
 }

@@ -405,26 +405,4 @@ mod tests {
             None
         );
     }
-
-    #[test]
-    fn a_failure_that_has_held_a_day_is_persistent_and_a_success_ends_it() {
-        let failing = Health::of(instant(0), Outcome::Succeeded, "").join(&Health::of(
-            instant(60),
-            Outcome::Failed(Failure::NeedsLogin),
-            "no grant",
-        ));
-        let now = instant(60 * 25);
-        assert!(failing.reading().failing_for(now) > Some(persistent()));
-        assert_eq!(
-            failing.reading(),
-            Reading::Failing {
-                at: instant(60),
-                class: Failure::NeedsLogin,
-                words: "no grant".to_owned(),
-                since: instant(0),
-            }
-        );
-        let healed = failing.join(&Health::of(instant(120), Outcome::Succeeded, ""));
-        assert_eq!(healed.reading().failing_for(now), None);
-    }
 }

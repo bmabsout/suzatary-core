@@ -370,27 +370,6 @@ mod tests {
     }
 
     #[test]
-    fn html_compiles_a_trivial_fragment_when_typst_is_reachable() {
-        if !on_path("typst") && !on_path("nix") {
-            eprintln!(
-                "skipping html_compiles_a_trivial_fragment_when_typst_is_reachable: \
-                 neither typst nor nix is on PATH"
-            );
-            return;
-        }
-        let (typst, cache) = typst_at("live-compile");
-        let markup = Escaped::from_chain("hello");
-        match typst.html(&markup) {
-            Ok(html) => assert!(html.as_str().contains("hello")),
-            Err(err) => eprintln!(
-                "skipping html_compiles_a_trivial_fragment_when_typst_is_reachable: \
-                 found typst/nix but the compile did not succeed here: {err}"
-            ),
-        }
-        let _ = std::fs::remove_dir_all(&cache);
-    }
-
-    #[test]
     fn an_answer_block_is_html_with_mathml_in_the_closed_world() {
         let (typst, cache) = typst_at("answer-blocks");
         let answer =

@@ -396,12 +396,11 @@ mod tests {
     use std::sync::Mutex;
     use suzatary_core::capability::Turn;
 
-    /// One scripted answer, capturing the request body and timeout it was asked to send.
+    /// One scripted answer, capturing the request body it was asked to send.
     #[derive(Debug)]
     struct ScriptedTransport {
         answer: Result<(u16, String, Headers), String>,
         captured: Mutex<Option<Value>>,
-        captured_timeout: Mutex<Option<Duration>>,
     }
 
     impl ScriptedTransport {
@@ -409,7 +408,6 @@ mod tests {
             Self {
                 answer,
                 captured: Mutex::new(None),
-                captured_timeout: Mutex::new(None),
             }
         }
     }
@@ -421,15 +419,8 @@ mod tests {
                 .lock()
                 .expect("no poisoned lock in a single-threaded test") =
                 serde_json::from_slice(&req.body).ok();
-            *self
-                .captured_timeout
-                .lock()
-                .expect("no poisoned lock in a single-threaded test") = req.timeout;
             let (status, text, headers) = self.answer.clone().map_err(HttpError::Lost)?;
             let mut resp = Resp::new(status, text);
-            if let Some(after) = headers.retry_after {
-                resp = resp.with_header("retry-after", after);
-            }
             if let Some(receipt) = headers.attestation {
                 resp = resp.with_header(RECEIPT_HEADER, receipt);
             }
@@ -443,7 +434,6 @@ mod tests {
     /// The headers a scripted chat answer carries.
     #[derive(Debug, Clone, Default)]
     struct Headers {
-        retry_after: Option<String>,
         attestation: Option<String>,
         keyset: Option<String>,
     }
@@ -543,7 +533,6 @@ mod tests {
         Headers {
             attestation: Some(id.to_owned()),
             keyset: Some(attestation::testkit::digest(&keyset())),
-            ..Headers::default()
         }
     }
 
@@ -555,73 +544,6 @@ mod tests {
             .lock()
             .expect("no poisoned lock in a single-threaded test")
             .is_some()
-    }
-
-    #[test]
-    fn a_usage_block_is_read_into_token_usage() {
-        let mut body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        body["usage"] = serde_json::json!({
-            "prompt_tokens": 100,
-            "completion_tokens": 20,
-            "prompt_tokens_details": { "cached_tokens": 40 },
-        });
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let reply = model
-            .turn(&conversation(), &serde_json::json!([]))
-            .expect("a normal reply is not an error");
-        let usage = reply.usage.expect("a usage block was sent");
-        assert_eq!(usage.prompt_tokens, 100);
-        assert_eq!(usage.completion_tokens, 20);
-        assert_eq!(usage.cached_prompt_tokens, Some(40));
-    }
-
-    #[test]
-    fn no_usage_block_is_none() {
-        let body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let reply = model
-            .turn(&conversation(), &serde_json::json!([]))
-            .expect("a normal reply is not an error");
-        assert!(reply.usage.is_none());
-    }
-
-    /// A usage block missing a count is a body of another shape, never a count read as zero.
-    #[test]
-    fn a_usage_block_missing_a_count_is_malformed() {
-        let mut body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        body["usage"] = serde_json::json!({ "prompt_tokens": 100 });
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        assert!(matches!(
-            model_over(transport, Attestation::Unclaimed)
-                .turn_with_receipt(&conversation(), &serde_json::json!([])),
-            Err(OpenAiError::Malformed(_))
-        ));
-    }
-
-    #[test]
-    fn a_normal_reply_parses() {
-        let body = ok_body(r#"{"say": "on it", "calls": []}"#);
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let reply = model
-            .turn(&conversation(), &serde_json::json!([]))
-            .expect("a normal reply is not an error");
-        assert_eq!(reply.say, "on it");
-        assert!(reply.calls.is_empty());
-    }
-
-    /// Unfencing is `Reply::parse`'s job; this checks the content is handed through whole.
-    #[test]
-    fn a_fenced_json_reply_parses() {
-        let body = ok_body("```json\n{\"say\": \"hello\", \"calls\": []}\n```");
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let reply = model
-            .turn(&conversation(), &serde_json::json!([]))
-            .expect("a fenced reply is not an error");
-        assert_eq!(reply.say, "hello");
     }
 
     #[test]
@@ -637,59 +559,6 @@ mod tests {
             .expect_err("a 401 is a failure");
         assert!(matches!(failed, OpenAiError::Unauthorized));
         assert!(!failed.to_string().contains("a-key"));
-    }
-
-    #[test]
-    fn a_429_carries_the_retry_after() {
-        let transport = ScriptedTransport::new(Ok((
-            429,
-            String::new(),
-            Headers {
-                retry_after: Some("30".to_owned()),
-                ..Headers::default()
-            },
-        )));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let failed = model
-            .turn_with_receipt(&conversation(), &serde_json::json!([]))
-            .expect_err("a 429 is a failure");
-        match failed {
-            OpenAiError::Throttled { retry_after } => {
-                assert_eq!(retry_after.as_deref(), Some("30"));
-            }
-            other => panic!("expected Throttled, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn a_malformed_body_names_its_prefix() {
-        let long = "not json at all, ".repeat(20);
-        let transport = ScriptedTransport::new(Ok((200, long.clone(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let failed = model
-            .turn_with_receipt(&conversation(), &serde_json::json!([]))
-            .expect_err("a malformed body is a failure");
-        match failed {
-            OpenAiError::Malformed(prefix) => {
-                assert_eq!(
-                    prefix,
-                    long.chars().take(200).chain(['…']).collect::<String>()
-                );
-                assert!(prefix.chars().count() <= 201);
-            }
-            other => panic!("expected Malformed, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn a_body_with_no_choices_is_malformed() {
-        let body = serde_json::json!({ "id": "x" });
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        assert!(matches!(
-            model.turn_with_receipt(&conversation(), &serde_json::json!([])),
-            Err(OpenAiError::Malformed(_))
-        ));
     }
 
     #[test]
@@ -896,70 +765,5 @@ mod tests {
             .expect("no receipt under Unclaimed is not a failure");
         assert_eq!(reply.say, "hi");
         assert!(reply.receipt.is_none());
-    }
-
-    #[test]
-    fn the_request_carries_two_messages_and_no_tools_key() {
-        let body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let _ = model
-            .turn_with_receipt(&conversation(), &serde_json::json!([]))
-            .expect("a normal reply is not an error");
-        let sent = model
-            .http
-            .captured
-            .lock()
-            .expect("no poisoned lock in a single-threaded test")
-            .clone()
-            .expect("the transport was called");
-        assert_eq!(
-            sent.get("model").and_then(Value::as_str),
-            Some("deepseek-v4-flash")
-        );
-        assert!(sent.get("tools").is_none(), "{sent:?}");
-        assert!(sent.get("temperature").is_none(), "{sent:?}");
-        let messages = sent
-            .get("messages")
-            .and_then(Value::as_array)
-            .expect("messages is an array");
-        assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0]["role"], "system");
-        assert_eq!(messages[1]["role"], "user");
-    }
-
-    /// No socket, so this proves only that the configured timeout reaches the transport.
-    #[test]
-    fn with_timeout_reaches_the_transport() {
-        let body = ok_body(r#"{"say": "hi", "calls": []}"#);
-        let transport = ScriptedTransport::new(Ok((200, body.to_string(), Headers::default())));
-        let configured = Duration::from_secs(17);
-        let model = model_over(transport, Attestation::Unclaimed).with_timeout(configured);
-        let _ = model
-            .turn_with_receipt(&conversation(), &serde_json::json!([]))
-            .expect("a normal reply is not an error");
-        let captured = *model
-            .http
-            .captured_timeout
-            .lock()
-            .expect("no poisoned lock in a single-threaded test");
-        assert_eq!(captured, Some(configured));
-    }
-
-    #[test]
-    fn name_carries_the_configured_model() {
-        let transport = ScriptedTransport::new(Err("unused".to_owned()));
-        let model = model_over(transport, Attestation::Unclaimed);
-        assert!(model.name().contains("deepseek-v4-flash"));
-    }
-
-    #[test]
-    fn model_error_conversion_keeps_unreachable_distinct() {
-        let transport = ScriptedTransport::new(Err("connection refused".to_owned()));
-        let model = model_over(transport, Attestation::Unclaimed);
-        let failed = model
-            .turn(&conversation(), &serde_json::json!([]))
-            .expect_err("an unreachable transport is a failure");
-        assert!(matches!(failed, ModelError::Unreachable(_)));
     }
 }

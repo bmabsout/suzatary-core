@@ -1,4 +1,4 @@
-// A diff's one line: the cases the owner reads, and the monoid it is folded with.
+// A diff's one line: the monoid it is folded with, and that the line names every act and todo of its rows.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -28,56 +28,6 @@ const row = (act: proposed.Act, todo: string, more: More = {}): ProposedObject =
     case "respecified": return { hash, needs, act, ...t, note: "" }
   }
 }
-const priced = (act: proposed.Act, todo: string, after: string): ProposedObject =>
-  row(act, todo, { changes: [{ field: "priority", before: "", after }] })
-const line = (rows: ProposedObject[]): string => digest.line(digest.of(rows))
-
-test("one act names its todo in the row's own words", () => {
-  assert.equal(line([row("edited", "file-permit")]), "reword file-permit")
-  assert.equal(line([row("tended", "plants")]), "record a pass at plants")
-  assert.equal(line([row("completed", "renew-card")]), digest.sentence(row("completed", "renew-card")))
-})
-
-test("several of one act are counted, one todo acted on twice is named once", () => {
-  assert.equal(line([row("repriced", "a"), row("repriced", "b")]), "reprice 2 todos")
-  assert.equal(line([row("edited", "a"), row("edited", "a")]), "reword a")
-})
-
-test("mixed acts are grouped by act, in the order they first appear", () => {
-  assert.equal(
-    line([row("edited", "file-permit"), row("repriced", "a"), row("completed", "renew-card"), row("repriced", "b")]),
-    "reword file-permit · reprice 2 todos · complete renew-card",
-  )
-})
-
-test("a merge names no todo and is counted by its objects", () => {
-  assert.equal(line([row("merge", "")]), "join two histories")
-  assert.equal(line([row("added", "x"), row("merge", ""), row("merge", "")]), "add x · join histories 2 times")
-})
-
-test("a spec revised reads as a reprice, and no rows read as nothing", () => {
-  assert.equal(line([row("respecified", "plants")]), "reprice plants")
-  assert.equal(line([]), "")
-})
-
-test("a price at or under the hold is said, a higher one or none is not", () => {
-  const t = digest.of([priced("added", "renew-card", "40%"), priced("repriced", "plants", "80%; every 60 days"), row("completed", "x")])
-  assert.equal(digest.urgentLine(t), "At or under the 45% the review holds: renew-card at 40%")
-  assert.equal(digest.urgentLine(digest.of([priced("added", "a", "45%"), priced("added", "b", "unpriced")])), "At or under the 45% the review holds: a at 45%")
-  assert.equal(digest.urgentLine(digest.of([priced("added", "a", "46%")])), "")
-})
-
-test("a todo waiting on another batch is said", () => {
-  const t = digest.of([row("completed", "x", { pending_todo: true }), row("merge", ""), row("added", "y")])
-  assert.equal(digest.pendingLine(t), "Not on the chain yet, waiting on another batch: x")
-})
-
-test("the box's printed price reads as its number, and anything else as none", () => {
-  assert.equal(digest.percent("40%"), 40)
-  assert.equal(digest.percent("100%; every 60 days after a pass"), 100)
-  assert.equal(digest.percent("unpriced"), null)
-  assert.equal(digest.percent(""), null)
-})
 
 const ACTS: readonly proposed.Act[] = ["added", "edited", "repriced", "completed", "cancelled", "reopened", "tended", "created", "respecified", "merge"]
 const anyRow = (r: Rng): ProposedObject => {

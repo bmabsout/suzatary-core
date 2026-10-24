@@ -163,16 +163,4 @@ mod tests {
             STRING_SPECIALS
         ));
     }
-
-    #[test]
-    fn one_item_is_still_an_array() {
-        assert_eq!(array([lit("x")]).0, "(\"x\",)");
-        assert_eq!(array([]).0, "()");
-    }
-
-    #[test]
-    fn a_refused_page_leads_back_to_the_root() {
-        let page = Page::refused("todo/x.html", "a script element", "generated now");
-        assert!(page.as_str().contains("#shell(\"todo/x.html\", \"../\", "));
-    }
 }

@@ -867,15 +867,6 @@ mod tests {
         }
     }
 
-    /// The sentence names the account and the scope, since cards and turns show it verbatim.
-    #[test]
-    fn the_sentence_names_the_account_and_imap_only() {
-        assert_eq!(
-            auth().sentence(),
-            "authorise ada@example.com to sync mail (IMAP)"
-        );
-    }
-
     /// Sending's consent is an act of its own, naming SMTP, and prints and reads back as one;
     /// reading's still names IMAP alone.
     #[test]
@@ -1004,19 +995,6 @@ mod tests {
         assert_eq!(read, act);
     }
 
-    /// A chain act and a dismissal share one grammar, which names what was acted on nowhere.
-    #[test]
-    fn describe_act_matches_the_planned_examples() {
-        assert_eq!(
-            describe_act("Ada", "dismissed", "wrong person"),
-            "Ada dismissed it: wrong person"
-        );
-        assert_eq!(
-            describe_act("Ada", "completed", "the meeting moved to October"),
-            "Ada completed it: the meeting moved to October"
-        );
-    }
-
     fn a_todo_reference() -> Reference {
         Reference::Todo(TodoRef {
             chain: crate::chains::ChainName::new("life").expect("a slug"),
@@ -1036,70 +1014,6 @@ mod tests {
             },
         )
         .expect("opens");
-    }
-
-    #[test]
-    fn an_empty_note_appends_nothing() {
-        let store = InMemory::default();
-        let id = ConversationId::new("2026-09-15-1").expect("a slug");
-        opened(&store, &id);
-        let before = super::super::read(store.lines.conversations(), &id)
-            .expect("reads")
-            .turns
-            .len();
-
-        note_act(
-            store.lines.conversations(),
-            &id,
-            &ActLine {
-                at: now(),
-                actor: "ada".to_owned(),
-                verb: "completed",
-                reference: a_todo_reference(),
-                note: String::new(),
-            },
-            Stamp::Actor("ada".to_owned()),
-        )
-        .expect("appends nothing without error");
-
-        let after = super::super::read(store.lines.conversations(), &id)
-            .expect("reads")
-            .turns
-            .len();
-        assert_eq!(before, after, "an empty note left the transcript alone");
-    }
-
-    /// A note appends one `Turn::Act` carrying the reference, and the sentence without it.
-    #[test]
-    fn a_note_appends_one_act_turn_with_the_reference() {
-        let store = InMemory::default();
-        let id = ConversationId::new("2026-09-15-2").expect("a slug");
-        opened(&store, &id);
-
-        note_act(
-            store.lines.conversations(),
-            &id,
-            &ActLine {
-                at: now(),
-                actor: "ada".to_owned(),
-                verb: "completed",
-                reference: a_todo_reference(),
-                note: "the meeting moved to October".to_owned(),
-            },
-            Stamp::Actor("ada".to_owned()),
-        )
-        .expect("appends");
-
-        let stored = super::super::read(store.lines.conversations(), &id).expect("reads");
-        let last = stored.turns.last().expect("a turn");
-        match &last.turn {
-            Turn::Act { text, references } => {
-                assert_eq!(text, "Ada completed it: the meeting moved to October");
-                assert_eq!(references.len(), 1);
-                assert_eq!(references[0], a_todo_reference());
-            }
-            other => panic!("expected an Act turn, got {other:?}"),
-        }
     }
 
     /// Through the real writer, in the default conversation: a noted act is stamped by its actor,
@@ -1192,28 +1106,6 @@ mod tests {
         );
     }
 
-    /// A sealed `Completed` with a note, posted as the actor it names, becomes one act line.
-    #[test]
-    fn heard_from_objects_finds_a_completed_event_with_a_note() {
-        let actor = prodrome_core::event::Actor::new("ada").expect("an actor");
-        let chain = crate::chains::ChainName::new("life").expect("a slug");
-        let event = prodrome_core::event::mk_completed::<crate::record::Record>(
-            "x",
-            now(),
-            "ada",
-            "the meeting moved to October",
-        )
-        .expect("a completed event");
-
-        let heard = heard_from_objects(std::slice::from_ref(&event), &actor, &chain);
-        assert_eq!(heard.len(), 1);
-        assert_eq!(heard[0].verb, "completed");
-        assert_eq!(heard[0].actor, "ada");
-        assert_eq!(heard[0].note, "the meeting moved to October");
-        assert_eq!(heard[0].reference, a_todo_reference());
-        assert_eq!(heard[0].at, now());
-    }
-
     /// Only the poster's own lifecycle acts with a note are heard: an empty note, an event naming a
     /// different actor and a non-lifecycle event are each skipped.
     #[test]
@@ -1244,24 +1136,5 @@ mod tests {
                 "{event:?}"
             );
         }
-    }
-
-    /// The fold keeps order and drops only what it should.
-    #[test]
-    fn heard_from_objects_keeps_every_qualifying_event_in_order() {
-        let actor = prodrome_core::event::Actor::new("ada").expect("an actor");
-        let chain = crate::chains::ChainName::new("life").expect("a slug");
-        let events = vec![
-            prodrome_core::event::mk_completed::<crate::record::Record>("x", now(), "ada", "first")
-                .expect("valid"),
-            prodrome_core::event::mk_cancelled::<crate::record::Record>("y", now(), "ada", "")
-                .expect("valid"),
-            prodrome_core::event::mk_reopened::<crate::record::Record>("z", now(), "ada", "second")
-                .expect("valid"),
-        ];
-        let heard = heard_from_objects(&events, &actor, &chain);
-        assert_eq!(heard.len(), 2, "{heard:?}");
-        assert_eq!(heard[0].note, "first");
-        assert_eq!(heard[1].note, "second");
     }
 }

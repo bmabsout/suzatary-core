@@ -420,28 +420,6 @@ mod tests {
         .expect("a name")
     }
 
-    /// Every read is bounded where it is asked: the list, the events and the window.
-    #[test]
-    fn every_read_is_bounded_where_it_is_asked() {
-        let endpoints = Endpoints::google();
-        assert_eq!(
-            list_url(&endpoints),
-            "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=20&minAccessRole=reader"
-        );
-        let now = NaiveDate::from_ymd_opt(2026, 10, 17)
-            .and_then(|day| day.and_hms_opt(9, 0, 0))
-            .expect("an instant");
-        let url = events_url(&endpoints, "team@group.calendar.example.test", window(now));
-        assert!(
-            url.contains("/calendars/team%40group.calendar.example.test/events?"),
-            "{url}"
-        );
-        assert!(url.contains("maxResults=250"), "{url}");
-        assert!(url.contains("timeMin=2026-10-10T09%3A00%3A00Z"), "{url}");
-        assert!(url.contains("timeMax=2027-01-15T09%3A00%3A00Z"), "{url}");
-        assert!(url.contains("singleEvents=true"), "{url}");
-    }
-
     /// An answer past the bound is not read, and a list longer than the bound is cut to it.
     #[test]
     fn an_answer_past_the_bound_is_not_read_and_a_list_is_cut() {

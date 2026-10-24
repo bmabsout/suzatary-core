@@ -164,52 +164,19 @@ mod tests {
         })
     }
 
+    /// A decline is quiet and a write acted; the owner keeping a write (a later object of the
+    /// same chain) leaves it acted, and cancelling or moving it overturns it; a tapped proposal is
+    /// acted and a dismissed one overturned; and a review measures imitation alone, whatever it
+    /// decided.
     #[test]
-    fn a_decline_is_quiet_and_a_write_acted() {
-        let quiet = triage(TriageAnswer::Declined, None);
-        assert_eq!(measure_of(&quiet), Measure::Truth(Stratum::Quiet));
-        let acted = triage(wrote("life", 'a'), None);
-        assert_eq!(measure_of(&acted), Measure::Truth(Stratum::Acted));
-    }
-
-    /// The owner completing or editing a todo names a later object; that keeps the write.
-    #[test]
-    fn a_todo_the_owner_kept_is_acted_not_overturned() {
-        let kept = triage(wrote("life", 'a'), Some(wrote("life", 'b')));
-        assert_eq!(measure_of(&kept), Measure::Truth(Stratum::Acted));
-    }
-
-    #[test]
-    fn a_todo_the_owner_cancelled_or_moved_is_overturned() {
-        let cancelled = triage(wrote("life", 'a'), Some(TriageAnswer::Declined));
-        assert_eq!(measure_of(&cancelled), Measure::Truth(Stratum::Overturned));
-        let moved = triage(wrote("life", 'a'), Some(wrote("suzatary", 'b')));
-        assert_eq!(measure_of(&moved), Measure::Truth(Stratum::Overturned));
-    }
-
-    #[test]
-    fn a_tapped_proposal_is_acted_and_a_dismissed_one_overturned() {
-        let tapped = judgement(Some(proposal("The owner tapped it as proposed")));
-        assert_eq!(measure_of(&tapped), Measure::Truth(Stratum::Acted));
-        let dismissed = judgement(Some(JudgementAnswer::Decline {
-            why: "handled it myself".to_owned(),
-        }));
-        assert_eq!(measure_of(&dismissed), Measure::Truth(Stratum::Overturned));
-    }
-
-    #[test]
-    fn a_review_measures_imitation_only_whatever_it_decided() {
+    fn each_case_measures_the_stratum_its_truths_name() {
         let settled = |how| Decision::Settled {
             how,
             objects: suzatary_core::nonempty::NonEmpty::of(vec!["o".repeat(64)])
                 .expect("one object"),
         };
-        for decision in [
-            settled(Settle::Accepted),
-            settled(Settle::Rejected),
-            Decision::Held,
-        ] {
-            let review = Case::Review(ReviewCase {
+        let review = |decision| {
+            Case::Review(ReviewCase {
                 id: CaseId::new("review:synthetic:0").expect("valid"),
                 conversation: "synthetic".to_owned(),
                 chain: "life".to_owned(),
@@ -221,9 +188,45 @@ mod tests {
                     },
                     settled: None,
                 },
-            });
-            assert_eq!(measure_of(&review), Measure::Imitation);
-            assert_eq!(measure_of(&review).stratum(), None);
+            })
+        };
+        for (case, measure) in [
+            (
+                triage(TriageAnswer::Declined, None),
+                Measure::Truth(Stratum::Quiet),
+            ),
+            (
+                triage(wrote("life", 'a'), None),
+                Measure::Truth(Stratum::Acted),
+            ),
+            (
+                triage(wrote("life", 'a'), Some(wrote("life", 'b'))),
+                Measure::Truth(Stratum::Acted),
+            ),
+            (
+                triage(wrote("life", 'a'), Some(TriageAnswer::Declined)),
+                Measure::Truth(Stratum::Overturned),
+            ),
+            (
+                triage(wrote("life", 'a'), Some(wrote("suzatary", 'b'))),
+                Measure::Truth(Stratum::Overturned),
+            ),
+            (
+                judgement(Some(proposal("The owner tapped it as proposed"))),
+                Measure::Truth(Stratum::Acted),
+            ),
+            (
+                judgement(Some(JudgementAnswer::Decline {
+                    why: "handled it myself".to_owned(),
+                })),
+                Measure::Truth(Stratum::Overturned),
+            ),
+            (review(settled(Settle::Accepted)), Measure::Imitation),
+            (review(settled(Settle::Rejected)), Measure::Imitation),
+            (review(Decision::Held), Measure::Imitation),
+        ] {
+            assert_eq!(measure_of(&case), measure, "{case:?}");
         }
+        assert_eq!(Measure::Imitation.stratum(), None);
     }
 }

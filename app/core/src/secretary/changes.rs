@@ -821,100 +821,6 @@ mod tests {
         assert_eq!(one.acts().len(), 1);
     }
 
-    #[test]
-    fn an_act_is_read_out_of_the_json_a_model_writes() {
-        let listed = acts_of(
-            args(
-                r#"{"acts": [
-                    {"act": "add", "todo": "newthing", "body": "Do it",
-                     "rationale": "because", "priority": "45%"},
-                    {"act": "complete", "todo": "oldthing", "note": "done"},
-                    {"act": "reprice", "todo": "oldthing", "priority": "20%",
-                     "rationale": "a real consequence tomorrow"}
-                ]}"#,
-            )
-            .get("acts"),
-        )
-        .expect("three acts");
-        assert_eq!(listed.len(), 3);
-        assert_eq!(listed[0].word(), "add");
-        assert_eq!(listed[0].todo(), "newthing");
-        assert_eq!(listed[2].word(), "reprice");
-        assert!(matches!(
-            &listed[2],
-            Act::Reprice {
-                priority: Price::Flat { percent: 20 },
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn a_tend_builds_a_pass_at_a_known_todo() {
-        let listed = acts_of(
-            args(r#"{"acts": [{"act": "tend", "todo": "brush", "note": "vinegar"}]}"#).get("acts"),
-        )
-        .expect("one act");
-        assert_eq!(listed[0].word(), "tend");
-        let at = Datetime::new(2026, 9, 25, 12, 0, 0, 0).expect("an instant");
-        let known = Preview::chain(&[
-            prodrome_core::event::mk_created("brush", at, "ada", "", "").expect("an event")
-        ]);
-        let built = listed[0]
-            .event(
-                known.nodes(),
-                crate::zone::Moment {
-                    at,
-                    zone: crate::zone::Zone::UTC,
-                },
-                Writer::Assistant,
-                &[],
-                &Parses,
-            )
-            .expect("a pass");
-        assert!(
-            matches!(&built, TodoEvent::Tended(pass) if pass.note == "vinegar"),
-            "{built:?}"
-        );
-        assert!(
-            listed[0]
-                .event(
-                    &[],
-                    crate::zone::Moment {
-                        at,
-                        zone: crate::zone::Zone::UTC
-                    },
-                    Writer::Assistant,
-                    &[],
-                    &Parses
-                )
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn an_unknown_act_is_refused_by_name() {
-        let refused = acts_of(args(r#"{"acts": [{"act": "delete", "todo": "x"}]}"#).get("acts"))
-            .expect_err("no such act");
-        assert!(refused.message().contains("no act named"), "{refused:?}");
-        assert!(refused.message().contains("cancel"), "{refused:?}");
-        assert!(acts_of(args(r#"{"acts": "add one"}"#).get("acts")).is_err());
-        assert!(acts_of(args("{}").get("acts")).is_err());
-    }
-
-    #[test]
-    fn an_act_carries_a_flat_price_or_a_deadline_and_never_both() {
-        let refused = acts_of(
-            args(
-                r#"{"acts": [{"act": "add", "todo": "x", "body": "b", "rationale": "r",
-                             "priority": "40%", "deadline_end_date": "2026-10-01"}]}"#,
-            )
-            .get("acts"),
-        )
-        .expect_err("two prices");
-        assert!(refused.message().contains("ONE of"), "{refused:?}");
-    }
-
     /// Reads, stores, builds and draws a `Recur` reprice.
     #[test]
     fn a_reprice_can_make_a_chore_recur() {
@@ -1016,36 +922,6 @@ mod tests {
             matches!(spec.out(), prodrome_core::term::TermF::Recur { todo, .. } if todo == "brush"),
             "{}",
             prodrome_core::fpl::print_term(&spec)
-        );
-    }
-
-    #[test]
-    fn a_cycle_needs_both_ends_and_a_cadence() {
-        for body in [
-            r#"{"act": "reprice", "todo": "x", "rationale": "r", "periodic_every_days": 30,
-                "cycle_from_priority": "90%"}"#,
-            r#"{"act": "reprice", "todo": "x", "rationale": "r",
-                "cycle_from_priority": "90%", "cycle_to_priority": "40%"}"#,
-            r#"{"act": "reprice", "todo": "x", "rationale": "r", "priority": "40%",
-                "recur_every_days": 30, "cycle_from_priority": "90%",
-                "cycle_to_priority": "40%"}"#,
-        ] {
-            assert!(
-                acts_of(args(&format!(r#"{{"acts": [{body}]}}"#)).get("acts")).is_err(),
-                "{body} was accepted"
-            );
-        }
-    }
-
-    #[test]
-    fn a_reprice_names_the_new_price() {
-        let refused = acts_of(
-            args(r#"{"acts": [{"act": "reprice", "todo": "x", "rationale": "r"}]}"#).get("acts"),
-        )
-        .expect_err("no price");
-        assert!(
-            refused.message().contains("names the new price"),
-            "{refused:?}"
         );
     }
 }

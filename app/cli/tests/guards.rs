@@ -314,16 +314,6 @@ fn tool_guard_quoting_the_guard_in_an_email_body_cannot_disable_triage() {
     assert_eq!(code(&run_tool_guard(&smuggled)), ALLOW);
 }
 
-/// A blocked agent that is not told the alternative will retry the same
-/// wrong thing until the run ends.
-#[test]
-fn tool_guard_the_denial_tells_the_agent_what_to_do_instead() {
-    let payload = call("Read", &serde_json::json!({ "file_path": "/etc/passwd" }));
-    let err = stderr(&run_tool_guard(&payload));
-    assert!(err.contains("suzatary"), "stderr: {err}");
-    assert!(err.contains("context"), "stderr: {err}");
-}
-
 // ----------------------------------------------------------------------------
 // Wiring: the hook only contains anything if it is registered and the invocation loads the
 // file that registers it.

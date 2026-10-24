@@ -334,14 +334,6 @@ cat > "$script" <<'SCRIPT'
     "reply": "{\"say\": \"Here is the reply.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The reply opened by its question\", \"body\": \"This card opens when Send asks its question.\", \"why\": \"Testing that a card asks its yes with every field on screen.\", \"sources\": \"todo:life/file-permit\"}}]}"
   },
   {
-    "when": "propose the reply to withdraw",
-    "reply": "{\"say\": \"Here is the reply.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The reply to withdraw\", \"body\": \"This one is withdrawn before anyone answers it.\", \"why\": \"Testing that a withdrawn proposal leaves the Inbox.\", \"sources\": \"todo:life/file-permit\"}}]}"
-  },
-  {
-    "when": "propose the draft to correct",
-    "reply": "{\"say\": \"Here is the reply.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The deed documents\", \"body\": \"Sending two of the documents today.\", \"why\": \"Counsel asked for the remaining exhibits.\", \"sources\": \"mail:a1b2c3d4e5f6, todo:life/file-permit\"}}]}"
-  },
-  {
     "when": "propose the reply to dismiss",
     "reply": "{\"say\": \"Here is the reply.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The reply to dismiss\", \"body\": \"This one is dismissed with a reason.\", \"why\": \"Testing that a dismissal leaves the Inbox and shows the reason.\", \"sources\": \"todo:life/file-permit\"}}]}"
   },
@@ -374,18 +366,6 @@ cat > "$script" <<'SCRIPT'
     "reply": "{\"say\": \"Drafted it for the archive.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"her@example.invalid\", \"subject\": \"The approval notice, for the archive\", \"body\": \"Filed.\", \"why\": \"Ada keeps a copy of every notice.\", \"sources\": \"todo:life/file-permit\", \"attach\": [{\"mail\": \"fixture-approval-notice@example.test\", \"name\": \"approval-notice.pdf\"}]}}]}"
   },
   {
-    "when": "withdraw the harrow reply",
-    "reply": "{\"say\": \"Withdrawing it — it no longer applies.\", \"calls\": [{\"verb\": \"withdraw_proposal\", \"args\": {\"index\": 0, \"why\": \"The documents were sent a different way already.\"}}]}"
-  },
-  {
-    "when": "withdraw_proposal",
-    "reply": "{\"say\": \"Withdrawn.\"}"
-  },
-  {
-    "when": "send a corrected harrow reply",
-    "reply": "{\"say\": \"Sending a corrected version instead.\", \"calls\": [{\"verb\": \"propose_email\", \"args\": {\"account\": \"her@example.invalid\", \"to\": \"counsel@example.test\", \"subject\": \"The deed documents\", \"body\": \"Sending the documents today, corrected: all three exhibits are attached now.\", \"why\": \"The first draft was missing an exhibit.\", \"sources\": \"mail:a1b2c3d4e5f6, todo:life/file-permit\", \"revises\": 0}}]}"
-  },
-  {
     "when": "propose an inbox tap test changeset",
     "reply": "{\"say\": \"I will propose adding a test todo.\", \"calls\": [{\"verb\": \"propose_changes\", \"args\": {\"chain\": \"life\", \"acts\": [{\"act\": \"add\", \"todo\": \"e2einboxtaptest\", \"body\": \"An inbox tap test todo\", \"rationale\": \"testing that a tap in the Inbox settles its decision\", \"priority\": \"50%\"}], \"why\": \"Testing that tapping a proposal in the Inbox drops the count.\", \"sources\": \"todo:life/file-permit\"}}]}"
   },
@@ -396,10 +376,6 @@ cat > "$script" <<'SCRIPT'
   {
     "when": "propose a test changeset",
     "reply": "{\"say\": \"I will propose adding and closing a test todo.\", \"calls\": [{\"verb\": \"propose_changes\", \"args\": {\"chain\": \"life\", \"acts\": [{\"act\": \"add\", \"todo\": \"e2echangesettest\", \"body\": \"An e2e changeset test todo\", \"rationale\": \"testing the changeset tap\", \"priority\": \"50%\"}, {\"act\": \"complete\", \"todo\": \"e2echangesettest\", \"note\": \"done, testing\"}], \"why\": \"Testing that a changeset shows as a diff and confirms.\", \"sources\": \"todo:life/file-permit\"}}]}"
-  },
-  {
-    "when": "propose a changeset I will deny",
-    "reply": "{\"say\": \"I will propose closing an unrelated test todo.\", \"calls\": [{\"verb\": \"propose_changes\", \"args\": {\"chain\": \"life\", \"acts\": [{\"act\": \"add\", \"todo\": \"e2echangesetdeny\", \"body\": \"Another e2e changeset test todo\", \"rationale\": \"testing denial\", \"priority\": \"55%\"}], \"why\": \"Testing that denying a changeset records the reason.\", \"sources\": \"todo:life/file-permit\"}}]}"
   },
   {
     "when": "propose_changes",
@@ -440,14 +416,6 @@ cat > "$script" <<'SCRIPT'
   {
     "when": "web",
     "reply": "{\"say\": \"I asked to read it; tap Allow and it will land here.\"}"
-  },
-  {
-    "when": "search and then fall silent",
-    "reply": "{\"say\": \"Searching.\", \"calls\": [{\"verb\": \"context\", \"args\": {}}]}"
-  },
-  {
-    "when": "context",
-    "reply": "{\"say\": \"\"}"
   },
   {
     "when": "take your time",
@@ -520,16 +488,10 @@ start() { # name [fixture-chain flags…] [-- serve flags…]
   # `secretspec.toml`, as a deployment's does beside its read-only code root.
   if [[ " $* " == *" --settings "* ]]; then
     local store="$secrets_store"
-    # A calendar whose service refused its link holds a link: its own store, the link in it, so
-    # the card its line draws is the failing link's, not a missing secret's.
     # The links scenes store a link of their own and read it back, so their store is their own.
     if [[ " $* " == *" --connections lapsed "* ]]; then
       store="$work/$name/secrets-store.env"
       : >"$store"
-    fi
-    if [[ " $* " == *" --calendar revoked "* ]]; then
-      store="$work/$name/secrets-store.env"
-      printf 'PLUGIN_ICS_WORK=https://calendar.example.test/revoked.ics\n' >"$store"
     fi
     # A Google account's server keeps its client and its grant in a store of its own, which its
     # scene reads.
@@ -628,15 +590,13 @@ read_base="$(start read --login e2e-reader@example.invalid --settings)"
 proposed_base="$(start proposed --login e2e-reader@example.invalid --propose --reviewed)"
 write_base="$(start write --propose --settings)"
 # THE BOOTSTRAP'S SERVER: its model's last call failed, so the box files the card that connects
-# a model, and its sign-in runs the fake `claude` above. Its calendar's service has since refused
-# the link (401), which its own store holds, so the plan's scene 9 reads the fix cards the box
-# files with no model.
-bootstrap_base="$(start bootstrap --settings --model unanswered --calendar revoked)"
+# a model, and its sign-in runs the fake `claude` above.
+bootstrap_base="$(start bootstrap --settings --model unanswered)"
 # A CONNECTION'S CARDS' SERVER: a calendar connected with its link unset, its removal standing,
 # and a card changing Review's model order, so their scenes move this instance file and no other
 # server's.
 connect_base="$(start connect --settings --connected calendar --configuring order)"
-# THE LINKS' SERVER: a calendar whose link is not stored, a Drive whose session expired and a
+# THE LINKS' SERVER: a calendar whose link is not stored and a
 # Microsoft account that reads its mail and cannot send yet (web/e2e/links.test.ts).
 links_base="$(start links --settings --connections lapsed)"
 # THE FAKE GOOGLE (`suzatary-dev fake-google`, the cargo tests' own fake) AND THE SERVER THAT SIGNS

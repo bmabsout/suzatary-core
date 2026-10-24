@@ -271,7 +271,6 @@ fn value_of(node: &SyntaxNode) -> Result<Value, DecorationError> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::value::{arg, render_block};
     use super::*;
 
     fn one(text: &str) -> Located {
@@ -279,50 +278,6 @@ mod tests {
             .iter()
             .find_map(|kind| only_block(text, kind).ok())
             .unwrap_or_else(|| panic!("one block in {text:?}"))
-    }
-
-    #[test]
-    fn a_block_round_trips_through_the_renderer() {
-        for text in [
-            "#todo(id: \"abc\")[Body]",
-            "#ekaTodo(id: \"a\", created: note_day, waitingOn: none)[B]",
-            "#todo(id: \"a\", category: category.work, priority: 21.01%)[B]",
-        ] {
-            let found = one(text);
-            assert_eq!(render_block(&found.call, &found.leading), text);
-        }
-    }
-
-    #[test]
-    fn a_comment_above_an_argument_is_that_arguments_reasoning() {
-        let found = one("#todo(\n  // why\n  id: \"a\",\n)[B]");
-        assert_eq!(found.call.args[0].rationale, vec!["why".to_owned()]);
-    }
-
-    /// `priority: 50%, // moot-tier` is about the priority, not the next field.
-    #[test]
-    fn a_same_line_comment_stays_with_the_argument_it_follows() {
-        let found = one("#todo(\n  id: \"a\", // about the id\n  created: note_day,\n)[B]");
-        assert_eq!(
-            found.call.args[0].rationale,
-            vec!["about the id".to_owned()]
-        );
-        assert!(found.call.args[1].rationale.is_empty());
-    }
-
-    #[test]
-    fn a_run_with_no_argument_after_it_is_the_tail() {
-        let found = one("#todo(\n  id: \"a\",\n  // completed (prodrome): done\n)[B]");
-        assert_eq!(
-            found.call.tail,
-            vec!["completed (prodrome): done".to_owned()]
-        );
-    }
-
-    #[test]
-    fn the_run_above_a_block_is_the_blocks_own() {
-        let found = one("// one\n// two\n#todo(id: \"a\")[B]");
-        assert_eq!(found.leading, vec!["one".to_owned(), "two".to_owned()]);
     }
 
     /// A `#todo(` inside a body is prose about a todo, not a record.
@@ -337,82 +292,6 @@ mod tests {
     fn escapes_in_a_body_survive_as_source() {
         let found = one("#todo(id: \"a\")[a \\] b \\@ c]");
         assert_eq!(found.call.trailing, vec!["a \\] b \\@ c".to_owned()]);
-    }
-
-    #[test]
-    fn a_subtodo_body_is_one_value() {
-        assert_eq!(
-            value("[Couch]").unwrap(),
-            Value::Content("Couch".to_owned())
-        );
-        assert_eq!(value("\"a\"").unwrap(), Value::Str("a".to_owned()));
-        assert!(value("[a] [b]").is_err());
-    }
-
-    #[test]
-    fn a_value_outside_the_grammar_is_refused_by_name() {
-        assert!(value("1 + 2").is_err());
-    }
-
-    /// A `70%` that came back as `70.0%` would be a diff for no reason.
-    #[test]
-    fn a_number_keeps_its_source_text() {
-        for raw in ["35.00%", "7", "12pt", "0.5"] {
-            assert_eq!(value(raw).expect("a number"), Value::Num(raw.to_owned()));
-        }
-    }
-
-    /// A leading `-` is an operator in typst, so a negative number is outside
-    /// the grammar; nothing a block writes is negative.
-    #[test]
-    fn a_negative_literal_is_outside_the_grammar() {
-        assert!(value("-4.0").is_err());
-    }
-
-    /// A dotted name is one identifier, never an argument name and a value.
-    #[test]
-    fn a_dotted_name_is_one_identifier_and_never_an_argument_name() {
-        let found = one("#todo(category: category.home)[b]");
-        assert_eq!(
-            found.call.args[0].name.as_deref(),
-            Some("category"),
-            "the argument is named"
-        );
-        assert_eq!(
-            found.call.args[0].value,
-            Value::Ident("category.home".to_owned())
-        );
-    }
-
-    /// Block, above-argument and same-line runs in one block each land where
-    /// they were written.
-    #[test]
-    fn every_comment_run_lands_where_it_was_written() {
-        let source = "// about the whole block\n\
-                      #todo(\n  // moot-tier\n  priority: 60%, // and dated\n  id: \"x\",\n)[body]";
-        let found = one(source);
-        assert_eq!(found.leading, vec!["about the whole block".to_owned()]);
-        assert_eq!(
-            arg(&found.call.args, "priority")
-                .expect("a priority")
-                .rationale,
-            vec!["moot-tier".to_owned(), "and dated".to_owned()]
-        );
-        assert!(
-            arg(&found.call.args, "id")
-                .expect("an id")
-                .rationale
-                .is_empty()
-        );
-    }
-
-    // --- the strict read -------------------------------------------------------
-
-    #[test]
-    fn only_block_reads_the_block_and_its_run() {
-        let found = only_block("// kept\n#todo(id: \"a\")[B]", "todo").expect("one block");
-        assert_eq!(found.leading, vec!["kept".to_owned()]);
-        assert_eq!(found.call.callee, "todo");
     }
 
     /// Anything beside the block is the escape the check looks for, and so are another

@@ -45,43 +45,24 @@ function drives(oldKeys: readonly string[], newKeys: readonly string[]): number 
   return moved;
 }
 
-test("an unchanged list is no work at all", () => {
-  assert.deepEqual(reconcile(["a", "b", "c"], ["a", "b", "c"]), []);
-});
-
-test("the empty cases", () => {
-  assert.equal(drives([], []), 0);
-  assert.equal(drives([], ["a", "b"]), 0);
-  assert.equal(drives(["a", "b"], []), 0);
-});
-
-test("one todo becoming urgent moves ONE node, not the list", () => {
-  // The fold that this exists for: a card climbs from the bottom to the top.
-  assert.equal(drives(["a", "b", "c", "d", "e"], ["e", "a", "b", "c", "d"]), 1);
-});
-
-test("a completed todo leaving the open list is one removal", () => {
-  const ops = reconcile(["a", "b", "c"], ["a", "c"]);
-  assert.deepEqual(ops, [{ op: "remove", key: "b" }]);
-});
-
-test("a fresh add joins without disturbing what is already ordered", () => {
-  assert.equal(drives(["a", "b"], ["a", "new", "b"]), 0);
-  assert.deepEqual(reconcile(["a", "b"], ["a", "new", "b"]), [
-    { op: "insert", key: "new", before: "b" },
-  ]);
-});
-
-test("appending names no anchor", () => {
-  assert.deepEqual(reconcile(["a"], ["a", "b"]), [{ op: "insert", key: "b", before: null }]);
-});
-
-test("a reversal is the worst case and costs n-1 moves, never n", () => {
-  assert.equal(drives(["a", "b", "c", "d"], ["d", "c", "b", "a"]), 3);
-});
-
-test("insert, remove and move together still land on the new order", () => {
-  assert.equal(drives(["a", "b", "c", "d"], ["d", "x", "b"]), 1);
+test("examples: each plan lands on the new order, moving no more nodes than it must", () => {
+  const cases: [string, readonly string[], readonly string[], number, ReturnType<typeof reconcile>?][] = [
+    ["an unchanged list is no work at all", ["a", "b", "c"], ["a", "b", "c"], 0, []],
+    ["empty to empty", [], [], 0],
+    ["empty to two", [], ["a", "b"], 0],
+    ["two to empty", ["a", "b"], [], 0],
+    // The fold that this exists for: a card climbs from the bottom to the top.
+    ["one todo becoming urgent moves ONE node, not the list", ["a", "b", "c", "d", "e"], ["e", "a", "b", "c", "d"], 1],
+    ["a completed todo leaving the open list is one removal", ["a", "b", "c"], ["a", "c"], 0, [{ op: "remove", key: "b" }]],
+    ["a fresh add joins without disturbing what is already ordered", ["a", "b"], ["a", "new", "b"], 0, [{ op: "insert", key: "new", before: "b" }]],
+    ["appending names no anchor", ["a"], ["a", "b"], 0, [{ op: "insert", key: "b", before: null }]],
+    ["a reversal is the worst case and costs n-1 moves, never n", ["a", "b", "c", "d"], ["d", "c", "b", "a"], 3],
+    ["insert, remove and move together still land on the new order", ["a", "b", "c", "d"], ["d", "x", "b"], 1],
+  ];
+  for (const [name, before, after, moves, plan] of cases) {
+    assert.equal(drives(before, after), moves, name);
+    if (plan !== undefined) assert.deepEqual(reconcile(before, after), plan, name);
+  }
 });
 
 test("random folds: applying the plan always yields the new order", () => {

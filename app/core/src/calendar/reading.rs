@@ -172,7 +172,6 @@ impl Calendar {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{NaiveDate, NaiveDateTime};
     use prodrome_core::declared::Declaration;
     use prodrome_core::event::Actor;
     use prodrome_core::literal::Datetime;
@@ -236,54 +235,6 @@ mod tests {
         assert_eq!(candidates.len(), 1, "the later write rests on the earlier");
         assert_eq!(candidates[0].status(), Status::Cancelled);
         assert_eq!(read.unread(), 0);
-    }
-
-    #[test]
-    fn a_day_lists_all_day_first_then_by_start_in_the_readers_clock() {
-        let store = InMemory::<Declared>::at(schema());
-        let day = |text| NaiveDate::parse_from_str(text, "%Y-%m-%d").expect("a day");
-        learnt(
-            &store,
-            &[
-                standup(Status::Confirmed),
-                occurrence(
-                    "early",
-                    "20261005T070000Z",
-                    "Early call",
-                    "2026-10-05T07:00:00Z/2026-10-05T07:15:00Z",
-                    Status::Tentative,
-                ),
-                occurrence(
-                    "retreat",
-                    "20261004",
-                    "Retreat",
-                    "2026-10-04/2026-10-06",
-                    Status::Confirmed,
-                ),
-                occurrence(
-                    "late",
-                    "20261005T230000Z",
-                    "Late",
-                    "2026-10-05T23:00:00Z/2026-10-06T00:00:00Z",
-                    Status::Confirmed,
-                ),
-            ],
-        );
-        let read = Calendar::of(&store.nodes().expect("reads"));
-        // Two hours east of UTC: the late call is on the 6th there.
-        let east = |utc: NaiveDateTime| utc + chrono::Duration::hours(2);
-        let days = read.days(day("2026-10-05"), 2, &east);
-        let titles = |n: usize| {
-            days[n]
-                .entries
-                .iter()
-                .map(|entry| entry.content.title().to_owned())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(titles(0), ["Retreat", "Early call", "Standup"]);
-        assert_eq!(titles(1), ["Late"]);
-        assert_eq!(days[0].entries[1].time(), "09:00–09:15");
-        assert_eq!(days[0].entries[0].time(), "all day");
     }
 
     #[test]

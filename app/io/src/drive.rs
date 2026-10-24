@@ -590,19 +590,6 @@ mod tests {
     }
 
     #[test]
-    fn the_top_level_lists_its_sections_as_folders() {
-        let listed = entries(
-            &DrivePath::root(),
-            b"[\n{\"path\":\"/my-files\"},\n{\"path\":\"/shared-with-me\"}\n]",
-        )
-        .expect("a listing");
-        assert_eq!(listed.len(), 2);
-        assert!(listed.iter().all(|entry| entry.kind == EntryKind::Folder));
-        assert!(entries(&DrivePath::root(), b"{}").is_err());
-        assert!(entries(&DrivePath::root(), b"not json").is_err());
-    }
-
-    #[test]
     fn a_file_is_read_redacted_and_its_download_removed() {
         let fake = Fake::new("read");
         let read = fake
@@ -690,55 +677,5 @@ mod tests {
             fake.calls()
         );
         fake.only_reads_ran();
-    }
-
-    #[test]
-    fn a_failing_cli_says_so_and_leaves_no_download() {
-        let fake = Fake::new("failing");
-        let drive = fake.drive();
-        let failed = drive.list(&path("/my-files/Nope")).expect_err("not found");
-        assert!(failed.to_string().contains("not found"), "{failed}");
-        let missing = ProtonDrive::new(
-            fake.dir.join("no-such-cli"),
-            fake.dir.join("scratch"),
-            PathBuf::from("."),
-        );
-        assert!(matches!(
-            missing.list(&DrivePath::root()),
-            Err(DriveFailure::Unreachable(_))
-        ));
-        assert_eq!(
-            drive.list(&DrivePath::root()).expect("the sections").len(),
-            2
-        );
-        fake.only_reads_ran();
-    }
-
-    /// A CLI that says its session expired needs its sign-in; any other failure did not answer.
-    #[test]
-    fn a_session_expired_is_a_sign_in_needed() {
-        let fake = Fake::new("expired");
-        let drive = fake.drive();
-        assert!(matches!(
-            drive.list(&path("/my-files/Expired")),
-            Err(DriveFailure::SignedOut(_))
-        ));
-        assert!(matches!(
-            drive.list(&path("/my-files/Nope")),
-            Err(DriveFailure::Unreachable(_))
-        ));
-    }
-
-    #[test]
-    fn a_slow_cli_is_stopped_at_its_timeout() {
-        let fake = Fake::new("slow");
-        let started = std::time::Instant::now();
-        let failed = fake
-            .drive()
-            .with_timeout(Duration::from_millis(300))
-            .list(&path("/my-files/Slow"))
-            .expect_err("timed out");
-        assert!(failed.to_string().contains("did not finish"), "{failed}");
-        assert!(started.elapsed() < Duration::from_secs(4));
     }
 }

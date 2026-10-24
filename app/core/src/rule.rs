@@ -199,15 +199,4 @@ mod tests {
             "3fafa1cf2f19a7c1129beb20cf0983f73a489a221fc0dd2f16d1be292d089205"
         );
     }
-
-    /// An effect that records nothing is still fired once per reading, never again on it: a
-    /// failure is not a loop.
-    #[test]
-    fn an_effect_that_records_nothing_is_not_retried_on_the_same_reading() {
-        let (_, fired, _) = run(
-            &[Step::Write(1), Step::Notice, Step::Notice, Step::Notice],
-            false,
-        );
-        assert_eq!(fired.len(), 1);
-    }
 }

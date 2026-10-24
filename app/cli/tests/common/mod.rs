@@ -710,24 +710,10 @@ impl FakeMailbox {
         self
     }
 
-    /// This mailbox, answering these rows.
-    #[must_use]
-    pub fn with_rows(mut self, rows: Vec<MailRow>) -> Self {
-        self.rows = rows;
-        self
-    }
-
     /// This mailbox, plus one message.
     #[must_use]
     pub fn with_message(mut self, id: impl Into<String>, message: MailMessage) -> Self {
         self.messages.insert(id.into(), message);
-        self
-    }
-
-    /// This mailbox, plus one thread.
-    #[must_use]
-    pub fn with_thread(mut self, id: impl Into<String>, messages: Vec<MailMessage>) -> Self {
-        self.threads.insert(id.into(), messages);
         self
     }
 
@@ -2721,8 +2707,6 @@ pub fn start(caps: Arc<Fakes>, deploying: Deployment, this_box: Vec<IpAddr>) -> 
 enum Performer {
     /// Every act recorded, none performed.
     Recorded,
-    /// `Acting::NotYet`, a build with no performer wired in.
-    NotYet,
     /// `Acting::Recording`: a tap completes in the call that begins it, so a
     /// scene is deterministic.
     #[cfg(feature = "fixture")]
@@ -3033,14 +3017,6 @@ impl Server {
     pub fn signing_in(self) -> Self {
         Self {
             performer: Performer::SigningIn,
-            ..self
-        }
-    }
-
-    /// With `Acting::NotYet` as the performer.
-    pub fn not_yet(self) -> Self {
-        Self {
-            performer: Performer::NotYet,
             ..self
         }
     }
@@ -3363,7 +3339,6 @@ fn performer(
     use suzatary_cli::commands::secretary::Acting;
     match chosen {
         Performer::Recorded => Arc::clone(acts) as _,
-        Performer::NotYet => Arc::new(Acting::NotYet),
         Performer::SigningIn => Arc::new(SignsIn {
             recorded: Arc::clone(acts),
             signing,
@@ -4228,16 +4203,6 @@ pub fn inbox_listing(base: &str, at: &str) -> Vec<serde_json::Value> {
         .as_array()
         .expect("proposals")
         .clone()
-}
-
-/// The turns holding `q`, as a tab's replica searches them, or why `q` is no search.
-pub fn searching(
-    base: &str,
-    q: &str,
-) -> Result<serde_json::Value, suzatary_core::refusal::Refusal> {
-    let (_, conversations) = replicas(base);
-    suzatary_core::secretary::readings::search(&conversations, q)
-        .map(|found| serde_json::to_value(found).expect("a payload prints"))
 }
 
 /// No file under `root` holds `value`, but the device token a phone registers and the bytes of

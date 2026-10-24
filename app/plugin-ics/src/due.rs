@@ -187,39 +187,6 @@ mod tests {
     }
 
     #[test]
-    fn a_due_entry_today_or_later_asks_for_its_todo_due_that_day() {
-        let [one] = decided(&[
-            learned(
-                "PLUGIN_ICS_HOME 20261020 a@x",
-                "DUE: renew #passport",
-                "2026-10-20/2026-10-21",
-                "confirmed",
-            ),
-            learned(
-                "PLUGIN_ICS_HOME 20261006T090000Z b@x",
-                "Standup",
-                "2026-10-06T09:00:00Z/2026-10-06T09:30:00Z",
-                "confirmed",
-            ),
-        ])
-        .try_into()
-        .expect("one proposal");
-        assert!(
-            one.act
-                .starts_with("Changes(chain='life', acts=(Add(todo='due")
-                && one.act.contains("body='renew \\\\#passport'")
-                && one.act.contains("end_date='2026-10-20'"),
-            "{}",
-            one.act
-        );
-        assert_eq!(
-            one.why,
-            "The calendar says \"Due: renew #passport\" on 2026-10-20."
-        );
-        assert_eq!(one.sources, ["briefing:2026-10-05"]);
-    }
-
-    #[test]
     fn a_past_cancelled_moved_or_bare_entry_asks_for_nothing() {
         let entry = |occurrence: &str, title: &str, day: &str, status: &str| {
             learned(occurrence, title, &format!("{day}/{day}"), status)

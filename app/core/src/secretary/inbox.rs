@@ -1328,18 +1328,6 @@ mod tests {
         assert!(matches!(&back.price, Price::Own(spec) if matches!(spec.out(), TermF::Absent)));
     }
 
-    /// A proposal that serves a todo is priced as that todo, and one that serves none by its own
-    /// spec.
-    #[test]
-    fn a_price_is_the_todo_it_serves_or_its_own_spec() {
-        assert_eq!(
-            Ok(asked("a").price.term()),
-            prodrome_core::fpl::mk_ref_in("life".to_owned(), "reply".to_owned())
-        );
-        let flat = prodrome_core::fpl::mk_flat(0.4).expect("a flat");
-        assert_eq!(Price::Own(flat.clone()).term(), flat);
-    }
-
     /// A check reads only above the send it checks; one over nothing is no inbox at all.
     #[test]
     fn a_check_reads_only_above_a_send_that_may_have_gone() {

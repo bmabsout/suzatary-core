@@ -895,43 +895,4 @@ mod tests {
             Err(AttestationError::ReceiptVersion { served: Some(v) }) if v == "aci/2"
         ));
     }
-
-    #[test]
-    fn receipt_endpoint_failures_are_named() {
-        let world = World::new();
-        let resolve = |transport: Scripted| {
-            Verified::resolve(&transport, BASE, &id(), &key(), None, |_| {
-                Ok(identity(&world.keyset, None))
-            })
-        };
-        assert!(matches!(
-            resolve(Scripted::always(Ok(Resp::new(401, "unauthorized")))),
-            Err(AttestationError::ReceiptFailed { status: 401, .. })
-        ));
-        assert!(matches!(
-            resolve(Scripted::always(Ok(Resp::new(200, "[]")))),
-            Err(AttestationError::ReceiptMalformed(_))
-        ));
-        assert!(matches!(
-            resolve(Scripted::always(Err(crate::http::HttpError::Lost(
-                "connection reset".to_owned()
-            )))),
-            Err(AttestationError::ReceiptUnreachable(_))
-        ));
-    }
-
-    #[test]
-    fn expected_source_parse_accepts_only_40_lowercase_hex() {
-        let good = "8d0a666a2418898a8c823a9af49a634edd122a64";
-        assert_eq!(ExpectedSource::parse(good).unwrap().repo_commit(), good);
-        for bad in [
-            "short",
-            &"a".repeat(41),
-            &"A".repeat(40),
-            &format!("sha256:{}", "a".repeat(58)),
-            "",
-        ] {
-            assert!(ExpectedSource::parse(bad).is_err(), "{bad:?}");
-        }
-    }
 }

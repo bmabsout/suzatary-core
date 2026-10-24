@@ -1263,55 +1263,6 @@ mod sheet_printer_tests {
         Envelope::Sealed { prev: None, event }
     }
 
-    // A later object at a different hash is how a re-rationalisation appears on a chain.
-    #[test]
-    fn incumbent_text_reads_the_original_object_not_a_later_one() {
-        let original = Hash::new("0".repeat(64)).expect("a hash");
-        let later = Hash::new("1".repeat(64)).expect("a hash");
-        let mut objects = BTreeMap::new();
-        objects.insert(
-            "life".to_owned(),
-            vec![
-                (
-                    original.clone(),
-                    authored_envelope(vec!["the original rationale"]),
-                ),
-                (
-                    later,
-                    authored_envelope(vec!["Ada, 2026-08-25: a later correction"]),
-                ),
-            ],
-        );
-        let incumbent = TriageAnswer::Wrote {
-            chain: "life".to_owned(),
-            todo: "t1".to_owned(),
-            object: original.as_str().to_owned(),
-        };
-        let text = incumbent_text(&incumbent, &objects);
-        assert!(text.contains("the original rationale"), "{text}");
-        assert!(!text.contains("later correction"), "{text}");
-    }
-
-    #[test]
-    fn candidate_text_never_leaks_a_format_failures_raw_json() {
-        let answer = run::Answer {
-            model: "candidate/one".to_owned(),
-            rounds: vec![run::RoundRecord {
-                say: "Let me look at this.\n{\"say\": \"noted\", \"calls\": \
-                      [{\"verb\": \"todo_add\", \"args\": {}}]}"
-                    .to_owned(),
-                calls: Vec::new(),
-                receipt: None,
-            }],
-            objects: Vec::new(),
-            usage: None,
-        };
-        let text = candidate_text(&answer);
-        assert!(!text.contains("{\"say\""), "{text}");
-        assert!(!text.contains("\"calls\""), "{text}");
-        assert_eq!(text, "declined — no parsable reply");
-    }
-
     #[test]
     fn candidate_text_renders_a_genuine_decline_like_the_incumbents() {
         let answer = run::Answer {

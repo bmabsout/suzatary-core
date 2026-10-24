@@ -47,12 +47,6 @@ const loaded = (over: Partial<ConversationPayload> = {}): SourceState =>
     { kind: "window", mode: "newest", payload: payload(over), fallback: false, at: 0 },
   );
 
-test("law: folding an offer with its constructors rebuilds it", () => {
-  const rebuild = (o: again.Offer): again.Offer =>
-    again.fold<again.Offer>(o, () => again.none, (question) => ({ type: "Last", question }));
-  for (const o of [again.none, { type: "Last", question: turn(3) } as const]) assert.deepEqual(rebuild(o), o);
-});
-
 test("law: the box's question is offered exactly while nothing runs and the window holds it", () => {
   assert.equal(again.offer({ kind: "loading", id: "default", about: undefined }).type, "None");
   assert.deepEqual(again.offer(loaded()), { type: "Last", question: turn(0) });

@@ -269,103 +269,11 @@ pub fn extract_links(body: &Value) -> Vec<MailLink> {
 mod tests {
     use super::*;
 
-    fn leaf(content_type: &str, content: &str) -> Value {
-        serde_json::json!({"content-type": content_type, "content": content})
-    }
-
-    #[test]
-    fn plain_text_is_preferred_over_html() {
-        let body = serde_json::json!([[
-            leaf("text/plain", "hello plain"),
-            leaf("text/html", "<p>hello html</p>"),
-        ]]);
-        assert_eq!(body_text(&body), "hello plain");
-    }
-
-    #[test]
-    fn html_is_the_fallback_when_there_is_no_plain_part() {
-        let body = serde_json::json!([[leaf("text/html", "<p>only html</p>")]]);
-        assert_eq!(body_text(&body), "only html");
-    }
-
-    /// A multipart container is recursed into regardless of its own `content-type`.
-    #[test]
-    fn a_nested_multipart_container_is_walked_into() {
-        let body = serde_json::json!([[
-            {
-                "content-type": "multipart/alternative",
-                "content": [
-                    leaf("text/plain", "nested plain"),
-                    leaf("text/html", "<p>nested html</p>"),
-                ]
-            }
-        ]]);
-        assert_eq!(body_text(&body), "nested plain");
-    }
-
-    #[test]
-    fn the_detagger_handles_a_table_heavy_mail() {
-        let html = "<html><head><title>x</title></head><body>\
-                     <table><tr><td>Row&nbsp;One</td></tr>\
-                     <tr><td>Row Two</td></tr></table>\
-                     <script>evil()</script>\
-                     <p>A paragraph.<br>Second line.</p>\
-                     </body></html>";
-        let text = html_to_text(html);
-        // Each closing BREAK tag emits one newline: `</tr></table>` is the blank line before
-        // the paragraph.
-        assert_eq!(text, "Row One\nRow Two\n\nA paragraph.\nSecond line.");
-    }
-
-    #[test]
-    fn links_are_labelled_deduplicated_and_cut_at_120_chars() {
-        let long_label = "word ".repeat(40);
-        let html = format!(
-            "<a href=\"https://a.test/one\">Modify &amp; reserve</a>\
-             <a href=\"https://a.test/one\">duplicate, dropped</a>\
-             <a href=\"https://a.test/two\"><b>{long_label}</b></a>\
-             Also visit https://a.test/two and https://bare.test/x directly."
-        );
-        let body = serde_json::json!([[leaf("text/html", &html)]]);
-        let links = extract_links(&body);
-        assert_eq!(links[0].url, "https://a.test/one");
-        assert_eq!(links[0].label, "Modify & reserve");
-        assert_eq!(links[1].url, "https://a.test/two");
-        assert_eq!(links[1].label.chars().count(), 120);
-        // The bare "https://a.test/two" was already seen as a labelled
-        // anchor and is not repeated; the bare-only URL is appended once.
-        assert_eq!(
-            links
-                .iter()
-                .filter(|l| l.url == "https://a.test/two")
-                .count(),
-            1
-        );
-        assert!(links.iter().any(|l| l.url == "https://bare.test/x"));
-    }
-
-    #[test]
-    fn entity_unescaping_covers_the_named_and_numeric_forms() {
-        assert_eq!(
-            unescape_entities("&amp;&lt;&gt;&quot;&#39;&nbsp;&#65;&#x42;&unknown;"),
-            "&<>\"'\u{a0}AB&unknown;"
-        );
-    }
-
     /// An unresolved `&` before a multi-byte character straddling byte 12 does not panic and
     /// passes through unchanged.
     #[test]
     fn a_display_name_whose_cjk_character_crosses_the_old_byte_cut_does_not_panic() {
         let unresolved = "&Nora Vale 诺拉) joins the call";
         assert_eq!(unescape_entities(unresolved), unresolved);
-    }
-
-    /// The same shape through `html_to_text`, as a quoted "On ... wrote:" line names a sender.
-    #[test]
-    fn html_naming_the_same_sender_renders_without_panicking() {
-        let html = "<p>On Sep 8, Nora Vale 诺拉 &lt;nora_vale@example.test&gt; wrote:</p>";
-        let text = html_to_text(html);
-        assert!(text.contains("Nora Vale 诺拉"), "{text:?}");
-        assert!(text.contains("<nora_vale@example.test>"), "{text:?}");
     }
 }

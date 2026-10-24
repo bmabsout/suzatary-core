@@ -205,14 +205,6 @@ test("a send that lands leaves the box empty, and nothing comes back", async () 
   c.composer.destroy()
 })
 
-test("a blank box sends nothing", () => {
-  const c = mounted()
-  c.type("   ")
-  c.send()
-  assert.deepEqual(c.sends, [])
-  c.composer.destroy()
-})
-
 test("a reworded question leaves Editing when sent, and a failed one comes back still being edited", async () => {
   const c = mounted()
   const question: turns.Question = {

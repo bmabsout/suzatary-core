@@ -264,7 +264,7 @@ function liveView(): LiveView {
  * What this no longer covers, and it is worth saying: forty SEEDED forked DAGs
  * with concurrent writes in them, which is where the conflicted rows were. That
  * half of `view.json` did not become public with the crate and is not
- * duplicated here; `web/test/conflicts.test.ts` and `web/test/replica.test.ts`
+ * duplicated here; `web/test/candidates.test.ts` and `web/test/replica.test.ts`
  * are what pin the browser's conflict handling in the meantime.
  */
 test("the live view vector is the composition this browser computes", pinned, () => {

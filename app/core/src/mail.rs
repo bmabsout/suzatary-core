@@ -343,76 +343,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_body_at_the_cap_is_whole_and_one_past_it_is_cut() {
-        assert_eq!(clip("abcde", 5), ("abcde".to_owned(), false));
-        assert_eq!(clip("abcdef", 5), ("abcde".to_owned(), true));
-        let (body, cut) = clip("héllo wörld", 5);
-        assert!(cut);
-        assert_eq!(body, "héllo");
-    }
-
-    /// Every byte offset of a multi-byte name is a safe cut.
-    #[test]
-    fn shorten_never_panics_on_a_multi_byte_name_at_any_cut() {
-        let name = "Nora Vale (诺拉)";
-        for chars in 0..=name.chars().count() + 2 {
-            let cut = shorten(name, chars);
-            assert!(name.is_char_boundary(cut.len()), "{chars} chars: {cut:?}");
-        }
-    }
-
-    /// A 4-byte emoji and a combining mark cut on `char` boundaries.
-    #[test]
-    fn shorten_holds_at_a_four_byte_emoji_and_a_combining_mark() {
-        let emoji = "a🎉b"; // 🎉 is U+1F389, 4 bytes.
-        for chars in 0..=4 {
-            let cut = shorten(emoji, chars);
-            assert!(emoji.is_char_boundary(cut.len()), "{chars} chars: {cut:?}");
-        }
-        assert_eq!(shorten(emoji, 1), "a");
-        assert_eq!(shorten(emoji, 2), "a🎉");
-
-        let combining = "e\u{301}f"; // "é" as `e` + COMBINING ACUTE ACCENT.
-        for chars in 0..=3 {
-            let cut = shorten(combining, chars);
-            assert!(
-                combining.is_char_boundary(cut.len()),
-                "{chars} chars: {cut:?}"
-            );
-        }
-        // One glyph but two `char`s, so this cut is valid.
-        assert_eq!(shorten(combining, 1), "e");
-    }
-
-    /// Pages join back to the whole, and a page past the end is empty.
-    #[test]
-    fn page_of_covers_the_whole_text_in_order() {
-        let text = "abcdefghij";
-        assert_eq!(page(text, 0, 4), "abcd");
-        assert_eq!(page(text, 4, 4), "efgh");
-        assert_eq!(page(text, 8, 4), "ij");
-        assert_eq!(page(text, 10, 4), "");
-        assert_eq!(page(text, 100, 4), "");
-    }
-
-    /// A multi-byte name paged in 4-character pieces joins back exactly.
-    #[test]
-    fn page_of_a_multi_byte_name_reassembles_to_the_whole() {
-        let name = "Nora Vale (诺拉)";
-        let mut joined = String::new();
-        let mut at = 0;
-        loop {
-            let piece = page(name, at, 4);
-            if piece.is_empty() {
-                break;
-            }
-            joined.push_str(piece);
-            at += 4;
-        }
-        assert_eq!(joined, name);
-    }
-
-    #[test]
     fn only_three_schemes_reach_a_page() {
         let links = vec![
             MailLink {
@@ -516,17 +446,13 @@ mod tests {
     use proptest::prelude::*;
 
     proptest! {
-        /// `shorten` never panics and never splits a `char` over arbitrary text.
+        /// `shorten` never panics, never splits a `char` over arbitrary text, and answers at
+        /// most `chars` characters.
         #[test]
         fn shorten_never_panics_and_never_splits_a_char(text: String, chars in 0usize..200) {
             let short = shorten(&text, chars);
             prop_assert!(text.is_char_boundary(short.len()));
-        }
-
-        /// `shorten` answers at most `chars` characters.
-        #[test]
-        fn shorten_never_answers_more_than_asked(text: String, chars in 0usize..200) {
-            prop_assert!(shorten(&text, chars).chars().count() <= chars);
+            prop_assert!(short.chars().count() <= chars);
         }
 
         /// `clip`'s flag is exactly whether `shorten` cut anything.

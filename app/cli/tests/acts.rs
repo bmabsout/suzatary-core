@@ -142,51 +142,6 @@ fn an_update_with_no_note_appends_nothing_to_the_conversation() {
     );
 }
 
-/// A note on a confirm lands on both records.
-#[test]
-fn a_note_on_confirm_lands_on_the_event_and_wakes_the_secretary() {
-    let (base, _fakes) = writing(
-        "acts-confirm-note",
-        [r#"{"say": "Good, I'll route the reply through Mira."}"#],
-    );
-
-    let mut authored = common::act(
-        &format!("{base}/api/author"),
-        &serde_json::json!({
-            "confirm": {"todo": "email-harrow", "note": "checked with counsel first"}
-        }),
-    );
-    assert_eq!(
-        common::status(&authored),
-        200,
-        "{:?}",
-        common::body_json(&mut authored)
-    );
-    let print = common::body_json(&mut authored)["event"]
-        .as_str()
-        .expect("an event print")
-        .to_owned();
-    let event: suzatary_core::record::TodoEvent = prodrome_core::event::parse_event(
-        &suzatary_core::record::TodoVocabulary::default(),
-        &print,
-    )
-    .expect("the core printed it");
-    match event {
-        suzatary_core::record::TodoEvent::Authored(record) => {
-            assert_eq!(record.payload.note, "checked with counsel first");
-        }
-        other => panic!("confirm builds an Authored event, got {other:?}"),
-    }
-
-    let heard = heard_the_model(&base);
-    let turns = heard["turns"].as_array().expect("turns");
-    let act = turns
-        .iter()
-        .find(|turn| turn["who"] == "act")
-        .expect("an act turn");
-    assert_eq!(act["text"], "Ada confirmed it: checked with counsel first");
-}
-
 /// A sealed `Completed` with a note is heard when the box adopts it.
 #[test]
 fn a_sealed_completed_event_with_a_note_wakes_the_secretary_on_adoption() {

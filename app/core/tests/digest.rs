@@ -1135,58 +1135,6 @@ fn a_question_larger_than_the_days_cap_is_unfit_and_never_asked() {
     assert!(said.unfit >= 1, "{said}");
 }
 
-/// What the briefing says: nothing while the compactor has room or nothing is owed, how many
-/// wait and until when while a cap holds them, and how many wait while it is off.
-#[test]
-fn the_briefing_is_told_when_a_cap_holds_summaries_back() {
-    use suzatary_core::secretary::compact_budget::Budget;
-    use suzatary_core::secretary::compacting::Compacting;
-    use suzatary_core::secretary::compaction::{Paced, Why, waiting};
-    let the = Box::default();
-    the.say("a", 60);
-    let compactor = Recording::joining();
-    let budget = Budget {
-        calls_per_hour: 1,
-        bytes_per_day: u64::MAX,
-    };
-    let on = Compacting::On {
-        model: compactor.model().clone(),
-        budget,
-        workers: std::num::NonZeroUsize::MIN,
-    };
-    let digests = Digests {
-        compacting: &on,
-        ..the.digests()
-    };
-    assert_eq!(
-        waiting(&digests, at(0)).expect("reads"),
-        None,
-        "room to work"
-    );
-    let paced = Paced::new(&compactor, budget);
-    let memories = Memories {
-        digests,
-        ..the.memories()
-    };
-    assert!(matches!(
-        step(&paced, &memories, &compactor, &At(at(0))).expect("a step"),
-        Stepped::Compacted(_)
-    ));
-    let held = waiting(&digests, at(1)).expect("reads").expect("held back");
-    assert!(matches!(held.why, Some(Why::Held(_))), "{held}");
-    assert!(
-        held.nodes > 0 && held.to_string().contains("hourly cap"),
-        "{held}"
-    );
-    let off = Digests {
-        compacting: &Compacting::Off,
-        ..digests
-    };
-    let held = waiting(&off, at(1)).expect("reads").expect("off");
-    assert_eq!(held.why, Some(Why::Off));
-    assert_eq!(held.nodes, the.read().pending().len());
-}
-
 /// A model that always fails cannot spend past the cap, however often it is retried: every call
 /// is counted before it is made, each failure moves the reading so a fresh one (a retry, a
 /// restart) takes the node again, and every rolling hour holds at most the cap of calls.

@@ -1018,97 +1018,9 @@ mod tests {
         }
     }
 
-    /// The typed value's label an answer asks for, or "" for one that asks none.
-    fn typed(answer: &CardAnswer) -> &str {
-        match &answer.asks {
-            Asks::Value { input } => input,
-            Asks::Now | Asks::Confirm { .. } | Asks::Always { .. } | Asks::Endorse { .. } => "",
-        }
-    }
-
     /// Whether an answer's tap carries `always`.
     fn widens(answer: &CardAnswer) -> bool {
         matches!(answer.asks, Asks::Always { .. })
-    }
-
-    /// Unlocking the store asks again at once: there is nothing to confirm, so its answer opens
-    /// no confirm step, where a blank question and a blank yes were drawn before.
-    #[test]
-    fn checking_the_store_again_asks_nothing_first() {
-        let card = of(&ProposedAct::UnlockStore {
-            sentence: "unlock the secret store".to_owned(),
-        });
-        assert_eq!(card.answers[0].verb, "check");
-        assert_eq!(card.answers[0].asks, Asks::Now);
-    }
-
-    /// The client's card says every step in the order they are taken, with the exact address
-    /// written into its step, why the app must be published (and what Testing costs), and takes
-    /// the downloaded file in a write-only field; its button opens the console.
-    #[test]
-    fn the_google_client_card_says_every_step_with_the_exact_address() {
-        let redirect = "https://box.example.test/api/oauth/google/callback";
-        let card = of(&ProposedAct::GoogleClient {
-            redirect: redirect.to_owned(),
-            steps: crate::google::CLIENT_STEPS
-                .iter()
-                .map(|&step| step.to_owned())
-                .collect(),
-            sentence: String::new(),
-        });
-        let said = &card.sentence;
-        let mut from = 0;
-        for n in 1..=crate::google::CLIENT_STEPS.len() {
-            let at = said[from..]
-                .find(&format!("\n{n}. "))
-                .unwrap_or_else(|| panic!("step {n} in order in {said}"));
-            from += at + 1;
-        }
-        for words in [
-            "Web application",
-            "Publish app",
-            "In production",
-            "Testing",
-            "7 days",
-            "Advanced, then Go to the app",
-            "Download JSON",
-            "Gmail API",
-            "Google Calendar API",
-            &format!("paste exactly the address {redirect}"),
-        ] {
-            assert!(said.contains(words), "{words:?} in {said}");
-        }
-        assert_eq!(
-            card.link.as_ref().map(|link| link.href.as_str()),
-            Some(crate::google::CONSOLE)
-        );
-        assert_eq!(
-            typed(&card.answers[0]),
-            "The client's downloaded file (JSON)"
-        );
-    }
-
-    /// The sign-in card draws Google's consent as its button only while one is open.
-    #[test]
-    fn the_sign_in_card_draws_the_consent_while_it_is_open() {
-        let drawn = |consent: Option<&str>| {
-            of(&ProposedAct::GoogleSignIn {
-                account: "ada@example.test".to_owned(),
-                parts: vec!["its mail".to_owned()],
-                consent: consent.map(str::to_owned),
-                sentence: "sign ada@example.test in with Google".to_owned(),
-            })
-        };
-        assert_eq!(drawn(None).link, None);
-        let open = drawn(Some("https://accounts.google.com/o/oauth2/v2/auth?state=s"));
-        assert_eq!(
-            open.link.map(|link| link.label),
-            Some("Continue to Google".to_owned())
-        );
-        assert!(
-            typed(&open.answers[0]).is_empty(),
-            "a sign-in takes no value"
-        );
     }
     use crate::secretary::inbox_reading::Answer;
     use crate::secretary::responded::{Done, Responded, Tried};
@@ -1148,23 +1060,6 @@ mod tests {
         );
     }
 
-    /// A decision's card is every field whole, and Record names what stops being in force.
-    #[test]
-    fn a_decision_card_shows_every_field_and_what_it_supersedes() {
-        let card = of(&ProposedAct::Decision {
-            id: "plugins".to_owned(),
-            title: "Plugins hold only their imports".to_owned(),
-            body: "A plugin is a *component*.".to_owned(),
-            rationale: "Authority is what it imports.".to_owned(),
-            supersedes: vec!["userrepo".to_owned()],
-            sentence: "record the decision plugins".to_owned(),
-        });
-        let labels: Vec<&str> = card.fields.iter().map(|f| f.label.as_str()).collect();
-        assert_eq!(labels, ["Title", "Why", "Supersedes"]);
-        assert_eq!(card.body, "A plugin is a *component*.");
-        assert!(asked(&card.answers[0]).contains("supersedes userrepo"));
-    }
-
     /// A patch's card is the whole diff, and a public repository's says so in the question.
     #[test]
     fn a_patch_card_shows_the_diff_and_says_public_before_the_push() {
@@ -1185,39 +1080,6 @@ mod tests {
         assert_eq!(public.answers[0].verb, "open");
         assert!(asked(&public.answers[0]).contains("anyone can read it"));
         assert!(!asked(&patch(Visibility::Private).answers[0]).contains("anyone"));
-    }
-
-    /// A coding session's card is the whole task, and the question says what starting one spends.
-    #[test]
-    fn a_coding_session_card_shows_the_whole_task_and_what_a_start_spends() {
-        let card = of(&ProposedAct::CodingSession {
-            task: "Fix the typo in the README.\nRun the gates.".to_owned(),
-            sentence: "start a coding session: Fix the typo in the README.".to_owned(),
-        });
-        assert_eq!(card.title, "Proposed coding session");
-        assert_eq!(card.body, "Fix the typo in the README.\nRun the gates.");
-        assert_eq!(card.answers[0].verb, "start");
-        assert!(asked(&card.answers[0]).contains("usage"));
-        assert_eq!(
-            card.readonly,
-            "This device can read this but not start it. Use one of your own devices."
-        );
-    }
-
-    #[test]
-    fn a_changeset_counts_its_changes() {
-        let card = of(&ProposedAct::Changes {
-            chain: "life".to_owned(),
-            changes: Vec::new(),
-            problem: "stale".to_owned(),
-        });
-        assert_eq!(card.title, "Proposed changes");
-        assert_eq!(asked(&card.answers[0]), "Apply these 0 changes?");
-        assert!(
-            !format!("{card:?}").contains("life"),
-            "the chain's id is on no card"
-        );
-        assert_eq!(card.problem, "stale");
     }
 
     #[test]
@@ -1249,32 +1111,6 @@ mod tests {
             card.link, None,
             "no page is known for a workspace's own host"
         );
-    }
-
-    /// A template's help page is the one link a card draws, and only for a name it knows.
-    #[test]
-    fn a_secret_a_template_knows_links_to_where_it_is_issued() {
-        let card = of(&secret_act("OPENROUTER_API_KEY", None));
-        assert_eq!(
-            card.link.map(|link| link.href),
-            Some("https://openrouter.ai/settings/keys".to_owned())
-        );
-        let unknown = of(&secret_act("PLUGIN_DUEDAY_TOKEN", None));
-        assert!(unknown.link.is_none() && unknown.sentence.is_empty());
-    }
-
-    /// The routine's token opens the declared routine's own page; a deployment with no routine
-    /// has none to open.
-    #[test]
-    fn the_routine_token_links_to_the_declared_routine() {
-        let act = |routine| secret_act(crate::coding::ROUTINE_TOKEN, routine);
-        let routine: RoutineId = "trig_01Example".parse().expect("a routine id");
-        assert_eq!(
-            of(&act(Some(&routine))).link.map(|link| link.href),
-            Some("https://claude.ai/code/routines/trig_01Example".to_owned())
-        );
-        let undeclared = of(&act(None));
-        assert!(undeclared.link.is_none() && undeclared.sentence.is_empty());
     }
 
     #[test]

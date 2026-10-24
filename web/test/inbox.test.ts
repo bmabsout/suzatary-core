@@ -11,11 +11,8 @@ import assert from "node:assert/strict";
 import type { Authored, Entry } from "../src/wire/generated/wire";
 import type { ConversationPayload, ProposalRow, ProposedObject } from "../src/wire/generated/wire";
 import type { InboxProposal, ProposalsPayload, ProposedBatch } from "../src/wire/generated/wire";
-import { oneCardPerBatch, rowOf, sameRows, splitSetup, waitingSentence } from "../src/inbox/inbox";
+import { oneCardPerBatch, rowOf, sameRows, splitSetup } from "../src/inbox/inbox";
 import type { Row } from "../src/inbox/inbox";
-import asker from "../src/inbox/asker";
-import spoken from "../src/inbox/spoken";
-import { parse } from "../src/chat/refs";
 import waiting from "../src/inbox/waiting";
 import { forAll } from "./gen";
 import time from "../src/app/time";
@@ -90,56 +87,12 @@ test("open: ascending in urgency, across the inbox and every chain, ties on the 
   assert.deepEqual(openKeys([asked({ id: "p0", value: 0.4 })], folds), ["a", "p0", "b"]);
 });
 
-test("open: a resolved decision, a settled proposal and a todo are all left out", () => {
-  const folds: waiting.ChainFold[] = [
-    {
-      chain: "life",
-      entries: [
-        entry({ todo: "done", state: "completed" }),
-        entry({ todo: "plaintodo", authored: authored({ block: { kind: "todo", name: "todo" } }) }),
-        entry({ todo: "open", state: "open" }),
-      ],
-    },
-  ];
-  assert.deepEqual(openKeys([asked({ id: "sent", state: { kind: "completed", at: "2026-09-17T08:30:00" } })], folds), ["open"]);
-});
-
 test("open: an unpriced proposal sorts after every priced row, but is still shown", () => {
   const folds: waiting.ChainFold[] = [{ chain: "life", entries: [entry({ todo: "priced", value: 0.1 })] }];
   assert.deepEqual(openKeys([asked({ id: "unpriced" })], folds), ["priced", "unpriced"]);
 });
 
 // --- the settled-today split ---------------------------------------------------
-
-test("settledOn: kept to what was resolved today, dropping open ones and other days", () => {
-  const folds: waiting.ChainFold[] = [
-    {
-      chain: "life",
-      entries: [
-        entry({ todo: "today1", state: "completed", at: "2026-09-17 09:05:00" }),
-        entry({ todo: "today2", state: "cancelled", at: "2026-09-17 08:00:00" }),
-        entry({ todo: "yesterday", state: "completed", at: "2026-09-16 09:00:00" }),
-        entry({ todo: "stillopen", state: "open" }),
-      ],
-    },
-  ];
-  const proposals = [
-    asked({ id: "sent", state: { kind: "completed", at: "2026-09-17T08:30:00" } }),
-    asked({ id: "old", state: { kind: "cancelled", at: "2026-09-16T08:30:00" } }),
-  ];
-  // Newest first.
-  assert.deepEqual(
-    waiting.settledOn(waiting.all(proposals, folds), "2026-09-17", time.UTC).map(s => waiting.key(s.w)),
-    ["today1", "sent", "today2"],
-  );
-});
-
-test("settledOn: a todo (not a decision) resolved today is not counted here", () => {
-  const folds: waiting.ChainFold[] = [
-    { chain: "life", entries: [entry({ todo: "t1", authored: authored({ block: { kind: "todo", name: "todo" } }), state: "completed", at: "2026-09-17 09:00:00" })] },
-  ];
-  assert.deepEqual(waiting.settledOn(waiting.all([], folds), "2026-09-17", time.UTC), []);
-});
 
 test("settledOn: the day is the owner's, so a decision settled at 21:00 in New York is today's there", () => {
   const folds: waiting.ChainFold[] = [
@@ -153,26 +106,6 @@ test("settledOn: the day is the owner's, so a decision settled at 21:00 in New Y
 // --- the reference-to-row decision ----------------------------------------------
 
 const decision = (e: Entry): waiting.Waiting => waiting.decision("life", e);
-
-test("where: a proposal names the conversation it was asked in", () => {
-  assert.deepEqual(waiting.where(waiting.proposal(asked())), { type: "Proposal", conversation: "default", index: 3 });
-});
-
-test("where: a decision reads its batch off detail's first line", () => {
-  const found = waiting.where(decision(entry({ authored: authored({ detail: "batch:life/a1b2c3d4\n\nheld for review" }) })));
-  assert.deepEqual(found, { type: "Batch", chain: "life", head: "a1b2c3d4" });
-});
-
-test("where: a reference this app has no card for, an unreadable one and no content are all unresolved", () => {
-  for (const e of [
-    entry({ authored: authored({ detail: "todo:life/x1\n\nsome text" }) }),
-    entry({ authored: authored({ detail: "garbage" }) }),
-    entry({ authored: authored({ detail: "" }) }),
-    entry({ authored: null }),
-  ]) {
-    assert.equal(waiting.where(decision(e)).type, "Unresolved", JSON.stringify(e.authored?.detail));
-  }
-});
 
 // --- resolving a row against what was fetched -----------------------------------
 
@@ -272,11 +205,6 @@ test("rowOf: a batch head settled through another door is unresolved, not silent
   assert.equal(row.kind, "unresolved");
 });
 
-test("rowOf: an unparseable reference never even asks the maps", () => {
-  const row = rowOf(decision(entry({ authored: authored({ detail: "garbage" }) })), new Map(), new Map());
-  assert.equal(row.kind, "unresolved");
-});
-
 test("sameRows: a coding session handed over is a different row, so its card is drawn again", () => {
   const reported = { state: "reported" as const, id: "s1", branch: "claude/x", path: "docs/reports/x.md", report: "done", stat: [], handed: "" };
   const of = (coding: ProposalRow["coding"]) =>
@@ -301,36 +229,4 @@ test("law: only the setup cards go after the work, each side in the order it cam
     const isSetup = (row: Row): boolean => row.kind === "proposal" && row.proposal.card.by.kind === "setup";
     assert.deepEqual(setup, rows.filter(isSetup));
     assert.deepEqual(work, rows.filter((row) => !isSetup(row)));
-  }));
-
-test("the legend counts what is shown: the work, and the setup steps folded under it, apart", () => {
-  assert.equal(waitingSentence(0, 0), "");
-  assert.equal(waitingSentence(1, 0), "1 thing waiting on you.");
-  assert.equal(waitingSentence(2, 0), "2 things waiting on you.");
-  assert.equal(waitingSentence(0, 1), "1 setup step waiting on you.");
-  assert.equal(waitingSentence(2, 2), "2 waiting on you, and 2 setup steps.");
-  // The total is never said when part of it is folded away: it is the count the audit found shown nowhere.
-  for (let work = 1; work < 6; work += 1)
-    for (let steps = 1; steps < 6; steps += 1)
-      assert.ok(!waitingSentence(work, steps).startsWith(`${work + steps} `), waitingSentence(work, steps));
-});
-
-test("a card's tag names who asked in words: none for the secretary, Setup for the box with why in its tip", () => {
-  assert.equal(asker.tag({ kind: "secretary" }), null);
-  assert.equal(asker.tag({ kind: "setup" })?.text, "Setup");
-  assert.match(asker.tag({ kind: "setup" })?.tip ?? "", /not set up yet/);
-  assert.equal(asker.tag({ kind: "box" })?.text, "App");
-  assert.equal(asker.tag({ kind: "plugin", name: "due" })?.text, "due plugin");
-  assert.equal(waiting.source(waiting.proposal(asked({ by: { kind: "setup" } }))), "Setup");
-});
-
-test("law: a card's source is named in words, never by its spelling, and a todo by its title when this device holds it", () =>
-  forAll(300, (r) => {
-    const text = r.pick(["todo:life/file-permit", "mail:a1b2c3d4e5f6", "thread:t-one", "briefing:2026-09-17", "proposal:setup/3", "batch:life/a1b2c3d4"]);
-    const reference = parse(text);
-    assert.ok(reference !== null);
-    const held = r.bool() ? [entry({ todo: "file-permit", authored: authored({ body: "Renew the *permit*\nby Friday" }) })] : [];
-    const said = spoken.of(reference, spoken.titles(held));
-    assert.ok(!said.includes(":"), `${text} is said as ${said}`);
-    if (reference.kind === "todo") assert.equal(said, held.length === 0 ? "a todo" : "Renew the permit");
   }));

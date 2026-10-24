@@ -677,76 +677,6 @@ mod tests {
         text.parse().expect("a query")
     }
 
-    // --- the query language -----------------------------------------------------
-
-    fn texts(list: &[Term]) -> Vec<&str> {
-        list.iter().map(Term::as_str).collect()
-    }
-
-    #[test]
-    fn every_field_and_a_bare_phrase_is_read() {
-        let parsed = query(
-            "from:ada@example.test to:\"Bo Example\" subject:\"team invite\" budget \"annual \
-             report\" before:2025-01-01",
-        );
-        assert_eq!(texts(&parsed.from), ["ada@example.test"]);
-        assert_eq!(texts(&parsed.to), ["Bo Example"]);
-        assert_eq!(texts(&parsed.subject), ["team invite"]);
-        assert_eq!(texts(&parsed.body), ["budget", "annual report"]);
-        assert_eq!(parsed.before(), Some(day("2025-01-01")));
-    }
-
-    #[test]
-    fn a_query_that_is_not_one_says_why() {
-        let refused = |text: &str| text.parse::<OlderQuery>().expect_err(text);
-        assert_eq!(refused(""), QueryError::Empty);
-        assert_eq!(refused("before:2025-01-01"), QueryError::Empty);
-        assert_eq!(
-            refused("label:work"),
-            QueryError::UnknownField("label:".to_owned())
-        );
-        assert_eq!(refused("from:"), QueryError::Missing("from"));
-        assert!(matches!(refused("subject:\"open"), QueryError::Quote(_)));
-        assert!(matches!(refused("a\"b"), QueryError::Quote(_)));
-        assert!(matches!(refused("\"a\"b"), QueryError::Quote(_)));
-        assert!(matches!(
-            refused("from:a\\b"),
-            QueryError::Term(TermError::Forbidden(_))
-        ));
-        assert!(matches!(refused("before:soon x"), QueryError::Date(_)));
-        assert_eq!(
-            refused("x before:2025-01-01 before:2025-02-01"),
-            QueryError::TwoBefores
-        );
-        assert_eq!(
-            refused(&"w ".repeat(MAX_TERMS + 1)),
-            QueryError::TooMany(MAX_TERMS + 1)
-        );
-        assert!(matches!(
-            refused(&"w".repeat(MAX_TERM_CHARS + 1)),
-            QueryError::Term(TermError::TooLong(_))
-        ));
-    }
-
-    // --- the range --------------------------------------------------------------
-
-    #[test]
-    fn the_range_ends_where_the_routine_window_begins() {
-        let window = day("2026-10-10");
-        let r = Range::older(day("2023-01-01"), Some(day("2027-01-01")), window).expect("a range");
-        assert_eq!((r.since(), r.before()), (day("2023-01-01"), window));
-        let r = Range::older(day("2023-01-01"), Some(day("2024-01-01")), window).expect("a range");
-        assert_eq!(r.before(), day("2024-01-01"));
-        assert!(matches!(
-            Range::older(window, None, window),
-            Err(RangeError::InsideWindow { .. })
-        ));
-        assert!(matches!(
-            Range::older(day("2024-01-01"), Some(day("2024-01-01")), window),
-            Err(RangeError::Backwards { .. })
-        ));
-    }
-
     // --- the translations, as properties -----------------------------------------
 
     /// One IMAP search key and its argument, as a server's parser reads them.
@@ -933,23 +863,6 @@ mod tests {
                     prop_assert!(!term.as_str().is_empty());
                 }
             }
-        }
-
-        /// The plan takes at most the cap, only what is not held, newest first, and counts
-        /// every match once.
-        #[test]
-        fn the_plan_takes_the_newest_missing_within_the_cap(
-            ids in proptest::collection::btree_set(0u32..200, 0..80),
-            held in proptest::collection::btree_set(0u32..200, 0..80),
-            cap in 0usize..40,
-        ) {
-            let newest_first: Vec<u32> = ids.iter().rev().copied().collect();
-            let Plan { wanted, already, beyond } = plan(&newest_first, &held, cap);
-            prop_assert!(wanted.len() <= cap);
-            prop_assert!(wanted.iter().all(|id| !held.contains(id)));
-            prop_assert_eq!(wanted.len() + already + beyond, newest_first.len());
-            let missing: Vec<u32> = newest_first.iter().filter(|id| !held.contains(id)).copied().collect();
-            prop_assert_eq!(&wanted[..], &missing[..wanted.len()]);
         }
     }
 

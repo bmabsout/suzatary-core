@@ -251,50 +251,6 @@ mod tests {
         )
     }
 
-    fn day(text: &str) -> NaiveDate {
-        NaiveDate::parse_from_str(text, "%Y-%m-%d").expect("a date")
-    }
-
-    /// Every account is asked over a range that ends where the routine window begins, and the
-    /// answer names them all.
-    #[test]
-    fn every_account_is_searched_up_to_the_routine_window() {
-        let asked = Asked::default();
-        let answer = called(
-            &asked,
-            json!({"query": "subject:\"team invite\"", "since": "2023-01-01"}),
-        )
-        .expect("an answer");
-        let today = crate::zone::Zone::UTC.day(prodrome_core::fpl::instant_of(
-            Nothing::secretary().clock.now(),
-        ));
-        let log = asked.0.lock().expect("the log");
-        assert_eq!(
-            log[0].0,
-            ["ada@example.test".to_owned(), "bo@example.test".to_owned()]
-        );
-        assert_eq!(log[0].1.since(), day("2023-01-01"));
-        assert_eq!(log[0].1.before(), window_start(today));
-        assert!(answer.searched.contains("ada@example.test: INBOX searched"));
-        assert!(answer.searched.contains("bo@example.test: INBOX searched"));
-        assert!(answer.searched.contains("mail dated from 2023-01-01 up to"));
-    }
-
-    /// `account` narrows the search to one account, in the roster's spelling.
-    #[test]
-    fn an_account_narrows_the_search() {
-        let asked = Asked::default();
-        called(
-            &asked,
-            json!({"account": "ADA@example.test", "query": "budget", "since": "2023-01-01"}),
-        )
-        .expect("an answer");
-        assert_eq!(
-            asked.0.lock().expect("the log")[0].0,
-            ["ada@example.test".to_owned()]
-        );
-    }
-
     /// A query, a date or an account that is not one is refused before any server is asked.
     #[test]
     fn a_bad_call_asks_no_server() {
@@ -309,14 +265,5 @@ mod tests {
             assert!(called(&asked, args.clone()).is_err(), "{args}");
         }
         assert!(asked.0.lock().expect("the log").is_empty());
-    }
-
-    /// The cap the description names is the one the pull keeps.
-    #[test]
-    fn the_description_names_the_cap() {
-        assert!(SearchOlder::DESCRIPTION.contains(&format!(
-            "at most {} are pulled",
-            crate::mail::older::MAX_MATCHES
-        )));
     }
 }

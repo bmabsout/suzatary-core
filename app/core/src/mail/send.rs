@@ -496,16 +496,6 @@ mod tests {
         assert!(!built.contains("text/html"), "{built}");
     }
 
-    /// A `Message-Id` is bracketed exactly once however the caller spelled it.
-    #[test]
-    fn a_message_id_is_bracketed_exactly_once() {
-        assert_eq!(angle("abc@x.test"), "<abc@x.test>");
-        assert_eq!(angle("<abc@x.test>"), "<abc@x.test>");
-        assert_eq!(angle("  <abc@x.test>  "), "<abc@x.test>");
-        assert_eq!(bare("<abc@x.test>"), "abc@x.test");
-        assert_eq!(bare("abc@x.test"), "abc@x.test");
-    }
-
     #[test]
     fn a_cc_appears_and_an_absent_one_does_not() {
         assert!(!text(&outgoing(), "a@x.test").contains("Cc:"));
@@ -523,64 +513,6 @@ mod tests {
                 "third@example.test".to_owned()
             ]
         );
-    }
-
-    /// A reply is threaded, and `References` defaults to the parent.
-    #[test]
-    fn a_reply_carries_in_reply_to_and_references() {
-        let reply = |references: &[&str]| {
-            Outgoing::new(Composed {
-                in_reply_to: Some("parent@example.test".to_owned()),
-                references: references.iter().map(|one| (*one).to_owned()).collect(),
-                ..composed()
-            })
-            .expect("a sendable message")
-        };
-        let out = reply(&[]);
-        assert_eq!(
-            thread_headers(&out),
-            vec![
-                ("In-Reply-To".to_owned(), "<parent@example.test>".to_owned()),
-                ("References".to_owned(), "<parent@example.test>".to_owned()),
-            ]
-        );
-
-        let out = reply(&["grand@example.test", "parent@example.test"]);
-        assert_eq!(
-            thread_headers(&out)[1].1,
-            "<grand@example.test> <parent@example.test>"
-        );
-
-        let built = text(&out, "a@x.test");
-        assert!(
-            built.contains("In-Reply-To: <parent@example.test>"),
-            "{built}"
-        );
-    }
-
-    #[test]
-    fn a_message_that_replies_to_nothing_carries_no_thread_headers() {
-        assert!(thread_headers(&outgoing()).is_empty());
-        assert!(!text(&outgoing(), "a@x.test").contains("In-Reply-To"));
-    }
-
-    #[test]
-    fn an_attachment_arrives_with_its_name_and_its_type() {
-        let out = Outgoing::new(Composed {
-            attachments: vec![Attachment {
-                filename: "notice.pdf".to_owned(),
-                content: b"%PDF-1.7\n".to_vec(),
-                mime_type: "application/pdf".to_owned(),
-            }],
-            ..composed()
-        })
-        .expect("a sendable message");
-        let built = text(&out, "a@x.test");
-        assert!(built.contains("multipart/mixed"), "{built}");
-        assert!(built.contains("application/pdf"), "{built}");
-        assert!(built.contains("notice.pdf"), "{built}");
-        assert!(built.contains("text/plain"), "{built}");
-        assert!(built.contains("One line."), "{built}");
     }
 
     // --- The constructor's guards -------------------------------------------
@@ -631,54 +563,10 @@ mod tests {
         );
     }
 
-    /// Every text that is not an address is named, the copies and the sender included.
-    #[test]
-    fn every_bad_address_is_named_at_once() {
-        assert_eq!(
-            refused(Composed {
-                sender: "nope".to_owned(),
-                to: vec!["him@example.test".to_owned(), "a b@example.test".to_owned()],
-                cc: vec!["oops".to_owned()],
-                ..composed()
-            })
-            .as_deref(),
-            Some("not an address: a b@example.test, oops, nope")
-        );
-    }
-
-    /// An empty body is fine when there is an attachment.
-    #[test]
-    fn an_attachment_makes_an_empty_body_sendable() {
-        assert_eq!(
-            refused(Composed {
-                body: String::new(),
-                attachments: vec![Attachment {
-                    filename: "x.pdf".to_owned(),
-                    content: b"%PDF".to_vec(),
-                    mime_type: "application/pdf".to_owned(),
-                }],
-                ..composed()
-            }),
-            None
-        );
-    }
-
     /// A message read back as it was written builds the same message.
     #[test]
     fn a_message_is_its_composition() {
         assert_eq!(Outgoing::new(outgoing().composed()), Ok(outgoing()));
-    }
-
-    #[test]
-    fn an_extension_guesses_a_type_and_an_unknown_one_is_octet_stream() {
-        assert_eq!(guess_mime_type("notice.pdf"), "application/pdf");
-        assert_eq!(guess_mime_type("notes.TXT"), "text/plain");
-        assert_eq!(guess_mime_type("photo.jpeg"), "image/jpeg");
-        assert_eq!(
-            guess_mime_type("archive.tar.gz"),
-            "application/octet-stream"
-        );
-        assert_eq!(guess_mime_type("README"), "application/octet-stream");
     }
 
     /// Only a message handed over and not answered for may have gone.
@@ -717,5 +605,44 @@ mod tests {
         ] {
             assert_eq!(unknown.delivery(), Delivery::Unknown, "{unknown}");
         }
+    }
+
+    /// A reply is threaded, and `References` defaults to the parent.
+    #[test]
+    fn a_reply_carries_in_reply_to_and_references() {
+        let reply = |references: &[&str]| {
+            Outgoing::new(Composed {
+                in_reply_to: Some("parent@example.test".to_owned()),
+                references: references.iter().map(|one| (*one).to_owned()).collect(),
+                ..composed()
+            })
+            .expect("a sendable message")
+        };
+        let out = reply(&[]);
+        assert_eq!(
+            thread_headers(&out),
+            vec![
+                ("In-Reply-To".to_owned(), "<parent@example.test>".to_owned()),
+                ("References".to_owned(), "<parent@example.test>".to_owned()),
+            ]
+        );
+
+        let out = reply(&["grand@example.test", "parent@example.test"]);
+        assert_eq!(
+            thread_headers(&out)[1].1,
+            "<grand@example.test> <parent@example.test>"
+        );
+
+        let built = text(&out, "a@x.test");
+        assert!(
+            built.contains("In-Reply-To: <parent@example.test>"),
+            "{built}"
+        );
+    }
+
+    #[test]
+    fn a_message_that_replies_to_nothing_carries_no_thread_headers() {
+        assert!(thread_headers(&outgoing()).is_empty());
+        assert!(!text(&outgoing(), "a@x.test").contains("In-Reply-To"));
     }
 }

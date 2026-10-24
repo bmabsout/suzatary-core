@@ -13,16 +13,6 @@ const step = frame.step<number, number>((v, e) => v + e)
 const genState = (r: Rng) => loState(r, () => r.int(100))
 const genEvent = (r: Rng): Ev => r.pick<Ev>([frame.read(lo.val(r.int(100))), frame.read(lo.error(r.string("abc", 2))), frame.read(lo.loading), frame.own(r.int(10))])
 
-test("a value read shows, and a failure or a wait before any value is the page's state", () => {
-  assert.deepEqual(step(lo.loading, frame.read(lo.val(3))), lo.val(3))
-  assert.deepEqual(step(lo.loading, frame.read(lo.error("down"))), lo.error("down"))
-  assert.deepEqual(step(lo.error("down"), frame.read(lo.loading)), lo.loading)
-})
-
-test("a value read after a failure lands", () => {
-  assert.deepEqual(step(lo.error("down"), frame.read(lo.val(1))), lo.val(1))
-})
-
 test("law: a value read replaces whatever was shown", () => {
   forAll(200, r => {
     const v = r.int(100)

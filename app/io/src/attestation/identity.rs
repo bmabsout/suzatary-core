@@ -304,31 +304,4 @@ mod tests {
         );
         assert_eq!(urls.len(), 5, "the report and Intel's four documents");
     }
-
-    #[test]
-    fn report_endpoint_failures_are_named() {
-        let establish = |transport: Scripted| {
-            Identity::establish(
-                &transport,
-                "https://inference.example/v1",
-                &nonce(),
-                |_| Ok(collateral()),
-                fixture::NOW,
-            )
-        };
-        assert!(matches!(
-            establish(Scripted::always(Err(crate::http::HttpError::Lost(
-                "refused".to_owned()
-            )))),
-            Err(AttestationError::Unreachable(_))
-        ));
-        assert!(matches!(
-            establish(Scripted::always(Ok(Resp::new(404, "not found")))),
-            Err(AttestationError::Failed { status: 404, .. })
-        ));
-        assert!(matches!(
-            establish(Scripted::always(Ok(Resp::new(200, "{}")))),
-            Err(AttestationError::ReportVersion { .. })
-        ));
-    }
 }

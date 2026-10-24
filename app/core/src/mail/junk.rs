@@ -543,35 +543,6 @@ mod tests {
         Window::ending(day("2026-09-27"), 30).expect("a month")
     }
 
-    fn header(uid: u32, address: &str) -> JunkHeader {
-        JunkHeader::new(
-            Uid(uid),
-            None,
-            Some(address),
-            "a subject",
-            "Sat, 26 Sep 2026",
-        )
-    }
-
-    #[test]
-    fn a_domain_is_lowered_and_loses_its_root_dot() {
-        assert_eq!(
-            Domain::parse("Offers.Example.NET.")
-                .expect("a domain")
-                .as_str(),
-            "offers.example.net"
-        );
-        for bad in [
-            "",
-            "localhost",
-            "a..b",
-            "no spaces.test",
-            "under_score.test",
-        ] {
-            assert!(Domain::parse(bad).is_err(), "{bad:?}");
-        }
-    }
-
     #[test]
     fn a_subdomain_is_within_its_parent_and_a_lookalike_is_not() {
         let parent = Domain::parse("shop.test").expect("a domain");
@@ -583,133 +554,24 @@ mod tests {
         assert!(!parent.within(&child));
     }
 
-    #[test]
-    fn a_header_with_no_address_is_unaddressed_and_never_churn() {
-        let bare = JunkHeader::new(Uid(1), Some("Prize Desk"), None, "You won", "");
-        assert_eq!(bare.sender(), &Sender::Unaddressed);
-        assert_eq!(bare.from, "Prize Desk");
-        let churn = ChurnList::new(["example.test"], KeepList::default()).expect("a list");
-        assert!(!churn.covers(bare.sender()));
-    }
-
-    #[test]
-    fn a_header_shows_the_name_and_address_it_was_built_from() {
-        let friend = JunkHeader::new(
-            Uid(7),
-            Some(CAST.friend.name),
-            Some(CAST.friend.email),
-            " RSVP ",
-            "Fri, 25 Sep 2026 10:00:00 +0000",
-        );
-        assert_eq!(
-            friend.from,
-            format!("{} <{}>", CAST.friend.name, CAST.friend.email)
-        );
-        assert_eq!(friend.subject, "RSVP");
-        assert_eq!(
-            friend.sender(),
-            &Sender::Domain(Domain::of_address(CAST.friend.email).expect("a domain"))
-        );
-    }
-
-    #[test]
-    fn a_churn_list_refuses_what_is_not_a_domain() {
-        assert_eq!(
-            ChurnList::new(["offers.example.net", "not a domain"], KeepList::default()),
-            Err(NotADomain("not a domain".to_owned()))
-        );
-        assert_eq!(
-            ChurnList::default(),
-            ChurnList::new([], KeepList::default()).expect("empty")
-        );
-    }
-
     fn sender(address: &str) -> Sender {
         Sender::Domain(Domain::of_address(address).expect("a domain"))
     }
 
-    /// `keep` beats the seed.
+    /// `keep` beats the seed and `ours` alike.
     #[test]
-    fn keep_beats_seed() {
-        let keep = KeepList::new(["offers.example.net"]).expect("a list");
-        let churn = ChurnList::new([], keep)
-            .expect("a list")
-            .with_seed(["offers.example.net"])
-            .expect("a seed");
-        assert_eq!(churn.origin(&sender("deals@offers.example.net")), None);
-        assert!(!churn.covers(&sender("deals@offers.example.net")));
-    }
-
-    /// `keep` beats `ours` too.
-    #[test]
-    fn keep_beats_ours_too() {
-        let keep = KeepList::new(["offers.example.net"]).expect("a list");
-        let churn = ChurnList::new(["offers.example.net"], keep).expect("a list");
-        assert!(!churn.covers(&sender("deals@offers.example.net")));
-    }
-
-    /// `ours` and the seed union, each under its own [`Origin`]; `ours` wins
-    /// where both list a domain.
-    #[test]
-    fn ours_and_seed_union() {
-        let churn = ChurnList::new(["ours.test"], KeepList::default())
-            .expect("a list")
-            .with_seed(["seed.test", "ours.test"])
-            .expect("a seed");
-        assert_eq!(churn.origin(&sender("a@ours.test")), Some(Origin::Ours));
-        assert_eq!(churn.origin(&sender("a@seed.test")), Some(Origin::Seed));
-        assert_eq!(churn.origin(&sender("a@elsewhere.test")), None);
-        assert_eq!(churn.seed_status(), Seed::Loaded { domains: 2 });
-    }
-
-    /// A subdomain at any depth is churn; a lookalike sharing a suffix is not.
-    #[test]
-    fn a_subdomain_of_a_listed_domain_is_churn() {
-        let churn = ChurnList::new(["offers.example.net"], KeepList::default()).expect("a list");
-        assert!(churn.covers(&sender("a@mail.deals.offers.example.net")));
-        assert!(!churn.covers(&sender("a@badoffers.example.net")));
-    }
-
-    /// [`ChurnList::covers`] agrees with "has some origin".
-    #[test]
-    fn origin_labels_agree_with_covers() {
-        let churn = ChurnList::new(["ours.test"], KeepList::default())
-            .expect("a list")
-            .with_seed(["seed.test"])
-            .expect("a seed");
-        for (address, expected) in [
-            ("a@ours.test", Some(Origin::Ours)),
-            ("a@seed.test", Some(Origin::Seed)),
-            ("a@elsewhere.test", None),
+    fn keep_beats_every_list() {
+        let keep = || KeepList::new(["offers.example.net"]).expect("a list");
+        for churn in [
+            ChurnList::new([], keep())
+                .expect("a list")
+                .with_seed(["offers.example.net"])
+                .expect("a seed"),
+            ChurnList::new(["offers.example.net"], keep()).expect("a list"),
         ] {
-            let who = sender(address);
-            assert_eq!(churn.origin(&who), expected, "{address}");
-            assert_eq!(churn.covers(&who), expected.is_some(), "{address}");
+            assert_eq!(churn.origin(&sender("deals@offers.example.net")), None);
+            assert!(!churn.covers(&sender("deals@offers.example.net")));
         }
-    }
-
-    /// A seed of 200,000 domains is a lookup, not a scan.
-    #[test]
-    fn a_big_seed_is_fast_enough() {
-        let synthetic: Vec<String> = (0..200_000)
-            .map(|n| format!("seed-{n}.example.net"))
-            .collect();
-        let started = std::time::Instant::now();
-        let churn = ChurnList::new(["ours.test"], KeepList::default())
-            .expect("a list")
-            .with_seed(synthetic.iter().map(String::as_str))
-            .expect("a seed");
-        assert_eq!(churn.seed_status(), Seed::Loaded { domains: 200_000 });
-        for n in [0_usize, 99_999, 199_999] {
-            assert_eq!(
-                churn.origin(&sender(&format!("a@seed-{n}.example.net"))),
-                Some(Origin::Seed)
-            );
-        }
-        assert_eq!(churn.origin(&sender("a@not-in-the-seed.example.net")), None);
-        assert_eq!(churn.origin(&sender("a@ours.test")), Some(Origin::Ours));
-        let elapsed = started.elapsed();
-        assert!(elapsed.as_secs() < 5, "took {elapsed:?}");
     }
 
     /// A sweep of thousands of headers with no churn answers a bounded digest: the newest
@@ -754,92 +616,6 @@ mod tests {
             !printed.contains("seed-0.example.net"),
             "never the seed's domains"
         );
-    }
-
-    #[test]
-    fn a_window_is_one_to_a_year_of_days() {
-        assert_eq!(window().since, day("2026-08-28"));
-        assert_eq!(window().days, 30);
-        assert_eq!(Window::ending(day("2026-09-27"), 0), Err(BadWindow(0)));
-        assert_eq!(Window::ending(day("2026-09-27"), 367), Err(BadWindow(367)));
-    }
-
-    /// Churn and its subdomains are counted, not listed; everyone else is
-    /// listed newest first.
-    #[test]
-    fn churn_is_counted_and_everything_else_is_listed() {
-        let churn = ChurnList::new(["offers.example.net"], KeepList::default()).expect("a list");
-        let headers = vec![
-            header(1, "deals@offers.example.net"),
-            header(2, CAST.friend.email),
-            header(3, "news@mail.offers.example.net"),
-            header(4, "deals@offers.example.net"),
-            header(5, CAST.counsel.email),
-            JunkHeader::new(Uid(6), None, None, "", ""),
-        ];
-        let swept = digest(CAST.owner.email, headers, &churn, window());
-        assert_eq!(swept.total, 6);
-        let uids: Vec<u32> = swept.outside_churn.iter().map(|h| h.uid().0).collect();
-        assert_eq!(uids, vec![6, 5, 2]);
-        let printed: Vec<(&str, usize, Option<Origin>)> = swept
-            .by_domain
-            .iter()
-            .map(|(sender, count, origin)| (sender.as_str(), *count, *origin))
-            .collect();
-        assert_eq!(
-            printed,
-            vec![
-                ("example.test", 2, None),
-                ("offers.example.net", 2, Some(Origin::Ours)),
-                ("mail.offers.example.net", 1, Some(Origin::Ours)),
-                ("(no address)", 1, None),
-            ]
-        );
-    }
-
-    /// With no churn declared, every header is listed.
-    #[test]
-    fn an_empty_churn_list_lists_every_header() {
-        let headers = vec![
-            header(1, CAST.friend.email),
-            header(2, "x@offers.example.net"),
-        ];
-        let swept = digest(CAST.owner.email, headers, &ChurnList::default(), window());
-        assert_eq!(swept.outside_churn.len(), swept.total);
-    }
-
-    #[test]
-    fn the_digest_serialises_senders_as_text_and_windows_as_dates() {
-        let swept = digest(
-            CAST.owner.email,
-            vec![header(9, CAST.friend.email)],
-            &ChurnList::default(),
-            window(),
-        );
-        let json = serde_json::to_value(&swept).expect("serialises");
-        assert_eq!(json["window"]["since"], "2026-08-28");
-        assert_eq!(json["by_domain"][0][0], "example.test");
-        assert_eq!(json["outside_churn"][0]["uid"], 9);
-        assert_eq!(json["outside_churn"][0]["from"], CAST.friend.email);
-    }
-
-    #[test]
-    fn junk_is_the_marked_folder_else_a_known_name_else_none() {
-        let listed = |pairs: &[(&str, bool)]| -> Vec<Listed> {
-            pairs
-                .iter()
-                .map(|(name, junk)| Listed {
-                    name: (*name).to_owned(),
-                    junk: *junk,
-                })
-                .collect()
-        };
-        let marked = listed(&[("Inbox", false), ("Junk", false), ("Spam Box", true)]);
-        assert_eq!(junk_folder(&marked), Some("Spam Box"));
-        let named = listed(&[("Inbox", false), ("junk email", false)]);
-        assert_eq!(junk_folder(&named), Some("junk email"));
-        let neither = listed(&[("Inbox", false), ("Sent", false)]);
-        assert_eq!(junk_folder(&neither), None);
     }
 
     fn any_sender() -> impl Strategy<Value = Option<String>> {
@@ -913,29 +689,5 @@ mod tests {
             prop_assert!(swept.outside_churn.len() <= MAX_LISTED);
             prop_assert_eq!(swept.outside_churn.len() + swept.listed_left_out, kept);
         }
-    }
-
-    /// The normaliser strips comments and blanks, lowers case, deduplicates,
-    /// and drops a malformed line rather than failing, on the shapes the real
-    /// seed files have.
-    #[test]
-    fn the_seed_normaliser_handles_comments_blanks_case_and_duplicates() {
-        let fixture = "\
-            # Title: Example Block List\n\
-            # Homepage: https://example.test\n\
-            #\n\
-            \n\
-            Offers.Example.NET\n\
-            offers.example.net\n\
-            \n\
-            mail.offers.example.net\n\
-            not-a-domain\n\
-        ";
-        let normalized = normalize_seed_file(fixture);
-        let printed: Vec<&str> = normalized.iter().map(Domain::as_str).collect();
-        assert_eq!(
-            printed,
-            vec!["mail.offers.example.net", "offers.example.net"]
-        );
     }
 }

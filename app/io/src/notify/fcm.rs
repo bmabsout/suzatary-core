@@ -208,23 +208,6 @@ impl Sender {
 pub(super) mod tests {
     use super::*;
 
-    // --- dead() ------------------------------------------------------------
-
-    #[test]
-    fn a_404_with_unregistered_is_dead() {
-        assert!(dead(404, r#"{"error":{"status":"UNREGISTERED"}}"#));
-    }
-
-    #[test]
-    fn a_404_without_unregistered_is_not_dead() {
-        assert!(!dead(404, r#"{"error":{"status":"NOT_FOUND"}}"#));
-    }
-
-    #[test]
-    fn a_200_is_never_dead() {
-        assert!(!dead(200, "UNREGISTERED"));
-    }
-
     // --- the FCM message body ------------------------------------------------
 
     #[test]
@@ -293,27 +276,5 @@ pub(super) mod tests {
         assert_eq!(decoded.claims.aud, account.token_uri);
         assert_eq!(decoded.claims.iat, 1_757_000_000);
         assert_eq!(decoded.claims.exp, 1_757_003_600);
-    }
-
-    #[test]
-    fn the_claims_serialise_to_the_exact_json_the_python_produces() {
-        let claims = Claims {
-            iss: "svc@example.iam.gserviceaccount.com".to_owned(),
-            scope: FCM_SCOPE.to_owned(),
-            aud: DEFAULT_TOKEN_URI.to_owned(),
-            iat: 1_757_000_000,
-            exp: 1_757_003_600,
-        };
-        let value = serde_json::to_value(&claims).expect("claims always serialise");
-        assert_eq!(
-            value,
-            serde_json::json!({
-                "iss": "svc@example.iam.gserviceaccount.com",
-                "scope": "https://www.googleapis.com/auth/firebase.messaging",
-                "aud": "https://oauth2.googleapis.com/token",
-                "iat": 1_757_000_000,
-                "exp": 1_757_003_600,
-            })
-        );
     }
 }

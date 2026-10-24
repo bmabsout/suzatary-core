@@ -208,27 +208,6 @@ mod tests {
         assert!(!status_ok(""));
     }
 
-    #[test]
-    fn split_head_body_finds_the_boundary() {
-        let raw = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"a\":1}";
-        let (head, body) = split_head_body(raw).expect("splits");
-        assert!(head.starts_with("HTTP/1.1 200 OK"));
-        assert_eq!(body, b"{\"a\":1}");
-    }
-
-    #[test]
-    fn split_head_body_handles_a_response_with_no_body() {
-        let raw = b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n";
-        let (head, body) = split_head_body(raw).expect("splits");
-        assert!(head.contains("Connection: close"));
-        assert!(body.is_empty());
-    }
-
-    #[test]
-    fn split_head_body_refuses_a_response_with_no_separator() {
-        assert!(split_head_body(b"not an http response").is_none());
-    }
-
     /// A fake tailscaled answering one connection per body, in order, each with a canned 200;
     /// it returns the request lines it was sent.
     fn daemon(

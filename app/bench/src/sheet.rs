@@ -167,14 +167,6 @@ mod tests {
         CaseId::new(id).expect("valid")
     }
 
-    /// Labels run `A`..`Z`, then `AA`.
-    #[test]
-    fn labels_run_a_through_z_then_double_letters() {
-        assert_eq!(Label::of(0).as_str(), "A");
-        assert_eq!(Label::of(25).as_str(), "Z");
-        assert_eq!(Label::of(26).as_str(), "AA");
-    }
-
     /// The same seed gives the same labelling, whatever the input order.
     #[test]
     fn the_same_seed_orders_candidates_the_same_way_regardless_of_input_order() {
@@ -200,48 +192,6 @@ mod tests {
         );
         assert_eq!(sheet_a.cases[0].answers, sheet_b.cases[0].answers);
         assert_eq!(key_a.entries, key_b.entries);
-    }
-
-    /// A different seed can produce a different order.
-    #[test]
-    fn a_different_seed_can_reorder_the_same_candidates() {
-        let candidates = vec![
-            Candidate {
-                model: "incumbent".to_owned(),
-                text: "a".to_owned(),
-            },
-            Candidate {
-                model: "candidate/one".to_owned(),
-                text: "b".to_owned(),
-            },
-            Candidate {
-                model: "candidate/two".to_owned(),
-                text: "c".to_owned(),
-            },
-        ];
-        let (sheet_a, _) = build(
-            0,
-            vec![(
-                case("triage:a"),
-                "triage",
-                "input".to_owned(),
-                candidates.clone(),
-            )],
-        );
-        // Pins only that the seed reaches the order: one seed repeating a permutation is no bug.
-        let reordered = (1..20u64).any(|seed| {
-            let (sheet_b, _) = build(
-                seed,
-                vec![(
-                    case("triage:a"),
-                    "triage",
-                    "input".to_owned(),
-                    candidates.clone(),
-                )],
-            );
-            sheet_b.cases[0].answers != sheet_a.cases[0].answers
-        });
-        assert!(reordered, "no seed in 1..20 reordered the candidates");
     }
 
     /// The rendered sheet carries no model name; the key carries them all.

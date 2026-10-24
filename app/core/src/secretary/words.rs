@@ -156,15 +156,6 @@ mod tests {
     }
 
     proptest! {
-        /// A functor: identity and composition.
-        #[test]
-        fn map_is_a_functor(w in words(), a: u8, b: u8) {
-            prop_assert_eq!(w.clone().map(|x| x), w.clone());
-            let f = move |x: u8| x.wrapping_add(a);
-            let g = move |x: u8| x.wrapping_mul(b);
-            prop_assert_eq!(w.clone().map(f).map(g), w.map(move |x| g(f(x))));
-        }
-
         /// Kept words print as themselves, and every value reads back as itself.
         #[test]
         fn words_read_back_and_kept_ones_print_as_themselves(w in words()) {

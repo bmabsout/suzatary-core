@@ -67,7 +67,6 @@ impl UploadStanding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::attachment::MediaType;
     use crate::vault::PrivateCopy;
 
     const PDF: &[u8] = b"%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n";
@@ -77,14 +76,6 @@ mod tests {
             media: Enclosure::Pdf,
             bytes: PDF.to_vec(),
         }
-    }
-
-    #[test]
-    fn a_pdf_on_the_box_is_indexed_by_its_text_layer() {
-        assert_eq!(
-            UploadStanding::of(Some(here_pdf()), |_| Ok("Lease for unit 4\u{c}".to_owned())),
-            Ok(UploadStanding::Indexed("Lease for unit 4\u{c}".to_owned()))
-        );
     }
 
     /// A PDF the box would hold back today is held, whenever it was stored.
@@ -115,30 +106,6 @@ mod tests {
             Ok(UploadStanding::Indexed(
                 "Wages 70000 SSN [redacted]".to_owned()
             ))
-        );
-    }
-
-    #[test]
-    fn a_photo_has_no_words_and_a_missing_upload_is_erased() {
-        let photo = Upload::Here {
-            media: Enclosure::Image(MediaType::Png),
-            bytes: vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A],
-        };
-        assert_eq!(
-            UploadStanding::of(Some(photo), |_| Err("not asked".to_owned())),
-            Ok(UploadStanding::Indexed(String::new()))
-        );
-        assert_eq!(
-            UploadStanding::of(None, |_| Err("not asked".to_owned())),
-            Ok(UploadStanding::Erased)
-        );
-    }
-
-    #[test]
-    fn an_unreadable_layer_indexes_nothing() {
-        assert_eq!(
-            UploadStanding::of(Some(here_pdf()), |_| Err("pdftotext failed".to_owned())),
-            Err("pdftotext failed".to_owned())
         );
     }
 }

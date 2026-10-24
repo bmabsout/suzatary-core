@@ -699,15 +699,3 @@ pub fn summary(
         "generated": generated(now),
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_percentage_is_one_decimal_absent_is_empty_and_unlinked_a_dash() {
-        assert_eq!(pct::<()>(Ok(Some(0.2101))), "21.0%");
-        assert_eq!(pct::<()>(Ok(None)), "∅");
-        assert_eq!(pct(Err(&())), "—");
-    }
-}

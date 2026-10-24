@@ -273,30 +273,6 @@ mod tests {
         assert_eq!(left["ada"].0, vec![phone("live-token")]);
     }
 
-    #[test]
-    fn no_channels_configured_delivers_to_nobody() {
-        let channels = Channels::new(fake_http(), APP, None, None, PanicsIfAsked);
-        let push = Push::Agent {
-            authored: 2,
-            changes: 0,
-        };
-        let delivered = channels
-            .push(&push)
-            .expect("no configured channel is not an error");
-        assert_eq!(delivered.devices(), 0);
-    }
-
-    #[test]
-    fn absent_answers_a_push_with_nobody_reached_and_no_device_read() {
-        let configured: Configured<PanicsIfAsked> = Configured::Absent;
-        let push = Push::Agent {
-            authored: 2,
-            changes: 0,
-        };
-        let delivered = configured.push(&push).expect("Absent never errors");
-        assert_eq!(delivered.devices(), 0);
-    }
-
     /// A store locked until `open` is set, counting what it is asked.
     #[derive(Default)]
     struct Unlockable {

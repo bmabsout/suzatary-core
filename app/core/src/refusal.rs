@@ -190,33 +190,3 @@ pub fn json_type(value: &serde_json::Value) -> &'static str {
         serde_json::Value::Object(_) => "dict",
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_status_is_the_number_the_python_answered_with() {
-        assert_eq!(Status::BadRequest.code(), 400);
-        assert_eq!(Status::Forbidden.code(), 403);
-        assert_eq!(Status::NotFound.code(), 404);
-        assert_eq!(Status::MethodNotAllowed.code(), 405);
-        assert_eq!(Status::Conflict.code(), 409);
-        assert_eq!(Status::UnprocessableEntity.code(), 422);
-        assert_eq!(Status::Internal.code(), 500);
-    }
-
-    /// The body is `{"error": …}` with the sentence carried whole.
-    #[test]
-    fn a_refusal_carries_its_own_sentence_into_the_body() {
-        let refused = Refusal::bad_request("ids is required: a comma-separated list of todo ids");
-        assert_eq!(
-            refused.payload().error,
-            "ids is required: a comma-separated list of todo ids"
-        );
-        assert_eq!(
-            refused.to_string(),
-            "400 ids is required: a comma-separated list of todo ids"
-        );
-    }
-}

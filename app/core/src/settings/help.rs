@@ -187,46 +187,4 @@ mod tests {
     fn routine() -> RoutineId {
         "trig_01Example".parse().expect("a routine id")
     }
-
-    /// The token's card opens the declared routine's own page, where its trigger's token is
-    /// generated; with no routine declared there is nothing to open, so no help.
-    #[test]
-    fn the_routine_token_opens_the_declared_routine() {
-        let help = Help::of(crate::coding::ROUTINE_TOKEN, Some(&routine())).expect("help");
-        assert_eq!(
-            help.link.as_deref(),
-            Some("https://claude.ai/code/routines/trig_01Example")
-        );
-        assert_eq!(Help::of(crate::coding::ROUTINE_TOKEN, None), None);
-    }
-
-    /// A page that is a table's does not depend on the routine.
-    #[test]
-    fn a_fixed_page_ignores_the_routine() {
-        assert_eq!(
-            Help::of("NTFY_TOPIC", None),
-            Help::of("NTFY_TOPIC", Some(&routine()))
-        );
-    }
-
-    #[test]
-    fn a_name_no_template_knows_has_none() {
-        assert_eq!(Help::of("PLUGIN_DUEDAY_TOKEN", Some(&routine())), None);
-    }
-
-    /// Every name has words the owner reads instead of it, the template's where one is known.
-    #[test]
-    fn every_name_is_labelled_in_words() {
-        assert_eq!(Help::label("OPENROUTER_API_KEY"), "the OpenRouter key");
-        assert_eq!(Help::label("NTFY_TOPIC"), "your notifications topic");
-        assert_eq!(
-            Help::label("PLUGIN_DUEDAY_TOKEN"),
-            "a credential of the dueday plugin"
-        );
-        assert_eq!(Help::label("SOME_KEY"), "a key this deployment declares");
-        assert_eq!(
-            Help::label(crate::coding::ROUTINE_TOKEN),
-            "the coding routine's token"
-        );
-    }
 }

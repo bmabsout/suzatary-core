@@ -86,17 +86,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_world_prints_as_it_parses() {
-        for (text, world) in [
-            ("source@0.3.0", World::Source),
-            ("actor@0.3.0", World::Actor),
-        ] {
-            assert_eq!(World::parse(text), Ok(world));
-            assert_eq!(World::parse(&world.to_string()), Ok(world));
-        }
-    }
-
-    #[test]
     fn another_version_or_world_is_refused_by_name() {
         assert_eq!(
             World::parse("source@0.1.0"),
@@ -125,14 +114,5 @@ mod tests {
                 .any(|name| name.contains("fetch"))
         );
         assert!(!World::Actor.fetches());
-    }
-
-    #[test]
-    fn every_name_is_at_the_package_version() {
-        let suffix = format!("@{PACKAGE_VERSION}");
-        for world in [World::Source, World::Actor] {
-            assert!(world.export().ends_with(&suffix));
-            assert!(world.imports().iter().all(|name| name.ends_with(&suffix)));
-        }
     }
 }

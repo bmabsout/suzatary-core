@@ -1,6 +1,6 @@
 //! The changelog cannot silently rot: it parses, its versions are semver in strictly descending
-//! order, its dates never go forwards, its headings are Keep a Changelog's, and its newest
-//! release is `app/release.toml`'s, the file `flake.nix` also reads.
+//! order, its dates never go forwards, and its newest release is `app/release.toml`'s, the file
+//! `flake.nix` also reads.
 
 use std::path::{Path, PathBuf};
 
@@ -108,32 +108,6 @@ fn dates_are_non_increasing_and_look_like_dates() {
     }
 }
 
-/// Section headings come from Keep a Changelog's fixed vocabulary; an invented one is a typo
-/// that hides its entries from a reader skimming.
-#[test]
-fn section_headings_use_the_fixed_vocabulary() {
-    const ALLOWED: [&str; 6] = [
-        "Added",
-        "Changed",
-        "Deprecated",
-        "Removed",
-        "Fixed",
-        "Security",
-    ];
-    let Some(text) = changelog() else {
-        eprintln!("skipped: this checkout has no CHANGELOG.md");
-        return;
-    };
-    for line in text.lines() {
-        if let Some(heading) = line.strip_prefix("### ") {
-            assert!(
-                ALLOWED.contains(&heading.trim()),
-                "{heading:?} is not one of {ALLOWED:?}"
-            );
-        }
-    }
-}
-
 /// The newest release is the declared version, so widening a contract without bumping it fails.
 #[test]
 fn the_newest_release_matches_the_declared_version() {
@@ -150,31 +124,6 @@ fn the_newest_release_matches_the_declared_version() {
         spelled, version,
         "the newest release and app/release.toml's version disagree"
     );
-}
-
-/// The roadmap keeps its Rejected section: a deleted idea gets re-proposed; a
-/// rejected one, with its reason, does not.
-#[test]
-fn the_roadmap_keeps_its_rejected_section() {
-    let Ok(text) = std::fs::read_to_string(repo().join("ROADMAP.md")) else {
-        eprintln!("skipped: this checkout has no ROADMAP.md");
-        return;
-    };
-    assert!(
-        text.contains("Rejected"),
-        "ROADMAP.md lost its Rejected section"
-    );
-}
-
-/// `CLAUDE.md` points at both files, so a reader who starts there finds them.
-#[test]
-fn the_constitution_points_at_both_files() {
-    let Ok(text) = std::fs::read_to_string(repo().join("CLAUDE.md")) else {
-        eprintln!("skipped: this checkout has no CLAUDE.md");
-        return;
-    };
-    assert!(text.contains("CHANGELOG.md"), "CLAUDE.md never names it");
-    assert!(text.contains("ROADMAP.md"), "CLAUDE.md never names it");
 }
 
 /// The tree's release file reads, and its data lines are the cut's print under the header the

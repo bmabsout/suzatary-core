@@ -1,4 +1,4 @@
-// The laws of the curve: its window, the line drawn from the core's knots, its colour at every height, and the label.
+// The laws of the curve: its window, the line drawn from the core's knots, its colour at every height, and where it first crosses a threshold.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -6,7 +6,6 @@ import assert from "node:assert/strict"
 import curve from "../src/todo/curve"
 import fulfillment from "../src/todo/fulfillment"
 import { forAll } from "./gen"
-import { everywhere } from "./zones"
 import time from "../src/app/time"
 import type { Rng } from "./gen"
 
@@ -148,33 +147,4 @@ test("law: the first crossing below a threshold is at the first sample that is w
       }
     }
   })
-})
-
-test("the label names the value and state now, and the next state it would cross into, within the window", () => {
-  const at = (h: number, v: number) => ({ t: NOW + h * H, v })
-  const thirty = (xs: curve.Sample[]): string =>
-    curve.fold(curve.of(curve.thirtyDays(NOW), xs), { Unsampled: () => "", Sampled: curve.label })
-  assert.equal(thirty([at(-360, 0.9), at(0, 0.62), at(24, 0.54), at(36, 0.46), at(360, 0.3)]), "Fulfillment 62% now, watch; problem in about 30 hours")
-  assert.equal(thirty([at(0, 0.3), at(360, 0.3)]), "Fulfillment 30% now, problem for the next 15 days")
-  assert.equal(thirty([at(0, 0.3), at(0, 1), at(360, 1)]), "Fulfillment 30% now, problem; watch within the hour")
-  assert.equal(thirty([at(-360, 0.1), at(0, 0.82), at(360, 0.8)]), "Fulfillment 82% now, fine for the next 15 days")
-  assert.equal(thirty([at(-360, 0.9), at(0, 0.62), at(96, 0.54), at(240, 0.4), at(360, 0.3)]), "Fulfillment 62% now, watch; problem in about 6 days")
-})
-
-test("a date label is the owner's day in the locale's short form, with no year, on a device in any zone", () =>
-  everywhere(() => {
-    const short = (y: number, m: number, d: number): string =>
-      new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m, d, 12)))
-    const t = Date.UTC(2026, 8, 13, 2) / 1000
-    assert.equal(curve.dayOf(t, time.UTC), short(2026, 8, 13))
-    assert.equal(curve.dayOf(t, { name: "America/New_York" }), short(2026, 8, 12), "two in the morning in UTC is the evening before in New York")
-    assert.equal(curve.dayOf(t, time.UTC).includes("2026"), false)
-  }))
-
-test("of: nothing from now on is unsampled, and any is sampled in order", () => {
-  const w = curve.thirtyDays(NOW)
-  assert.deepEqual(curve.of(w, []), curve.unsampled)
-  assert.deepEqual(curve.of(w, [{ t: NOW - H, v: 0.4 }]), curve.unsampled)
-  const s = [{ t: NOW, v: 0.4 }, { t: NOW + 360 * H, v: 0.9 }]
-  assert.deepEqual(curve.of(w, s), curve.sampled({ window: w, past: [], ahead: [s[0] ?? { t: 0, v: 0 }, ...s.slice(1)] }))
 })

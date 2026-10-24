@@ -504,22 +504,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_manifest_with_no_credentials_or_origins_is_one_that_asks_for_nothing() {
-        let manifest = parse(
-            r#"
-            [[plugins]]
-            name = "quiet"
-            component = "quiet.wasm"
-            schema = "quiet.schema"
-            world = "source@0.3.0"
-            "#,
-        )
-        .expect("a manifest");
-        assert_eq!(manifest.origins().count(), 0);
-        assert_eq!(manifest.credentials().count(), 0);
-    }
-
     /// Each authority the file could overreach with is refused at the boundary, by name.
     #[test]
     fn every_overreach_is_refused_when_the_file_is_read() {

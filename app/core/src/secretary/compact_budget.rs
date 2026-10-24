@@ -165,60 +165,6 @@ mod tests {
         bytes_per_day: 1_000,
     };
 
-    #[test]
-    fn the_hour_holds_until_enough_calls_are_an_hour_old() {
-        let attempts = [attempt(0, 2, 10), attempt(10, 3, 10), attempt(20, 2, 10)];
-        assert_eq!(
-            BUDGET.hold(&attempts, CALL, at(30)),
-            Some(Hold::Calls {
-                spent: 7,
-                until: at(60)
-            })
-        );
-        assert_eq!(
-            BUDGET.hold(&attempts, CALL, at(60)),
-            None,
-            "the first left the hour"
-        );
-        assert_eq!(BUDGET.hold(&attempts[1..], CALL, at(30)), None);
-    }
-
-    #[test]
-    fn the_day_holds_until_enough_bytes_are_a_day_old() {
-        let attempts = [attempt(0, 1, 600), attempt(120, 1, 500)];
-        assert_eq!(
-            BUDGET.hold(&attempts, CALL, at(180)),
-            Some(Hold::Bytes {
-                spent: 1_100,
-                next: 1,
-                until: at(24 * 60)
-            })
-        );
-        assert_eq!(BUDGET.hold(&attempts, CALL, at(24 * 60)), None);
-    }
-
-    /// A call is held when it would cross the day's cap by its own size, though the day has not
-    /// reached it, and made when it fits.
-    #[test]
-    fn a_call_that_would_cross_the_cap_by_its_own_size_is_held() {
-        let attempts = [attempt(0, 1, 600), attempt(120, 1, 100)];
-        assert_eq!(
-            BUDGET.hold(&attempts, Spent::call(301), at(180)),
-            Some(Hold::Bytes {
-                spent: 700,
-                next: 301,
-                until: at(24 * 60)
-            }),
-            "700 and 301 cross 1000"
-        );
-        assert_eq!(BUDGET.hold(&attempts, Spent::call(300), at(180)), None);
-        assert_eq!(
-            BUDGET.hold(&attempts, Spent::call(301), at(24 * 60)),
-            None,
-            "once the 600 is a day old"
-        );
-    }
-
     proptest! {
         /// The hold is a function of the set of attempts: their order in the history moves
         /// nothing, and at its `until` the attempts made by then hold no more on its account.

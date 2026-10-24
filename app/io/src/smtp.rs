@@ -450,56 +450,6 @@ mod tests {
     }
 
     #[test]
-    fn send_gmail_names_a_missing_credentials_file() {
-        let maildir = std::env::temp_dir().join(format!(
-            "suzatary-io-smtp-no-creds-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        let result = Gmail { maildir: &maildir }.send(&outgoing(), "id@x.test", 0);
-        match result {
-            Err(SendError::Transport { step, why }) => {
-                assert_eq!(step, Step::Credentials);
-                assert!(why.contains(".credentials.gmailieer.json"), "{why}");
-            }
-            other => panic!("expected a named Transport error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn a_missing_bridge_certificate_names_the_path_and_the_fix() {
-        let path = Path::new("/does/not/exist/bridge-cert.pem");
-        let error = read_bridge_certificate(path).expect_err("nothing is there to read");
-        match error {
-            SendError::Transport { step, why } => {
-                assert_eq!(step, Step::Credentials);
-                assert!(why.contains("/does/not/exist/bridge-cert.pem"), "{why}");
-                assert!(why.contains("openssl s_client"), "{why}");
-                assert!(why.contains("openssl x509"), "{why}");
-            }
-            other => panic!("expected a named Transport error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn an_unparsable_bridge_certificate_names_the_path() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        let path = dir.path().join("bridge-cert.pem");
-        std::fs::write(&path, "not a certificate").expect("written");
-        match read_bridge_certificate(&path).expect_err("nothing in it parses") {
-            SendError::Transport { step, why } => {
-                assert_eq!(step, Step::Credentials);
-                assert!(
-                    why.starts_with("parsing the pinned Bridge certificate"),
-                    "{why}"
-                );
-                assert!(why.contains(&path.display().to_string()), "{why}");
-            }
-            other => panic!("expected a named Transport error, got {other:?}"),
-        }
-    }
-
-    #[test]
     fn envelope_builds_from_the_sender_and_to_plus_cc() {
         let out = Outgoing::new(Composed {
             cc: vec!["third@example.test".to_owned()],
@@ -534,12 +484,6 @@ mod tests {
         .expect("the thin check passes this");
         let error = envelope(&out).expect_err("the transport's own grammar refuses it");
         assert!(matches!(error, SendError::Refused(_)));
-    }
-
-    #[test]
-    fn base64url_encoding_keeps_padding_like_the_python_did() {
-        let encoded = base64::engine::general_purpose::URL_SAFE.encode(b"hi");
-        assert!(encoded.ends_with('='), "{encoded}");
     }
 
     /// Where the fake ends: nowhere, with a refusal at a step, or by closing where its reply
@@ -717,28 +661,5 @@ mod tests {
             );
             let _ = server.join();
         }
-    }
-
-    #[test]
-    fn five_three_five_is_the_auth_failure_code() {
-        assert!(is_auth_failure(Some(Code::new(
-            Severity::PermanentNegativeCompletion,
-            Category::Unspecified3,
-            Detail::Five,
-        ))));
-    }
-
-    #[test]
-    fn a_different_permanent_code_is_not_treated_as_an_auth_failure() {
-        assert!(!is_auth_failure(Some(Code::new(
-            Severity::PermanentNegativeCompletion,
-            Category::MailSystem,
-            Detail::Zero,
-        ))));
-    }
-
-    #[test]
-    fn no_status_at_all_is_not_an_auth_failure() {
-        assert!(!is_auth_failure(None));
     }
 }

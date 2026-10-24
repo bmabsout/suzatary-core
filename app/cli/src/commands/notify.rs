@@ -152,7 +152,6 @@ pub(crate) fn push<D: Log<String, Device> + Clone>(
 
 #[cfg(test)]
 mod tests {
-    use clap::Parser as _;
     use suzatary_core::capability::Secret;
     use suzatary_core::refusal::Refusal;
     use suzatary_core::store::{Decide, Edit, StoreError};
@@ -197,54 +196,5 @@ mod tests {
     fn no_channel_resolves_nothing_and_is_absent() {
         let result = push(None, PanicsIfAsked, "test", "https://app", NoDevices);
         assert!(matches!(result, Configured::Absent));
-    }
-
-    #[derive(clap::Parser)]
-    struct Line {
-        #[command(flatten)]
-        args: Args,
-    }
-
-    fn parsed(argv: &[&str]) -> Result<Args, clap::Error> {
-        Line::try_parse_from(std::iter::once("notify").chain(argv.iter().copied()))
-            .map(|line| line.args)
-    }
-
-    /// Each notice parses to its push, `--dry-run` beside any of them, and a notice is
-    /// required: there is no push made of nothing.
-    #[test]
-    fn every_notice_parses_with_or_without_a_dry_run() {
-        let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 9).expect("a day");
-        for (argv, push, dry) in [
-            (vec!["briefing", "2026-10-09"], Push::Brief { day }, false),
-            (
-                vec!["briefing", "2026-10-09", "--dry-run"],
-                Push::Brief { day },
-                true,
-            ),
-            (vec!["--dry-run", "no-brief"], Push::NoBrief, true),
-            (vec!["no-brief"], Push::NoBrief, false),
-            (
-                vec!["brief", "2026-10-09-1"],
-                Push::Answered {
-                    conversation: ConversationId::new("2026-10-09-1").expect("a slug"),
-                    brief: true,
-                },
-                false,
-            ),
-        ] {
-            let args = parsed(&argv).expect("parses");
-            assert_eq!(args.notice.push().expect("a push"), push, "{argv:?}");
-            assert_eq!(args.dry_run, dry, "{argv:?}");
-        }
-        assert!(parsed(&[]).is_err(), "a notice is required");
-        assert!(parsed(&["--title", "x"]).is_err(), "no free text");
-        assert!(
-            parsed(&["brief", "../etc"])
-                .expect("parses")
-                .notice
-                .push()
-                .is_err()
-        );
     }
 }

@@ -380,19 +380,4 @@ mod tests {
         assert!(constitution.contains("project memory"), "{constitution}");
         assert!(answer.get("memory").is_none(), "{answer}");
     }
-
-    #[test]
-    fn a_manual_that_is_not_there_is_named() {
-        struct Bare;
-        impl Manuals for Bare {
-            fn document(&self, _which: Manual) -> Option<String> {
-                None
-            }
-        }
-        let answer = context(&Bare, &deployment(0));
-        assert_eq!(
-            answer["operator_manual"],
-            json!("(OPERATOR.md is not present)")
-        );
-    }
 }

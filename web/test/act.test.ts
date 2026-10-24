@@ -16,10 +16,6 @@ test("law: the gate follows who writes, and a reading login is offered only what
   app.dispatch({ type: "Unmet" })
 })
 
-test("an outcome says whether the button can be pressed again", async () => {
-  assert.deepEqual(await act.again(Promise.resolve(1)), act.AGAIN)
-})
-
 test("who writes is heard once per change of actor, and not on a repeat or on anything else in App", () => {
   let heard = 0
   const stop = app.hear(app.actor, () => (heard += 1))

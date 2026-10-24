@@ -599,24 +599,26 @@ mod tests {
         }
     }
 
+    /// A mail hash may be the six-character prefix a todo's source carries; a batch head's
+    /// floor is eight.
     #[test]
-    fn a_hash_may_be_the_prefix_a_todos_source_carries() {
-        assert!(MailHash::new("abc123").is_ok());
-        assert!(MailHash::new("abc12").is_err(), "five is under the floor");
-        assert!(MailHash::new("a".repeat(64)).is_ok());
-        assert!(MailHash::new("a".repeat(65)).is_err());
-    }
-
-    /// A batch head's floor is eight, not [`MailHash`]'s six.
-    #[test]
-    fn a_batch_head_has_its_own_floor() {
-        assert!(BatchHead::new("2fdf1691").is_ok());
-        assert!(
-            BatchHead::new("2fdf169").is_err(),
-            "seven is under the floor"
-        );
-        assert!(BatchHead::new("a".repeat(64)).is_ok());
-        assert!(BatchHead::new("a".repeat(65)).is_err());
+    fn a_hash_has_its_floor_and_its_ceiling() {
+        for (text, expected) in [
+            ("abc123".to_owned(), true),
+            ("abc12".to_owned(), false),
+            ("a".repeat(64), true),
+            ("a".repeat(65), false),
+        ] {
+            assert_eq!(MailHash::new(text.clone()).is_ok(), expected, "{text}");
+        }
+        for (text, expected) in [
+            ("2fdf1691".to_owned(), true),
+            ("2fdf169".to_owned(), false),
+            ("a".repeat(64), true),
+            ("a".repeat(65), false),
+        ] {
+            assert_eq!(BatchHead::new(text.clone()).is_ok(), expected, "{text}");
+        }
     }
 
     /// The six spellings, found in a sentence; `web/test/refs.test.ts` pins the same prose.
@@ -640,19 +642,16 @@ mod tests {
         );
     }
 
-    /// A word that merely ends in a scheme is not a reference.
+    /// A word that merely ends in a scheme is not a reference, and plain prose holds none.
     #[test]
     fn mentions_respects_the_word_boundary() {
-        assert_eq!(mentions("xmail:a1b2c3d4e5f6"), Vec::new());
-        assert_eq!(mentions("notodo:life/x"), Vec::new());
-        assert_eq!(mentions("xbatch:life/2fdf1691"), Vec::new());
-    }
-
-    #[test]
-    fn mentions_of_plain_prose_is_empty() {
-        assert_eq!(
-            mentions("The deck is done and it was never yours."),
-            Vec::new()
-        );
+        for text in [
+            "xmail:a1b2c3d4e5f6",
+            "notodo:life/x",
+            "xbatch:life/2fdf1691",
+            "The deck is done and it was never yours.",
+        ] {
+            assert_eq!(mentions(text), Vec::new(), "{text}");
+        }
     }
 }

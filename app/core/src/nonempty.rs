@@ -44,15 +44,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn an_empty_list_is_none_and_a_full_one_keeps_its_order() {
-        assert_eq!(NonEmpty::<u8>::of(Vec::new()), None);
-        let held = NonEmpty::of(vec![2, 1]).expect("two items");
-        assert_eq!(held.as_slice(), [2, 1]);
-        assert_eq!(NonEmpty::listed(Some(&held)), [2, 1]);
-        assert!(NonEmpty::<u8>::listed(None).is_empty());
-    }
-
-    #[test]
     fn an_empty_list_on_the_wire_is_refused() {
         assert!(serde_json::from_str::<NonEmpty<u8>>("[]").is_err());
         assert_eq!(

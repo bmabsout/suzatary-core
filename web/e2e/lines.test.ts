@@ -257,6 +257,8 @@ app.scene("the list draws and the badge is counted with no request for the lines
   await app.page.waitFor(`document.querySelector(".chats .placeholder") === null`, { timeout: 15000 })
   // The lines a device already holds draw the list before the pull goes out, so the pull's answer is waited for.
   await app.page.waitFor(`performance.getEntriesByType("resource").some((e) => e.name.includes("/api/stores/lines/skeleton"))`, { timeout: 15000 })
+  // The content is fetched once the skeleton names what the page reads, so its answer is waited for too.
+  await app.page.waitFor(`performance.getEntriesByType("resource").some((e) => e.name.includes("/api/stores/lines/content?hashes="))`)
   const pulled = await opening()
   assert.ok(pulled.some(r => r.url.includes("/api/stores/lines/skeleton")), "the secretary's page pulls the lines' skeleton")
   assert.ok(pulled.some(r => r.url.includes("/api/stores/lines/content?hashes=")), "and the content of what it reads, by name")

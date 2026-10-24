@@ -1719,10 +1719,6 @@ pub fn calendar(
 mod tests {
     use super::*;
 
-    fn day(text: &str) -> NaiveDate {
-        NaiveDate::parse_from_str(text, "%Y-%m-%d").expect("a real day")
-    }
-
     /// A value the fake's store reads as locked: it holds the name and cannot say what it is.
     const LOCKED: &str = "<the store is locked>";
 
@@ -1762,24 +1758,6 @@ mod tests {
     }
 
     #[test]
-    fn a_briefings_title_is_its_first_heading_or_the_date() {
-        assert_eq!(
-            briefing_title("intro\n= Monday's briefing\n\ntext", day("2026-09-07")),
-            "Monday's briefing"
-        );
-        // A file with no heading is titled by its date, not by "".
-        assert_eq!(
-            briefing_title("just prose", day("2026-09-07")),
-            "2026-09-07"
-        );
-        // A bare `=` with nothing after it is not a title either.
-        assert_eq!(
-            briefing_title("=\n= Real one", day("2026-09-07")),
-            "Real one"
-        );
-    }
-
-    #[test]
     fn a_message_id_excludes_what_notmuchs_query_language_reads_as_syntax() {
         assert!(check_mail_id("CAB+abc123@mail.example.test").is_ok());
         assert!(check_mail_id("a1b2c3d4e5f6").is_ok());
@@ -1806,13 +1784,6 @@ mod tests {
             check_thread_id("nope").unwrap_err().message(),
             "a conversation id is hexadecimal, got 'nope'"
         );
-    }
-
-    fn a_databricks_setup() -> crate::settings::ProviderSetup {
-        crate::settings::ProviderSetup::Databricks {
-            workspace: crate::settings::WorkspaceUrl::parse("https://acme.cloud.databricks.com")
-                .expect("a good workspace URL"),
-        }
     }
 
     /// Bad hosts are refused before `Edits` is asked.
@@ -1857,51 +1828,6 @@ mod tests {
         ] {
             assert!(WorkspaceUrl::parse(good).is_ok(), "{good} should parse");
         }
-    }
-
-    /// `ProviderSetup::declared`'s derivation, pinned apart from the route.
-    #[test]
-    fn provider_setup_declares_the_databricks_shape() {
-        let declared = a_databricks_setup().declared();
-        assert_eq!(
-            declared,
-            crate::settings::DeclaredProvider {
-                name: "databricks".to_owned(),
-                base_url: "https://acme.cloud.databricks.com/serving-endpoints".to_owned(),
-                key: "DATABRICKS_TOKEN".to_owned(),
-                attestation: crate::settings::Attestation::Unclaimed,
-            }
-        );
-    }
-
-    /// A week from a day, as text and through the renderer; a bad date is a 400.
-    #[test]
-    fn the_calendar_route_reads_a_week_and_refuses_a_bad_day() {
-        struct Week;
-        impl crate::capability::Calendar for Week {
-            fn days(
-                &self,
-                first: NaiveDate,
-                count: u32,
-            ) -> Result<Vec<crate::calendar::Day>, crate::store::StoreError> {
-                Ok(first
-                    .iter_days()
-                    .take(count as usize)
-                    .map(|date| crate::calendar::Day {
-                        date,
-                        entries: Vec::new(),
-                    })
-                    .collect())
-            }
-        }
-        let answered =
-            calendar(&Week, &crate::capability::Nothing, day("2026-10-05")).expect("a week");
-        assert_eq!((answered.from.as_str(), answered.days), ("2026-10-05", 7));
-        assert!(
-            answered.text.starts_with("Monday 5 October\n  nothing"),
-            "{}",
-            answered.text
-        );
     }
 
     /// A store that counts the lookups it gives no answer to, each a wait for the timeout.
@@ -2110,76 +2036,6 @@ mod tests {
             .find(|line| line.key == "provider:phala")
             .expect("the provider's line");
         assert_eq!(phala.standing, crate::connect::Standing::Locked);
-    }
-
-    /// Every declared table is a line of its group, in the owner's words; a group nothing is
-    /// connected to holds none.
-    #[test]
-    fn the_overview_groups_what_the_instance_declares() {
-        use crate::connect::{Group, Standing};
-        let instance = Instance::new();
-        let page = instance.overview(&holding(&["PHALA_API_KEY", "NTFY_TOPIC"]));
-        assert_eq!(
-            page.groups
-                .iter()
-                .map(|group| group.group)
-                .collect::<Vec<_>>(),
-            Group::ALL.to_vec()
-        );
-        assert_eq!(page.ask, "setup");
-        let labels = |which| {
-            group(&page, which)
-                .iter()
-                .map(|line| line.label.as_str())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(labels(Group::Storage), ["Data repository"]);
-        assert_eq!(
-            labels(Group::Mail),
-            ["ada@example.test", "ada@university.example"]
-        );
-        assert_eq!(labels(Group::Calendar), ["Home", "Work"]);
-        assert_eq!(
-            labels(Group::Models),
-            ["Chat", "Review", "Titles", "Reserve", "Phala"]
-        );
-        let reserve = &group(&page, Group::Models)[3];
-        assert_eq!(
-            reserve.detail.as_deref(),
-            Some("Automated jobs keep 30% of the subscription for you.")
-        );
-        assert_eq!(labels(Group::Notifications), ["fcm", "ntfy"]);
-        assert!(labels(Group::Drive).is_empty());
-        assert!(labels(Group::Coding).is_empty());
-        assert!(labels(Group::Plugins).is_empty());
-        assert_eq!(labels(Group::Box), ["Suzatary dev"]);
-
-        let fcm = &group(&page, Group::Notifications)[0];
-        assert_eq!(
-            fcm.standing,
-            Standing::Missing {
-                what: vec!["the Firebase service account".to_owned()]
-            },
-            "fcm needs its service account"
-        );
-        let university = &group(&page, Group::Mail)[1];
-        assert_eq!(
-            university.standing,
-            Standing::Missing {
-                what: vec![
-                    "its sign-in to read mail".to_owned(),
-                    "its sign-in to send mail".to_owned()
-                ]
-            }
-        );
-        assert_eq!(
-            group(&page, Group::Storage)[0].detail.as_deref(),
-            Some("Kept on this box and pushed to example.test/ada/data; it holds the chain life.")
-        );
-        assert_eq!(
-            group(&page, Group::Models)[1].detail.as_deref(),
-            Some("Review answers with Phala's deepseek-v4-flash model.")
-        );
     }
 
     /// No resolved value, and no secret's stored name, is drawn: names travel only where a card

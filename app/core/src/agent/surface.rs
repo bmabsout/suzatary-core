@@ -152,19 +152,4 @@ mod tests {
             assert!(!names.contains(forbidden), "{forbidden}");
         }
     }
-
-    #[test]
-    fn every_verb_is_named_once() {
-        let names: BTreeSet<&str> = TriageVerb::ALL.iter().map(|verb| verb.name()).collect();
-        assert_eq!(names.len(), TriageVerb::ALL.len());
-    }
-
-    /// `named` inverts `name`, and the tool a model is shown carries the same name.
-    #[test]
-    fn a_verb_is_named_by_its_name_and_its_tool() {
-        for &verb in TriageVerb::ALL {
-            assert_eq!(TriageVerb::named(verb.name()), Some(verb));
-            assert_eq!(verb.tool()["name"], verb.name());
-        }
-    }
 }

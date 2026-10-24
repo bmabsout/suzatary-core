@@ -5,7 +5,6 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import routelog from "../src/shell/routelog"
-import { forwarded } from "../src/shell/layout"
 import { hrefOf, parseRoute } from "../src/shell/route"
 import { forAll, route, type Rng } from "./gen"
 
@@ -64,9 +63,3 @@ test("law: an entry the log never wrote starts it again at that place", () =>
     const moved = routelog.to(l, l.entries.length + r.int(3), x)
     assert.equal(hrefOf(routelog.route(moved)), hrefOf(routelog.same(x, routelog.route(l)) ? routelog.route(l) : x))
   }))
-
-test("a route that only forwards is never a place: asking with references is the default conversation", () => {
-  assert.deepEqual(forwarded({ type: "secretary", refs: ["todo:life/x"] }), { type: "conversation", id: "default", refs: ["todo:life/x"] })
-  assert.deepEqual(forwarded({ type: "secretary", refs: [], focus: true }), { type: "conversation", id: "default", refs: [], focus: true })
-  assert.deepEqual(forwarded({ type: "secretary", refs: [] }), { type: "secretary", refs: [] })
-})

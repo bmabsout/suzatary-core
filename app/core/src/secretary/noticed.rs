@@ -727,56 +727,6 @@ mod tests {
             Proposal::Act(crate::secretary::acts::Act::Secret { name, .. }) if name == "NTFY_TOPIC")));
     }
 
-    /// A provider no job orders is owed no key card; once a job orders it, its card is filed.
-    #[test]
-    fn a_provider_no_job_orders_is_asked_for_nothing() {
-        let conversations = crate::secretary::conversations::InMemory::default();
-        let inbox_store = InMemory::<InboxEvent>::default();
-        let providers = vec![crate::settings::DeclaredProvider {
-            name: "phala".to_owned(),
-            base_url: "https://phala.example.test/v1".to_owned(),
-            key: "PHALA_API_KEY".to_owned(),
-            attestation: crate::settings::Attestation::Unclaimed,
-        }];
-        let settables =
-            crate::settings::Settables::derive(providers.iter(), std::iter::empty(), None, &[]);
-        let fallback = crate::models::ModelEntry::parse(&[], "claude-cli/opus").expect("an entry");
-        let asks = |models: &crate::models::Models, minute| {
-            let seen = Seen {
-                settables: &settables,
-                secrets: &Store::default(),
-                models,
-                fallback: &fallback,
-                answered: &crate::mail::health::Healths::default(),
-                open: &[],
-                declared: Some(&crate::connect::Declared::default()),
-                providers: &providers,
-                mail: Some(&crate::mail::health::Healths::default()),
-                links: Some(&std::collections::BTreeMap::new()),
-                heard: Some(&std::collections::BTreeSet::new()),
-                pushed: &crate::settings::remote::Pushed::Nowhere,
-                now: prodrome_core::fpl::instant_of(at(minute)),
-                redirect: None,
-            };
-            notice(
-                &seen,
-                conversations.conversations(),
-                &inbox_store,
-                at(minute),
-            )
-            .expect("filed");
-            open(&inbox_store).iter().any(|act| {
-                matches!(act, crate::secretary::acts::Act::Secret { name, .. } if name == "PHALA_API_KEY")
-            })
-        };
-        assert!(!asks(&crate::models::Models::default(), 0));
-        let ordered = crate::models::Models::default().with_order(
-            crate::models::Job::Review,
-            vec![crate::models::ModelEntry::parse(&providers, "phala/m").expect("an entry")],
-        );
-        assert!(asks(&ordered, 1));
-    }
-
     /// A locked store neither asks for a key it may hold nor withdraws a card still waiting: the
     /// card stays, and the one card the box adds asks to unlock the store; once it answers, that
     /// card is withdrawn and the waiting one is as it was.

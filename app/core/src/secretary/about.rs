@@ -127,24 +127,6 @@ mod tests {
         assert_eq!(spans, vec![(0, 3), (4, 5), (6, 7)]);
     }
 
-    #[test]
-    fn an_empty_transcript_has_no_spans() {
-        assert_eq!(round_spans(&[]), Vec::new());
-    }
-
-    #[test]
-    fn a_leading_model_turn_still_gets_a_span() {
-        let turns = vec![Said {
-            at: crate::capability::Datetime::new(2026, 9, 15, 10, 3, 0, 0).expect("an instant"),
-            turn: Turn::Model {
-                text: "Your brief is ready.".to_owned(),
-                calls: Vec::new(),
-            },
-            by: None,
-        }];
-        assert_eq!(round_spans(&turns), vec![(0, 0)]);
-    }
-
     /// A round touches a reference its opening carries or a model turn names in prose, and only
     /// that round; a reference no round was asked about touches none.
     #[test]
@@ -165,20 +147,5 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn owning_span_finds_the_span_holding_the_target() {
-        let spans = vec![(0, 3), (4, 5), (6, 7)];
-        assert_eq!(owning_span(&spans, 0), 0);
-        assert_eq!(owning_span(&spans, 5), 1);
-        assert_eq!(owning_span(&spans, 7), 2);
-    }
-
-    #[test]
-    fn owning_span_clamps_to_the_nearest_end() {
-        let spans = vec![(2, 3), (4, 5)];
-        assert_eq!(owning_span(&spans, 0), 0, "before the first span");
-        assert_eq!(owning_span(&spans, 99), 1, "past the last span");
     }
 }

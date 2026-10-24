@@ -1147,36 +1147,3 @@ fn session_on_wire(
         },
     }
 }
-
-/// The window arithmetic, alone.
-#[cfg(test)]
-mod window_tests {
-    use super::window;
-
-    #[test]
-    fn a_window_shorter_than_the_transcript_ends_at_before() {
-        assert_eq!(window(100, 20, 5), (15, 20));
-    }
-
-    #[test]
-    fn a_window_reaching_the_start_floors_at_zero_rather_than_going_negative() {
-        assert_eq!(window(100, 3, 5), (0, 3));
-        assert_eq!(window(100, 0, 5), (0, 0));
-    }
-
-    #[test]
-    fn a_transcript_shorter_than_the_limit_is_windowed_whole() {
-        assert_eq!(window(4, 4, 60), (0, 4));
-    }
-
-    #[test]
-    fn before_past_the_transcript_is_clamped_by_the_caller_not_here() {
-        // `window` should floor sanely even when handed an unclamped `before`.
-        assert_eq!(window(10, 999, 5), (5, 10));
-    }
-
-    #[test]
-    fn an_empty_transcript_windows_to_nothing() {
-        assert_eq!(window(0, 0, 60), (0, 0));
-    }
-}

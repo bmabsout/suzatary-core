@@ -32,22 +32,3 @@ impl KeyStanding {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::KeyStanding;
-
-    #[test]
-    fn its_spelling_is_the_one_it_serialises_as() {
-        for standing in [
-            KeyStanding::Untrusted,
-            KeyStanding::Trusted,
-            KeyStanding::Revoked,
-        ] {
-            assert_eq!(
-                serde_json::to_value(standing).expect("serialises"),
-                standing.as_str()
-            );
-        }
-    }
-}

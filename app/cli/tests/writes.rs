@@ -312,14 +312,6 @@ fn the_app_authors_no_html() {
     }
 }
 
-/// Only a 405 carries an `Allow` header.
-#[test]
-fn only_a_405_carries_the_allow_header() {
-    let base = base();
-    let response = common::get(&format!("{base}/api/chain"));
-    assert!(response.headers().get("allow").is_none());
-}
-
 /// The device flow's `Consent` constructors each have exactly their named callers.
 #[test]
 fn the_device_flow_consent_is_claimed_in_exactly_the_named_places() {

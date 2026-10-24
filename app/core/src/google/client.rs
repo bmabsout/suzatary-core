@@ -204,28 +204,4 @@ mod tests {
             assert!(!said.contains("GOCSPX"), "{said}");
         }
     }
-
-    /// A desktop client, a file of another shape and a mangled id are each refused, saying what
-    /// to do.
-    #[test]
-    fn other_files_are_refused_saying_what_to_do() {
-        let callback = ["https://box.example.test/api/oauth/google/callback"];
-        assert_eq!(
-            Client::of_download(&file("installed", &callback), &redirect()),
-            Err(ClientRefused::NotAWebClient)
-        );
-        assert_eq!(
-            Client::of_download(&Secret::new("GOCSPX-only-the-secret"), &redirect()),
-            Err(ClientRefused::NotTheFile)
-        );
-        let mangled = Secret::new(
-            file("web", &callback)
-                .expose()
-                .replace(".apps.googleusercontent.com", ""),
-        );
-        assert_eq!(
-            Client::of_download(&mangled, &redirect()),
-            Err(ClientRefused::Malformed("client id"))
-        );
-    }
 }

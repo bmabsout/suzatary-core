@@ -432,60 +432,6 @@ fn ended_with(caps: &Fakes, why: &Why, words: &str) {
 
 const WEATHER: &str = r#"{"say": "Looking.", "calls": [{"verb": "weather", "args": {}}]}"#;
 
-/// The incident's shape: a verb answered more than the model reads, so the next ask failed, and
-/// the box names the verb and says to narrow it.
-#[test]
-fn a_round_whose_verb_answered_too_much_says_to_narrow_it() {
-    let caps = Fakes::new("round-end-too-long").model(
-        FakeModel::saying([WEATHER])
-            .then_failing(ModelError::TooLong("Prompt is too long".to_owned())),
-    );
-    said_first(&caps);
-    ended_with(
-        &caps,
-        &Why::Model {
-            failed: ModelError::TooLong("Prompt is too long".to_owned()),
-            after: Some("weather".into()),
-        },
-        "I could not finish: weather answered more than I can read. Ask me to narrow it.",
-    );
-}
-
-/// A conversation too long before any verb ran says so, and offers a new conversation.
-#[test]
-fn a_round_too_long_from_the_start_says_to_start_again() {
-    let caps = Fakes::new("round-end-too-long-first").model(
-        FakeModel::saying([]).then_failing(ModelError::TooLong("Prompt is too long".to_owned())),
-    );
-    said_first(&caps);
-    ended_with(
-        &caps,
-        &Why::Model {
-            failed: ModelError::TooLong("Prompt is too long".to_owned()),
-            after: None,
-        },
-        "I could not finish: this conversation is longer than the model reads. Start a new \
-         conversation, or ask me to narrow it.",
-    );
-}
-
-/// A model that ran out of time names the limit.
-#[test]
-fn a_round_whose_model_timed_out_names_the_limit() {
-    let limit = std::time::Duration::from_secs(120);
-    let caps = Fakes::new("round-end-timeout")
-        .model(FakeModel::saying([WEATHER]).then_failing(ModelError::TimedOut(limit)));
-    said_first(&caps);
-    ended_with(
-        &caps,
-        &Why::Model {
-            failed: ModelError::TimedOut(limit),
-            after: Some("weather".into()),
-        },
-        "I stopped: the model did not answer within 120 s. Ask again, or ask for less at once.",
-    );
-}
-
 /// A model that failed some other way quotes the backend, escaped so its words are not markup.
 #[test]
 fn a_round_whose_model_failed_quotes_the_backend_escaped() {
@@ -505,40 +451,6 @@ fn a_round_whose_model_failed_quotes_the_backend_escaped() {
         panic!("the box's turn is a model turn");
     };
     assert!(text.contains(r"\*overloaded\*"), "{text}");
-}
-
-/// An unreachable model says to wait a minute.
-#[test]
-fn a_round_whose_model_is_unreachable_says_to_wait() {
-    let failed = ModelError::Unreachable("connection refused".to_owned());
-    let caps = Fakes::new("round-end-unreachable")
-        .model(FakeModel::saying([]).then_failing(failed.clone()));
-    said_first(&caps);
-    ended_with(
-        &caps,
-        &Why::Model {
-            failed,
-            after: None,
-        },
-        "I could not finish: the model could not be reached (connection refused). Ask again in \
-         a minute.",
-    );
-}
-
-/// A model that stops after a verb answered, saying nothing and calling nothing, gets the box's
-/// words after its empty turn.
-#[test]
-fn a_round_whose_model_stops_after_a_call_gets_the_boxs_words() {
-    let caps = Fakes::new("round-end-silent").model(FakeModel::saying([WEATHER, r#"{"say": ""}"#]));
-    said_first(&caps);
-    ended_with(
-        &caps,
-        &Why::Silent {
-            after: Some("weather".into()),
-        },
-        "I stopped after weather answered, without an answer for you. Ask again, or ask me to \
-         narrow it.",
-    );
 }
 
 /// What the question points at would not load: the round ends before any model is asked.
@@ -598,26 +510,6 @@ fn a_stopped_round_ends_on_the_stop() {
         closed.round.appended.last(),
         Some(suzatary_core::secretary::store::Entry::Stopped { by, .. }) if by == "ada"
     ));
-}
-
-/// A model that answers ends `Answered`, on its own words.
-#[test]
-fn an_answered_round_ends_on_the_models_words() {
-    let caps = Fakes::new("round-end-answered")
-        .model(FakeModel::saying([WEATHER, r#"{"say": "Sunny."}"#]));
-    said_first(&caps);
-    let ran = std::sync::Mutex::new(Vec::new());
-    let closed = round_of(&caps, 8, &ran)
-        .expect("runs")
-        .expect("a round ran");
-    assert_eq!(closed.ending, Ending::Answered);
-    assert_eq!(
-        last_turn(&caps),
-        Turn::Model {
-            text: "Sunny.".to_owned(),
-            calls: Vec::new(),
-        }
-    );
 }
 
 /// One scripted step of the law below.

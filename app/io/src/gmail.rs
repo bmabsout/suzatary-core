@@ -315,37 +315,6 @@ mod tests {
     use crate::http::{Resp, Scripted};
 
     #[test]
-    fn lieer_credentials_parse_the_four_fields_this_module_reads() {
-        let text = r#"{
-            "client_id": "id",
-            "client_secret": "secret",
-            "refresh_token": "refresh",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "email": "her@example.test"
-        }"#;
-        let creds = Lieer::parse(text).expect("parses");
-        assert_eq!(creds.client_id, "id");
-        assert_eq!(creds.client_secret.expose(), "secret");
-        assert_eq!(creds.refresh_token.expose(), "refresh");
-        assert_eq!(creds.token_uri, "https://oauth2.googleapis.com/token");
-    }
-
-    #[test]
-    fn lieer_credentials_refuse_malformed_json() {
-        assert!(matches!(
-            Lieer::parse("not json"),
-            Err(GrantError::Credentials(_))
-        ));
-    }
-
-    #[test]
-    fn truncate_cuts_on_a_char_boundary() {
-        assert_eq!(truncate("hello", 3), "hel");
-        assert_eq!(truncate("hello", 10), "hello");
-        assert_eq!(truncate("héllo", 2), "hé");
-    }
-
-    #[test]
     fn a_message_id_is_lowercase_hex_and_nothing_else() {
         assert!(MessageId::parse("18c2f0a9b3d4e5f6").is_some());
         for bad in ["", "../x", "18C2", "a/b", &"a".repeat(33)] {

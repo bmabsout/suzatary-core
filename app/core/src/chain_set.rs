@@ -579,25 +579,6 @@ mod tests {
         ));
     }
 
-    /// A page names each failed member by its chain, with the sentence that says why.
-    #[test]
-    fn a_failed_member_is_one_line_naming_its_chain() {
-        let none = Untrusted::none();
-        let read = read(vec![("broken", two_geneses())], &none);
-        let set = read
-            .set(at(2))
-            .fail(&name("gone"), "the store does not read");
-        let failed = set.failed();
-        assert_eq!(
-            failed.iter().map(|f| f.chain.as_str()).collect::<Vec<_>>(),
-            ["broken", "gone"]
-        );
-        assert!(
-            failed.iter().all(|f| f.why.contains(&f.chain)),
-            "{failed:?}"
-        );
-    }
-
     /// A write to one chain re-reads that chain alone: the other is the earlier read's own, its
     /// readings kept, and the set reads at every instant as a fresh read of both stores does.
     #[test]

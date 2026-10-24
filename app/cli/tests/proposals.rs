@@ -8,7 +8,6 @@ use std::sync::Arc;
 use common::Fakes;
 use prodrome_core::event::mk_completed;
 use suzatary_core::store::Prodrome as _;
-use suzatary_core::todo::{Patch, Price, TodoPatch};
 
 fn ada() -> suzatary_core::capability::Login {
     common::login("ada@example.com")
@@ -111,81 +110,6 @@ fn a_triage_run_leaves_a_batch_and_moves_no_chain() {
     let objects = batch["objects"].as_array().expect("two objects");
     assert_eq!(objects.len(), 2);
     assert!(listed["batches"][1].is_null(), "one run, one batch");
-}
-
-/// The diff is prose, not typst, and names the todo a completion closes.
-#[test]
-fn the_listing_reads_as_a_diff_a_person_can_decide_from() {
-    let (base, caps) = served("proposals-diff");
-    let run = caps.agent_run();
-    // An `Authored` for a todo the chain already holds reads as a reprice.
-    let before = suzatary_core::todos::current(
-        &caps.chain.nodes().expect("reads"),
-        common::now(),
-        "book-flight",
-    )
-    .expect("the fixture holds it");
-    let edit = TodoPatch {
-        rationale: Patch::Set("the fare window closes".to_owned()),
-        price: Patch::Set(Price::Flat { percent: 20 }),
-        ..TodoPatch::default()
-    };
-    let event = suzatary_core::authoring::update_todo(
-        &before,
-        &edit,
-        suzatary_core::zone::Moment {
-            at: common::now(),
-            zone: suzatary_core::zone::Zone::UTC,
-        },
-        "triage",
-        &[],
-        "",
-        &suzatary_io::typeset::InProcess,
-    )
-    .expect("a valid reprice");
-    run.append(event).expect("appends");
-    run.append(mk_completed("water-plants", common::now(), "triage", "it rained").expect("valid"))
-        .expect("appends");
-
-    let listed = batches(&base);
-    let listed = listed["batches"].as_array().expect("a list");
-    assert_eq!(listed.len(), 2, "one batch per todo: {listed:?}");
-    let about = |todo: &str| {
-        listed
-            .iter()
-            .flat_map(|batch| batch["objects"].as_array().expect("a list"))
-            .find(|object| object["todo"] == todo)
-            .expect("the todo's batch")
-            .clone()
-    };
-
-    let repriced = &about("book-flight");
-    assert_eq!(repriced["act"], "repriced");
-    assert_eq!(repriced["todo"], "book-flight");
-    assert!(
-        repriced["needs"].as_array().expect("a list").is_empty(),
-        "a change rests on its own todo's writes, which the chain holds"
-    );
-    let priced = repriced["changes"]
-        .as_array()
-        .expect("a list")
-        .iter()
-        .find(|change| change["field"] == "priority")
-        .expect("the price moved");
-    assert_eq!(priced["after"], "20%");
-    assert_ne!(priced["before"], priced["after"]);
-
-    let closed = &about("water-plants");
-    assert_eq!(closed["act"], "completed");
-    assert_eq!(closed["note"], "it rained");
-    assert!(
-        closed["needs"].as_array().expect("a list").is_empty(),
-        "nothing in another todo's batch is needed: the two commute"
-    );
-    assert_eq!(
-        closed["pending_todo"], false,
-        "water-plants is on the chain, so this row stands on its own"
-    );
 }
 
 /// Accepting adopts the objects onto the chain and into the fold, and the batch leaves.
@@ -487,19 +411,4 @@ fn a_viewer_reads_the_inbox_and_settles_nothing() {
         2,
         "nothing moved either way"
     );
-}
-
-/// A name that is not 64 hex digits is refused at the parse.
-#[test]
-fn a_body_that_is_not_a_list_of_names_is_a_bad_request() {
-    let (base, _caps) = served("proposals-shape");
-    for body in [
-        serde_json::json!({}),
-        serde_json::json!({ "objects": "one" }),
-        serde_json::json!({ "objects": [7] }),
-        serde_json::json!({ "objects": ["nope"] }),
-    ] {
-        let response = common::act(&format!("{base}/api/proposals/accept"), &body);
-        assert_eq!(common::status(&response), 400, "{body}");
-    }
 }

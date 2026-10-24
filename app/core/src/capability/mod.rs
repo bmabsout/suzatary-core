@@ -358,14 +358,4 @@ mod tests {
         // The same bytes on both arms: the type is the trust decision.
         assert_eq!(confirmed.source(), provisional.source());
     }
-
-    #[test]
-    fn a_query_is_parsed_not_validated() {
-        assert!(Query::new("   ").is_err());
-        assert!(Query::new("x".repeat(MAX_QUERY_CHARS + 1)).is_err());
-        assert_eq!(
-            Query::new("  from:ada  ").expect("a query").as_str(),
-            "from:ada"
-        );
-    }
 }

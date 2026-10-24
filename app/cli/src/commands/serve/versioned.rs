@@ -123,60 +123,50 @@ pub async fn serve(Extract(state): Extract<State>, mut request: Request, next: N
 mod tests {
     use super::{Named, Path, named, read};
 
+    /// A file of the build served is its plain file, `current` names the build served whatever
+    /// it is, and a file of another build is refused, never served as this one.
     #[test]
-    fn a_file_of_the_build_served_is_its_plain_file() {
-        assert_eq!(
-            named("/b/7crcansr/app.js", "7crcansr"),
-            Named::Own("/app.js")
-        );
-        assert_eq!(
-            named("/b/7crcansr/typst/kit.typ", "7crcansr"),
-            Named::Own("/typst/kit.typ")
-        );
-        assert_eq!(named("/b/dev/app.js", "dev"), Named::Own("/app.js"));
-    }
-
-    #[test]
-    fn a_file_of_another_build_is_refused_never_served_as_this_one() {
-        assert_eq!(named("/b/older/app.js", "7crcansr"), Named::Other);
-        assert_eq!(named("/b/7crcansr/", "7crcansr"), Named::Other);
-        assert_eq!(named("/b/7crcansr", "7crcansr"), Named::Other);
-        assert_eq!(named("/b/", "7crcansr"), Named::Other);
-    }
-
-    #[test]
-    fn current_names_the_build_served_whatever_it_is() {
-        assert_eq!(named("/b/current", "7crcansr"), Named::Current);
-        assert_eq!(named("/b/current", "current"), Named::Current);
-    }
-
-    #[test]
-    fn only_a_path_under_the_prefix_needs_the_build() {
-        assert_eq!(read("/b/current"), Path::Named);
-        assert_eq!(read("/b/7crcansr/app.js"), Path::Named);
-        for root in [
-            "/",
-            "/index.html",
-            "/boot.js",
-            "/sw.js",
-            "/.well-known/assetlinks.json",
+    fn a_name_under_the_prefix_is_this_build_s_file_or_refused() {
+        for (path, build, expected) in [
+            ("/b/7crcansr/app.js", "7crcansr", Named::Own("/app.js")),
+            (
+                "/b/7crcansr/typst/kit.typ",
+                "7crcansr",
+                Named::Own("/typst/kit.typ"),
+            ),
+            ("/b/dev/app.js", "dev", Named::Own("/app.js")),
+            ("/b/current", "7crcansr", Named::Current),
+            ("/b/current", "current", Named::Current),
+            ("/b/older/app.js", "7crcansr", Named::Other),
+            ("/b/7crcansr/", "7crcansr", Named::Other),
+            ("/b/7crcansr", "7crcansr", Named::Other),
+            ("/b/", "7crcansr", Named::Other),
         ] {
-            assert_eq!(read(root), Path::Root, "{root}");
+            assert_eq!(named(path, build), expected, "{path} under {build}");
         }
     }
 
+    /// Only a path under the prefix needs the build; the root's own files are served plain, and
+    /// a build's file asked for under no build's name is refused.
     #[test]
-    fn a_builds_file_under_no_builds_name_is_refused() {
-        for plain in [
-            "/app.js",
-            "/style.css",
-            "/tokens.css",
-            "/prodrome_bg.wasm",
-            "/typst/kit.typ",
-            "/fonts/x.woff2",
-            "/bundle/app.js",
+    fn only_a_path_under_the_prefix_needs_the_build() {
+        for (path, expected) in [
+            ("/b/current", Path::Named),
+            ("/b/7crcansr/app.js", Path::Named),
+            ("/", Path::Root),
+            ("/index.html", Path::Root),
+            ("/boot.js", Path::Root),
+            ("/sw.js", Path::Root),
+            ("/.well-known/assetlinks.json", Path::Root),
+            ("/app.js", Path::Unnamed),
+            ("/style.css", Path::Unnamed),
+            ("/tokens.css", Path::Unnamed),
+            ("/prodrome_bg.wasm", Path::Unnamed),
+            ("/typst/kit.typ", Path::Unnamed),
+            ("/fonts/x.woff2", Path::Unnamed),
+            ("/bundle/app.js", Path::Unnamed),
         ] {
-            assert_eq!(read(plain), Path::Unnamed, "{plain}");
+            assert_eq!(read(path), expected, "{path}");
         }
     }
 }

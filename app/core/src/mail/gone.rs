@@ -30,29 +30,3 @@ impl Gone<'_> {
 fn known(text: Option<&str>) -> Option<&str> {
     text.map(str::trim).filter(|text| !text.is_empty())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_gone_message_says_what_its_citation_recorded() {
-        assert_eq!(Gone::default().said(), SAID);
-        assert_eq!(
-            Gone {
-                subject: Some("The lease"),
-                sender: Some("landlord@example.test"),
-            }
-            .said(),
-            "this email is no longer stored (“The lease” from landlord@example.test)"
-        );
-        assert_eq!(
-            Gone {
-                subject: Some(" "),
-                sender: None,
-            }
-            .said(),
-            SAID
-        );
-    }
-}

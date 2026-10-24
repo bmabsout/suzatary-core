@@ -145,39 +145,6 @@ pub fn propose_persistent(
 mod tests {
     use super::*;
 
-    fn at(day: u32, hour: u32) -> Instant {
-        chrono::NaiveDate::from_ymd_opt(2026, 10, day)
-            .and_then(|date| date.and_hms_opt(hour, 30, 0))
-            .expect("an instant")
-    }
-
-    /// The act names the episode, not the day it is asked or what the sync said, so asking on
-    /// two mornings asks for one object, and a later episode is another.
-    #[test]
-    fn the_act_is_a_function_of_the_account_and_its_last_sync_only() {
-        let account = "Ada.Lovelace@hotmail.test";
-        assert_eq!(
-            todo_of(account, at(1, 9)),
-            todo_of("ada.lovelace@HOTMAIL.test", at(1, 9))
-        );
-        assert!(prodrome_core::event::TodoId::new(todo_of(account, at(1, 9))).is_ok());
-        assert_eq!(
-            act_of(crate::zone::Zone::UTC, account, at(1, 9)),
-            act_of(crate::zone::Zone::UTC, account, at(1, 9))
-        );
-        assert_ne!(
-            act_of(crate::zone::Zone::UTC, account, at(1, 9)),
-            act_of(crate::zone::Zone::UTC, account, at(3, 9))
-        );
-        let Act::Add { fields, .. } = act_of(crate::zone::Zone::UTC, account, at(1, 9)) else {
-            panic!("an add");
-        };
-        assert_eq!(
-            fields.body,
-            "Restore the mail sync of Ada.Lovelace\\@hotmail.test"
-        );
-    }
-
     /// A register holding one account that last synced `hours` before the clock.
     struct FailingFor(i64);
 

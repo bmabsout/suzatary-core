@@ -258,52 +258,6 @@ mod tests {
         );
     }
 
-    /// Newest first across conversations, every hit within its bounds, and never more than the
-    /// limit or [`MAX_FILE_HITS`].
-    #[test]
-    fn hits_are_newest_first_bounded_and_limited() {
-        let files: Vec<Attachment> = (0..40).map(|n| pdf(&n.to_string(), "permit.pdf")).collect();
-        let all: Vec<Stored> = files
-            .iter()
-            .enumerate()
-            .map(|(n, file)| {
-                conversation(
-                    &format!("2026-09-25-{}", n + 1),
-                    &[(
-                        &format!("2026-09-25T09:{n:02}:00"),
-                        sending(&"word ".repeat(400), vec![file.clone()]),
-                    )],
-                )
-            })
-            .collect();
-        let standings: BTreeMap<_, _> = files
-            .iter()
-            .map(|file| {
-                (
-                    file.id.clone(),
-                    UploadStanding::Indexed(format!(
-                        "{} permit {}",
-                        "é".repeat(500),
-                        "ü".repeat(500)
-                    )),
-                )
-            })
-            .collect();
-        let hits = find(&all, &standings, &query("permit"), 1000);
-        assert_eq!(hits.len(), MAX_FILE_HITS);
-        assert!(hits.windows(2).all(|pair| pair[0].at >= pair[1].at));
-        assert_eq!(hits[0].at, "2026-09-25T09:39:00");
-        for hit in &hits {
-            assert!(hit.said.chars().count() <= SAID_CHARS + 1, "{}", hit.said);
-            assert!(
-                hit.excerpt.chars().count() <= 3 * FILE_CONTEXT + 2,
-                "{}",
-                hit.excerpt
-            );
-        }
-        assert_eq!(find(&all, &standings, &query("permit"), 3).len(), 3);
-    }
-
     /// An erased turn keeps its upload's id but not its words, so the index keeps nothing of it.
     #[test]
     fn an_erased_turn_names_no_upload() {

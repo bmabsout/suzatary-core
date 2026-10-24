@@ -1,21 +1,10 @@
-//! The frontend mount: `web/dist/` is the one directory served as files, and without a build
-//! the server says how to build it. Read as this box throughout: this is about what is served,
-//! not who may see it.
+//! The frontend mount: `web/dist/` is the one directory served as files. Read as this box
+//! throughout: this is about what is served, not who may see it.
 
 mod common;
 
 use common::Fakes;
 use suzatary_cli::stamp::build as built;
-
-fn no_build() -> String {
-    let fakes = Fakes::new("frontend-none");
-    let deployment = common::deployment([], []);
-    common::start(
-        std::sync::Arc::new(fakes),
-        deployment,
-        common::loopback_is_this_box(),
-    )
-}
 
 fn with_dist(dist: &std::path::Path) -> String {
     let fakes = Fakes::new("frontend-built");
@@ -28,24 +17,6 @@ fn with_dist(dist: &std::path::Path) -> String {
     .dist(dist)
     .start()
     .base
-}
-
-/// Without a build the page says how to build it.
-#[test]
-fn without_a_build_the_page_says_how_to_build_it() {
-    let base = no_build();
-    let mut response = common::get(&format!("{base}/"));
-    assert_eq!(common::status(&response), 200);
-    assert!(
-        response
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .starts_with("text/plain")
-    );
-    let body = response.body_mut().read_to_string().expect("a body");
-    assert!(body.contains("scripts/build-web.sh"));
 }
 
 /// A built dist is served, and nothing outside it is: a `../` traversal never yields the

@@ -364,17 +364,18 @@ mod tests {
         );
     }
 
+    /// Markers strip repeatedly; a marker not followed by whitespace is not a marker:
+    /// `"Re:hello"` is a subject.
     #[test]
     fn re_fwd_and_list_markers_strip_repeatedly() {
-        assert_eq!(normalize_subject("Re: Fwd: [list] hello"), "hello");
-        assert_eq!(normalize_subject("RE: re: hello"), "hello");
-        assert_eq!(normalize_subject("[a-list] [another] hello"), "hello");
-    }
-
-    /// A marker not followed by whitespace is not a marker: `"Re:hello"` is a subject.
-    #[test]
-    fn a_marker_glued_to_the_next_word_is_not_stripped() {
-        assert_eq!(normalize_subject("Re:hello"), "Re:hello");
+        for (subject, normal) in [
+            ("Re: Fwd: [list] hello", "hello"),
+            ("RE: re: hello", "hello"),
+            ("[a-list] [another] hello", "hello"),
+            ("Re:hello", "Re:hello"),
+        ] {
+            assert_eq!(normalize_subject(subject), normal, "{subject}");
+        }
     }
 
     #[test]

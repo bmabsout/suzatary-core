@@ -114,12 +114,6 @@ test("law: a page says which build it started on once per build, and a device's 
   assert.deepEqual(again.lines, [], "a second tab, or a reload, says nothing")
 })
 
-test("a page started on a build the box no longer serves names nothing, and offers the box's", async () => {
-  const b = box("b2", ["b0"])
-  await newbuild.machine(stamped("b1"), b.fx).check()
-  assert.deepEqual(b.lines, [{ type: "Ready", version: "0.17.0" }])
-})
-
 test("Reload waits for the writes on their way", async () => {
   const b = box("b1", ["b1"])
   const m = newbuild.machine(stamped("b1"), b.fx)

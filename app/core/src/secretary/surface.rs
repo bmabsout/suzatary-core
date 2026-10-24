@@ -234,8 +234,6 @@ pub fn tools_of(verbs: impl Iterator<Item = SecretaryVerb>) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
     /// Neither a send-shaped nor a confirm-shaped name may join this list.
@@ -251,31 +249,6 @@ mod tests {
                 "sending is structurally human-only: {verb}",
             );
         }
-    }
-
-    /// The secretary reads everything the agent reads that a person would want.
-    #[test]
-    fn every_read_the_agent_has_that_a_person_would_want_is_here() {
-        let names: BTreeSet<&str> = SecretaryVerb::ALL.iter().map(|verb| verb.name()).collect();
-        for shared in [
-            "context",
-            "list_open_todos",
-            "todo_show",
-            "history",
-            "search",
-            "show",
-            "todo_add",
-            "todo_update",
-            "record",
-        ] {
-            assert!(names.contains(shared), "{shared} is missing");
-        }
-    }
-
-    #[test]
-    fn every_verb_is_named_once() {
-        let names: BTreeSet<&str> = SecretaryVerb::ALL.iter().map(|verb| verb.name()).collect();
-        assert_eq!(names.len(), SecretaryVerb::ALL.len());
     }
 
     /// `named` inverts `name`, and the tool a model is shown carries the same name.

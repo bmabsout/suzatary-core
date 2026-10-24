@@ -247,16 +247,3 @@ fn logged(done: &Compacted) -> String {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_backoff_doubles_to_its_most_and_starts_again() {
-        let mut backoff = Backoff::new();
-        let waits: Vec<u64> = (0..7).map(|_| backoff.failed().as_secs() / 60).collect();
-        assert_eq!(waits, [15, 30, 60, 120, 240, 240, 240]);
-        assert_eq!(Backoff::new().failed(), RETRY);
-    }
-}

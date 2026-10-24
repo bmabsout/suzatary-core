@@ -1316,7 +1316,7 @@ claiming object remains.
 **The Inbox.** `#/inbox` is IN THE BAR — the first override of `nav.ts`'s
 slice rule: an unseen proposal is what the app most needs a thumb to reach.
 History (looked at when investigating) can afford two taps and moves to the
-sheet; `nav.test.ts` states this deployment's ordering.
+sheet.
 It draws pending batches per chain as diffs (Accept all, a pick, Reject) and
 the secretary's standing email proposals via `/api/secretary/…` (the tap
 stays in §10.3(3); the Inbox links the conversation). Badge: batches plus

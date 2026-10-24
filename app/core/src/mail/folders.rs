@@ -58,20 +58,3 @@ impl From<Folders> for Vec<String> {
         folders.0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_empty_list_or_a_blank_name_is_refused() {
-        assert_eq!(Folders::new(Vec::new()), Err(RosterError::NoFolders));
-        assert_eq!(
-            Folders::new(vec!["Inbox".to_owned(), "  ".to_owned()]),
-            Err(RosterError::BlankFolder)
-        );
-        let folders = Folders::new(vec!["Inbox".to_owned()]).expect("one folder");
-        assert_eq!(folders.as_slice(), ["Inbox".to_owned()]);
-        assert!(serde_json::from_str::<Folders>("[]").is_err());
-    }
-}

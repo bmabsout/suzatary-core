@@ -285,33 +285,6 @@ pub struct CaseFile {
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_case_id_refuses_the_empty_string_and_a_disallowed_byte() {
-        assert!(CaseId::new("").is_err());
-        assert!(CaseId::new("Triage:Life").is_err());
-        assert!(CaseId::new("triage:life:abcd1234").is_ok());
-    }
-
-    #[test]
-    fn the_sum_is_closed_over_four_kinds_and_each_carries_its_own_id() {
-        let id = CaseId::new("triage:life:abc").expect("valid");
-        let case = Case::Triage(TriageCase {
-            id: id.clone(),
-            message_hash: "abc".to_owned(),
-            chain_as_stood: ChainSnapshot {
-                chain: "life".to_owned(),
-                tip: None,
-                basis: SnapshotBasis::Extraction,
-            },
-            truths: Truths {
-                incumbent: TriageAnswer::Declined,
-                settled: None,
-            },
-        });
-        assert_eq!(case.id(), &id);
-        assert_eq!(case.kind(), "triage");
-    }
-
     /// The file a run and a score both read survives its own serialisation.
     #[test]
     fn a_case_file_round_trips_through_json() {

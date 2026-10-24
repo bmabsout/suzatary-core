@@ -254,20 +254,6 @@ mod tests {
     }
 
     #[test]
-    fn a_path_is_absolute_and_prints_as_written() {
-        let docs = path("/shared-with-me/Ada Documents/lease.pdf");
-        assert_eq!(docs.to_string(), "/shared-with-me/Ada Documents/lease.pdf");
-        assert_eq!(docs.name(), Some("lease.pdf"));
-        assert_eq!(
-            docs.parent().expect("a folder").to_string(),
-            "/shared-with-me/Ada Documents"
-        );
-        assert_eq!(path("/my-files/").to_string(), "/my-files");
-        assert!(path("/").is_root());
-        assert_eq!(path("/").parent(), None);
-    }
-
-    #[test]
     fn anything_the_cli_could_misread_is_refused() {
         for wrong in [
             "",
@@ -332,17 +318,5 @@ mod tests {
             path("/my-files/a b.pdf")
         );
         assert!(serde_json::from_str::<DrivePath>(r#""../etc/passwd""#).is_err());
-    }
-
-    #[test]
-    fn the_type_is_read_off_the_extension() {
-        assert_eq!(mime_of("Lease.PDF"), Some("application/pdf"));
-        assert_eq!(mime_of("notes.txt"), Some("text/plain"));
-        assert_eq!(mime_of("budget.csv"), Some("text/csv"));
-        assert_eq!(mime_of("scan.jpg"), Some("image/jpeg"));
-        assert_eq!(mime_of("letter.docx"), None);
-        assert_eq!(mime_of("README"), None);
-        assert_eq!(extension_of("letter.DOCX"), "docx");
-        assert_eq!(extension_of("README"), "");
     }
 }

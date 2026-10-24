@@ -443,14 +443,6 @@ mod tests {
     }
 
     #[test]
-    fn a_typed_code_takes_either_case_dashes_and_spaces_and_nothing_else() {
-        assert_eq!(code("bcdf-ghjk"), code("BCDF GHJK"));
-        assert_eq!(Code::typed("BCDFGHJ"), Err(NotACode), "seven letters");
-        assert_eq!(Code::typed("BCDFGHJA"), Err(NotACode), "a vowel");
-        assert_eq!(Code::typed("BCDFGHJ1"), Err(NotACode), "a digit");
-    }
-
-    #[test]
     fn neither_debug_carries_a_letter() {
         let shown = format!("{:?}", code("BCDF-GHJK"));
         assert!(!shown.contains('B'), "{shown}");

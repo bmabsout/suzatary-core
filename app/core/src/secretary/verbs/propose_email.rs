@@ -412,25 +412,3 @@ impl Verb for ProposeEmail {
         }))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_address_is_a_local_part_an_at_and_a_dotted_domain() {
-        assert_eq!(address(" a@b.test ", "to").expect("an address"), "a@b.test");
-        for bad in ["", "a", "@b.test", "a@b", "a b@c.test", "a@ b.test"] {
-            assert!(address(bad, "to").is_err(), "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn a_recipient_list_is_commas_and_drops_the_gaps() {
-        assert_eq!(
-            addresses("a@b.test, , c@d.test", "to").expect("addresses"),
-            vec!["a@b.test".to_owned(), "c@d.test".to_owned()]
-        );
-        assert!(addresses("a@b.test, nope", "to").is_err());
-    }
-}

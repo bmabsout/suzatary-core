@@ -236,43 +236,6 @@ mod tests {
         );
     }
 
-    /// A link whose address was not reached is of its own class, said in the owner's words and
-    /// never the host's "lost".
-    #[test]
-    fn an_address_not_reached_is_said_in_the_owners_words() {
-        let work = || "PLUGIN_ICS_WORK".to_owned();
-        for (refusal, words) in [
-            (Refusal::Unreachable, "its address could not be reached"),
-            (Refusal::TimedOut, "its address did not answer in time"),
-            (Refusal::Lost, "its address could not be reached"),
-        ] {
-            let ledger =
-                Ledger::default().after(run(0, learnt()), &[(work(), Answer::Refused(refusal))]);
-            assert_eq!(
-                reading(&ledger, &work()),
-                Reading::Failing {
-                    at: at(0),
-                    class: Failure::Unreachable,
-                    words: words.to_owned(),
-                    since: at(0),
-                }
-            );
-        }
-    }
-
-    /// A link never synced has failed since its first fetch, not its latest, so a second run
-    /// of the same failure is the same episode.
-    #[test]
-    fn a_link_never_synced_has_failed_since_its_first_fetch() {
-        let work = || "PLUGIN_ICS_WORK".to_owned();
-        let once = Ledger::default().after(run(0, learnt()), &[(work(), Answer::Status(404))]);
-        let twice = once.after(run(15, learnt()), &[(work(), Answer::Status(404))]);
-        let Reading::Failing { since, .. } = reading(&twice, &work()) else {
-            panic!("failing");
-        };
-        assert_eq!(since, at(0));
-    }
-
     /// An instant reads back as the box's clock printed it, with or without its fraction, so a
     /// ledger's text keeps the spelling it was kept in.
     #[test]

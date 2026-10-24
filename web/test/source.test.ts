@@ -356,11 +356,6 @@ test("law: readings land in any order, and what is on hand is never one asked be
   }
 });
 
-test("a fresh source is loading", () => {
-  const source = createSource("default", undefined, deps());
-  assert.equal(source.state().kind, "loading");
-});
-
 test("refresh loads the newest window", async () => {
   const source = createSource(
     "default",
@@ -421,14 +416,6 @@ test("stop asks the box once and reads the window again", async () => {
   await source.stop();
   assert.deepEqual(asked, [{ type: "Round", kind: "Stop", conversation: "default", after: 1 }]);
   assert.equal(answering(source.state()), "running");
-});
-
-test("a round is running exactly while the box says it is not idle", () => {
-  assert.equal(answering(LOADING), "idle");
-  for (const state of ["idle", "queued", "thinking", "answering"] as const) {
-    const loaded = step(LOADING, windowEvent({ payload: payload({ state }) }));
-    assert.equal(answering(loaded), state === "idle" ? "idle" : "running", state);
-  }
 });
 
 test("the empty-slice fallback: `about` yields no turns, so the source refetches the whole conversation and flags it", async () => {

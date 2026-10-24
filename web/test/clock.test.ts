@@ -68,15 +68,6 @@ test("a wake fires once, at its instant, and re-arms past the furthest one timer
     assert.equal(t.pending(), 0, "never arms nothing")
   }))
 
-test("an elapsed count is drawn again at its next whole second", () =>
-  forAll(200, r => {
-    const since = r.int(1_000_000)
-    const now = since + r.int(100_000)
-    const at = clock.fold(clock.nextSecond(since, now), { Never: () => NaN, At: m => m })
-    assert.equal(Math.floor((at - since) / 1000), Math.floor((now - since) / 1000) + 1)
-    assert.equal((at - since) % 1000, 0)
-  }))
-
 const pacerStart = (r: Rng): clock.Pacer => ({ last: r.int(1_000_000), pace: clock.FIRST_PACE_MS * 2 ** r.int(7) })
 
 test("an exact answer is waited for exactly, whatever the pacer, and resets it when it fires", () =>

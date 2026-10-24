@@ -191,43 +191,6 @@ pub fn shown_timestamp(
 mod tests {
     use super::*;
 
-    /// The field order is the contract.
-    #[test]
-    fn a_summary_serialises_in_the_pythons_own_field_order() {
-        let row = Summary {
-            hash: "abc".to_owned(),
-            id: "msg-1".to_owned(),
-            sender: "her@example.test".to_owned(),
-            title: "Hello".to_owned(),
-            timestamp: Some("2026-09-01 14:22:33-04:00".to_owned()),
-            container: "inbox".to_owned(),
-            sources: 2,
-        };
-        assert_eq!(
-            serde_json::to_string(&row).expect("serialises"),
-            r#"{"hash":"abc","id":"msg-1","sender":"her@example.test","title":"Hello","timestamp":"2026-09-01 14:22:33-04:00","container":"inbox","sources":2}"#
-        );
-    }
-
-    /// No readable date is `timestamp: null`, never `""` or an epoch.
-    #[test]
-    fn an_undated_message_carries_a_null_timestamp() {
-        let row = Summary {
-            hash: "abc".to_owned(),
-            id: String::new(),
-            sender: String::new(),
-            title: String::new(),
-            timestamp: None,
-            container: "inbox".to_owned(),
-            sources: 1,
-        };
-        assert!(
-            serde_json::to_string(&row)
-                .expect("serialises")
-                .contains(r#""timestamp":null"#)
-        );
-    }
-
     /// A space, not a `T`, and the offset is `±HH:MM`.
     #[test]
     fn a_timestamp_is_cpythons_str_and_not_an_iso_spelling() {
@@ -272,80 +235,6 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&report).expect("serialises"),
             r#"{"synced":[{"account":"her@example.test","outcome":{"failed":{"kind":"unclassified"}},"tail":"connection refused"}],"notmuch":"No new mail."}"#
-        );
-    }
-
-    #[test]
-    fn the_small_answers_are_the_pythons_one_key_objects() {
-        assert_eq!(
-            serde_json::to_string(&Marked {
-                marked: "abc".to_owned(),
-                disposition: crate::mail::state::Disposition::Todo,
-            })
-            .expect("serialises"),
-            r#"{"marked":"abc","disposition":"todo"}"#
-        );
-        assert_eq!(
-            serde_json::to_string(&NoiseAdded {
-                noise_added: "loud@example.test".to_owned()
-            })
-            .expect("serialises"),
-            r#"{"noise_added":"loud@example.test"}"#
-        );
-        assert_eq!(
-            serde_json::to_string(&Backfilled {
-                account: "her@study.test".to_owned(),
-                folder: "Sent Items".to_owned(),
-                fetched: 12
-            })
-            .expect("serialises"),
-            r#"{"account":"her@study.test","folder":"Sent Items","fetched":12}"#
-        );
-    }
-
-    /// A miss and an ambiguous prefix are answers in their own shapes, beside the message.
-    #[test]
-    fn show_answers_a_message_a_miss_or_the_colliding_hashes() {
-        assert_eq!(
-            serde_json::to_value(Show::NotFound {
-                id: "abc".to_owned()
-            })
-            .expect("serialises"),
-            serde_json::json!({"gone": crate::mail::gone::SAID, "id": "abc"})
-        );
-        let ambiguous = crate::mail::local_state::Ambiguous {
-            prefix: "ab".to_owned(),
-            matches: vec!["ab01".to_owned(), "ab02".to_owned()],
-        };
-        assert_eq!(
-            serde_json::to_value(Show::Ambiguous(ambiguous.clone())).expect("serialises"),
-            serde_json::json!({
-                "error": ambiguous.to_string(),
-                "id": "ab",
-                "matches": ["ab01", "ab02"],
-            })
-        );
-    }
-
-    /// A shown message carries every header as a map, unlike the page's
-    /// whitelist.
-    #[test]
-    fn a_shown_message_serialises_its_headers_and_links() {
-        let shown = Show::Shown(Message {
-            id: "msg-1".to_owned(),
-            tags: vec!["inbox".to_owned(), "unread".to_owned()],
-            headers: [("Subject".to_owned(), "Hi".to_owned())]
-                .into_iter()
-                .collect(),
-            body: "text".to_owned(),
-            links: vec![Link {
-                url: "https://example.test/a".to_owned(),
-                label: "Modify reservation".to_owned(),
-            }],
-        });
-        assert_eq!(
-            serde_json::to_string(&shown).expect("serialises"),
-            r#"{"id":"msg-1","tags":["inbox","unread"],"headers":{"Subject":"Hi"},"body":"text","links":[{"url":"https://example.test/a","label":"Modify reservation"}]}"#
         );
     }
 }

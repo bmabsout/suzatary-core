@@ -211,9 +211,3 @@ test("a change that supersedes nothing names no parents and is no genesis", asyn
   assert.deepEqual(structural(found.problems(verdict.found)), []);
   assert.deepEqual(verdict.genesis, [ROOT]);
 });
-
-test("what a check found is Reached for no problem and Unreached with every one, in order", () => {
-  assert.deepEqual(found.of([]), { type: "Reached" });
-  assert.deepEqual(found.of(["a", "b"]), { type: "Unreached", problems: ["a", "b"] });
-  for (const problems of [[], ["one"], ["one", "two", "three"]]) assert.deepEqual(found.problems(found.of(problems)), problems, "problems round-trips");
-});

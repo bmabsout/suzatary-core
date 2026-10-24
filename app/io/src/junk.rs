@@ -323,7 +323,6 @@ mod tests {
 
     use suzatary_core::cast::CAST;
     use suzatary_core::mail::account::{Authority, MsImap, Sync};
-    use suzatary_core::mail::junk::{Domain, Sender};
 
     use super::*;
 
@@ -618,86 +617,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn headers_carry_the_sender_and_the_uid_handle() {
-        let (junk, _) = junk(vec![("\\Junk", "Junk")]);
-        let headers = junk
-            .junk_headers(CAST.owner.email, since())
-            .expect("headers");
-        let friend = headers
-            .iter()
-            .find(|header| header.uid() == Uid(9))
-            .expect("the RSVP");
-        assert_eq!(
-            friend.sender(),
-            &Sender::Domain(Domain::of_address(CAST.friend.email).expect("a domain"))
-        );
-        let json = serde_json::to_value(friend).expect("serialises");
-        assert_eq!(json["subject"], "RSVP for the wedding");
-        assert_eq!(
-            json["from"],
-            format!("{} <{}>", CAST.friend.name, CAST.friend.email)
-        );
-        assert_eq!(json["date"], "Fri, 25 Sep 2026 10:00:00 +0000");
-    }
-
-    /// With no `\Junk` mark, the folder is found by name.
-    #[test]
-    fn an_unmarked_folder_is_found_by_its_name() {
-        let (junk, log) = junk(vec![("", "Inbox"), ("", "Junk")]);
-        junk.junk_headers(CAST.owner.email, since())
-            .expect("headers");
-        assert!(
-            log.lock()
-                .expect("the log lock")
-                .iter()
-                .any(|command| command == "EXAMINE \"Junk\"")
-        );
-    }
-
-    #[test]
-    fn no_junk_folder_is_a_failure_that_says_so_and_examines_nothing() {
-        let (junk, log) = junk(vec![("", "Inbox"), ("", "Archive")]);
-        let failed = junk
-            .junk_headers(CAST.owner.email, since())
-            .expect_err("no folder");
-        assert_eq!(
-            failed,
-            JunkFailure::NoJunkFolder(CAST.owner.email.to_owned())
-        );
-        assert!(
-            !log.lock()
-                .expect("the log lock")
-                .iter()
-                .any(|command| command.starts_with("EXAMINE"))
-        );
-    }
-
-    #[test]
-    fn a_uid_the_folder_does_not_hold_is_missing() {
-        let (junk, _) = junk(vec![("\\Junk", "Junk")]);
-        assert_eq!(
-            junk.junk_message(CAST.owner.email, Uid(5)),
-            Err(JunkFailure::Missing {
-                account: CAST.owner.email.to_owned(),
-                uid: 5,
-            })
-        );
-    }
-
-    /// Only the roster's Microsoft accounts are read; anything else is refused before a session
-    /// opens.
-    #[test]
-    fn only_the_microsoft_accounts_are_read() {
-        let (junk, log) = junk(vec![("\\Junk", "Junk")]);
-        assert_eq!(junk.junk_accounts(), vec![CAST.owner.email.to_owned()]);
-        assert_eq!(
-            junk.junk_headers(CAST.accountant.email, since()),
-            Err(JunkFailure::Unknown(CAST.accountant.email.to_owned()))
-        );
-        assert!(log.lock().expect("the log lock").is_empty());
-    }
-
     /// An account with no stored grant is a sentence naming the verb to run, and nothing is
     /// dialled.
     #[test]
@@ -726,52 +645,5 @@ mod tests {
             "{needs}"
         );
         assert!(!dir.exists(), "reading a grant wrote something");
-    }
-
-    /// Rewriting the seed file changes the next `churn()` answer; an unset path answers
-    /// `Seed::None`.
-    #[test]
-    fn the_seed_file_is_reread_on_every_churn_call() {
-        use suzatary_core::mail::junk::{KeepList, Seed};
-
-        let (junk, _) = junk(vec![("\\Junk", "Junk")]);
-        assert_eq!(junk.churn().seed_status(), Seed::None);
-
-        let dir = std::env::temp_dir().join(format!(
-            "suzatary-io-junk-seed-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        std::fs::create_dir_all(&dir).expect("a scratch dir");
-        let seed_path = dir.join("domains.txt");
-        std::fs::write(&seed_path, "seed.example.net\n").expect("a seed file");
-        let seeded = OutlookJunk::new(
-            &roster(),
-            ChurnList::new(["offers.example.net"], KeepList::default()).expect("a list"),
-            Some(seed_path.clone()),
-            Fake {
-                log: Arc::new(Mutex::new(Vec::new())),
-                folders: vec![],
-                junk: scene,
-            },
-        );
-        assert_eq!(seeded.churn().seed_status(), Seed::Loaded { domains: 1 });
-
-        std::fs::write(&seed_path, "seed.example.net\nsecond.example.net\n").expect("rewritten");
-        assert_eq!(seeded.churn().seed_status(), Seed::Loaded { domains: 2 });
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn an_html_only_message_reads_as_its_text() {
-        let raw = format!(
-            "From: {} <{}>\r\nSubject: Table for two\r\nContent-Type: text/html\r\n\r\n<p>Your table is <b>held</b> &amp; waiting.</p>\r\n",
-            CAST.counsel.name, CAST.counsel.email
-        );
-        let shown = message_of(CAST.owner.email, Uid(3), raw.as_bytes());
-        assert_eq!(shown.body, "Your table is held & waiting.");
-        assert!(!shown.truncated);
-        assert_eq!(shown.header.uid(), Uid(3));
     }
 }

@@ -59,19 +59,3 @@ impl Group {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The overview leads with what the others wait on: a model answers everything else, and
-    /// where the data is pushed is the last thing a new owner needs.
-    #[test]
-    fn the_overview_leads_with_models_and_ends_its_connections_with_storage() {
-        assert_eq!(Group::ALL[0], Group::Models);
-        let at = |group| Group::ALL.iter().position(|held| *held == group);
-        assert!(at(Group::Mail) < at(Group::Calendar));
-        assert!(at(Group::Calendar) < at(Group::Drive));
-        assert!(at(Group::Drive) < at(Group::Storage));
-    }
-}

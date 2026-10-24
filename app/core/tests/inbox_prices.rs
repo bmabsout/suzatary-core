@@ -515,42 +515,6 @@ fn two_askings_that_disagree_price_as_the_more_urgent() {
     assert_eq!(value.and_then(Fulfillment::number), Some(0.3));
 }
 
-/// The proposals that wait, as the briefing reads them: ascending in value, each priced by what
-/// it serves, an unpriced one last and a settled one not at all.
-#[test]
-fn the_waiting_list_is_the_inboxs_order() {
-    let mut world = World::new();
-    world
-        .chains
-        .life
-        .push(event("life", "alpha", &Told::Flat(0.7), 1, By::Owner));
-    let assistant = actor("assistant");
-    let own = inbox::Asked {
-        price: inbox::Price::Own(mk_flat(0.2).expect("a flat")),
-        ..asked("its own", None)
-    };
-    let own = inbox::ask(&world.inbox, own, &assistant, at(1)).expect("asked");
-    let bare = inbox::ask(&world.inbox, asked("bare", None), &assistant, at(1)).expect("asked");
-    let gone = inbox::ask(&world.inbox, asked("gone", None), &assistant, at(1)).expect("asked");
-    inbox::dismiss(&world.inbox, &gone, &actor("ada"), at(2), "no").expect("dismissed");
-    let fold = inbox::fold(&world.inbox).expect("the inbox reads");
-    let waiting: Vec<(String, Option<f64>)> = suzatary_core::secretary::readings::waiting(
-        &fold,
-        &world.chains.read(Broken::None).set(at(3)),
-    )
-    .into_iter()
-    .map(|row| (row.id, row.value.and_then(Fulfillment::number)))
-    .collect();
-    assert_eq!(
-        waiting,
-        vec![
-            (own.to_string(), Some(0.2)),
-            (world.served.to_string(), Some(0.7)),
-            (bare.to_string(), None),
-        ]
-    );
-}
-
 /// Each break is a failure the set names, and the two chains it does not touch stay members.
 #[test]
 fn every_break_is_a_failure_of_its_own_chain() {

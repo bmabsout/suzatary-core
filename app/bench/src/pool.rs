@@ -68,55 +68,33 @@ mod tests {
         }
     }
 
-    /// A run answering 3 of 5 cases yields 3; the other 2 are counted, never pooled with only
-    /// the incumbent's answer.
+    /// A case enters the pool only when every run answered it: a case missing from any one run,
+    /// or `Failed` there, is left out and counted, never pooled with only the incumbent's answer;
+    /// with no runs every case stays, vacuously, since the incumbent alone still answers each.
     #[test]
-    fn a_run_answering_three_of_five_yields_a_three_case_intersection() {
+    fn a_case_is_pooled_only_when_every_run_answered_it() {
         let ids: Vec<CaseId> = (1..=5).map(|n| case(&format!("triage:{n}"))).collect();
-        let mut entries = BTreeMap::new();
-        for id in &ids[..3] {
-            entries.insert(id.clone(), answered(id));
+        let run = |answers: &[usize], failures: &[usize]| -> BTreeMap<CaseId, RunEntry> {
+            answers
+                .iter()
+                .map(|&n| (ids[n].clone(), answered(&ids[n])))
+                .chain(failures.iter().map(|&n| (ids[n].clone(), failed(&ids[n]))))
+                .collect()
+        };
+        for (runs, pooled, left_out) in [
+            (vec![run(&[0, 1, 2], &[])], vec![0, 1, 2], 2),
+            (vec![run(&[0], &[1, 2, 3, 4])], vec![0], 4),
+            (
+                vec![run(&[0, 1, 2, 3, 4], &[]), run(&[1, 2, 3, 4], &[])],
+                vec![1, 2, 3, 4],
+                1,
+            ),
+            (Vec::new(), vec![0, 1, 2, 3, 4], 0),
+        ] {
+            let (kept, out) = answered_by_all(&ids, &runs);
+            let pooled: Vec<CaseId> = pooled.iter().map(|&n| ids[n].clone()).collect();
+            assert_eq!(kept, pooled);
+            assert_eq!(out, left_out);
         }
-        // ids[3] and ids[4] have no entry at all — missing from the run.
-        let runs = vec![entries];
-        let (kept, left_out) = answered_by_all(&ids, &runs);
-        assert_eq!(kept, ids[..3].to_vec());
-        assert_eq!(left_out, 2);
-    }
-
-    /// A `Failed` entry excludes its case exactly like a missing one.
-    #[test]
-    fn a_failed_entry_excludes_its_case() {
-        let a = case("triage:a");
-        let b = case("triage:b");
-        let mut entries = BTreeMap::new();
-        entries.insert(a.clone(), answered(&a));
-        entries.insert(b.clone(), failed(&b));
-        let runs = vec![entries];
-        let (kept, left_out) = answered_by_all([&a, &b], &runs);
-        assert_eq!(kept, vec![a]);
-        assert_eq!(left_out, 1);
-    }
-
-    /// One run missing a case leaves it out, even when every other run answered it.
-    #[test]
-    fn a_case_missing_from_any_one_run_is_left_out() {
-        let a = case("triage:a");
-        let mut run_one = BTreeMap::new();
-        run_one.insert(a.clone(), answered(&a));
-        let run_two = BTreeMap::new(); // never answered `a`
-        let runs = vec![run_one, run_two];
-        let (kept, left_out) = answered_by_all([&a], &runs);
-        assert!(kept.is_empty());
-        assert_eq!(left_out, 1);
-    }
-
-    /// With no runs every case stays, vacuously: the incumbent alone still answers each.
-    #[test]
-    fn no_runs_leaves_every_selected_case_in() {
-        let a = case("triage:a");
-        let (kept, left_out) = answered_by_all([&a], &[]);
-        assert_eq!(kept, vec![a]);
-        assert_eq!(left_out, 0);
     }
 }

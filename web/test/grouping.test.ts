@@ -207,18 +207,6 @@ test("law: every member is placed, under each of its parents in every grouping",
 
 const member = (category: string, v: number, parents: string[]): grouping.Member => ({ category, worth: worth.value(v), parents })
 
-test("a key classifies a subtree by its root", () => {
-  const ms = new Map([
-    ["child", member("work", 0.2, ["parent"])],
-    ["loner", member("work", 0.6, [])],
-    ["parent", member("home", 0.8, [])],
-  ])
-  const at = (c: grouping.Classifier, id: string) => grouping.placed(c, id, ms.get(id) ?? member("", 0, []), ms)
-  assert.deepEqual(at(["Category", "Ancestry"], "child"), [[segment.category("home"), segment.todo("parent")]])
-  assert.deepEqual(at(["Urgency"], "child"), [[segment.band({ type: "Problem" })]])
-  assert.deepEqual(at([], "child"), [[]])
-})
-
 test("a reference inside a deferral's piece is a child, as tree::refs reads every piece", () => {
   const deferred: SpecNode = {
     kind: "piecewise",

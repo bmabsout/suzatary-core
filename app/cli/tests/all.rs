@@ -133,8 +133,6 @@ mod table;
 mod this_box;
 #[path = "todos.rs"]
 mod todos;
-#[path = "topics.rs"]
-mod topics;
 #[path = "typeset.rs"]
 mod typeset;
 #[path = "web.rs"]

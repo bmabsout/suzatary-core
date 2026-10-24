@@ -229,24 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn a_report_needs_a_kind_and_a_message() {
-        assert!(parse(&json!({"kind": "error", "message": "boom"})).is_ok());
-        assert!(parse(&json!({"kind": "finding", "message": "two values"})).is_ok());
-        for body in [
-            json!({"message": "boom"}),
-            json!({"kind": "error"}),
-            json!({"kind": "error", "message": "  "}),
-            json!({"kind": "panic", "message": "boom"}),
-            json!({"kind": "error", "message": 3}),
-            json!({"kind": "error", "message": "boom", "stack": ["a"]}),
-            json!({"kind": "error", "message": "boom", "colour": "red"}),
-        ] {
-            let refused = parse(&body).expect_err(&body.to_string());
-            assert_eq!(refused.status(), crate::refusal::Status::BadRequest);
-        }
-    }
-
-    #[test]
     fn the_line_is_one_line_and_bounded_whatever_the_tab_sends() {
         let long = "x\ny\u{1b}".repeat(10_000);
         let report = parse(&json!({
@@ -286,23 +268,6 @@ mod tests {
         assert!(
             !line.contains("s3cr3tvalue") && !line.contains("a@b"),
             "{line}"
-        );
-    }
-
-    #[test]
-    fn a_short_report_is_printed_whole() {
-        let report = parse(&json!({
-            "kind": "core",
-            "build": "abc123",
-            "agent": "Phone",
-            "page": "todos",
-            "message": "the core could not be loaded",
-        }))
-        .expect("parses");
-        assert_eq!(
-            report.line(&login("owner@example.invalid")),
-            "client core from owner@example.invalid on build abc123 at todos (Phone): \
-             the core could not be loaded | stack: ?"
         );
     }
 

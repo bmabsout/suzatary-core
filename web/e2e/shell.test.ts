@@ -214,8 +214,8 @@ app.scene("Reload keeps the composer's draft", async () => {
   await app.page.waitFor(`${composer}?.value === ${JSON.stringify(DRAFT)}`, { timeout: 20000 })
 })
 
-for (const [name, size] of [["phone", PHONE], ["desktop", DESKTOP]] as const)
-  app.scene(`the line sits across the top at ${name} width`, async () => {
+app.scene("the line sits across the top at phone and desktop width", async () => {
+  for (const [name, size] of [["phone", PHONE], ["desktop", DESKTOP]] as const) {
     await app.page.viewport(size[0], size[1])
     await app.page.navigate(`${SHELL}/#/`)
     await app.page.waitFor(`document.querySelectorAll(".tree .row").length > 0`, { timeout: 20000 })
@@ -226,14 +226,15 @@ for (const [name, size] of [["phone", PHONE], ["desktop", DESKTOP]] as const)
       const r = bar.getBoundingClientRect()
       return { left: r.left, right: r.right, top: r.top, view: document.documentElement.clientWidth, header: document.querySelector("header").getBoundingClientRect().bottom }
     })()`)
-    assert.ok(box.left >= 0 && box.right <= box.view, `inside the page: ${JSON.stringify(box)}`)
-    assert.ok(box.top >= box.header - 1, `under the header: ${JSON.stringify(box)}`)
-    assert.equal(await app.page.evaluate<number>(`document.documentElement.scrollWidth - document.documentElement.clientWidth`), 0, "no sideways scroll")
+    assert.ok(box.left >= 0 && box.right <= box.view, `${name}: inside the page: ${JSON.stringify(box)}`)
+    assert.ok(box.top >= box.header - 1, `${name}: under the header: ${JSON.stringify(box)}`)
+    assert.equal(await app.page.evaluate<number>(`document.documentElement.scrollWidth - document.documentElement.clientWidth`), 0, `${name}: no sideways scroll`)
     const shots = process.env["SUZATARY_E2E_SHOTS"]
     if (shots !== undefined && shots !== "") await app.page.screenshot(`${shots}/updated-${name}.png`)
     await app.page.viewport(PHONE[0], PHONE[1])
     await app.page.reload()
-  })
+  }
+})
 
 app.scene("a tab on an old build loads only that build's files, though the box moved and its worker was stopped before its first Typst view", async () => {
   await app.page.navigate(`${SHELL}/#/`)

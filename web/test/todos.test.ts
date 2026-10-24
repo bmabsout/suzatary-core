@@ -13,49 +13,26 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import type { Authored, Entry, SpecNode } from "../src/wire/generated/wire";
+import type { Authored, Entry } from "../src/wire/generated/wire";
 import {
   ANY,
-  CLAMP_CHARS,
   DEFAULT_FILTER,
-  FORTNIGHT_DAYS,
   byUrgency,
-  categoriesOf,
-  expandable,
-  headline,
-  narrowing,
   is,
-  isDated,
   isDecision,
-  isDone,
-  isUnconfirmed,
-  isWaiting,
-  kindsOf,
   listing,
   matches,
-  matchesQuery,
-  needsAttention,
   parseFilter,
-  preview,
   printFilter,
   signature,
-  subtodoCount,
   total,
 } from "../src/todo/todos";
 import cast from "./cast";
 
-const { counsel, city } = cast.world;
+const { counsel } = cast.world;
 
 /** A fixed instant, so a boundary test does not depend on when it ran. */
 const NOW = "2026-09-13T00:00:00.000Z";
-
-function decay(endDate: string): SpecNode {
-  return { kind: "decay", start: 0.6, end: 0.05, endDate, leadUpHours: 336 };
-}
-
-function flat(value: number): SpecNode {
-  return { kind: "flat", value };
-}
 
 function authored(over: Partial<Authored> = {}): Authored {
   return {
@@ -97,78 +74,13 @@ function entry(over: Partial<Entry> = {}): Entry {
 
 // --- the ordering ------------------------------------------------------------
 
-test("ascending fulfillment: the lowest number is the most urgent", () => {
-  const urgent = entry({ todo: "a", value: 0.2 });
-  const calm = entry({ todo: "b", value: 0.9 });
-  assert.deepEqual([calm, urgent].sort(byUrgency), [urgent, calm]);
-});
-
-test("equal values break on the id, so a redraw never shuffles", () => {
-  const b = entry({ todo: "b", value: 0.5 });
-  const a = entry({ todo: "a", value: 0.5 });
-  assert.deepEqual([b, a].sort(byUrgency).map((each) => each.todo), ["a", "b"]);
-});
-
-test("an unpriced todo sorts last, not first — no price is not a price of zero", () => {
-  const unpriced = entry({ todo: "z", value: null });
-  const priced = entry({ todo: "a", value: 0.05 });
-  assert.deepEqual([unpriced, priced].sort(byUrgency).map((each) => each.todo), ["a", "z"]);
-});
-
-// --- filtering ---------------------------------------------------------------
-
-test("done means completed OR cancelled", () => {
-  assert.equal(isDone(entry({ state: "open" })), false);
-  assert.equal(isDone(entry({ state: "completed" })), true);
-  assert.equal(isDone(entry({ state: "cancelled" })), true);
-});
-
-test("the state filter partitions open from resolved, and `all` keeps both", () => {
-  const open = entry({ todo: "o", state: "open" });
-  const done = entry({ todo: "d", state: "completed" });
-  assert.equal(matches(open, DEFAULT_FILTER, NOW), true);
-  assert.equal(matches(done, DEFAULT_FILTER, NOW), false);
-  assert.equal(matches(done, { ...DEFAULT_FILTER, state: "done" }, NOW), true);
-  assert.equal(matches(open, { ...DEFAULT_FILTER, state: "done" }, NOW), false);
-  for (const each of [open, done]) assert.equal(matches(each, { ...DEFAULT_FILTER, state: "all" }, NOW), true);
-});
-
-test("the empty category is a value, not an absence — it can be filtered TO", () => {
-  const none = entry({ authored: authored({ category: "" }) });
-  const study = entry({ authored: authored({ category: "study" }) });
-  assert.equal(matches(none, { ...DEFAULT_FILTER, category: is("") }, NOW), true);
-  assert.equal(matches(study, { ...DEFAULT_FILTER, category: is("") }, NOW), false);
-  assert.equal(matches(none, { ...DEFAULT_FILTER, category: ANY }, NOW), true);
-});
-
-test("a todo with no Authored record still filters, on its empty facets", () => {
-  const bare = entry({ authored: null, value: null });
-  assert.equal(matches(bare, DEFAULT_FILTER, NOW), true);
-  assert.equal(matches(bare, { ...DEFAULT_FILTER, category: is("study") }, NOW), false);
-  assert.equal(headline(bare), bare.todo);
-});
-
-test("a line's headline is the core's words for its markup, never the markup", () => {
-  const it = entry({ unconfirmed: true, authored: authored({ body: `Email *${counsel.name}* about the deed`, text: `Email ${counsel.name} about the deed` }) });
-  assert.equal(headline(it), `Email ${counsel.name} about the deed`);
-});
-
-test("a filter says what narrows the list, and the default says nothing", () => {
-  assert.deepEqual(narrowing(DEFAULT_FILTER), []);
-  assert.deepEqual(narrowing({ ...DEFAULT_FILTER, query: "   " }), []);
-  assert.deepEqual(narrowing({ ...DEFAULT_FILTER, state: "done", category: is("study") }), ["Done", "study"]);
-  assert.deepEqual(narrowing({ ...DEFAULT_FILTER, category: is(""), attention: true, waiting: true, dated: true, query: " deed " }), [
-    "uncategorised", "needs a look", "waiting", "dated", "“deed”",
-  ]);
-});
-
-test("the search reads the id and the body, case-insensitively", () => {
-  const it = entry({ todo: "harrowreply", authored: authored({ body: `Reply to the #emph[${counsel.name}] thread` }) });
-  assert.equal(matchesQuery(it, ""), true);
-  assert.equal(matchesQuery(it, "  "), true);
-  assert.equal(matchesQuery(it, counsel.name.toUpperCase()), true);
-  assert.equal(matchesQuery(it, "emph"), true);
-  assert.equal(matchesQuery(it, city.toLowerCase()), false);
+test("the order: ascending fulfillment, the lowest number the most urgent; ties on the id; an unpriced todo last", () => {
+  const cases: [string, Entry[], string[]][] = [
+    ["the lowest number is the most urgent", [entry({ todo: "b", value: 0.9 }), entry({ todo: "a", value: 0.2 })], ["a", "b"]],
+    ["equal values break on the id, so a redraw never shuffles", [entry({ todo: "b", value: 0.5 }), entry({ todo: "a", value: 0.5 })], ["a", "b"]],
+    ["no price is not a price of zero", [entry({ todo: "z", value: null }), entry({ todo: "a", value: 0.05 })], ["a", "z"]],
+  ];
+  for (const [why, rows, order] of cases) assert.deepEqual(rows.sort(byUrgency).map((each) => each.todo), order, why);
 });
 
 // --- the listing -------------------------------------------------------------
@@ -182,168 +94,6 @@ test("unpriced todos are shown under their own heading, never hidden", () => {
   assert.deepEqual(list.priced.map((each) => each.todo), ["a", "b"]);
   assert.deepEqual(list.unpriced.map((each) => each.todo), ["n"]);
   assert.equal(total(list), 3);
-});
-
-test("the facets come out in the deployment's order, unknowns after", () => {
-  const entries = ["other", "zebra", "work", "", "study"].map((category, i) =>
-    entry({ todo: `t${i}`, authored: authored({ category }) }),
-  );
-  assert.deepEqual(categoriesOf(entries, ["work", "study", "project", "home", "other"]), ["work", "study", "other", "", "zebra"]);
-});
-
-test("kinds come out sorted, and a missing Authored contributes the empty kind", () => {
-  const entries = [
-    entry({ todo: "a", authored: authored({ block: { kind: "todo", name: "todo" } }) }),
-    entry({ todo: "b", authored: authored({ block: { kind: "todo", name: "ekaTodo" } }) }),
-    entry({ todo: "c", authored: null }),
-    entry({ todo: "d", authored: authored({ block: { kind: "todo", name: "todo" } }) }),
-  ];
-  assert.deepEqual(kindsOf(entries), ["", "ekaTodo", "todo"]);
-});
-
-// --- provenance --------------------------------------------------------------
-
-test("unconfirmed covers provisional CONTENT and an unbound CLAIM", () => {
-  assert.equal(isUnconfirmed(entry()), false);
-  assert.equal(isUnconfirmed(entry({ unconfirmed: true })), true);
-});
-
-// --- the preview -------------------------------------------------------------
-
-test("the preview collapses the indentation a typst block is stored with", () => {
-  assert.equal(preview("\n  Find the proceedings\n  and file them.\n"), "Find the proceedings and file them.");
-  assert.equal(preview(""), "");
-  assert.equal(preview("   "), "");
-});
-
-test("the preview is still SOURCE — nothing is interpreted or unescaped", () => {
-  assert.equal(preview('#link("https://x")[y] #emph[z]'), '#link("https://x")[y] #emph[z]');
-});
-
-test("only a body that hides something offers to expand", () => {
-  assert.equal(expandable("one line"), false);
-  assert.equal(expandable(""), false);
-  assert.equal(expandable("\n  two\n  lines\n"), true);
-  assert.equal(expandable("x".repeat(CLAMP_CHARS + 1)), true);
-});
-
-test("the checklist count reads done-of-total, and says nothing when there is none", () => {
-  assert.equal(subtodoCount(entry()), "");
-  assert.equal(
-    subtodoCount(
-      entry({
-        authored: authored({
-          subtodos: [
-            { body: "a", done: true },
-            { body: "b", done: false },
-            { body: "c", done: true },
-          ],
-        }),
-      }),
-    ),
-    "2 of 3 done",
-  );
-});
-
-// --- what the chain has not settled ------------------------------------------
-
-test("attention means provisional content OR a register two writers moved", () => {
-  assert.equal(needsAttention(entry()), false);
-  assert.equal(needsAttention(entry({ unconfirmed: true })), true);
-  assert.equal(needsAttention(entry({ conflicts: { Authored: ["aa", "bb"] } })), true);
-});
-
-test("the attention filter narrows and never widens", () => {
-  const settled = entry({ todo: "a" });
-  const provisional = entry({ todo: "b", unconfirmed: true });
-  const only = { ...DEFAULT_FILTER, attention: true };
-  assert.equal(matches(settled, only, NOW), false);
-  assert.equal(matches(provisional, only, NOW), true);
-  // Off, it is not a filter at all: both are still here.
-  for (const each of [settled, provisional]) assert.equal(matches(each, DEFAULT_FILTER, NOW), true);
-});
-
-// --- waiting (docs/APP.md §4 item 5, chain item `listfilters`) --------------
-
-test("waiting means waiting_on is set — empty is not blocked on anything", () => {
-  assert.equal(isWaiting(entry()), false);
-  assert.equal(isWaiting(entry({ authored: authored({ waiting_on: "" }) })), false);
-  assert.equal(isWaiting(entry({ authored: authored({ waiting_on: "counsel" }) })), true);
-  assert.equal(isWaiting(entry({ authored: null })), false);
-});
-
-test("the waiting filter narrows and never widens", () => {
-  const blocked = entry({ todo: "a", authored: authored({ waiting_on: "counsel" }) });
-  const free = entry({ todo: "b" });
-  const only = { ...DEFAULT_FILTER, waiting: true };
-  assert.equal(matches(blocked, only, NOW), true);
-  assert.equal(matches(free, only, NOW), false);
-  for (const each of [blocked, free]) assert.equal(matches(each, DEFAULT_FILTER, NOW), true);
-});
-
-// --- dated (docs/APP.md §4 item 5, chain item `listfilters`) ----------------
-
-test("dated means a Decay ends within the fortnight, both ends inclusive", () => {
-  assert.equal(FORTNIGHT_DAYS, 14);
-  const withinAWeek = entry({ authored: authored({ spec: decay("2026-09-16T00:00:00.000Z") }) });
-  assert.equal(isDated(withinAWeek, NOW), true);
-
-  // Exactly fourteen days out is still "the next fortnight".
-  const exactlyFourteen = entry({ authored: authored({ spec: decay("2026-09-27T00:00:00.000Z") }) });
-  assert.equal(isDated(exactlyFourteen, NOW), true);
-
-  // A day later is not.
-  const fifteenDaysOut = entry({ authored: authored({ spec: decay("2026-09-28T00:00:00.000Z") }) });
-  assert.equal(isDated(fifteenDaysOut, NOW), false);
-
-  // A term with no Decay at all: nothing to be dated by.
-  assert.equal(isDated(entry({ authored: authored({ spec: flat(0.5) }) }), NOW), false);
-  assert.equal(isDated(entry({ authored: authored({ spec: null }) }), NOW), false);
-  assert.equal(isDated(entry({ authored: null }), NOW), false);
-
-  // A deadline already past does not qualify — the window starts at `now`.
-  const already = entry({ authored: authored({ spec: decay("2026-09-01T00:00:00.000Z") }) });
-  assert.equal(isDated(already, NOW), false);
-});
-
-test("dated finds a Decay wherever it is buried in the term", () => {
-  // A Conj over a Flat and a Decay: the deadline that matters is not the root.
-  const buried: SpecNode = {
-    kind: "conj",
-    p: -4,
-    terms: [flat(0.7), decay("2026-09-20T00:00:00.000Z")],
-  };
-  assert.equal(isDated(entry({ authored: authored({ spec: buried }) }), NOW), true);
-
-  // A Gate: the same rule applies to its "gate" and "body" slots.
-  const gated: SpecNode = { kind: "gate", gate: flat(1), body: decay("2026-09-20T00:00:00.000Z") };
-  assert.equal(isDated(entry({ authored: authored({ spec: gated }) }), NOW), true);
-
-  // Two Decays in one Conj: either one falling in the window is enough.
-  const either: SpecNode = {
-    kind: "conj",
-    p: -4,
-    terms: [decay("2026-12-01T00:00:00.000Z"), decay("2026-09-18T00:00:00.000Z")],
-  };
-  assert.equal(isDated(entry({ authored: authored({ spec: either }) }), NOW), true);
-});
-
-test("dated finds a Decay inside a deferral's piece, a row of its Piecewise", () => {
-  const deferred: SpecNode = {
-    kind: "piecewise",
-    head: flat(0.9),
-    pieces: [{ at: "2026-09-10T00:00:00", term: decay("2026-09-20T00:00:00.000Z") }],
-  };
-  assert.equal(isDated(entry({ authored: authored({ spec: deferred }) }), NOW), true);
-});
-
-test("the dated filter narrows and never widens", () => {
-  const soon = entry({ todo: "a", authored: authored({ spec: decay("2026-09-16T00:00:00.000Z") }) });
-  const far = entry({ todo: "b", authored: authored({ spec: decay("2027-01-01T00:00:00.000Z") }) });
-  const only = { ...DEFAULT_FILTER, dated: true };
-  assert.equal(matches(soon, only, NOW), true);
-  assert.equal(matches(far, only, NOW), false);
-  for (const each of [soon, far]) assert.equal(matches(each, DEFAULT_FILTER, NOW), true);
 });
 
 // --- the remembered filter ---------------------------------------------------

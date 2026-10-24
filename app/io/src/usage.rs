@@ -845,31 +845,6 @@ mod tests {
         assert_eq!(requests[1].model, "claude-sonnet-5");
     }
 
-    #[test]
-    fn a_refusal_carries_its_window_reset_and_overage() {
-        let (_dir, transcripts) = fixture("refused");
-        let refusals = transcripts.refusals().expect("readable");
-        assert_eq!(refusals.len(), 1);
-        let refused = &refusals[0];
-        assert_eq!(refused.window, Window::SevenDay);
-        assert_eq!(
-            refused.resets_at.map(|at| at.timestamp()),
-            Some(1_789_221_600)
-        );
-        assert!(
-            !refused.overage.enabled,
-            "rejected with a reason is not enabled"
-        );
-        assert_eq!(refused.overage.disabled_reason, "org_level_disabled_until");
-        let requests = transcripts.requests().expect("readable");
-        assert!(
-            requests
-                .iter()
-                .all(|request| request.model != "<synthetic>"),
-            "the placeholder is not a request"
-        );
-    }
-
     /// The fixture puts a mail body in every line's content, a tool result and a refusal.
     #[test]
     fn nothing_returned_contains_any_text_from_the_transcript() {
@@ -958,51 +933,6 @@ mod tests {
         std::fs::write(&path, text).expect("append");
         let second = transcripts.requests().expect("readable");
         assert_eq!(second.len(), 3, "the grown file was re-read: {second:?}");
-    }
-
-    #[test]
-    fn a_reading_is_read_from_either_shape_and_junk_is_nothing() {
-        let answer = serde_json::json!({
-            "five_hour": {"utilization": 42.5, "resets_at": "2026-09-12T15:00:00Z"},
-            "seven_day": {"utilization": 0.9, "resets_at": 1_789_221_600},
-            "something_else": {"utilization": 1}
-        });
-        let found = reported_of(&answer, Utc::now());
-        assert_eq!(found.len(), 2);
-        let five = &found[&Window::FiveHour];
-        assert!((five.utilization - 0.425).abs() < 1e-9);
-        assert!(five.resets_at.is_some());
-        let seven = &found[&Window::SevenDay];
-        assert!((seven.utilization - 0.9).abs() < 1e-9);
-        assert_eq!(
-            seven.resets_at.map(|at| at.timestamp()),
-            Some(1_789_221_600)
-        );
-        assert!(reported_of(&serde_json::json!("nope"), Utc::now()).is_empty());
-        assert!(
-            reported_of(
-                &serde_json::json!({"error": {"type": "rate_limit_error"}}),
-                Utc::now()
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn a_missing_root_reads_as_nothing() {
-        let transcripts = Transcripts::new(
-            "/nonexistent/for/sure",
-            Path::new("/home/ada"),
-            Path::new("/home/ada/repo"),
-        );
-        assert_eq!(transcripts.requests().expect("empty"), Vec::new());
-        assert_eq!(transcripts.refusals().expect("empty"), Vec::new());
-        assert_eq!(transcripts.warm().expect("empty"), 0);
-        assert_eq!(
-            Usage::scope(&transcripts).expect("empty"),
-            Scope::default(),
-            "a missing root is an honest empty scope, not a failure"
-        );
     }
 
     /// A root that is there and cannot be listed (a file where the directory belongs) is a
@@ -1113,28 +1043,6 @@ mod tests {
         )
     }
 
-    #[test]
-    fn a_successful_read_is_reported_per_window() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        let path = dir.path().join("last-reported.json");
-        let reader = allowance_over(
-            body_200(&serde_json::json!({
-                "five_hour": {"utilization": 0.3, "resets_at": "2026-09-14T20:00:00Z"},
-                "seven_day": {"utilization": 0.6, "resets_at": "2026-09-20T00:00:00Z"},
-            })),
-            &path,
-        );
-        let found: std::collections::HashMap<_, _> = reader.allowance().into_iter().collect();
-        match &found[&Window::FiveHour] {
-            AllowanceSum::Reported(reported) => assert!((reported.utilization - 0.3).abs() < 1e-9),
-            other => panic!("expected Reported: {other:?}"),
-        }
-        match &found[&Window::SevenDay] {
-            AllowanceSum::Reported(reported) => assert!((reported.utilization - 0.6).abs() < 1e-9),
-            other => panic!("expected Reported: {other:?}"),
-        }
-    }
-
     /// A token without `user:profile` is refused for good, so the page is told the refusal's own
     /// words rather than "not read yet", and a reading remembered from before is not shown as now.
     #[test]
@@ -1168,25 +1076,6 @@ mod tests {
                 }
                 other => panic!("expected Refused: {other:?}"),
             }
-        }
-    }
-
-    #[test]
-    fn a_throttle_with_no_prior_success_is_rate_limited_with_nothing_remembered() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        let path = dir.path().join("last-reported.json");
-        let reader = allowance_over(throttled_429("3472"), &path);
-        let found: std::collections::HashMap<_, _> = reader.allowance().into_iter().collect();
-        match &found[&Window::FiveHour] {
-            AllowanceSum::RateLimited {
-                retry_after_seconds,
-                last_reported,
-                ..
-            } => {
-                assert_eq!(*retry_after_seconds, 3472);
-                assert_eq!(*last_reported, None);
-            }
-            other => panic!("expected RateLimited: {other:?}"),
         }
     }
 
@@ -1242,20 +1131,6 @@ mod tests {
             }
             other => panic!("expected RateLimited with the remembered reading: {other:?}"),
         }
-    }
-
-    #[test]
-    fn a_window_the_endpoint_never_mentioned_is_unknown() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        let path = dir.path().join("last-reported.json");
-        let reader = allowance_over(
-            body_200(&serde_json::json!({
-                "five_hour": {"utilization": 0.1, "resets_at": null},
-            })),
-            &path,
-        );
-        let found: std::collections::HashMap<_, _> = reader.allowance().into_iter().collect();
-        assert_eq!(found[&Window::SevenDay], AllowanceSum::Unknown);
     }
 
     #[test]

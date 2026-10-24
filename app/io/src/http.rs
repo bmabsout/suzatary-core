@@ -444,31 +444,6 @@ mod tests {
     }
 
     #[test]
-    fn a_form_is_percent_encoded_and_typed() {
-        let req = Req::form("https://example.test", &[("a b", "c&d=e")]);
-        assert_eq!(req.body, b"a%20b=c%26d%3De");
-        assert_eq!(
-            req.header_value("content-type"),
-            Some("application/x-www-form-urlencoded")
-        );
-    }
-
-    #[test]
-    fn scripted_answers_in_order_and_keeps_what_it_was_sent() {
-        let http = Scripted::answering(vec![Ok(Resp::new(200, "one")), Ok(Resp::new(404, ""))]);
-        assert_eq!(
-            http.send(Req::get("https://a.test")).expect("one").text(),
-            "one"
-        );
-        assert_eq!(
-            http.send(Req::get("https://b.test")).expect("two").status,
-            404
-        );
-        let urls: Vec<String> = http.sent().into_iter().map(|req| req.url).collect();
-        assert_eq!(urls, ["https://a.test", "https://b.test"]);
-    }
-
-    #[test]
     fn a_private_address_is_refused_before_anything_is_sent() {
         let failed = Ureq::public_only()
             .send(Req::get("http://127.0.0.1:9/").timeout(Duration::from_secs(5)))

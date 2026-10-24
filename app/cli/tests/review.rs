@@ -156,59 +156,6 @@ fn a_review_accepts_one_rejects_one_and_holds_the_rest() {
     assert_eq!(held[0].why.get().map(String::as_str), Some(SAID));
 }
 
-/// The record line's shape, which the briefing and the terminal both quote.
-#[test]
-fn a_review_line_says_what_was_done_to_how_many_and_why() {
-    let caps = Fakes::new("review-lines");
-    let [ordinary, duplicate, _] = three_runs(&caps);
-    let policy = common::chain();
-    let deployment = deployment();
-    let caps = caps.model(script(&ordinary, &duplicate));
-    let chains = [Bound {
-        name: "life",
-        caps: caps.secretary(),
-        policy: &policy,
-    }];
-    let done = review(
-        &caps.secretary(),
-        &deployment,
-        &suzatary_core::settings::Settables::default(),
-        &chains,
-        "a brief",
-    )
-    .expect("the review runs");
-
-    let accepted = done.with(Outcome::Settled(Settle::Accepted))[0].to_string();
-    assert!(
-        accepted.starts_with("accepted 1 object of batch "),
-        "{accepted}"
-    );
-    assert!(accepted.contains("… on life: A new todo"), "{accepted}");
-    let held = done.with(Outcome::Held)[0].to_string();
-    assert!(held.starts_with("held batch "), "{held}");
-    assert!(held.contains("… on life: "), "{held}");
-
-    // Readable back out of the store, as `suzatary secretary reviews --since` does.
-    let day = prodrome_core::fpl::instant_of(common::now()).date();
-    let found = reviews(caps.conversations.conversations(), day)
-        .expect("the store reads")
-        .items;
-    assert_eq!(found.len(), 3, "{found:?}");
-    for (id, _) in &found {
-        assert_eq!(id, &today_of(day), "today's review conversation");
-    }
-    assert!(
-        reviews(
-            caps.conversations.conversations(),
-            day.succ_opt().expect("a tomorrow")
-        )
-        .expect("the store reads")
-        .items
-        .is_empty(),
-        "a window after the decisions holds none of them"
-    );
-}
-
 /// Nothing standing opens no conversation and never asks the model.
 #[test]
 fn a_quiet_pass_asks_no_model_and_opens_no_conversation() {

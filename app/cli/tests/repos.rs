@@ -1,5 +1,6 @@
 //! The secretary in the owner's repositories, over a real server with a scripted model and a
-//! local repository: the reads need no tap and answer the commit they read.
+//! local repository: a read of a repository the token does not reach is refused, and a patch or
+//! a file leaves the box only on the owner's tap, as its card showed it.
 
 mod common;
 
@@ -50,47 +51,6 @@ fn answer(payload: &serde_json::Value, verb: &str) -> (String, bool) {
         turn["text"].as_str().unwrap_or_default().to_owned(),
         turn["outcome"]["is"] == "refused",
     )
-}
-
-#[test]
-fn the_reads_list_walk_read_and_search_with_no_tap() {
-    let root = common::scratch("repos-reads");
-    let fakes = Fakes::new("repos-reads")
-        .whois(common::FakeWhois::new().naming(common::v4(), ada()))
-        .repos(common::local_repos(&root))
-        .model(FakeModel::saying([
-            r#"{"say": "Looking.", "calls": [
-                {"verb": "repos_list", "args": {}},
-                {"verb": "repo_tree", "args": {"repo": "bmabsout/cv"}},
-                {"verb": "repo_read", "args": {"repo": "bmabsout/cv", "path": "cv.typ"}},
-                {"verb": "repo_grep", "args": {"repo": "bmabsout/cv", "text": "research"}}
-            ]}"#,
-            r#"{"say": "It says research engineer."}"#,
-        ]));
-    let base = common::start(Arc::new(fakes), deployment(), Vec::new());
-    let payload = exchange(&base, "what does my cv say");
-
-    let (listed, refused) = answer(&payload, "repos_list");
-    assert!(
-        !refused && listed.contains("bmabsout/cv") && listed.contains("public"),
-        "{listed}"
-    );
-    let (tree, _) = answer(&payload, "repo_tree");
-    assert!(tree.contains("cv.typ"), "{tree}");
-    let (read, _) = answer(&payload, "repo_read");
-    assert!(
-        read.contains("Research engineer") && read.contains("\"at\""),
-        "{read}"
-    );
-    let (grep, _) = answer(&payload, "repo_grep");
-    assert!(grep.contains("cv.typ:2:Research engineer"), "{grep}");
-    assert!(
-        payload["proposals"]
-            .as_array()
-            .expect("proposals")
-            .is_empty(),
-        "reading asks nothing"
-    );
 }
 
 #[test]

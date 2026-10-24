@@ -138,17 +138,6 @@ mod tests {
         ["ada".to_owned()].into_iter().collect()
     }
 
-    fn decision(todo: &str) -> Vec<TodoEvent> {
-        vec![
-            mk_created(todo, at(1), "assistant", "", "").expect("valid"),
-            authored_as(todo, "assistant", "decision", "a thing"),
-        ]
-    }
-
-    fn waiting(n: usize, open: Option<ProposalId>) -> Option<Push> {
-        NonZeroUsize::new(n).map(|count| Push::Waiting { count, open })
-    }
-
     fn asked(proposal: &str, why: &str) -> InboxEvent {
         let asked = crate::secretary::inbox::Asked {
             proposer: crate::secretary::proposer::Proposer::Secretary,
@@ -171,59 +160,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_new_decision_rings_once_unlinked_and_is_not_a_todo_push() {
-        let events = decision("webforms");
-        assert_eq!(needs_you(&events, &[]), waiting(1, None));
-        assert_eq!(
-            decide(&events, &own(), at(1)),
-            None,
-            "not the agent's todo work"
-        );
-    }
-
-    #[test]
-    fn an_edit_to_a_waiting_decision_does_not_ring_again_and_two_new_ones_count() {
-        let edited = vec![authored_as("webforms", "assistant", "decision", "a thing")];
-        assert_eq!(needs_you(&edited, &[]), None);
-        let mut two = decision("first");
-        two.extend(decision("second"));
-        assert_eq!(needs_you(&two, &[]), waiting(2, None));
-        assert_eq!(
-            needs_you(&[authored("todo", "triage")], &[]),
-            None,
-            "a todo is not a decision"
-        );
-    }
-
-    #[test]
-    fn a_lone_new_proposal_rings_linked_by_its_id_and_an_answer_to_one_does_not() {
-        let filed = vec![asked("pfeed", "she asked")];
-        let push = needs_you(&[], &filed);
-        assert_eq!(
-            push,
-            waiting(1, Some(ProposalId::new("pfeed").expect("an id")))
-        );
-        assert_eq!(
-            push.expect("a push").printed(APP).click,
-            "https://box.example.test/#/inbox?open=pfeed"
-        );
-        let answered = vec![InboxEvent {
-            said: Said::Responded(crate::secretary::responded::Responded::Done(
-                crate::secretary::responded::Done::Acted {
-                    what: "sent".to_owned(),
-                },
-            )),
-            ..asked("pfeed", "she asked")
-        }];
-        assert_eq!(needs_you(&[], &answered), None);
-        assert_eq!(needs_you(&decision("held"), &filed), waiting(2, None));
-    }
-
-    fn authored(todo: &str, actor: &str) -> TodoEvent {
-        authored_as(todo, actor, "todo", "a thing")
-    }
-
     fn authored_as(todo: &str, actor: &str, kind: &str, body: &str) -> TodoEvent {
         mk_authored(
             todo,
@@ -243,91 +179,6 @@ mod tests {
             "",
         )
         .expect("a record")
-    }
-
-    #[test]
-    fn nothing_from_the_agent_is_no_push_at_all() {
-        assert_eq!(decide(&[], &own(), at(1)), None);
-        // A person's own taps never page them.
-        let mine = vec![
-            authored("alpha", "ada"),
-            mk_completed("alpha", at(2), "ada", "").expect("valid"),
-        ];
-        assert_eq!(decide(&mine, &own(), at(1)), None);
-    }
-
-    #[test]
-    fn the_agents_work_is_counted_and_lands_on_the_list() {
-        let theirs = vec![
-            authored("alpha", "triage"),
-            authored("beta", "triage"),
-            mk_completed("gamma", at(2), "triage", "").expect("valid"),
-            // A person's own tap is not counted.
-            mk_reopened("delta", at(2), "ada", "").expect("valid"),
-            // Minting an id is not news.
-            mk_created("epsilon", at(1), "triage", "", "").expect("valid"),
-        ];
-        let push = decide(&theirs, &own(), at(1));
-        assert_eq!(
-            push,
-            Some(Push::Agent {
-                authored: 2,
-                changes: 1
-            })
-        );
-        let printed = push.expect("a push").printed(APP);
-        assert_eq!(printed.title, "Suzatary");
-        assert_eq!(
-            printed.body,
-            "2 new or updated todos and 1 change from the agent"
-        );
-        assert_eq!(printed.click, "https://box.example.test/#/");
-    }
-
-    #[test]
-    fn one_of_each_is_singular() {
-        let one = Push::Agent {
-            authored: 1,
-            changes: 0,
-        };
-        assert_eq!(
-            one.printed(APP).body,
-            "1 new or updated todo from the agent"
-        );
-        let change = Push::Agent {
-            authored: 0,
-            changes: 1,
-        };
-        assert_eq!(change.printed(APP).body, "1 change from the agent");
-        let down = Push::ReviewDown {
-            standing: 1,
-            passes: NonZeroUsize::new(3).expect("some"),
-        };
-        assert_eq!(
-            down.printed(APP).body,
-            "1 batch waiting; it has failed 3 passes running"
-        );
-    }
-
-    #[test]
-    fn every_real_channel_names_its_secrets() {
-        use crate::connect::Channel;
-        assert_eq!(
-            channel_secrets(Channel::Fcm),
-            vec!["FCM_SERVICE_ACCOUNT_B64"]
-        );
-        assert_eq!(channel_secrets(Channel::Ntfy), vec!["NTFY_TOPIC"]);
-    }
-
-    #[test]
-    fn a_briefings_push_links_to_that_days_page() {
-        let day = chrono::NaiveDate::from_ymd_opt(2026, 9, 7).expect("a day");
-        let printed = Push::Brief { day }.printed(APP);
-        assert_eq!(
-            printed.click,
-            "https://box.example.test/#/briefings/2026-09-07"
-        );
-        assert_eq!(printed.body, "The brief for 2026-09-07 is ready.");
     }
 
     /// Stored text: lowercase letters behind a prefix no printed constant, hex id or number

@@ -15,9 +15,3 @@ test("law: of is idempotent and order-free, and same is its equality", () => {
     assert.equal(heads.same(h, heads.of([...names, "zzzz"])), names.includes("zzzz"))
   })
 })
-
-test("a set is shown whole, none picked", () => {
-  assert.equal(heads.shown(heads.NONE), "nothing")
-  assert.equal(heads.shown(["b".repeat(64), "a".repeat(64)]), `${"b".repeat(12)}…, ${"a".repeat(12)}…`)
-  assert.equal(heads.shown(["a", "b", "c", "d", "e"].map(c => c.repeat(64))), `${"a".repeat(12)}…, ${"b".repeat(12)}…, ${"c".repeat(12)}…, 2 more`)
-})

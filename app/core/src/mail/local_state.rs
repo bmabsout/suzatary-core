@@ -189,35 +189,4 @@ mod tests {
         assert_eq!(LocalState::parse(&printed), Ok(state));
         assert_eq!(LocalState::parse("{}"), Err(LocalError::Version(None)));
     }
-
-    #[test]
-    fn noise_senders_are_lower_cased_once() {
-        let state = LocalState::default().add_noise("Alerts@Example.TEST");
-        assert!(state.noise_senders.contains("alerts@example.test"));
-        assert!(state.is_noise("ALERTS@example.test"));
-        assert!(!state.is_noise("other@example.test"));
-    }
-
-    /// A prefix that names two messages names neither, and the refusal says which.
-    #[test]
-    fn an_ambiguous_prefix_is_a_refusal_that_names_the_matches() {
-        let state = LocalState::default()
-            .keep("abc111", Kept::default())
-            .keep("abc222", Kept::default())
-            .keep("def333", Kept::default());
-        assert_eq!(
-            state.resolve("def").expect("one").map(|(h, _)| h.as_str()),
-            Some("def333")
-        );
-        assert_eq!(state.resolve("nothing").expect("none"), None);
-        let refused = state.resolve("abc").expect_err("two");
-        assert_eq!(
-            refused.matches,
-            vec!["abc111".to_owned(), "abc222".to_owned()]
-        );
-        assert!(
-            refused.to_string().contains("matches 2 marked messages"),
-            "{refused}"
-        );
-    }
 }

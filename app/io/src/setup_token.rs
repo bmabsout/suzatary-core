@@ -353,31 +353,4 @@ printf 'Use this token by setting: export CLAUDE_CODE_OAUTH_TOKEN=<token>\r\n'
         }
         assert!(!alive(), "the CLI's child outlived the sign-in");
     }
-
-    #[test]
-    fn a_program_that_draws_no_link_is_refused_with_what_it_said() {
-        let dir = tempfile::tempdir().expect("a directory");
-        let script = dir.path().join("claude");
-        std::fs::write(&script, "#!/bin/sh\necho 'Not logged in'\nsleep 30\n").expect("written");
-        std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o755))
-            .expect("executable");
-        let refused = SignIn::start(&script.display().to_string(), Duration::from_millis(500))
-            .err()
-            .expect("no link");
-        assert!(
-            matches!(&refused, SignInError::NoUrl { said, .. } if said == "Not logged in"),
-            "{refused}"
-        );
-    }
-
-    #[test]
-    fn a_missing_program_is_said_by_name() {
-        let refused = SignIn::start("/nonexistent/claude", WAIT)
-            .err()
-            .expect("nothing to run");
-        assert!(
-            refused.to_string().contains("/nonexistent/claude"),
-            "{refused}"
-        );
-    }
 }

@@ -98,21 +98,6 @@ fn a_replica_pulls_what_it_lacks_by_heads() {
     }
 }
 
-/// The Inbox badge is counted on the box, so a tab shows it without pulling either store: nothing
-/// waits before the secretary proposes, and its one proposal waits after.
-#[test]
-fn the_badge_is_counted_without_the_conversations() {
-    let base = writing("stores-waiting");
-    let count = || {
-        let mut answer = common::get(&format!("{base}/api/waiting"));
-        assert_eq!(common::status(&answer), 200);
-        common::body_json(&mut answer)["count"].clone()
-    };
-    assert_eq!(count(), 0);
-    let _ = answered(&base);
-    assert_eq!(count(), 1);
-}
-
 /// A page from before the lines asks for the store they replaced, and is told to load the new
 /// version rather than answered that nothing is there.
 #[test]

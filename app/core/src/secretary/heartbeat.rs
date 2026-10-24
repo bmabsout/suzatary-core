@@ -305,7 +305,7 @@ pub fn alarm(
 
 #[cfg(test)]
 mod tests {
-    use super::{Pass, PassOutcome, Recorded, Stage, alarm, freshness, hours_since, stamp};
+    use super::{Pass, PassOutcome, Recorded, Stage, alarm, stamp};
     use chrono::NaiveDateTime;
     use proptest::prelude::*;
     use std::num::NonZeroU32;
@@ -316,62 +316,6 @@ mod tests {
 
     fn at(text: &str) -> NaiveDateTime {
         NaiveDateTime::parse_from_str(text, "%Y-%m-%dT%H:%M:%S").expect("a well-formed instant")
-    }
-
-    // --- hours_since, the mechanical check's own arithmetic ----------------
-
-    #[test]
-    fn an_unparseable_recording_answers_none() {
-        assert_eq!(
-            hours_since(at("2026-09-20T00:00:00"), "not a timestamp"),
-            None
-        );
-    }
-
-    #[test]
-    fn three_days_answers_about_seventy_two_hours() {
-        assert_eq!(
-            hours_since(at("2026-09-20T07:00:14"), "2026-09-17T07:00:14"),
-            Some(72.0)
-        );
-    }
-
-    // --- freshness, the JSON a model reads ----------------------------------
-
-    /// Never run is not run-and-failed: a fresh deployment must not read as an outage.
-    #[test]
-    fn no_recorded_heartbeat_says_never_run_not_stale() {
-        let answer = freshness(at("2026-09-20T00:00:00"), None);
-        assert_eq!(answer["at"], serde_json::Value::Null);
-        assert_eq!(answer["hours_ago"], serde_json::Value::Null);
-        assert!(answer["note"].as_str().unwrap().contains("never"));
-    }
-
-    /// A recorded pass reads as its age in hours: three days old is 72, not silence, and moments
-    /// ago is a small positive number, a positive claim and not an absence.
-    #[test]
-    fn a_recorded_pass_reads_as_its_age_in_hours() {
-        for (now, recorded, hours) in [
-            ("2026-09-20T07:00:14", "2026-09-17T07:00:14", 72.0),
-            ("2026-09-20T07:05:00", "2026-09-20T07:00:00", 0.1),
-        ] {
-            let answer = freshness(at(now), Some(recorded));
-            assert_eq!(
-                answer["hours_ago"].as_f64(),
-                Some(hours),
-                "{recorded} at {now}"
-            );
-        }
-    }
-
-    /// Corrupt content never invents an age: it is unparseable, never absent ("never run") or zero
-    /// ("just ran").
-    #[test]
-    fn unparseable_content_is_named_and_not_guessed() {
-        let answer = freshness(at("2026-09-20T00:00:00"), Some("not a timestamp"));
-        assert_eq!(answer["at"], "not a timestamp");
-        assert_eq!(answer["hours_ago"], serde_json::Value::Null);
-        assert!(answer["note"].as_str().unwrap().contains("did not parse"));
     }
 
     // --- alarm: all four heartbeat arms ------------------------------------
@@ -436,62 +380,54 @@ mod tests {
 
     // --- PassOutcome::parse ------------------------------------------------
 
+    /// Each shape the outcome file holds reads as its outcome: nothing or a blank line is absent,
+    /// a failed line with no count is the first failure, and an unknown stage, a trailing field,
+    /// a zero count and a line starting with neither word are each unparseable.
     #[test]
-    fn an_absent_outcome_file_parses_as_absent() {
-        assert_eq!(PassOutcome::parse(None), PassOutcome::Absent);
-        assert_eq!(PassOutcome::parse(Some("   ")), PassOutcome::Absent);
-    }
-
-    #[test]
-    fn an_ok_line_parses_its_timestamp() {
-        assert_eq!(
-            PassOutcome::parse(Some("ok 2026-09-20T07:00:00")),
-            PassOutcome::Recorded(Recorded::Ok {
-                at: "2026-09-20T07:00:00".to_owned()
-            })
-        );
-    }
-
-    #[test]
-    fn a_failed_line_with_no_count_is_the_first_failure() {
-        assert_eq!(
-            PassOutcome::parse(Some("failed 2026-09-20T07:00:00 verify")),
+    fn an_outcome_line_reads_as_its_shape() {
+        let failed = |stage, count| {
             PassOutcome::Recorded(Recorded::Failed {
                 at: "2026-09-20T07:00:00".to_owned(),
-                stage: Stage::Verify,
-                count: n(1),
+                stage,
+                count: n(count),
             })
-        );
-    }
-
-    #[test]
-    fn a_failed_line_with_a_count_parses_it() {
-        assert_eq!(
-            PassOutcome::parse(Some("failed 2026-09-20T07:00:00 push 12")),
-            PassOutcome::Recorded(Recorded::Failed {
-                at: "2026-09-20T07:00:00".to_owned(),
-                stage: Stage::Push,
-                count: n(12),
-            })
-        );
-    }
-
-    /// An unknown stage, a trailing field, a zero count and a line starting with neither word
-    /// are each unparseable.
-    #[test]
-    fn a_line_outside_the_two_shapes_is_unparseable() {
-        for line in [
-            "failed 2026-09-20T07:00:00 wobble",
-            "failed 2026-09-20T07:00:00 push 12 extra",
-            "ok 2026-09-20T07:00:00 extra",
-            "failed 2026-09-20T07:00:00 push 0",
-            "garbage",
-        ] {
-            assert_eq!(
-                PassOutcome::parse(Some(line)),
+        };
+        for (line, outcome) in [
+            (None, PassOutcome::Absent),
+            (Some("   "), PassOutcome::Absent),
+            (
+                Some("ok 2026-09-20T07:00:00"),
+                PassOutcome::Recorded(Recorded::Ok {
+                    at: "2026-09-20T07:00:00".to_owned(),
+                }),
+            ),
+            (
+                Some("failed 2026-09-20T07:00:00 verify"),
+                failed(Stage::Verify, 1),
+            ),
+            (
+                Some("failed 2026-09-20T07:00:00 push 12"),
+                failed(Stage::Push, 12),
+            ),
+            (
+                Some("failed 2026-09-20T07:00:00 wobble"),
                 PassOutcome::Unparseable,
-                "{line}"
-            );
+            ),
+            (
+                Some("failed 2026-09-20T07:00:00 push 12 extra"),
+                PassOutcome::Unparseable,
+            ),
+            (
+                Some("ok 2026-09-20T07:00:00 extra"),
+                PassOutcome::Unparseable,
+            ),
+            (
+                Some("failed 2026-09-20T07:00:00 push 0"),
+                PassOutcome::Unparseable,
+            ),
+            (Some("garbage"), PassOutcome::Unparseable),
+        ] {
+            assert_eq!(PassOutcome::parse(line), outcome, "{line:?}");
         }
     }
 

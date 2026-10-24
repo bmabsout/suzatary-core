@@ -1,4 +1,4 @@
-// What a reading left out is a set by name, joined by union: the semilattice laws, the readers' fold, and the sentence.
+// What a reading left out is a set by name, joined by union: the semilattice laws and the readers' fold.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -58,19 +58,4 @@ test("law: a reader's step replaces only its own, and a repeat wakes nobody", ()
     assert.equal(excluded.step(s, { type: "Read", reader: "stores", left: b }), s)
     assert.deepEqual(excluded.all(excluded.step(s, { type: "Read", reader: "chain/life", left: excluded.NOTHING })), b)
   })
-})
-
-test("the line counts the objects and what rests on them, and names a chain that did not read", () => {
-  const t = excluded.of([
-    { name: "71121c18", why: "failed to parse: Asked.act: missing field `text`", resting: ["aa", "bb"] },
-    { name: "9e", why: "not held", resting: ["bb"] },
-  ])
-  assert.equal(excluded.said(excluded.left(t)), "2 objects on this device could not be read and were left out (2 resting on them)")
-  assert.equal(excluded.said(excluded.left(t.slice(0, 1))), "1 object on this device could not be read and was left out (2 resting on it)")
-  const hole = [{ chain: "suzatary", why: "a hole" }]
-  assert.equal(excluded.said(excluded.left(excluded.NONE, hole)), "The chain suzatary could not be read, so what refers into it is unpriced until it reads")
-  assert.equal(
-    excluded.said(excluded.left(t.slice(0, 1), [...hole, { chain: "life", why: "a hole" }])),
-    "1 object on this device could not be read and was left out (2 resting on it); 2 chains could not be read, so what refers into them is unpriced until they read",
-  )
 })

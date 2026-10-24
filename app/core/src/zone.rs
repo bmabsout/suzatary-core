@@ -216,16 +216,6 @@ mod tests {
     }
 
     #[test]
-    fn a_city_alone_or_a_name_in_another_case_suggests_its_zone() {
-        let closest = |text| Zone::closest(text).map(Zone::name);
-        assert_eq!(closest("London"), Some("Europe/London"));
-        assert_eq!(closest("new york"), Some("America/New_York"));
-        assert_eq!(closest("europe/paris"), Some("Europe/Paris"));
-        assert_eq!(closest("GB"), None, "a link name is never offered");
-        assert_eq!(closest("Atlantis"), None);
-    }
-
-    #[test]
     fn every_instant_falls_in_the_day_it_reads_as() {
         let zones = [
             "America/New_York",

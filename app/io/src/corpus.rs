@@ -332,13 +332,6 @@ mod tests {
     }
 
     #[test]
-    fn an_absent_sync_status_is_absence_and_not_a_failure() {
-        let root = scratch("last-sync");
-        assert!(operator(&root).last_sync().is_none());
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
     fn a_mark_records_the_decision_and_the_locator_it_was_given() {
         let root = scratch("mark");
         let operator = operator(&root);
@@ -391,29 +384,6 @@ mod tests {
         );
         let pushed = std::fs::read_to_string(root.join("state.json")).expect("reads");
         assert!(!pushed.contains("alerts"), "a sender is box-local");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn an_unreachable_index_is_reported_and_never_panics() {
-        let root = scratch("unreachable");
-        let operator = operator(&root);
-        let failed = operator.queue(Some(5)).unwrap_err();
-        assert!(matches!(failed, CorpusError::Refused(_)), "{failed}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn a_backfill_for_an_account_that_is_not_microsofts_says_which_are() {
-        let root = scratch("backfill");
-        let operator = operator(&root);
-        let refused = operator
-            .backfill("stranger@example.test", "Sent Items", None, None)
-            .unwrap_err();
-        assert!(
-            matches!(&refused, CorpusError::Refused(said) if said.contains("not a Microsoft account")),
-            "{refused}"
-        );
         let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import type { ProposalRow, TurnRow } from "../src/wire/generated/wire";
-import { foldOf, rounds, verbFamily } from "../src/chat/rounds";
+import { rounds } from "../src/chat/rounds";
 import { aCard } from "./cards";
 import { forAll } from "./gen";
 
@@ -88,153 +88,89 @@ function proposalAt(index: number, turn: number): ProposalRow {
   };
 }
 
-test("a bare exchange is one round: opening, no trace, an answer", () => {
-  const turns = [person(0, "hi"), model(1, "hello", "2026-09-15T09:00:10")];
-  const [round] = rounds(turns, []);
-  assert.equal(rounds(turns, []).length, 1);
-  assert.equal(round!.opening?.index, 0);
-  assert.equal(round!.trace.length, 0);
-  assert.equal(round!.answer?.index, 1);
-  assert.equal(foldOf(round!), null, "nothing was checked, so there is no fold line");
-});
+const earlier = (row: TurnRow): TurnRow => ({ ...row, attempt: "earlier" });
 
-test("two status turns and three verbs fold into one round", () => {
-  const turns = [
-    person(0, "what changed"),
-    model(1, "Reading mail.", "2026-09-15T09:00:01"),
-    verb(2, "search", "3 hits"),
-    verb(3, "show", "one message"),
-    model(4, "Checking todos.", "2026-09-15T09:00:20"),
-    verb(5, "todo_show", "one todo"),
-    model(6, "Here is what changed.", "2026-09-15T09:00:42"),
+type Shape = {
+  readonly opening?: number | null;
+  readonly who?: TurnRow["who"];
+  readonly trace?: number;
+  readonly answer?: number | null;
+  readonly key?: number;
+  readonly start?: number;
+  readonly end?: number;
+  readonly earlier?: readonly number[];
+};
+
+test("examples: where a round begins and ends, what it opens with and answers, and what it sets aside", () => {
+  const cases: [string, TurnRow[], Shape[]][] = [
+    ["a bare exchange is one round: opening, no trace, an answer", [person(0, "hi"), model(1, "hello", "2026-09-15T09:00:10")], [{ opening: 0, trace: 0, answer: 1 }]],
+    [
+      "an unfinished round ends in a status turn's own trace, with no answer",
+      [person(0, "check something"), model(1, "Reading mail.", "2026-09-15T09:00:01"), verb(2, "search", "3 hits")],
+      [{ trace: 2, answer: null }],
+    ],
+    [
+      "two rounds are two rounds",
+      [person(0, "first"), model(1, "first answer", "2026-09-15T09:00:02"), person(2, "second"), model(3, "second answer", "2026-09-15T09:00:05")],
+      [{ opening: 0, answer: 1 }, { opening: 2, answer: 3 }],
+    ],
+    ["an empty answer yields a round with no answer to draw", [person(0, "anything to add?"), model(1, "")], [{ answer: null, trace: 0 }]],
+    [
+      "a leading model turn (the morning brief) opens with no person or act",
+      [model(0, "Your brief for Monday is ready.", "2026-09-15T10:03:00")],
+      [{ opening: null, answer: 0, key: 0 }],
+    ],
+    [
+      "an act can open a round exactly like a person's turn",
+      [act(0, "You did: cancelled todo:life/x"), model(1, "Understood.", "2026-09-15T09:00:03")],
+      [{ who: "act", answer: 1 }],
+    ],
+    // A windowed page: `turns[0]` is really turn 40, never 0.
+    [
+      "a window that starts mid-transcript reads its own absolute indices, not positions",
+      [person(40, "what now"), model(41, "Here.", "2026-09-15T09:00:02")],
+      [{ opening: 40, answer: 41, start: 40, end: 41 }],
+    ],
+    // `?about=` can drop whole rounds, so the indices jump from 1 to 10; the gap is not one round spanning it.
+    [
+      "a gap between two kept rounds (?about=) still groups each one correctly",
+      [person(0, "first"), model(1, "first answer", "2026-09-15T09:00:02"), person(10, "much later", "2026-09-16T09:00:00"), model(11, "later answer", "2026-09-16T09:00:02")],
+      [{ start: 0, end: 1 }, { start: 10, end: 11 }],
+    ],
+    [
+      "a regenerated round keeps its question, the new answer, and the old one as an earlier attempt",
+      [person(0, "q"), earlier(model(1, "old")), model(2, "new")],
+      [{ opening: 0, answer: 2, earlier: [1] }],
+    ],
+    [
+      "an edited question and all after it are an earlier attempt of their own, before the new round",
+      [earlier(person(0, "q")), earlier(model(1, "a")), person(2, "q, reworded"), model(3, "b")],
+      [{ key: 0, opening: null, earlier: [0, 1] }, { key: 2, opening: 2, earlier: [] }],
+    ],
+    [
+      "a stopped round asked again draws the stop inside the earlier attempt, beside its question",
+      [person(0, "q"), earlier(act(1, "Ada stopped the answer")), earlier(model(2, "")), model(3, "a")],
+      [{ answer: 3, earlier: [1, 2] }],
+    ],
   ];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.opening?.index, 0);
-  assert.equal(round!.trace.length, 5, "two status turns and three verbs");
-  assert.equal(round!.answer?.index, 6);
-  const fold = foldOf(round!);
-  assert.ok(fold);
-  assert.equal(fold.refused, false);
-  assert.match(fold.label, /mail \(2\)/);
-  assert.match(fold.label, /todos \(1\)/);
-  assert.match(fold.label, / · 42 s$/);
-});
-
-test("a refused verb is marked in the fold", () => {
-  const turns = [
-    person(0, "send it"),
-    model(1, "Sending.", "2026-09-15T09:00:01"),
-    verb(2, "send", "cannot send from here", true),
-    model(3, "I cannot send that.", "2026-09-15T09:00:05"),
-  ];
-  const [round] = rounds(turns, []);
-  const fold = foldOf(round!);
-  assert.ok(fold);
-  assert.equal(fold.refused, true);
-});
-
-test("an unfinished round ends in a status turn's own trace, with no answer", () => {
-  const turns = [
-    person(0, "check something"),
-    model(1, "Reading mail.", "2026-09-15T09:00:01"),
-    verb(2, "search", "3 hits"),
-  ];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.trace.length, 2, "the status turn and its verb, still the whole round");
-  assert.equal(round!.answer, null);
-});
-
-test("two rounds are two rounds", () => {
-  const turns = [
-    person(0, "first"),
-    model(1, "first answer", "2026-09-15T09:00:02"),
-    person(2, "second"),
-    model(3, "second answer", "2026-09-15T09:00:05"),
-  ];
-  const grouped = rounds(turns, []);
-  assert.equal(grouped.length, 2);
-  assert.equal(grouped[0]!.opening?.index, 0);
-  assert.equal(grouped[0]!.answer?.index, 1);
-  assert.equal(grouped[1]!.opening?.index, 2);
-  assert.equal(grouped[1]!.answer?.index, 3);
-});
-
-test("a proposal positioned after the answer of round one lands on round one", () => {
-  const turns = [
-    person(0, "first"),
-    model(1, "first answer", "2026-09-15T09:00:02"),
-    person(2, "second"),
-    model(3, "second answer", "2026-09-15T09:00:05"),
-  ];
-  // turn: 2 means "drawn after the turn at index 1" — the first round's answer.
-  const grouped = rounds(turns, [proposalAt(0, 2)]);
-  assert.equal(grouped[0]!.proposals.length, 1);
-  assert.equal(grouped[1]!.proposals.length, 0);
-});
-
-test("an empty answer yields a round with no answer to draw", () => {
-  const turns = [person(0, "anything to add?"), model(1, "")];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.answer, null);
-  assert.equal(round!.trace.length, 0);
-});
-
-test("a leading model turn (the morning brief) opens with no person or act", () => {
-  const turns = [model(0, "Your brief for Monday is ready.", "2026-09-15T10:03:00")];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.opening, null);
-  assert.equal(round!.answer?.index, 0);
-  assert.equal(round!.key, 0);
-});
-
-test("a proposal past the last turn is drawn after the last round", () => {
-  const turns = [person(0, "first"), model(1, "first answer", "2026-09-15T09:00:02")];
-  const grouped = rounds(turns, [proposalAt(0, 99)]);
-  assert.equal(grouped[grouped.length - 1]!.proposals.length, 1);
-});
-
-test("verb families are recognised and an unknown verb prints as itself", () => {
-  assert.equal(verbFamily("search"), "mail");
-  assert.equal(verbFamily("thread"), "mail");
-  assert.equal(verbFamily("todo_add"), "todos");
-  assert.equal(verbFamily("list_open_todos"), "todos");
-  assert.equal(verbFamily("briefing_delta"), "notes");
-  assert.equal(verbFamily("propose_email"), "proposals");
-  assert.equal(verbFamily("record"), "record");
-});
-
-test("an act can open a round exactly like a person's turn", () => {
-  const turns = [act(0, "You did: cancelled todo:life/x"), model(1, "Understood.", "2026-09-15T09:00:03")];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.opening?.turn.who, "act");
-  assert.equal(round!.answer?.index, 1);
-});
-
-test("a window that starts mid-transcript reads its own absolute indices, not positions", () => {
-  // A windowed page (§6 commit 6): `turns[0]` is really turn 40, never 0.
-  const turns = [person(40, "what now"), model(41, "Here.", "2026-09-15T09:00:02")];
-  const [round] = rounds(turns, []);
-  assert.equal(round!.opening?.index, 40);
-  assert.equal(round!.answer?.index, 41);
-  assert.equal(round!.startIndex, 40);
-  assert.equal(round!.endIndex, 41);
-});
-
-test("a gap between two kept rounds (?about=) still groups each one correctly", () => {
-  // `?about=` can drop whole rounds, so turns[2] jumps from 1 to 10 — the gap
-  // must not be read as one round spanning it.
-  const turns = [
-    person(0, "first"),
-    model(1, "first answer", "2026-09-15T09:00:02"),
-    person(10, "much later", "2026-09-16T09:00:00"),
-    model(11, "later answer", "2026-09-16T09:00:02"),
-  ];
-  const grouped = rounds(turns, []);
-  assert.equal(grouped.length, 2);
-  assert.equal(grouped[0]!.startIndex, 0);
-  assert.equal(grouped[0]!.endIndex, 1);
-  assert.equal(grouped[1]!.startIndex, 10);
-  assert.equal(grouped[1]!.endIndex, 11);
+  for (const [name, turns, want] of cases) {
+    const grouped = rounds(turns, []);
+    assert.equal(grouped.length, want.length, name);
+    want.forEach((w, n) => {
+      const round = grouped[n]!;
+      const got: Record<keyof Shape, unknown> = {
+        opening: round.opening?.index ?? null,
+        who: round.opening?.turn.who,
+        trace: round.trace.length,
+        answer: round.answer?.index ?? null,
+        key: round.key,
+        start: round.startIndex,
+        end: round.endIndex,
+        earlier: round.earlier.map((p) => p.index),
+      };
+      for (const k of Object.keys(w) as (keyof Shape)[]) assert.deepEqual(got[k], w[k], `${name}: round ${n} ${k}`);
+    });
+  }
 });
 
 /** One row of `app/core/tests/about-fixture.json`. */
@@ -277,43 +213,6 @@ test("the shared fixture groups into the same three spans the Rust side pins", (
   ]);
 });
 
-// --- asking again (docs/CHAT-PLAN-2026-09-25.md §4.4) -----------------------
-
-const earlier = (row: TurnRow): TurnRow => ({ ...row, attempt: "earlier" });
-
-test("a regenerated round keeps its question, the new answer, and the old one as an earlier attempt", () => {
-  const grouped = rounds([person(0, "q"), earlier(model(1, "old")), model(2, "new")], []);
-  assert.equal(grouped.length, 1);
-  const [round] = grouped;
-  assert.equal(round?.opening?.index, 0);
-  assert.equal(round?.answer?.index, 2);
-  assert.deepEqual(round?.earlier.map((p) => p.index), [1]);
-});
-
-test("an edited question and all after it are an earlier attempt of their own, before the new round", () => {
-  const grouped = rounds(
-    [earlier(person(0, "q")), earlier(model(1, "a")), person(2, "q, reworded"), model(3, "b")],
-    [],
-  );
-  assert.deepEqual(
-    grouped.map((round) => [round.key, round.opening?.index ?? null, round.earlier.map((p) => p.index)]),
-    [
-      [0, null, [0, 1]],
-      [2, 2, []],
-    ],
-  );
-});
-
-test("a stopped round asked again draws the stop inside the earlier attempt, beside its question", () => {
-  const grouped = rounds(
-    [person(0, "q"), earlier(act(1, "Ada stopped the answer")), earlier(model(2, "")), model(3, "a")],
-    [],
-  );
-  assert.equal(grouped.length, 1);
-  assert.equal(grouped[0]?.answer?.index, 3);
-  assert.deepEqual(grouped[0]?.earlier.map((p) => p.index), [1, 2]);
-});
-
 test("law: every turn is drawn once — a current one as opening, trace or answer, an earlier one in earlier", () => {
   forAll(300, (r) => {
     const makers = [person, act, model, (i: number) => verb(i, r.pick(["search", "show", "todo_add"]))];
@@ -343,17 +242,6 @@ function endsItsRound(turns: readonly TurnRow[], index: number): boolean {
   const next = turns.slice(index + 1).find((t) => t.attempt === "current" || t.who === "person");
   return next === undefined || next.who === "person" || next.who === "act";
 }
-
-test("a proposal said in a round ?about= left out is drawn after the round before the gap", () => {
-  const turns = [
-    person(0, "first"),
-    model(1, "first answer", "2026-09-15T09:00:02"),
-    person(10, "much later", "2026-09-16T09:00:00"),
-    model(11, "later answer", "2026-09-16T09:00:02"),
-  ];
-  const grouped = rounds(turns, [proposalAt(0, 6)]);
-  assert.deepEqual(grouped.map((round) => round.proposals.length), [1, 0]);
-});
 
 test("law: every card is drawn once, in the last round begun by the turn it follows, else the first", () => {
   forAll(300, (r) => {

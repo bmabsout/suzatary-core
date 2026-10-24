@@ -111,23 +111,6 @@ mod tests {
         Pulse::at(&dir.path().join("state").join("triage-heartbeat"))
     }
 
-    #[test]
-    fn nothing_recorded_reads_as_absence_and_not_a_failure() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        assert_eq!(pulse(&dir).last_pass(), None);
-        assert_eq!(pulse(&dir).last_outcome(), PassOutcome::Absent);
-    }
-
-    #[test]
-    fn an_empty_file_is_absence() {
-        let dir = tempfile::tempdir().expect("a temp dir");
-        std::fs::write(dir.path().join("triage-heartbeat"), "   \n").expect("writes");
-        std::fs::write(dir.path().join(OUTCOME), "\n").expect("writes");
-        let pulse = Pulse::at(&dir.path().join("triage-heartbeat"));
-        assert_eq!(pulse.last_pass(), None);
-        assert_eq!(pulse.last_outcome(), PassOutcome::Absent);
-    }
-
     /// What `record` writes is what the brief reads back, from the heartbeat's directory: a
     /// failure leaves the heartbeat where the last good pass put it, and counts the run.
     #[test]

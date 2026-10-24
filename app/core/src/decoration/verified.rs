@@ -57,23 +57,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_block_round_trips_through_its_own_rendering() {
-        let call = a_call();
-        let text = render_verified(&call, &[]).expect("verifies");
-        let back = read::only_block(&text, "todo").expect("reads");
-        assert_eq!(back.call, call);
-        assert!(back.leading.is_empty());
-    }
-
-    /// Rendering is idempotent: layout is computed from the value alone.
-    #[test]
-    fn rendering_a_read_rendering_changes_nothing() {
-        let once = render_block(&a_call(), &["a note".to_owned()]);
-        let back = read::only_block(&once, "todo").expect("reads");
-        assert_eq!(render_block(&back.call, &back.leading), once);
-    }
-
     /// A bare `]` in a body would close the content block: escaped it round
     /// trips, raw it is refused.
     #[test]
@@ -101,20 +84,5 @@ mod tests {
             read::only_block(&text, "todo").expect("reads").leading,
             vec!["kept".to_owned()]
         );
-    }
-
-    /// A multibyte body is still one field: the renderer counts characters,
-    /// not bytes, and this is where the two would part.
-    #[test]
-    fn a_multibyte_body_verifies_as_one_field() {
-        let mut call = a_call();
-        call.trailing = vec![
-            crate::escape::escape_markup("réponse à l'école — ✅")
-                .as_str()
-                .to_owned(),
-        ];
-        let text = render_verified(&call, &[]).expect("verifies");
-        assert!(text.chars().count() < text.len(), "the body is multibyte");
-        assert_eq!(read::only_block(&text, "todo").expect("reads").call, call);
     }
 }

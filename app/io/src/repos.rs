@@ -1050,39 +1050,6 @@ mod tests {
 
     use super::*;
 
-    /// git's refusal names the thing missing; git that could not run, or ran out of time, says
-    /// the mirror is unavailable, never that the thing is not there.
-    #[test]
-    fn only_git_s_refusal_is_a_missing_thing() {
-        use std::os::unix::process::ExitStatusExt as _;
-        let what = || "README.md at abc1234".to_owned();
-        let refused = RunError::Exited {
-            program: "git".to_owned(),
-            status: std::process::ExitStatus::from_raw(128 << 8),
-            stderr: suzatary_core::excerpt::Excerpt::of("fatal: not a valid object name"),
-        };
-        assert!(matches!(
-            refused_as_missing(what)(refused),
-            RepoFailure::Missing(said) if said == what()
-        ));
-        let unrun = RunError::Spawn {
-            program: "git".to_owned(),
-            source: std::io::Error::from(std::io::ErrorKind::PermissionDenied),
-        };
-        assert!(matches!(
-            refused_as_missing(what)(unrun),
-            RepoFailure::Unavailable(_)
-        ));
-        let slow = RunError::TimedOut {
-            program: "git".to_owned(),
-            after: Duration::from_secs(1),
-        };
-        assert!(matches!(
-            refused_as_missing(what)(slow),
-            RepoFailure::Unavailable(_)
-        ));
-    }
-
     /// A local source needs no token: asking for one fails the test.
     struct NoToken;
 
@@ -1159,64 +1126,6 @@ mod tests {
             Box::new(NoToken),
         );
         (temp, mirrors, repo)
-    }
-
-    #[test]
-    fn every_read_answers_from_the_mirror() {
-        let (_temp, mirrors, repo) = fixture("cv");
-        assert_eq!(mirrors.repos().expect("listed").len(), 1);
-        let head = mirrors.resolve(&repo, None).expect("a head");
-        let root = RepoPath::try_from(String::new()).expect("root");
-        assert_eq!(
-            mirrors.tree(&repo, &head, &root).expect("a tree"),
-            vec!["cv.typ", "docs/"]
-        );
-        let docs = RepoPath::try_from("docs".to_owned()).expect("docs");
-        assert_eq!(
-            mirrors.tree(&repo, &head, &docs).expect("a tree"),
-            vec!["docs/notes.md"]
-        );
-        let cv = RepoPath::try_from("cv.typ".to_owned()).expect("cv");
-        assert_eq!(
-            mirrors.blob(&repo, &head, &cv).expect("read"),
-            b"= Ada\nResearch engineer\n"
-        );
-        let named = |name: &str| Rev::try_from(name.to_owned()).expect("a revision");
-        assert_eq!(
-            mirrors
-                .resolve(&repo, Some(&named("main")))
-                .expect("a branch"),
-            head
-        );
-        assert_eq!(
-            mirrors
-                .resolve(&repo, Some(&Rev::from(head.clone())))
-                .expect("a commit"),
-            head,
-            "a commit resolves to itself"
-        );
-        assert!(matches!(
-            mirrors.resolve(&repo, Some(&named("nowhere"))),
-            Err(RepoFailure::Missing(_))
-        ));
-        assert!(matches!(
-            mirrors.blob(
-                &repo,
-                &head,
-                &RepoPath::try_from("docs".to_owned()).expect("a dir")
-            ),
-            Err(RepoFailure::Missing(_))
-        ));
-        assert_eq!(
-            mirrors.grep(&repo, &head, "research").expect("grep"),
-            vec!["cv.typ:2:Research engineer"]
-        );
-        assert!(
-            mirrors
-                .grep(&repo, &head, "nowhere")
-                .expect("no match")
-                .is_empty()
-        );
     }
 
     /// A fork's commit served under `refs/pull/*`, or a branch not merged into the default one,

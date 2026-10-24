@@ -398,30 +398,6 @@ mod tests {
     /// A no-op `sleep` for tests that do not exercise a throttle.
     fn no_sleep(_: Duration) {}
 
-    /// A reply with no calls ends the loop after one round, and the round is recorded.
-    #[test]
-    fn a_reply_with_no_calls_ends_the_loop_at_one_round() {
-        let model = Fixed(vec![r#"{"say": "declined"}"#]);
-        let outcome = replay(
-            &model,
-            &BTreeMap::<String, Agent<'_>>::new(),
-            &deployment("life"),
-            "system prompt",
-            "a message needs triage".to_owned(),
-            "test-case",
-            DEFAULT_THROTTLE_ATTEMPTS,
-            &no_sleep,
-        );
-        let Outcome::Answered(answer) = outcome else {
-            panic!("a reply with no calls is an answer: {outcome:?}");
-        };
-        assert_eq!(answer.rounds.len(), 1);
-        assert_eq!(answer.rounds[0].say, "declined");
-        assert!(answer.objects.is_empty());
-        assert_eq!(answer.model, "fixed/test");
-        assert!(answer.usage.is_none(), "a Fixed candidate reports no usage");
-    }
-
     /// A `Model::turn` error ends the case as [`Outcome::Failed`], never as an [`Answer`].
     #[test]
     fn a_turn_error_is_failed_not_a_prose_answer() {
@@ -455,34 +431,6 @@ mod tests {
                 panic!("a turn error must not become an answer: {answer:?}")
             }
         }
-    }
-
-    /// A call naming a chain this replay holds no bundle for is refused, not a panic.
-    #[test]
-    fn an_unbundled_chain_is_refused_and_the_loop_still_ends() {
-        let model = Fixed(vec![
-            r#"{"say": "looking", "calls": [{"verb": "context", "args": {"chain": "nowhere"}}]}"#,
-            r#"{"say": "given up"}"#,
-        ]);
-        let outcome = replay(
-            &model,
-            &BTreeMap::<String, Agent<'_>>::new(),
-            &deployment("life"),
-            "system prompt",
-            "a message needs triage".to_owned(),
-            "test-case",
-            DEFAULT_THROTTLE_ATTEMPTS,
-            &no_sleep,
-        );
-        let Outcome::Answered(answer) = outcome else {
-            panic!("a refused call is still an answer: {outcome:?}");
-        };
-        assert_eq!(answer.rounds.len(), 2);
-        assert_eq!(answer.rounds[0].calls.len(), 1);
-        assert!(matches!(
-            answer.rounds[0].calls[0].outcome,
-            CallOutcome::Refused { .. }
-        ));
     }
 
     /// The round bound stops an unbounded script.
@@ -521,93 +469,6 @@ mod tests {
             u32::try_from(answer.rounds.len()).expect("a small round count"),
             MAX_ROUNDS
         );
-    }
-
-    /// A [`Model`] reporting usage, so [`sum_usage`] is tested over `replay`'s loop.
-    struct WithUsage(Vec<(&'static str, Option<TokenUsage>)>);
-
-    impl Model for WithUsage {
-        fn name(&self) -> String {
-            "with-usage/test".to_owned()
-        }
-        fn turn(
-            &self,
-            conversation: &Conversation,
-            _tools: &serde_json::Value,
-        ) -> Result<Reply, ModelError> {
-            let round = conversation
-                .turns
-                .iter()
-                .filter(|t| matches!(t, Turn::Model { .. }))
-                .count();
-            let (text, usage) = self
-                .0
-                .get(round)
-                .ok_or_else(|| ModelError::Failed("script exhausted".to_owned()))?;
-            Ok(Reply::parse(text).with_usage(*usage))
-        }
-    }
-
-    impl Throttling for WithUsage {}
-
-    /// Usage sums across rounds, and a round that reported nothing contributes nothing.
-    #[test]
-    fn usage_sums_across_rounds() {
-        let model = WithUsage(vec![
-            (
-                r#"{"say": "looking", "calls": [{"verb": "context", "args": {}}]}"#,
-                Some(TokenUsage {
-                    prompt_tokens: 100,
-                    completion_tokens: 10,
-                    cached_prompt_tokens: Some(20),
-                }),
-            ),
-            (
-                r#"{"say": "declined"}"#,
-                Some(TokenUsage {
-                    prompt_tokens: 50,
-                    completion_tokens: 5,
-                    cached_prompt_tokens: None,
-                }),
-            ),
-        ]);
-        let outcome = replay(
-            &model,
-            &BTreeMap::<String, Agent<'_>>::new(),
-            &deployment("life"),
-            "system prompt",
-            "a message needs triage".to_owned(),
-            "test-case",
-            DEFAULT_THROTTLE_ATTEMPTS,
-            &no_sleep,
-        );
-        let Outcome::Answered(answer) = outcome else {
-            panic!("a scripted candidate answers: {outcome:?}");
-        };
-        let usage = answer.usage.expect("two rounds reported usage");
-        assert_eq!(usage.prompt_tokens, 150);
-        assert_eq!(usage.completion_tokens, 15);
-        // One round reported a cached figure and the other none, and the sum keeps it.
-        assert_eq!(usage.cached_prompt_tokens, Some(20));
-    }
-
-    /// No round reporting usage is `None`, never a zero.
-    #[test]
-    fn no_round_reporting_usage_is_none() {
-        let outcome = replay(
-            &Fixed(vec![r#"{"say": "declined"}"#]),
-            &BTreeMap::<String, Agent<'_>>::new(),
-            &deployment("life"),
-            "system prompt",
-            "a message needs triage".to_owned(),
-            "test-case",
-            DEFAULT_THROTTLE_ATTEMPTS,
-            &no_sleep,
-        );
-        let Outcome::Answered(answer) = outcome else {
-            panic!("Fixed answers: {outcome:?}");
-        };
-        assert!(answer.usage.is_none());
     }
 
     /// A [`Model`] with a receipt on some rounds and not others.

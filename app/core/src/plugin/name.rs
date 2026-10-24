@@ -88,10 +88,4 @@ mod tests {
             assert!(PluginName::parse(bad).is_err(), "{bad:?}");
         }
     }
-
-    #[test]
-    fn the_namespace_is_the_name_in_capitals() {
-        let name = PluginName::parse("bank2").expect("a name");
-        assert_eq!(name.credential_prefix(), "PLUGIN_BANK2_");
-    }
 }

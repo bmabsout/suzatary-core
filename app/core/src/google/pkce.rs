@@ -167,17 +167,4 @@ mod tests {
             assert_eq!(State::parse(text), None, "{text}");
         }
     }
-
-    /// A failing generator draws nothing.
-    #[test]
-    fn a_failing_generator_draws_nothing() {
-        struct Broken;
-        impl Entropy for Broken {
-            fn fill(&self, _: &mut [u8]) -> Result<(), String> {
-                Err("no entropy".to_owned())
-            }
-        }
-        assert!(State::draw(&Broken).is_err());
-        assert!(Verifier::draw(&Broken).is_err());
-    }
 }

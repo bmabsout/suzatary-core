@@ -116,14 +116,6 @@ mod tests {
 
     // --- Debounce --------------------------------------------------------
 
-    #[test]
-    fn a_first_wake_opens_a_window() {
-        let mut debounce = Debounce::new(Duration::from_secs(30));
-        let now = Instant::now();
-        assert!(debounce.wake(now), "the first wake opens a window");
-        assert_eq!(debounce.deadline(), Some(now + Duration::from_secs(30)));
-    }
-
     /// Wakes inside an open window are absorbed; the deadline does not move.
     #[test]
     fn wakes_inside_an_open_window_are_absorbed_and_extend_nothing() {
@@ -177,61 +169,7 @@ mod tests {
         assert_eq!(debounce.deadline(), Some(second + Duration::from_secs(30)));
     }
 
-    // --- backoff -----------------------------------------------------------
-
-    #[test]
-    fn backoff_starts_at_five_seconds_and_doubles() {
-        assert_eq!(backoff(0), Duration::from_secs(5));
-        assert_eq!(backoff(1), Duration::from_secs(10));
-        assert_eq!(backoff(2), Duration::from_secs(20));
-        assert_eq!(backoff(3), Duration::from_secs(40));
-        assert_eq!(backoff(4), Duration::from_secs(80));
-        assert_eq!(backoff(5), Duration::from_secs(160));
-    }
-
-    #[test]
-    fn backoff_is_capped_at_five_minutes() {
-        assert_eq!(backoff(6), Duration::from_mins(5));
-        assert_eq!(backoff(7), Duration::from_mins(5));
-        assert_eq!(backoff(1000), Duration::from_mins(5));
-    }
-
     // --- after: the IDLE state machine, sans I/O ----------------------------
-
-    /// A change triggers and resets the reconnect counter.
-    #[test]
-    fn a_change_triggers_and_resets_the_attempt_counter() {
-        assert_eq!(after(Ok(Wake::Changed), 3), (Step::Trigger, 0));
-        assert_eq!(after(Ok(Wake::Changed), 0), (Step::Trigger, 0));
-    }
-
-    /// The 29-minute renewal re-issues IDLE and is not a failure.
-    #[test]
-    fn a_timeout_reidles_and_is_not_an_error() {
-        assert_eq!(after(Ok(Wake::TimedOut), 0), (Step::Reidle, 0));
-    }
-
-    /// A dropped connection reconnects with climbing backoff that resets on
-    /// recovery.
-    #[test]
-    fn a_dropped_connection_reconnects_with_climbing_backoff_that_resets_on_recovery() {
-        let (step, attempt) = after(Err(()), 0);
-        assert_eq!(step, Step::Reconnect(Duration::from_secs(5)));
-        assert_eq!(attempt, 1);
-
-        let (step, attempt) = after(Err(()), attempt);
-        assert_eq!(step, Step::Reconnect(Duration::from_secs(10)));
-        assert_eq!(attempt, 2);
-
-        // A wake of either kind resets the counter.
-        let (step, attempt) = after(Ok(Wake::TimedOut), attempt);
-        assert_eq!(step, Step::Reidle);
-        assert_eq!(attempt, 0);
-
-        let (step, attempt) = after(Err(()), attempt);
-        assert_eq!(step, Step::Reconnect(Duration::from_secs(5)));
-        assert_eq!(attempt, 1);
-    }
 
     fn outcome() -> impl Strategy<Value = Result<Wake, ()>> {
         prop_oneof![

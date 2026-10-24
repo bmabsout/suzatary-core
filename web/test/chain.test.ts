@@ -23,39 +23,38 @@ import assert from "node:assert/strict";
 import { DEFAULT_CHAIN, PROJECT_CHAIN, isChainName, remembered } from "../src/app/chain";
 import app from "../src/app/app";
 
-test("a slug is a lowercase letter and then slug characters, up to 32", () => {
-  assert.equal(isChainName("life"), true);
-  assert.equal(isChainName("suzatary"), true);
-  assert.equal(isChainName("a"), true);
-  assert.equal(isChainName("a-b-2"), true);
-  assert.equal(isChainName("a".repeat(32)), true);
-});
-
-test("the traversal, the shell and the separator are all refused", () => {
-  // The one this guard exists for: `/api/../fold` is another deployment's
-  // question asked of this box.
-  assert.equal(isChainName(".."), false);
-  assert.equal(isChainName("../life"), false);
-  assert.equal(isChainName("life/../mail"), false);
-  assert.equal(isChainName("life mail"), false);
-  assert.equal(isChainName("life;rm"), false);
-  assert.equal(isChainName("%2e%2e"), false);
-});
-
-test("an uppercase name, an empty one and a 33-character one are refused", () => {
-  assert.equal(isChainName("A"), false);
-  assert.equal(isChainName("Life"), false);
-  assert.equal(isChainName(""), false);
-  assert.equal(isChainName("a".repeat(33)), false);
-  // A slug starts with a LETTER, so a leading digit or dash is not one.
-  assert.equal(isChainName("1life"), false);
-  assert.equal(isChainName("-life"), false);
-});
-
-test("the guard is total: anything that is not a string is not a chain name", () => {
-  for (const value of [null, undefined, 0, 1, {}, [], ["life"], true]) {
-    assert.equal(isChainName(value), false);
-  }
+test("the guard admits a slug of up to 32 and refuses traversal, separators, case, length and non-strings", () => {
+  const cases: [unknown, boolean][] = [
+    ["life", true],
+    ["suzatary", true],
+    ["a", true],
+    ["a-b-2", true],
+    ["a".repeat(32), true],
+    // The one this guard exists for: `/api/../fold` is another deployment's
+    // question asked of this box.
+    ["..", false],
+    ["../life", false],
+    ["life/../mail", false],
+    ["life mail", false],
+    ["life;rm", false],
+    ["%2e%2e", false],
+    ["A", false],
+    ["Life", false],
+    ["", false],
+    ["a".repeat(33), false],
+    // A slug starts with a LETTER, so a leading digit or dash is not one.
+    ["1life", false],
+    ["-life", false],
+    [null, false],
+    [undefined, false],
+    [0, false],
+    [1, false],
+    [{}, false],
+    [[], false],
+    [["life"], false],
+    [true, false],
+  ];
+  for (const [value, ok] of cases) assert.equal(isChainName(value), ok, JSON.stringify(value));
 });
 
 test("a store this browser cannot read opens on the first chain", () => {

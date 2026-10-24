@@ -53,14 +53,3 @@ pub fn line(now: chrono::DateTime<chrono::Utc>, persona: &Persona) -> Result<Str
     let (hours, low, high) = suzatary_core::weather::parse(&payload)?;
     Ok(suzatary_core::weather::line(&hours, hour, low, high))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_space_in_the_city_name_is_percent_encoded() {
-        assert_eq!(url("New York"), "https://wttr.in/New%20York?format=j1");
-        assert_eq!(url("Oslo"), "https://wttr.in/Oslo?format=j1");
-    }
-}

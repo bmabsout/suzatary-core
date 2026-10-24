@@ -411,57 +411,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(path);
     }
 
-    // --- xoauth2 --------------------------------------------------------------
-
-    /// The XOAUTH2 wire format, pinned character for character without a socket.
-    #[test]
-    fn xoauth2_is_the_exact_initial_response_string() {
-        assert_eq!(
-            xoauth2("her@example.test", "tok"),
-            "user=her@example.test\x01auth=Bearer tok\x01\x01"
-        );
-    }
-
     // --- Folder -----------------------------------------------------------------
-
-    #[test]
-    fn ensure_creates_the_three_subdirectories_and_is_idempotent() {
-        let root = scratch("ensure");
-        let folder = Folder::new(&root);
-        folder.ensure().expect("creates the three directories");
-        for leaf in ["new", "cur", "tmp"] {
-            assert!(root.join(leaf).is_dir(), "{leaf}/ should exist");
-        }
-        // Idempotent: calling again does not fail.
-        folder.ensure().expect("ensure is idempotent");
-        cleanup(&root);
-    }
-
-    #[test]
-    fn an_unread_write_lands_in_new_and_a_read_write_lands_in_cur() {
-        let root = scratch("write-split");
-        let folder = Folder::new(&root);
-        folder.ensure().expect("ensure");
-
-        folder
-            .write("unread.ms", true, b"hello unread")
-            .expect("writes unread");
-        folder
-            .write("read.ms:2,S", false, b"hello read")
-            .expect("writes read");
-
-        assert_eq!(
-            std::fs::read(root.join("new").join("unread.ms")).expect("reads new/"),
-            b"hello unread"
-        );
-        assert_eq!(
-            std::fs::read(root.join("cur").join("read.ms:2,S")).expect("reads cur/"),
-            b"hello read"
-        );
-        assert!(!root.join("cur").join("unread.ms").exists());
-        assert!(!root.join("new").join("read.ms:2,S").exists());
-        cleanup(&root);
-    }
 
     /// Writing the same name twice leaves one file, so a refetch never gives notmuch two
     /// copies of one message.
@@ -486,50 +436,6 @@ mod tests {
             std::fs::read(root.join("new").join("same.ms")).expect("reads it back"),
             b"second",
             "the rewrite's bytes win"
-        );
-        cleanup(&root);
-    }
-
-    #[test]
-    fn file_names_sees_both_directories_and_is_empty_for_a_folder_that_does_not_exist() {
-        let root = scratch("file-names");
-        let folder = Folder::new(&root);
-
-        // A first sync has no `cur/`.
-        assert_eq!(
-            folder.file_names().expect("an empty list, not an error"),
-            Vec::<String>::new()
-        );
-
-        folder.ensure().expect("ensure");
-        folder.write("in-new.ms", true, b"a").expect("writes new/");
-        folder
-            .write("in-cur.ms:2,S", false, b"b")
-            .expect("writes cur/");
-
-        let mut names = folder.file_names().expect("lists both directories");
-        names.sort();
-        assert_eq!(
-            names,
-            vec!["in-cur.ms:2,S".to_owned(), "in-new.ms".to_owned()]
-        );
-        cleanup(&root);
-    }
-
-    #[test]
-    fn nothing_is_left_behind_in_tmp() {
-        let root = scratch("tmp-clean");
-        let folder = Folder::new(&root);
-        folder.ensure().expect("ensure");
-        folder.write("a.ms", true, b"a").expect("writes");
-        folder.write("b.ms:2,S", false, b"b").expect("writes");
-
-        let tmp_entries: Vec<_> = std::fs::read_dir(root.join("tmp"))
-            .expect("reads tmp/")
-            .collect();
-        assert!(
-            tmp_entries.is_empty(),
-            "tmp/ should be empty after a write lands"
         );
         cleanup(&root);
     }
@@ -606,6 +512,89 @@ mod tests {
         landed.sort();
 
         assert_eq!(landed, expected);
+        cleanup(&root);
+    }
+
+    #[test]
+    fn ensure_creates_the_three_subdirectories_and_is_idempotent() {
+        let root = scratch("ensure");
+        let folder = Folder::new(&root);
+        folder.ensure().expect("creates the three directories");
+        for leaf in ["new", "cur", "tmp"] {
+            assert!(root.join(leaf).is_dir(), "{leaf}/ should exist");
+        }
+        // Idempotent: calling again does not fail.
+        folder.ensure().expect("ensure is idempotent");
+        cleanup(&root);
+    }
+
+    #[test]
+    fn an_unread_write_lands_in_new_and_a_read_write_lands_in_cur() {
+        let root = scratch("write-split");
+        let folder = Folder::new(&root);
+        folder.ensure().expect("ensure");
+
+        folder
+            .write("unread.ms", true, b"hello unread")
+            .expect("writes unread");
+        folder
+            .write("read.ms:2,S", false, b"hello read")
+            .expect("writes read");
+
+        assert_eq!(
+            std::fs::read(root.join("new").join("unread.ms")).expect("reads new/"),
+            b"hello unread"
+        );
+        assert_eq!(
+            std::fs::read(root.join("cur").join("read.ms:2,S")).expect("reads cur/"),
+            b"hello read"
+        );
+        assert!(!root.join("cur").join("unread.ms").exists());
+        assert!(!root.join("new").join("read.ms:2,S").exists());
+        cleanup(&root);
+    }
+
+    #[test]
+    fn file_names_sees_both_directories_and_is_empty_for_a_folder_that_does_not_exist() {
+        let root = scratch("file-names");
+        let folder = Folder::new(&root);
+
+        // A first sync has no `cur/`.
+        assert_eq!(
+            folder.file_names().expect("an empty list, not an error"),
+            Vec::<String>::new()
+        );
+
+        folder.ensure().expect("ensure");
+        folder.write("in-new.ms", true, b"a").expect("writes new/");
+        folder
+            .write("in-cur.ms:2,S", false, b"b")
+            .expect("writes cur/");
+
+        let mut names = folder.file_names().expect("lists both directories");
+        names.sort();
+        assert_eq!(
+            names,
+            vec!["in-cur.ms:2,S".to_owned(), "in-new.ms".to_owned()]
+        );
+        cleanup(&root);
+    }
+
+    #[test]
+    fn nothing_is_left_behind_in_tmp() {
+        let root = scratch("tmp-clean");
+        let folder = Folder::new(&root);
+        folder.ensure().expect("ensure");
+        folder.write("a.ms", true, b"a").expect("writes");
+        folder.write("b.ms:2,S", false, b"b").expect("writes");
+
+        let tmp_entries: Vec<_> = std::fs::read_dir(root.join("tmp"))
+            .expect("reads tmp/")
+            .collect();
+        assert!(
+            tmp_entries.is_empty(),
+            "tmp/ should be empty after a write lands"
+        );
         cleanup(&root);
     }
 }

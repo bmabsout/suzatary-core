@@ -54,49 +54,6 @@ fn start_with(mailbox: common::FakeMailbox) -> String {
     )
 }
 
-/// The inbox shape: the roster of accounts, and a badge per row.
-#[test]
-fn the_inbox_shape_carries_the_roster_and_badges() {
-    let mailbox = common::FakeMailbox::new()
-        .with_accounts(vec![
-            "ada@university.example".to_owned(),
-            "ada@personal".to_owned(),
-        ])
-        .with_rows(vec![a_row("aa", "ada@university.example")]);
-    let base = start_with(mailbox);
-    let mut response = common::get(&format!("{base}/api/mail/inbox"));
-    assert_eq!(common::status(&response), 200);
-    let body = common::body_json(&mut response);
-    assert_eq!(
-        body["accounts"],
-        serde_json::json!(["ada@university.example", "ada@personal"])
-    );
-    assert_eq!(body["messages"][0]["account"], "ada@university.example");
-}
-
-/// An account narrows the query and an unknown one is refused.
-#[test]
-fn an_account_narrows_and_an_unknown_one_is_refused() {
-    let mailbox = common::FakeMailbox::new()
-        .with_accounts(vec!["ada@university.example".to_owned()])
-        .with_rows(vec![a_row("aa", "ada@university.example")]);
-    let base = start_with(mailbox);
-    let response = common::get(&format!(
-        "{base}/api/mail/inbox?account=ada%40university.example"
-    ));
-    assert_eq!(common::status(&response), 200);
-    let mut refused = common::get(&format!(
-        "{base}/api/mail/inbox?account=nobody%40example.com"
-    ));
-    assert_eq!(common::status(&refused), 400);
-    assert!(
-        common::body_json(&mut refused)["error"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("no such account")
-    );
-}
-
 /// The limit is capped, not obeyed.
 #[test]
 fn the_limit_is_capped_not_obeyed() {
@@ -139,18 +96,6 @@ fn the_todos_a_message_produced_come_back_with_it() {
         .map(|t| t["todo"].as_str().unwrap_or_default())
         .collect();
     assert_eq!(todos, vec!["email-harrow"]);
-}
-
-/// A message the corpus lacks is a 404 that says it is no longer stored.
-#[test]
-fn a_message_the_corpus_lacks_is_404() {
-    let base = start_with(common::FakeMailbox::new());
-    let mut response = common::get(&format!("{base}/api/mail/message/gone@example.com"));
-    assert_eq!(common::status(&response), 404);
-    assert_eq!(
-        common::body_json(&mut response)["error"],
-        suzatary_core::mail::gone::SAID
-    );
 }
 
 /// EVERY READING TOLERATES A DANGLING MAIL REFERENCE: with the message gone (its account removed
@@ -203,37 +148,6 @@ fn an_id_that_would_be_notmuch_syntax_is_refused_before_the_corpus() {
         assert_eq!(common::status(&response), 400, "{bad}");
     }
     assert_eq!(caps.mailbox.asked_messages(), Vec::<String>::new());
-}
-
-/// An unknown conversation is a 404, and a malformed one a 400.
-#[test]
-fn unknown_conversation_404_malformed_400() {
-    let base = start_with(common::FakeMailbox::new());
-    assert_eq!(
-        common::status(&common::get(&format!(
-            "{base}/api/mail/thread/000000000000dead"
-        ))),
-        404
-    );
-    assert_eq!(
-        common::status(&common::get(&format!(
-            "{base}/api/mail/thread/not-a-thread"
-        ))),
-        400
-    );
-}
-
-/// A thread comes back with its messages, and the todos they produced.
-#[test]
-fn a_thread_comes_back_with_its_messages() {
-    let hash = common::AGENTS_TODO_MESSAGE_HASH;
-    let mailbox = common::FakeMailbox::new().with_thread("000000000000c3fb", vec![a_message(hash)]);
-    let base = start_with(mailbox);
-    let mut response = common::get(&format!("{base}/api/mail/thread/000000000000c3fb"));
-    assert_eq!(common::status(&response), 200);
-    let body = common::body_json(&mut response);
-    assert_eq!(body["thread"], "000000000000c3fb");
-    assert_eq!(body["messages"][0]["todos"][0]["todo"], "email-harrow");
 }
 
 /// Every mail route is a read: none of them appears among the writing routes.

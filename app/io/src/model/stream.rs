@@ -184,63 +184,36 @@ pub fn result_of(line: &str) -> Result<Option<Ended>, Unreadable> {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str = include_str!("../../tests/fixtures/claude-stream-json.jsonl");
-
-    fn fixture_lines() -> Vec<&'static str> {
-        FIXTURE
+    /// Every line of a real `claude --output-format stream-json` run reads as an event, none
+    /// dropped for a shape this box misread: one text delta, none from thinking or a
+    /// signature, and one result line carrying the session, the text and the usage.
+    #[test]
+    fn a_recorded_run_reads_line_by_line() {
+        let lines: Vec<&str> = include_str!("../../tests/fixtures/claude-stream-json.jsonl")
             .lines()
             .filter(|line| !line.trim().is_empty())
-            .collect()
-    }
-
-    #[test]
-    fn exactly_one_fixture_line_yields_a_text_delta() {
-        let texts: Vec<String> = fixture_lines()
-            .iter()
-            .filter_map(|line| delta_of(line))
             .collect();
-        assert_eq!(texts, vec!["hello there".to_owned()]);
-    }
-
-    #[test]
-    fn thinking_and_signature_deltas_yield_no_text() {
-        for line in fixture_lines() {
+        for line in &lines {
+            assert!(Event::of(line).is_some(), "{line}");
             if line.contains("thinking_delta") || line.contains("signature_delta") {
                 assert_eq!(delta_of(line), None, "{line}");
             }
         }
-    }
-
-    /// Every line of a real run reads as an event: none is dropped for a shape this box
-    /// misread.
-    #[test]
-    fn every_fixture_line_is_an_event() {
-        for line in fixture_lines() {
-            assert!(Event::of(line).is_some(), "{line}");
-        }
-    }
-
-    #[test]
-    fn the_result_line_carries_the_session_id_the_text_and_the_usage() {
-        let ended = fixture_lines()
-            .into_iter()
-            .find_map(|line| result_of(line).expect("readable"))
-            .expect("one result line");
+        let texts: Vec<String> = lines.iter().filter_map(|line| delta_of(line)).collect();
+        assert_eq!(texts, vec!["hello there".to_owned()]);
+        let results: Vec<Ended> = lines
+            .iter()
+            .filter_map(|line| result_of(line).expect("readable"))
+            .collect();
+        let [ended] = results.as_slice() else {
+            panic!("one result line, not {}", results.len());
+        };
         assert_eq!(
             ended.session_id.as_str(),
             "00000000-0000-4000-8000-000000000001"
         );
         assert_eq!(ended.result.as_deref(), Some("hello there"));
-        assert!(ended.usage.expect("usage").output_tokens > 0);
-    }
-
-    #[test]
-    fn only_the_result_line_parses_as_one() {
-        let results: Vec<Ended> = fixture_lines()
-            .iter()
-            .filter_map(|line| result_of(line).expect("readable"))
-            .collect();
-        assert_eq!(results.len(), 1);
+        assert!(ended.usage.as_ref().expect("usage").output_tokens > 0);
     }
 
     /// A result missing what every result carries is a result this box cannot read, never no

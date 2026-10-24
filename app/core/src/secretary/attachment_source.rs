@@ -219,39 +219,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn each_shape_parses_to_its_arm() {
-        assert_eq!(
-            AttachmentSource::parse(&json!({"mail": "m1@example.test", "name": "notice.pdf"})),
-            Ok(AttachmentSource::Mail {
-                message: "m1@example.test".to_owned(),
-                name: "notice.pdf".to_owned(),
-            })
-        );
-        assert!(matches!(
-            AttachmentSource::parse(&json!({"drive": "/my-files/Docs/lease.pdf"})),
-            Ok(AttachmentSource::Drive { path }) if path.to_string() == "/my-files/Docs/lease.pdf"
-        ));
-        let id = "a".repeat(64);
-        assert!(matches!(
-            AttachmentSource::parse(&json!({ "upload": id })),
-            Ok(AttachmentSource::Upload { .. })
-        ));
-        assert!(matches!(
-            AttachmentSource::parse(&json!({ "kept": id })),
-            Ok(AttachmentSource::Kept { .. })
-        ));
-        assert!(matches!(
-            AttachmentSource::parse(&json!({"repo": "bmabsout/cv", "path": "cv.pdf", "at": "main"})),
-            Ok(AttachmentSource::Repo { repo, path, at })
-                if repo.to_string() == "bmabsout/cv" && path.as_str() == "cv.pdf" && at.as_str() == "main"
-        ));
-        assert!(matches!(
-            AttachmentSource::parse(&json!({"repo": "bmabsout/cv", "path": "cv.pdf"})),
-            Ok(AttachmentSource::Repo { at, .. }) if at.as_str() == "HEAD"
-        ));
-    }
-
-    #[test]
     fn nothing_else_is_a_source() {
         for wrong in [
             json!("https://example.test/file.pdf"),

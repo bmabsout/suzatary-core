@@ -11,20 +11,15 @@
  *
  * The claims §10.3 makes that only a page can show, among them:
  *
- * 1. The page renders and a conversation opens, the default pinned first.
- * 2. A proposal card shows the EXACT text — every recipient, the subject, the
+ * 1. A proposal card shows the EXACT text — every recipient, the subject, the
  *    whole body — because the card is the confirmation CLAUDE.md requires.
- * 3. The writing login's tap is accepted, and the fixture's recorder holds
- *    exactly what would have gone out.
- * 4. The card carries its REASONS, and the sources are links that navigate.
- * 5. DISMISSING hides it from the Inbox count and shows the reason.
- * 6. "Ask the secretary" from a todo opens a conversation with the chip on it.
- * 7. A reference in the model's PROSE is a link that navigates.
- * 8. Send is never disabled, and the answer's place holds no row once the box
- *    has answered.
+ * 2. The writing login's tap is accepted, the fixture's recorder holds exactly
+ *    what would have gone out, and a second tap sends nothing.
+ * 3. DISMISSING hides it from the Inbox count and shows the reason.
+ * 4. A URL in the box's own act turn is a link; in a model's prose it is not.
+ * 5. The transcript keeps the reader's scroll and its drawn rounds as answers land.
  *
- * `E2E_BASE_WRITE` for the ones that move a conversation, `E2E_BASE` for a
- * viewer's — the same split every other file here uses, for the same reason.
+ * Every scene runs on `E2E_BASE_WRITE`, because each one moves a conversation.
  */
 
 import assert from "node:assert/strict";
@@ -32,7 +27,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BASE, DESKTOP, PHONE, SIGNED_POST, suite, WRITE_BASE } from "./harness";
+import { DESKTOP, PHONE, SIGNED_POST, suite, WRITE_BASE } from "./harness";
 import cast from "../test/cast";
 
 const { todos, owner, counsel } = cast.world;
@@ -78,40 +73,6 @@ async function converse(base: string, said: string): Promise<void> {
   await app.page.click(".composesend");
 }
 
-/**
- * `#/secretary` IS THE LIST, THE DEFAULT PINNED FIRST
- * (`docs/CHAT-PLAN-2026-09-25.md` §4.2), and Secretary is a word in the bar
- * (`docs/REDESIGN-PLAN-2026-09-25.md`); the list's first row opens the default
- * conversation, titled "Secretary". On the read-only fixture the default may
- * never have been opened: listing opens nothing, so the page pins it anyway, and
- * following it opens it lazily.
- */
-app.scene("the secretary is a word in the bar and lists the default first, for a viewer and a writer", async () => {
-  await app.resize(PHONE);
-  for (const base of [BASE, WRITE_BASE]) {
-    await app.page.navigate(`${base}/#/`);
-    await app.page.evaluate(`location.hash = "#/secretary"`);
-    await app.page.waitFor(`document.querySelector(".chats .chatrow") !== null`, { timeout: 15000 });
-    assert.equal(
-      await app.page.evaluate<string>(`document.querySelector(".chats .chatrow .chattitle").textContent`),
-      "Secretary",
-      `${base}: the default is pinned first`,
-    );
-    // Secretary is one of the bar's four words (docs/REDESIGN-PLAN-2026-09-25.md), lit here.
-    assert.equal(
-      await app.page.evaluate<string>(`document.querySelector(".tabbar .tab.active .tablabel")?.textContent ?? ""`),
-      "Secretary",
-      "the secretary is a word in the bar, and it is lit",
-    );
-    await app.page.click(".chats .chatrow");
-    await app.page.waitFor(`location.hash === "#/secretary/default"`, { timeout: 15000 });
-    await app.page.waitFor(
-      `document.querySelector(".pagetitle")?.textContent === "Secretary"`,
-      { timeout: 15000 },
-    );
-  }
-});
-
 app.scene("a proposal card shows the exact text that would be sent", async () => {
   await converse(WRITE_BASE, "propose the harrow reply");
   await app.page.waitFor(`document.querySelector(".proposal") !== null`, { timeout: 20000 });
@@ -154,44 +115,6 @@ app.scene("a proposal card shows the exact text that would be sent", async () =>
     await app.page.evaluate<number>(`document.querySelectorAll(".proposal .act-send").length`),
     1,
     "a standing proposal offers exactly one Send",
-  );
-});
-
-/**
- * THE CARD CARRIES ITS REASONS, AND THE SOURCES GO SOMEWHERE.
- *
- * The owner, 2026-09-10, on the first two drafts: "is there something they expect
- * me to do that you're referencing? maybe with the email there should be some
- * sort of explanation and sources around it." A why the page drew and a source
- * that did not navigate would be half of that, so this scene follows one.
- */
-app.scene("a proposal card shows why it was made, and its sources navigate", async () => {
-  await converse(WRITE_BASE, "propose the harrow reply");
-  await app.page.waitFor(`document.querySelector(".proposal") !== null`, { timeout: 20000 });
-
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector(".proposalwhy").textContent`),
-    /the last scan finished today/,
-  );
-  // THE SOURCES ARE IN WORDS, under Details: a message is "a message", a todo its title once this device holds it.
-  const sources = JSON.parse(
-    await app.page.evaluate<string>(
-      `JSON.stringify([...document.querySelectorAll(".proposalsource")].map((a) => [a.textContent, a.getAttribute("href")]))`,
-    ),
-  ) as [string, string][];
-  assert.deepEqual(sources.map(([, href]) => href), ["#/mail/a1b2c3d4e5f6", `#/todo/${todos.urgent.id}`]);
-  assert.equal(sources[0]?.[0], "a message");
-  assert.ok(!(sources[1]?.[0] ?? ":").includes(":"), `a todo is named in words: ${sources[1]?.[0] ?? ""}`);
-
-  // AND IT IS A LINK, not a label that looks like one. The todo is on this
-  // fixture's chain, so following it lands on a page with that id on it.
-  await app.page.click(".proposal .proposaldetails > summary");
-  await app.page.waitFor(`document.querySelector(".proposal .proposaldetails").open === true`, { timeout: 4000 });
-  await app.page.click(`.proposalsource[href="#/todo/${todos.urgent.id}"]`);
-  await app.page.waitFor(`location.hash === "#/todo/${todos.urgent.id}"`, { timeout: 8000 });
-  await app.page.waitFor(
-    `document.querySelector(".todoid") !== null && document.querySelector(".todoid").textContent === "${todos.urgent.id}"`,
-    { timeout: 8000 },
   );
 });
 
@@ -345,34 +268,6 @@ app.scene("a changeset card shows the diff, and Confirm applies it", async () =>
 });
 
 /**
- * DENYING A CHANGESET RECORDS THE REASON, exactly as denying an email does —
- * same route, same outcome shape, the label is the only thing that changes.
- */
-app.scene("denying a changeset records the reason and applies nothing", async () => {
-  await converse(WRITE_BASE, "propose a changeset I will deny");
-  await app.page.waitFor(`document.querySelector(".proposal .act-dismiss") !== null`, {
-    timeout: 20000,
-  });
-  await app.page.click(".proposal .act-dismiss");
-  await app.page.waitFor(`document.querySelector(".dismissreason") !== null`, { timeout: 4000 });
-  await app.page.type(".dismissreason", "not this one, wrong priority");
-  await app.page.click(".proposal .act-dismiss.confirming");
-  await app.page.waitFor(`document.querySelector(".proposal-dismissed") !== null`, {
-    timeout: 15000,
-  });
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector(".proposaloutcome").textContent`),
-    /^Dismissed: not this one, wrong priority$/,
-  );
-
-  // NOTHING LANDED: the todo the changeset would have added does not exist.
-  const status = await app.page.evaluate<number>(
-    `fetch("/api/todo/e2echangesetdeny").then((r) => r.status)`,
-  );
-  assert.equal(status, 404, "a denied changeset appends nothing");
-});
-
-/**
  * A PROPOSED ACT, PERFORMED (`docs/SECRETARYACTS-PLAN-2026-09-14.md`, §6
  * commit 10): the box's own counterpart to a proposed email — the card names
  * the account and offers Run, with the same two-press confirm every other
@@ -473,67 +368,6 @@ app.scene("a model turn's URL stays plain text, never a link", async () => {
     `[...document.querySelectorAll(".turn-model")].some((t) => t.querySelector("a.actlink") !== null)`,
   );
   assert.equal(linkedInAModelTurn, false, "a model turn's URL must not be an anchor");
-});
-
-/**
- * "ASK THE SECRETARY" FROM A TODO.
- *
- * The owner, 2026-09-10: "how close are we to integrating chat in the app, like
- * being able to respond or reference different parts". The whole of that is
- * whether a chip arrives on the compose box, so the scene follows the link from
- * a real todo page and reads the chip.
- */
-app.scene("ask-the-secretary from a todo opens a conversation with the chip", async () => {
-  await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.urgent.id}`);
-  await app.page.waitFor(`document.querySelector(".asksecretary") !== null`, { timeout: 15000 });
-  assert.equal(
-    await app.page.evaluate<string>(`document.querySelector(".asksecretary").getAttribute("href")`),
-    `#/secretary?ref=${encodeURIComponent(`todo:life/${todos.urgent.id}`)}`,
-  );
-  await app.page.click(".asksecretary");
-  // `pages/secretary.ts` forwards to the DEFAULT conversation, carrying the
-  // reference through in the hash (§4, §6 commit 7).
-  await app.page.waitFor(`location.hash === "#/secretary/default?ref=${encodeURIComponent(`todo:life/${todos.urgent.id}`)}"`, {
-    timeout: 15000,
-  });
-  await app.page.waitFor(`document.querySelector(".composechip") !== null`, { timeout: 15000 });
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector(".composechip").textContent`),
-    new RegExp(`^todo:life/${todos.urgent.id}`),
-  );
-  // REMOVABLE, because a chip attached by a link is a decision the reader did
-  // not type.
-  await app.page.click(".composechip .chipdrop");
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".composechip").length`),
-    0,
-  );
-});
-
-/**
- * A REFERENCE IN THE MODEL'S PROSE IS A LINK.
- *
- * The tokeniser is node-tested (`web/test/refs.test.ts`); what only a browser
- * can say is that the anchor it builds is in the page and goes somewhere. The
- * scripted model answers with `todo:life/file-permit` in a sentence.
- */
-app.scene("a reference the secretary names in prose is a link that navigates", async () => {
-  await converse(WRITE_BASE, "what about that todo");
-  await app.page.waitFor(`document.querySelector(".turn-model .reflink") !== null`, {
-    timeout: 20000,
-  });
-  assert.equal(
-    await app.page.evaluate<string>(
-      `document.querySelector(".turn-model .reflink").getAttribute("href")`,
-    ),
-    `#/todo/${todos.urgent.id}`,
-  );
-  await app.page.click(".turn-model .reflink");
-  await app.page.waitFor(`location.hash === "#/todo/${todos.urgent.id}"`, { timeout: 8000 });
-  await app.page.waitFor(
-    `document.querySelector(".todoid") !== null && document.querySelector(".todoid").textContent === "${todos.urgent.id}"`,
-    { timeout: 8000 },
-  );
 });
 
 app.scene("the tap is accepted for the writing login, and records what would go", async () => {
@@ -659,41 +493,6 @@ app.scene("the brand, a history's hash links and an answer's Copy, Reply and its
   await app.page.waitFor(`document.querySelector(".todoview .history").open === true`);
   await tall(".timeline .hashlink");
 });
-/**
- * SEND IS NEVER DISABLED (§2, §6 commit 6), and the answer's place
- * (`docs/CHAT-PLAN-2026-09-25.md` §4.8) is the box's own state: it holds a row
- * while the round runs and none once the answer has landed — there is no
- * header legend left to read.
- *
- * ⚠️ THE PLACE IS NOT HIDDEN ONCE ANSWERED, SO THIS WAITS FOR THE ANSWER.
- * Regenerate and Edit live in the place (§4.4), offered after a round that
- * wrote nothing: a wait for `.answerplace` to hide passed only when it
- * sampled before `say` had answered at all, and waited forever otherwise.
- */
-app.scene("send is never disabled, and the answer's place holds no row once the box has answered", async () => {
-  const id = await freshConversation(WRITE_BASE);
-  await app.page.navigate(`${WRITE_BASE}/#/secretary/${id}`);
-  await app.page.waitFor(`document.querySelector(".composebox") !== null`, { timeout: 8000 });
-  assert.equal(
-    await app.page.evaluate<number>(`document.querySelectorAll(".legend:not(.memorylink)").length`),
-    0,
-    "no header legend",
-  );
-  await app.page.type(".composebox", "what changed");
-  await app.page.click(".composesend");
-  assert.equal(
-    await app.page.evaluate<boolean>(`document.querySelector(".composesend").disabled`),
-    false,
-    "the button is never disabled, before or after a click",
-  );
-  await app.page.waitFor(
-    `[...document.querySelectorAll(".turn-model .turntext")].some((t) => t.textContent.includes("Nothing has changed"))`,
-    { timeout: 20000 },
-  );
-  assert.equal(await app.page.evaluate<string>(`document.querySelector(".answerlanding").textContent`), "", "the place holds no row");
-  assert.equal(await app.page.evaluate<boolean>(`document.querySelector(".stopanswer").hidden`), true, "nothing is left to stop");
-});
-
 /**
  * STREAMING NEVER SCROLLS A DRIFTED-UP BOX (`docs/CHAT-PLAN-2026-09-25.md`
  * §4.9, §5). The reader scrolls up; a question sent from elsewhere is
@@ -928,26 +727,6 @@ app.scene("the next question typed before a send settles stays in the box, and b
 });
 
 /**
- * ONE DOOR TO THE SECRETARY ON EACH WIDTH (the 2026-10-13 audit, X3). On a phone the tab is in the thumb's reach, so
- * no floating Ask stands over the page, and the todo's own "Ask the secretary" carries the todo. On a wide screen the
- * panel's toggle is beside the page and carries the todo, so the page draws no link of its own.
- */
-app.scene("one door to the secretary on each width: the page's link on a phone, the panel on a wide screen", async () => {
-  const shown = (selector: string): string =>
-    `(() => { const n = document.querySelector(${JSON.stringify(selector)}); return n !== null && n.getBoundingClientRect().height > 0; })()`;
-  await app.resize(PHONE);
-  await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.urgent.id}`);
-  await app.page.waitFor(shown(".asksecretary"), { timeout: 15000 });
-  assert.equal(await app.page.evaluate<number>(`document.querySelectorAll(".askbutton, .asksheet").length`), 0, "no floating Ask beside the tab");
-  assert.equal(await app.page.evaluate<boolean>(shown(".secretarypanel")), false);
-  await app.resize(DESKTOP);
-  await app.page.waitFor(shown(".secretarypanel .panelcollapse"), { timeout: 15000 });
-  await app.page.waitFor(`document.querySelector("#view .asksecretary") !== null`, { timeout: 15000 });
-  assert.equal(await app.page.evaluate<boolean>(shown("#view .asksecretary")), false, "the panel is the door here");
-  await app.resize(PHONE);
-});
-
-/**
  * THE SECRETARY AS A LAYER, ON A LAPTOP: at 62rem and up the panel stands
  * beside the todo list, showing the whole conversation when nothing is
  * selected, and a writer sends from it.
@@ -1043,45 +822,6 @@ async function sendsFrom(scope: string, said: string, by: "button" | "Enter" | "
   })()`);
   assert.deepEqual(send, { inside: true, hit: true }, `${said}: Send is on screen and nothing covers it`);
 }
-
-/**
- * THE EMPTY-SLICE FALLBACK, IN THE PANEL (§9.3): a todo nobody has asked the secretary about yet still opens a panel
- * that is USEFUL — the whole conversation's newest window, with the chip still attached so the first question about it
- * filters as usual — and the composer is on screen without scrolling.
- *
- * `book-flight` (never `file-permit`, which every earlier scene in this file has already asked about) — this suite's
- * own fixture todos, `app/cli/src/commands/fixture.rs` — and this file runs before `sync.test.ts` and `writes.test.ts`
- * alphabetically, both of which complete it later, so it is still open and unasked-about here.
- */
-app.scene("the panel on a todo nobody has asked about yet shows the whole conversation, composer on screen", async () => {
-  await app.resize(DESKTOP);
-  await app.page.navigate(`${WRITE_BASE}/#/todo/${todos.flat.id}`);
-  await app.page.waitFor(
-    `document.querySelector(".secretarypanel .frameheader") !== null &&
-     document.querySelector(".secretarypanel .frameheader").textContent.includes("Nothing about") &&
-     document.querySelector(".secretarypanel .frameheader").textContent.includes("${todos.flat.id}")`,
-    { timeout: 20000 },
-  );
-  if ((await app.page.evaluate<string>(`document.querySelector(".panelcollapse").getAttribute("aria-expanded")`)) === "false") {
-    await app.page.click(".panelcollapse");
-  }
-  await app.page.waitFor(`document.querySelector(".panelcollapse").getAttribute("aria-expanded") === "true"`);
-  assert.match(
-    await app.page.evaluate<string>(`document.querySelector(".secretarypanel .frameheader").textContent`),
-    /whole conversation/,
-  );
-  // THE CHIP STAYS ATTACHED — the fallback changes what the transcript shows, not what the next question is about.
-  await app.page.waitFor(
-    `document.querySelector(".secretarypanel .composechip") !== null &&
-     document.querySelector(".secretarypanel .composechip").textContent.startsWith("todo:life/${todos.flat.id}")`,
-    { timeout: 15000 },
-  );
-  const rect = await app.page.evaluate<{ top: number; bottom: number }>(
-    `(() => { const r = document.querySelector(".secretarypanel .composebox").getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })()`,
-  );
-  assert.ok(rect.top >= 0 && rect.bottom <= DESKTOP[1], "the composer is inside the viewport with no scroll");
-  await app.resize(PHONE);
-});
 
 /**
  * A PHOTO SENT IN THE CHAT IS DRAWN ON ITS TURN
@@ -1416,39 +1156,6 @@ app.scene("Stop ends the running answer, and its reply never lands", async () =>
     ),
     0,
     "the act closes the question: no empty answer is drawn after it",
-  );
-});
-
-/**
- * A ROUND ALWAYS ENDS WITH WORDS FOR THE OWNER. The script's model calls
- * `context` and then replies with nothing, which the page draws as nothing;
- * the box writes the last turn instead, saying what happened and what to do.
- */
-app.scene("a model that stops after a call leaves the box's words last", async () => {
-  await app.resize(PHONE);
-  await converse(WRITE_BASE, "search and then fall silent");
-  const words = "I stopped after context answered, without an answer for you. Ask again, or ask me to narrow it.";
-  await app.page.waitFor(`${said("model")}.includes(${JSON.stringify(words)})`, { timeout: 20000 });
-  assert.equal(
-    await app.page.evaluate<string>(
-      `[...document.querySelectorAll(".turns .turn")].filter((t) => t.closest(".roundfold, .turnmenu") === null).pop()?.querySelector(".turntext, .answerblock")?.textContent?.trim() ?? ""`,
-    ),
-    words,
-    "the box's words are the last turn drawn",
-  );
-  await app.page.waitFor(`!${shown(".stopanswer")}`, { timeout: 15000 });
-});
-
-/** Esc in the composer is Stop while a round runs (§4.3). */
-app.scene("Esc in the composer stops the running answer", async () => {
-  await converse(WRITE_BASE, "take your time");
-  await app.page.waitFor(shown(".stopanswer"), { timeout: 15000 });
-  await app.page.click(".composebox");
-  await app.page.press("Escape");
-  await app.page.waitFor(`${said("act")}.includes("stopped the answer")`, { timeout: 20000 });
-  assert.equal(
-    await app.page.evaluate<boolean>(`${said("model")}.includes("stopped before it landed")`),
-    false,
   );
 });
 

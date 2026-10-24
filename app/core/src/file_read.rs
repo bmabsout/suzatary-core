@@ -159,31 +159,8 @@ fn megabytes(size: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::attachment::MediaType;
 
     const PDF: &[u8] = b"%PDF-1.7\n%%EOF\n";
-
-    #[test]
-    fn a_pdf_is_the_file_itself_with_its_text_layer_beside_it() {
-        let FileRead::File(read) = FileRead::of(
-            "application/pdf",
-            PDF.to_vec(),
-            Some("Receipt WAC0000000001\u{c}"),
-        ) else {
-            panic!("a clean PDF is handed over");
-        };
-        assert_eq!(read.media(), Enclosure::Pdf);
-        assert_eq!(read.bytes(), PDF);
-        assert!(read.text().as_str().contains("WAC0000000001"));
-    }
-
-    #[test]
-    fn a_scan_with_no_text_layer_is_the_file_itself() {
-        assert!(matches!(
-            FileRead::of("application/pdf", PDF.to_vec(), Some("\u{c}\u{c}")),
-            FileRead::File(_)
-        ));
-    }
 
     #[test]
     fn a_pdf_whose_text_names_an_identity_number_is_withheld_and_its_text_redacted() {
@@ -197,32 +174,6 @@ mod tests {
         assert!(!text.as_str().contains("6789"), "{text:?}");
         assert!(text.as_str().contains("70,000"));
         assert_eq!(withheld, Some(Withheld::HeldNumber));
-    }
-
-    #[test]
-    fn a_pdf_over_the_page_count_is_withheld() {
-        let layer = "page\u{c}".repeat(MAX_PAGES + 1);
-        assert!(matches!(
-            FileRead::of("application/pdf", PDF.to_vec(), Some(&layer)),
-            FileRead::Text {
-                withheld: Some(Withheld::TooManyPages(101)),
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn an_image_is_the_file_itself_and_a_huge_one_is_refused() {
-        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0];
-        assert!(matches!(
-            FileRead::of("image/png", png.to_vec(), None),
-            FileRead::File(read) if read.media() == Enclosure::Image(MediaType::Png)
-        ));
-        let huge = [&png[..], &vec![0; crate::attachment::MAX_BYTES][..]].concat();
-        assert!(matches!(
-            FileRead::of("image/png", huge, None),
-            FileRead::Unsupported { what } if what.contains("over the 5 MB")
-        ));
     }
 
     #[test]

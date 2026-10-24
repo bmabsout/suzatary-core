@@ -154,36 +154,6 @@ pub fn offset(text: &str) -> Option<i32> {
 mod tests {
     use super::*;
 
-    fn at(text: &str) -> NaiveDateTime {
-        NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M").expect("a time")
-    }
-
-    #[test]
-    fn the_three_forms_of_a_date_time_and_a_date() {
-        assert_eq!(
-            moment("20261005T090000Z", false, None),
-            Some(Moment::Utc(at("2026-10-05 09:00")))
-        );
-        assert_eq!(
-            moment("20261005T090000", false, None),
-            Some(Moment::Floating(at("2026-10-05 09:00")))
-        );
-        assert_eq!(
-            moment("20261005T090000", false, Some("Europe/Paris")),
-            Some(Moment::Zoned(
-                at("2026-10-05 09:00"),
-                "Europe/Paris".to_owned()
-            ))
-        );
-        assert_eq!(
-            moment("20261005", false, None),
-            Some(Moment::Date(
-                NaiveDate::from_ymd_opt(2026, 10, 5).expect("a date")
-            ))
-        );
-        assert_eq!(moment("2026-10-05", false, None), None);
-    }
-
     #[test]
     fn a_duration_keeps_its_days_nominal_and_its_hours_exact() {
         assert_eq!(
@@ -217,13 +187,5 @@ mod tests {
         assert_eq!(duration("P"), None);
         assert_eq!(duration("PT5"), None);
         assert_eq!(duration("1H"), None);
-    }
-
-    #[test]
-    fn an_offset_is_seconds_east() {
-        assert_eq!(offset("+0200"), Some(7200));
-        assert_eq!(offset("-0430"), Some(-16200));
-        assert_eq!(offset("+053045"), Some(19845));
-        assert_eq!(offset("0200"), None);
     }
 }

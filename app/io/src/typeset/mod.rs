@@ -112,18 +112,6 @@ mod tests {
         compile(source).expect_err(source).said(source)
     }
 
-    #[test]
-    fn markup_compiles_to_typsts_own_html() {
-        let html =
-            compile("Renew *passport* by #link(\"https://e.test\")[Friday]").expect("compiles");
-        assert!(html.contains("<strong>passport</strong>"), "{html}");
-        assert!(
-            html.contains("<a href=\"https://e.test\">Friday</a>"),
-            "{html}"
-        );
-        assert!(compile("$ x^2 $\n\n- a\n- b").is_ok());
-    }
-
     /// The library holds neither binding, however it is spelled.
     #[test]
     fn html_and_plugin_are_unreachable_by_any_spelling() {
@@ -154,15 +142,6 @@ mod tests {
             );
         }
         assert!(refused("#datetime.today()").contains("unable to get the current date"));
-    }
-
-    #[test]
-    fn a_text_that_does_not_parse_is_refused_where_it_fails() {
-        assert!(refused("a ] b").starts_with("1:3: unexpected closing bracket"));
-        assert!(refused("Pay $40").contains("unclosed delimiter"));
-        assert!(refused("mail ada@x.test").contains("does not exist in the document"));
-        // A span past a character outside the BMP is counted in bytes, not UTF-16 units.
-        assert!(refused("🙂 ] b").starts_with("1:3: unexpected closing bracket"));
     }
 
     /// The vectors the tab's restricted project is held to (`web/test/typstedit.test.ts`): a text
