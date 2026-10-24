@@ -4,7 +4,7 @@ import type { Fulfillment, ReleaseItem, ReleaseRow, ReleasesPayload } from "../w
 import type { Child } from "../view/dom"
 import { el } from "../view/dom"
 import { chip, worded } from "../view/format"
-import fulfillment from "../todo/fulfillment"
+import pie from "../view/pie"
 
 export namespace releases {
   // An item as the page draws it: what became of it, and an open item a revision dropped apart from what is owed.
@@ -82,7 +82,7 @@ export namespace releases {
     return [...r.items].sort((a, b) => rank(a) - rank(b))
   }
 
-  const pieOr = (v: Fulfillment | null): Child => (typeof v === "number" ? fulfillment.pie(v) : v === null ? null : chip(worded(v)))
+  const pieOr = (v: Fulfillment | null): Child => (typeof v === "number" ? pie.fulfilled(v) : v === null ? null : chip(worded(v)))
 
   const item = (i: ReleaseItem): HTMLElement =>
     el(

@@ -152,6 +152,17 @@ the todo page always had):
 - It samples only this todo, from the core's knots (`thirty.ts`), and draws
   them joined by straight lines, the core's own reading between two knots.
 
+## G. A fraction is a pie (2026-10-24)
+
+Every fraction the web app shows is the pie of §F, drawn by one component
+(`web/src/view/pie.ts`) to typst-design's geometry, so a person learns one
+mark. Its colour says what kind of fraction it is: the fulfillment scale only
+for a judgement (a todo's fulfillment, an allowance left), and the one neutral
+accent (`accent` in `tokens.typ`, the blue ramp) for everything else: a sync,
+a fetch, an import, a share of a whole, the loading mark. The sync line and
+the usage page's bars became pies. The contract and its test are
+`docs/WEB-SPEC.md` §3.20.
+
 ## E. Everything else: agreed (as in `design-review.md`)
 
 **Tokens (light / dark):**

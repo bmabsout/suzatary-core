@@ -6,14 +6,16 @@ import type { UsageAllowance, UsagePayload, UsageRefusal, UsageScope, UsageToken
 import empty from "../view/empty"
 import type { Child } from "../view/dom"
 import { el } from "../view/dom"
-import { pct, when } from "../view/format"
+import { pct, percent, when } from "../view/format"
+import pie from "../view/pie"
 import frame from "../view/frame"
 import asked from "../app/asked"
 import time from "../app/time"
 import app from "../app/app"
 
 export namespace usage {
-  export type Described = { readonly text: string; readonly percentage: number | null }
+  // `left` is the share of the allowance still unspent, a judgement: the less is left, the nearer the scale's bad end.
+  export type Described = { readonly text: string; readonly left: number | null }
 
   // Past the allowance with overage on, tokens are money: said as a quantity, never a price.
   export namespace credits {
@@ -52,6 +54,8 @@ export namespace usage {
       : alg.unknown()
   }
 
+  const BIG = 22
+
   export const compact = (n: number): string =>
     n < 1000 ? String(n)
     : n < 1_000_000 ? `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`
@@ -76,33 +80,33 @@ export namespace usage {
 
   const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-  // A percentage only under "reported": a guessed ceiling is not an allowance.
+  // A share left only under "reported": a guessed ceiling is not an allowance. Past it, nothing is left.
   export const describeAllowance = (w: UsageWindow, nowMs: number): Described =>
     allowance.fold<Described>(
       {
         reported: a => {
           const reset = a.resets_at === null ? "" : until(a.resets_at, nowMs)
-          return { percentage: a.utilization, text: `as of ${at(a.as_of)}${reset === "" ? "" : `, resets ${reset}`}.` }
+          return { left: Math.max(0, 1 - a.utilization), text: `as of ${at(a.as_of)}${reset === "" ? "" : `, resets ${reset}`}.` }
         },
         rateLimited: a => {
           const minutes = Math.max(1, Math.round(a.retry_after_seconds / 60))
           const last =
             a.last_reported === null
               ? "it has never answered"
-              : `last answer ${at(a.last_reported.as_of)}: ${pct(a.last_reported.utilization)}`
+              : `last answer ${at(a.last_reported.as_of)}: ${pct(a.last_reported.utilization)} used`
           return {
-            percentage: null,
+            left: null,
             text: `the allowance endpoint is rate-limiting this account (retry in ${minutes} min); ${last}.`,
           }
         },
         refused: a => ({
-          percentage: null,
+          left: null,
           text:
             a.status === 403 && a.words.includes("scope")
               ? `the allowance is unread: the usage endpoint refuses this box's token (403 ${a.words}). The box signs in with a setup-token, which cannot carry the user:profile scope the endpoint asks for, and it is not handed the claude.ai login's token, which would give the server far more than a number to show.`
               : `the allowance is unread: the usage endpoint refused this box's token (${a.status} ${a.words}) ${at(a.at)}.`,
         }),
-        unknown: () => ({ percentage: null, text: "the allowance has not been read yet." }),
+        unknown: () => ({ left: null, text: "the allowance has not been read yet." }),
       },
       w.allowance,
     )
@@ -125,23 +129,14 @@ export namespace usage {
     return el("dl", { class: "usagetokens" }, rows.map(([k, v]) => [el("dt", null, k), el("dd", null, compact(v))]))
   }
 
-  const bar = (fraction: number): HTMLElement => {
-    const f = Math.max(0, Math.min(1, fraction))
-    return el(
-      "div",
-      { class: "usagebar usagebar-reported", role: "img", "aria-label": `${pct(f)} used` },
-      el("div", { class: "usagefill", style: `width:${(f * 100).toFixed(1)}%` }),
-    )
-  }
-
   const headline = (w: UsageWindow, nowMs: number): HTMLElement => {
     const d = describeAllowance(w, nowMs)
     return el(
       "div",
       { class: "usagehead" },
-      d.percentage === null
+      d.left === null
         ? el("div", { class: "usagebig" }, `${compact(total(w.tokens))} tokens`)
-        : [el("div", { class: "usagebig" }, `${pct(d.percentage)} of the allowance`), bar(d.percentage)],
+        : el("div", { class: "usagebig" }, pie.view(d.left, pie.judgement, `${percent(d.left)} of the allowance left`, BIG), `${pct(d.left)} of the allowance left`),
       el("p", { class: "usagenote" }, capital(d.text)),
     )
   }
@@ -210,6 +205,8 @@ export namespace usage {
     return el("p", { class: "usagerefusal" }, `Last refused ${at(r.at)}.${reset}`)
   }
 
+  const share = (f: number): Child => [pie.view(f, pie.neutral, `${percent(f)} of the tokens`), " ", pct(f)]
+
   const shares = (w: UsageWindow): HTMLElement => {
     const whole = total(w.tokens)
     const rows = [
@@ -228,7 +225,7 @@ export namespace usage {
             null,
             el("td", { class: "usagelabel" }, r.label),
             el("td", { class: "usagenum" }, compact(total(r.tokens))),
-            el("td", { class: "usagenum" }, whole === 0 ? "" : pct(total(r.tokens) / whole)),
+            el("td", { class: "usagenum" }, whole === 0 ? "" : share(total(r.tokens) / whole)),
           ),
         ),
       ),

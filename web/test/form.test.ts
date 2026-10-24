@@ -88,6 +88,7 @@ Object.assign(globalThis, {
   Node: FakeNode,
   document: {
     createElement: (tag: string) => new FakeElement(tag),
+    createElementNS: (_: string, tag: string) => new FakeElement(tag),
     createTextNode: (t: string) => Object.assign(new FakeNode(), { text: t }),
   },
 })

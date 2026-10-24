@@ -1580,10 +1580,10 @@ under in every larger union and never wins.
   pull carries `size`, the bytes the replica lacked when it asked, so the
   first piece says what the whole pull brings, and `weight`, its own bytes;
   a content fetch says its whole size, by the sizes the skeleton gives, when
-  it starts. The bar under the header (`shell/syncing.ts`)
-  draws each store syncing as bytes come of bytes needed ("Syncing
-  conversations · 0.4 of 1.1 MB"), from `progress.T`, and is hidden once no
-  store syncs.
+  it starts. The line under the header (`shell/syncing.ts`) draws each
+  store syncing as bytes come of bytes needed, a neutral pie (§3.20) before
+  the same in words ("Syncing conversations · 0.4 of 1.1 MB"), from
+  `progress.T`, and is hidden once no store syncs.
 
 ### 3.19 Runs, streams and the device's rows
 
@@ -1645,6 +1645,34 @@ Each pattern written once, in `web/src/algebra/once.ts`, `latest.ts`,
   flag-and-list are read into those once, at its decoder, which refuses a
   pair that contradicts itself. — `verify.test.ts` "a parent that names
   nothing breaks the walk…".
+
+### 3.20 A fraction is a pie
+
+Every fraction the app shows is one mark, `web/src/view/pie.ts`: typst-design's
+`pie`, the one a Typst page draws, at its geometry (filled clockwise from
+twelve o'clock on a track of its own colour at 22%, outlined at 6.7% of its
+size), 14 px beside a line of text and larger only beside a headline. No
+`<progress>`, no bar drawn as a width. Its colour says what kind of fraction it
+is (`pie.Kind`), and nothing else does:
+
+- a **judgement**, which says how well something stands: a todo's
+  fulfillment, the allowance left on the usage page, a price being typed.
+  It wears the fulfillment scale at its own value;
+- anything else is **neutral**: a sync's or a fetch's progress, a share of a
+  whole (the usage page's tokens by who and by model), the loading mark. It
+  wears the one accent, `tokens.typ`'s `accent` (the blue ramp, off the
+  scale's crimson-to-teal path), so a pull at 10% never looks urgent.
+
+Every pie is `role="img"` and named by its fraction in words ("36% synced",
+"42% fulfilled", "58% of the allowance left"), and the same number stands
+beside it as text, so neither its colour nor its shape is the only carrier.
+The accent is the blue ramp at 35% on the light ground and its dark stop on
+the dark one, so its outline holds a contrast above 3:1 in both themes.
+
+- **A fraction is drawn as the pie, named in words, in its kind's colour.** —
+  `fulfillment.test.ts` "law: the pie's filled share is the value, in the
+  value's colour"; in a browser, `web/e2e/lines.test.ts` "a store's sync is
+  drawn as a neutral pie, named in words".
 
 ## 4. The vectors
 

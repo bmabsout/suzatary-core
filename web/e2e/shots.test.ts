@@ -380,6 +380,31 @@ const SHOTS: readonly Shot[] = [
     },
     undo: release(`document.querySelector("#view .transcriptcontent .placeholder") === null`),
   },
+  // A store's sync (WEB-SPEC §3.20): the lines forgotten and their content held at the box, so the line under the
+  // header stands with its neutral pie while the secretary's page waits.
+  {
+    name: "syncing",
+    hash: "#/",
+    ready: `document.querySelectorAll(".tree .row").length > 0`,
+    base: WRITE_BASE,
+    act: async (page: Page): Promise<void> => {
+      await page.evaluate(`new Promise((done, fail) => {
+        const r = indexedDB.open("suzatary")
+        r.onerror = () => fail(String(r.error))
+        r.onsuccess = () => {
+          const tx = r.result.transaction(["chain", "content"], "readwrite")
+          tx.objectStore("chain").delete(IDBKeyRange.bound("objects:store/lines", "objects:store/lines\\uffff"))
+          tx.objectStore("content").clear()
+          tx.oncomplete = () => (r.result.close(), done(true))
+          tx.onerror = () => fail(String(tx.error))
+        }
+      })`);
+      held = await page.holdRequests(["/api/stores/lines/content"]);
+      await page.navigate(`${WRITE_BASE}/?fresh=${Date.now()}#/secretary/default`);
+      await page.waitFor(`document.querySelector("#syncing .syncline svg.pie") !== null`, { timeout: 15000 });
+    },
+    undo: release(`document.getElementById("syncing").hidden`),
+  },
   // The Typst list before the tab's Typst is here (X21): a fresh document, so Typst is fetched again and held.
   {
     name: "typst-waiting",

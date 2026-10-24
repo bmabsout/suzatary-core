@@ -6,7 +6,7 @@ import type { Entry } from "../wire/generated/wire"
 import { describeConflicts } from "./conflicts"
 import { el } from "../view/dom"
 import { chip, percent } from "../view/format"
-import fulfillment from "./fulfillment"
+import pie from "../view/pie"
 import grouping from "./grouping"
 import { chevronIcon } from "../view/icons"
 import { richOrTextInline } from "../rich"
@@ -122,11 +122,11 @@ export namespace row {
   // why its term does not link.
   export const markOf = (n: Node): Element =>
     worth.fold<Element>(n.worth, {
-      Value: v => el("span", { class: "mark", title: percent(v) }, fulfillment.pie(v)),
+      Value: v => el("span", { class: "mark", title: percent(v) }, pie.fulfilled(v)),
       Absent: () => el("span", { class: "mark" }, chip("unpriced")),
       NotYet: chain => el("span", { class: "mark", title: `it refers into ${chain}, which this device does not hold yet` }, chip("not yet priced")),
       Unlinked: why =>
-        el("span", { class: "mark unlinked", role: "img", title: why, "aria-label": "no value", style: `width:${fulfillment.PIE}px;height:${fulfillment.PIE}px` }),
+        el("span", { class: "mark unlinked", role: "img", title: why, "aria-label": "no value", style: `width:${pie.SIZE}px;height:${pie.SIZE}px` }),
     })
 
   export type Fx = {

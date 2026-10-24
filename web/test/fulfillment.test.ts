@@ -4,6 +4,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import fulfillment from "../src/todo/fulfillment"
+import pie from "../src/view/pie"
 import tokens from "../src/view/tokens"
 import { forAll } from "./gen"
 import type { Rng } from "./gen"
@@ -30,7 +31,7 @@ Object.assign(globalThis, {
   document: { createElementNS: (_: string, tag: string) => new FakeElement(tag) },
 })
 
-const drawn = (v: number, size?: number): FakeElement => fulfillment.pie(v, size) as unknown as FakeElement
+const drawn = (v: number, size?: number): FakeElement => pie.fulfilled(v, size) as unknown as FakeElement
 
 test("law: stateOf is monotone in the value", () => {
   forAll(500, (r) => {
@@ -103,5 +104,5 @@ test("law: the pie's filled share is the value, in the value's colour", () => {
     assert.equal(pie.attrs.get("style"), `color:${fulfillment.colour(v)}`)
     assert.equal(pie.attrs.get("width"), String(size))
   })
-  assert.equal(drawn(0.5).attrs.get("width"), String(fulfillment.PIE))
+  assert.equal(drawn(0.5).attrs.get("width"), String(pie.SIZE))
 })

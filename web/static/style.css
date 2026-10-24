@@ -240,10 +240,15 @@
   color: var(--ink);
 }
 
-/* The pie (web/src/todo/fulfillment.ts `pie`): its colour is its value's, set on the svg. */
+/* THE PIE (web/src/view/pie.ts), every fraction's one mark: a judgement's colour is its value's, set on the svg, and
+   anything else wears the neutral accent. The track's 22% is typst-design's own. */
 .pietrack {
   fill: currentColor;
-  fill-opacity: 0.16;
+  fill-opacity: 0.22;
+}
+
+.pieneutral {
+  color: var(--accent);
 }
 
 .piefill,
@@ -1618,7 +1623,11 @@ dl.facts dd {
 }
 
 .draftpct {
-  min-width: 3.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  min-width: 4.6rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -2994,7 +3003,8 @@ h1[tabindex="-1"]:focus {
 }
 
 /* A store's sync in bytes (web/src/shell/syncing.ts): a quiet line under the
-   header, one per store syncing, gone once each is done. */
+   header, one per store syncing, its neutral pie before its words, gone once
+   each is done. */
 .syncbar {
   margin: var(--s-1) auto;
   padding: var(--s-1) var(--s-3);
@@ -3005,13 +3015,7 @@ h1[tabindex="-1"]:focus {
 .syncline {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
-}
-
-.syncline progress {
-  flex: 1 1 auto;
-  max-width: 16rem;
-  accent-color: var(--primary);
+  gap: var(--s-2);
 }
 
 /* What this device's readings left out (web/src/shell/leftout.ts): the stale
@@ -4630,24 +4634,25 @@ h1[tabindex="-1"]:focus {
   animation: placeholder-in 160ms ease-out 300ms both;
 }
 
-/* THE LOADING MARK (`web/src/view/loadmark.ts`), design A: the row's pie,
-   filling from the fulfillment scale's bad end to its good end, then fading
-   to start again. Another design replaces this block and that file. */
+/* THE LOADING MARK (`web/src/view/loadmark.ts`), design A: the pie in the
+   neutral accent, since a wait judges nothing, filling and then fading to
+   start again. Another design replaces this block and that file. */
 .loadmark {
   display: block;
   overflow: visible;
 }
 
 .loadring {
-  fill: none;
-  stroke: var(--line);
+  fill: var(--accent);
+  fill-opacity: 0.22;
+  stroke: var(--accent);
   stroke-width: 1.5;
 }
 
 .loadfill {
   fill: none;
   stroke-width: 9.5;
-  stroke: var(--fulfillment-to);
+  stroke: var(--accent);
   stroke-dasharray: 15 60;
   transform: rotate(-90deg);
   transform-origin: 12px 12px;
@@ -4657,12 +4662,10 @@ h1[tabindex="-1"]:focus {
 @keyframes loadmark-fill {
   0% {
     stroke-dasharray: 0 60;
-    stroke: var(--fulfillment-from);
     opacity: 1;
   }
   60% {
     stroke-dasharray: 29.9 60;
-    stroke: var(--fulfillment-to);
   }
   80% {
     stroke-dasharray: 29.9 60;
@@ -4670,7 +4673,6 @@ h1[tabindex="-1"]:focus {
   }
   100% {
     stroke-dasharray: 29.9 60;
-    stroke: var(--fulfillment-to);
     opacity: 0;
   }
 }
@@ -4979,10 +4981,7 @@ h1[tabindex="-1"]:focus {
 .usagebody { display: flex; flex-direction: column; gap: 1rem; }
 .usagewindow { border: 2px solid var(--line); border-radius: 12px; padding: 1rem; background: var(--sheet); }
 .usagetitle { margin: 0 0 .5rem; font-size: var(--t-body); text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
-.usagebig { font-size: var(--t-head2); font-weight: 600; margin-bottom: .35rem; }
-.usagebar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: .25rem 0 .5rem; }
-.usagefill { height: 100%; background: var(--primary); }
-.usagebar-measured .usagefill { background: var(--primary); opacity: .45; }
+.usagebig { display: flex; align-items: center; gap: .5rem; font-size: var(--t-head2); font-weight: 600; margin-bottom: .35rem; }
 .usagenote { margin: .35rem 0; opacity: .8; font-size: var(--t-body); }
 .usagefoot { padding: 0 .25rem; }
 .usagetokens { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: .15rem .6rem; margin: .5rem 0; font-size: var(--t-body); }

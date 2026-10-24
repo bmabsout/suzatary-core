@@ -5,6 +5,7 @@ import { el } from "./dom"
 import act from "./act"
 import lo from "../algebra/lo"
 import { pct } from "./format"
+import pie from "./pie"
 import { toast } from "./toast"
 import source from "../algebra/source"
 import parsed from "../algebra/parsed"
@@ -217,15 +218,15 @@ export namespace form {
       const f = p.type === "Flat" ? p.flat : price.DEFAULT_FLAT
       const d = p.type === "Deadline" ? p : { deadline: "", leadUpDays: price.DEFAULT_LEAD_UP_DAYS }
       same(flat, String(Math.round(f * 100)))
-      flatPct.replaceChildren(pct(f))
+      flatPct.replaceChildren(pie.fulfilled(f), pct(f))
       same(date, d.deadline)
       same(lead, String(d.leadUpDays))
       const c = price.cycleOf(p)
       same(span, String(c.days))
       same(from, String(Math.round(c.from * 100)))
-      fromPct.replaceChildren(pct(c.from))
+      fromPct.replaceChildren(pie.fulfilled(c.from), pct(c.from))
       same(to, String(Math.round(c.to * 100)))
-      toPct.replaceChildren(pct(c.to))
+      toPct.replaceChildren(pie.fulfilled(c.to), pct(c.to))
       flatRow.hidden = p.type !== "Flat"
       deadlineRow.hidden = p.type !== "Deadline"
       cycleRows.hidden = p.type !== "Recur" && p.type !== "Periodic"

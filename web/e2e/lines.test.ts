@@ -268,3 +268,37 @@ app.scene("the list draws and the badge is counted with no request for the lines
   assert.deepEqual(left.filter(([k]) => k.startsWith("objects:store/lines/piece/")).map(([k]) => k), [], "no piece is left: the pull ended whole")
   await app.page.cold(false)
 })
+
+// A FRACTION IS A PIE (WEB-SPEC §3.20): the line under the header draws a sync's share as the neutral pie, named in
+// words. The lines' content is held at the box, so the line stands while it is read.
+app.scene("a store's sync is drawn as a neutral pie, named in words", async () => {
+  await app.open(WRITE_BASE)
+  await app.page.evaluate(
+    put("suzatary", "chain", `(s) => (s.delete("objects:store/lines"), s.delete(IDBKeyRange.bound("objects:store/lines/piece/", "objects:store/lines/piece/\\uffff")))`),
+  )
+  await app.page.evaluate(put("suzatary", "content", `(s) => s.clear()`))
+  await app.page.cold(true)
+  await app.page.navigate("about:blank")
+  const release = await app.page.holdRequests(["/api/stores/lines/content"])
+  try {
+    await app.open(WRITE_BASE)
+    await app.page.evaluate(`void (location.hash = "#/secretary/default")`)
+    await app.page.untilHeld()
+    await app.page.waitFor(`document.querySelector("#syncing .syncline svg.pie") !== null`, { timeout: 15000 })
+    const [role, name, kind, words, bars] = await app.page.evaluate<[string, string, string, string, number]>(
+      `(() => {
+         const p = document.querySelector("#syncing .syncline svg.pie")
+         return [p.getAttribute("role"), p.getAttribute("aria-label"), p.getAttribute("class"), p.closest(".syncline").textContent, document.querySelectorAll("progress").length]
+       })()`,
+    )
+    assert.equal(role, "img")
+    assert.match(name, /^\d+% synced$/, "the pie is named by its fraction in words")
+    assert.equal(kind, "pie pieneutral", "progress wears the neutral accent, never the fulfillment scale")
+    assert.match(words, /^Syncing conversations · /)
+    assert.equal(bars, 0, "no fraction is drawn as a bar")
+  } finally {
+    await release()
+    await app.page.cold(false)
+  }
+  await app.page.waitFor(`document.getElementById("syncing").hidden`, { timeout: 15000 })
+})

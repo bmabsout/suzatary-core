@@ -35,6 +35,10 @@
     // ramp, so a problem never reads as the maroon of what simply waits.
     problem: ramps.sienna.sample(35%),
     problem-wash: quiet(ramps.sienna, stops.rule),
+    // A fraction that judges nothing (a sync's progress, a share of a whole):
+    // the blue ramp, off the fulfillment scale's crimson-to-teal path, so it
+    // never reads as a verdict.
+    accent: ramps.blue.sample(35%),
   ),
   dark: (
     ground: ground-dark,
@@ -56,6 +60,7 @@
     blue-line: quiet-dark(ramps.blue, stops.rule),
     problem: ramps.sienna.sample(dark-stop(35%)),
     problem-wash: quiet-dark(ramps.sienna, stops.rule),
+    accent: ramps.blue.sample(dark-stop(35%)),
   ),
   // A fulfillment's colour, the same in both themes: the package's one scale, bad to good.
   fulfillment: fulfillment,

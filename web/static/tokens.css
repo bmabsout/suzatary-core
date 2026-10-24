@@ -27,6 +27,7 @@
   --blue-line: #cfe0f6;
   --problem: #813600;
   --problem-wash: #f2dece;
+  --accent: #033975;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +51,7 @@
     --blue-line: #2c415d;
     --problem: #d0a688;
     --problem-wash: #4e3b2d;
+    --accent: #74a8ed;
   }
 }
 
@@ -73,4 +75,5 @@
   --blue-line: #2c415d;
   --problem: #d0a688;
   --problem-wash: #4e3b2d;
+  --accent: #74a8ed;
 }

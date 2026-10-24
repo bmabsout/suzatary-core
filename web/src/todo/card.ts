@@ -11,7 +11,7 @@ import { describeConflicts } from "./conflicts";
 import { el } from "../view/dom";
 import { chevronIcon } from "../view/icons";
 import { ageLabel, chip, dayOf, worded } from "../view/format";
-import fulfillment from "./fulfillment";
+import pie from "../view/pie";
 import keyed from "../algebra/keyed";
 import empty from "../view/empty";
 import { richOrTextInline } from "../rich";
@@ -43,7 +43,7 @@ export interface CardOptions {
 
 /** A value as its pie, or the words for one with no number: never a pie for `∅`. */
 const pieOr = (value: Fulfillment | null, size: number): Element =>
-  typeof value === "number" ? fulfillment.pie(value, size) : chip(worded(value));
+  typeof value === "number" ? pie.fulfilled(value, size) : chip(worded(value));
 
 /** The clamped body, and the toggle to its stored source, `null` when the preview is already the whole of it. */
 function body(entry: Entry): readonly [HTMLElement, HTMLElement | null] {

@@ -1,6 +1,5 @@
-// A fulfillment in [0, 1]: its state, its colour, and the pie that draws it.
+// A fulfillment in [0, 1]: its state and its colour. The pie that draws it is `view/pie.ts`.
 
-import { svg } from "../view/dom"
 import type { Fulfillment } from "../wire/generated/wire"
 import tokens from "../view/tokens"
 
@@ -48,38 +47,6 @@ export namespace fulfillment {
   export const colour = (v: number): string => {
     const { l, c, h } = lch(v)
     return `oklch(${l.toFixed(3)}% ${c.toFixed(4)} ${h.toFixed(3)})`
-  }
-
-  export const PIE = 14
-
-  // Filled clockwise from twelve o'clock on a faint disc of its own colour, outlined in it: a wedge is a dash of length `v` on a circle of path length 1.
-  export const pie = (v: number, size: number = PIE): SVGSVGElement => {
-    const c = size / 2
-    const r = c - 0.5
-    return svg(
-      "svg",
-      {
-        class: "pie",
-        viewBox: `0 0 ${size} ${size}`,
-        width: size,
-        height: size,
-        style: `color:${colour(v)}`,
-        role: "img",
-        "aria-label": `${Math.round(v * 100)}% fulfilled`,
-      },
-      svg("circle", { class: "pietrack", cx: c, cy: c, r }),
-      svg("circle", {
-        class: "piefill",
-        cx: c,
-        cy: c,
-        r: r / 2,
-        pathLength: 1,
-        "stroke-width": r,
-        "stroke-dasharray": `${v} 1`,
-        transform: `rotate(-90 ${c} ${c})`,
-      }),
-      svg("circle", { class: "pieline", cx: c, cy: c, r, "stroke-width": 1 }),
-    )
   }
 }
 export default fulfillment
