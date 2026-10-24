@@ -59,7 +59,7 @@ export namespace storesync {
       seen.insert(at, named)
       return named
     }
-    return { core, lines, dead: { inbox: () => NONE_DEAD, lines: dead, tags: () => NONE_DEAD, "tag-aliases": () => NONE_DEAD } }
+    return { core, lines, dead: { inbox: () => NONE_DEAD, lines: dead, topics: () => NONE_DEAD, "topic-aliases": () => NONE_DEAD } }
   }
   const reader = once.of(() => loadCore().then(readerOf)).get
 
@@ -110,8 +110,8 @@ export namespace storesync {
       return read.type === "Val" || CHAIN.parse(raw).type !== "Val" ? read : lo.val({ type: "Bare" })
     },
     lines: keyed,
-    tags: keyed,
-    "tag-aliases": keyed,
+    topics: keyed,
+    "topic-aliases": keyed,
   }
 
   // One read of each row per page.
@@ -133,8 +133,8 @@ export namespace storesync {
   const restored: { readonly [N in stores.Name]: once.T<void> } = {
     inbox: once.of(() => reader().then(rd => restoredOne(rd, "inbox"))),
     lines: once.of(() => reader().then(rd => restoredOne(rd, "lines"))),
-    tags: once.of(() => reader().then(rd => restoredOne(rd, "tags"))),
-    "tag-aliases": once.of(() => reader().then(rd => restoredOne(rd, "tag-aliases"))),
+    topics: once.of(() => reader().then(rd => restoredOne(rd, "topics"))),
+    "topic-aliases": once.of(() => reader().then(rd => restoredOne(rd, "topic-aliases"))),
   }
   const restore = (): Promise<void> => Promise.all(stores.NAMES.map(name => restored[name].get())).then(() => undefined)
 
@@ -221,8 +221,8 @@ export namespace storesync {
   const again: { [N in stores.Name]: { wait: number; timer: ReturnType<typeof setTimeout> | undefined } } = {
     inbox: { wait: AGAIN_MS.first, timer: undefined },
     lines: { wait: AGAIN_MS.first, timer: undefined },
-    tags: { wait: AGAIN_MS.first, timer: undefined },
-    "tag-aliases": { wait: AGAIN_MS.first, timer: undefined },
+    topics: { wait: AGAIN_MS.first, timer: undefined },
+    "topic-aliases": { wait: AGAIN_MS.first, timer: undefined },
   }
   const retry = (name: stores.Name): void => {
     const a = again[name]
@@ -300,8 +300,8 @@ export namespace storesync {
   const pulls: { readonly [N in stores.Name]: () => Promise<boolean> } = {
     inbox: serial.of(() => pullNow("inbox")),
     lines: serial.of(() => pullNow("lines")),
-    tags: serial.of(() => pullNow("tags")),
-    "tag-aliases": serial.of(() => pullNow("tag-aliases")),
+    topics: serial.of(() => pullNow("topics")),
+    "topic-aliases": serial.of(() => pullNow("topic-aliases")),
   }
   export const pull = (name: stores.Name): Promise<boolean> => pulls[name]()
 
@@ -321,11 +321,11 @@ export namespace storesync {
   }
 
   // The lines, then the inbox: the box files a proposal before the line that names it, so an inbox pulled after the
-  // lines holds every proposal they name. The tag stores name rounds, never a proposal, so they are pulled beside them.
+  // lines holds every proposal they name. The topic stores name rounds, never a proposal, so they are pulled beside them.
   const all = (): Promise<boolean> => {
     wanted = "All"
-    const tagged = Promise.all([pull("tags"), pull("tag-aliases")])
-    return pull("lines").then(lines => pull("inbox").then(inbox => tagged.then(([t, a]) => lines && inbox && t && a)))
+    const topicStores = Promise.all([pull("topics"), pull("topic-aliases")])
+    return pull("lines").then(lines => pull("inbox").then(inbox => topicStores.then(([t, a]) => lines && inbox && t && a)))
   }
 
   // The inbox alone, for a reading of the proposals; a move of the stores pulls the rest too once a page asked for all.
@@ -350,7 +350,7 @@ export namespace storesync {
     return { once, done }
   }
   // Armed again when a later epoch drops the store (`startOver`).
-  const landings: { [N in stores.Name]: Landing } = { inbox: awaited(), lines: awaited(), tags: awaited(), "tag-aliases": awaited() }
+  const landings: { [N in stores.Name]: Landing } = { inbox: awaited(), lines: awaited(), topics: awaited(), "topic-aliases": awaited() }
   const landed = (name: stores.Name): boolean => source.state()[name].replica.box.type === "Heard"
   // A replaced landing is waited on again through the one that replaced it; a landed one ends the wait, even empty.
   const whole = (name: stores.Name): Promise<void> =>

@@ -1,6 +1,6 @@
 //! The reading is a function of the two stores' object sets alone, so every device holding the
-//! same objects reads the same tags, offline included. Where concurrent renames disagree, it
-//! still chooses one tag by a rule every device applies alike, and lists the [`Dispute`].
+//! same objects reads the same topics, offline included. Where concurrent renames disagree, it
+//! still chooses one topic by a rule every device applies alike, and lists the [`Dispute`].
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -9,21 +9,21 @@ use prodrome_core::literal::Datetime;
 use prodrome_core::policy::Everything;
 use prodrome_core::registers::{Node, Stamp, fold};
 
-use crate::secretary::tags::alias_event::{Alias, AliasEvent};
-use crate::secretary::tags::alias_registers::AliasRegisters;
-use crate::secretary::tags::dispute::Dispute;
-use crate::secretary::tags::membership::Presence;
-use crate::secretary::tags::membership_event::MembershipEvent;
-use crate::secretary::tags::membership_registers::MembershipRegisters;
-use crate::secretary::tags::tag::Tag;
-use crate::secretary::tags::target::Target;
+use crate::secretary::topics::alias_event::{Alias, AliasEvent};
+use crate::secretary::topics::alias_registers::AliasRegisters;
+use crate::secretary::topics::dispute::Dispute;
+use crate::secretary::topics::membership::Presence;
+use crate::secretary::topics::membership_event::MembershipEvent;
+use crate::secretary::topics::membership_registers::MembershipRegisters;
+use crate::secretary::topics::target::Target;
+use crate::secretary::topics::topic::Topic;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Reading {
-    on: BTreeMap<Target, BTreeSet<Tag>>,
-    aliases: BTreeMap<Tag, Candidates>,
-    spelled: BTreeMap<Tag, Tag>,
-    rings: BTreeMap<Tag, BTreeSet<Tag>>,
+    on: BTreeMap<Target, BTreeSet<Topic>>,
+    aliases: BTreeMap<Topic, Candidates>,
+    spelled: BTreeMap<Topic, Topic>,
+    rings: BTreeMap<Topic, BTreeSet<Topic>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,26 +35,29 @@ struct Candidates {
 impl Reading {
     #[must_use]
     pub fn of(memberships: &[Node<MembershipEvent>], aliases: &[Node<AliasEvent>]) -> Self {
-        let mut on: BTreeMap<Target, BTreeSet<Tag>> = BTreeMap::new();
+        let mut on: BTreeMap<Target, BTreeSet<Topic>> = BTreeMap::new();
         for (membership, stream) in fold(memberships).entities() {
             let registers: MembershipRegisters<'_> =
                 prodrome_core::fold::read(stream, None, &Everything);
             if registers.presence() == Presence::On {
                 on.entry(membership.target.clone())
                     .or_default()
-                    .insert(membership.tag.clone());
+                    .insert(membership.topic.clone());
             }
         }
         let folded = fold(aliases);
-        let mut written: BTreeMap<&Tag, Vec<&Stamp<AliasEvent>>> = BTreeMap::new();
-        for (tag, stream) in folded.entities() {
+        let mut written: BTreeMap<&Topic, Vec<&Stamp<AliasEvent>>> = BTreeMap::new();
+        for (topic, stream) in folded.entities() {
             let registers: AliasRegisters<'_> =
                 prodrome_core::fold::read(stream, None, &Everything);
-            written.entry(tag).or_default().extend(registers.reading());
+            written
+                .entry(topic)
+                .or_default()
+                .extend(registers.reading());
         }
-        let aliases: BTreeMap<Tag, Candidates> = written
+        let aliases: BTreeMap<Topic, Candidates> = written
             .into_iter()
-            .filter_map(|(tag, mut stamps)| {
+            .filter_map(|(topic, mut stamps)| {
                 stamps.sort_by(|one, two| one.name.cmp(&two.name));
                 let mut values: Vec<Alias> = Vec::with_capacity(stamps.len());
                 for stamp in stamps {
@@ -65,7 +68,7 @@ impl Reading {
                 let mut values = values.into_iter();
                 let chosen = values.next()?;
                 Some((
-                    tag.clone(),
+                    topic.clone(),
                     Candidates {
                         chosen,
                         others: values.collect(),
@@ -73,7 +76,7 @@ impl Reading {
                 ))
             })
             .collect();
-        let known: BTreeSet<&Tag> = on
+        let known: BTreeSet<&Topic> = on
             .values()
             .flatten()
             .chain(aliases.keys())
@@ -89,11 +92,11 @@ impl Reading {
         let mut spelled = BTreeMap::new();
         let mut rings = BTreeMap::new();
         for name in known {
-            let (tag, ring) = follow(&aliases, name);
+            let (topic, ring) = follow(&aliases, name);
             if let Some(ring) = ring {
-                rings.insert(tag.clone(), ring);
+                rings.insert(topic.clone(), ring);
             }
-            spelled.insert(name.clone(), tag);
+            spelled.insert(name.clone(), topic);
         }
         Self {
             on,
@@ -105,23 +108,23 @@ impl Reading {
 
     /// The end of `name`'s alias chain, or the least name of a ring.
     #[must_use]
-    pub fn spelling(&self, name: &Tag) -> Tag {
+    pub fn spelling(&self, name: &Topic) -> Topic {
         self.spelled.get(name).unwrap_or(name).clone()
     }
 
     #[must_use]
-    pub fn names(&self, name: &Tag) -> BTreeSet<Tag> {
-        let tag = self.spelling(name);
+    pub fn names(&self, name: &Topic) -> BTreeSet<Topic> {
+        let topic = self.spelling(name);
         self.spelled
             .iter()
-            .filter(|(_, spelled)| **spelled == tag)
+            .filter(|(_, spelled)| **spelled == topic)
             .map(|(name, _)| name.clone())
-            .chain([tag.clone()])
+            .chain([topic.clone()])
             .collect()
     }
 
     #[must_use]
-    pub fn tags(&self, target: &Target) -> BTreeSet<Tag> {
+    pub fn topics(&self, target: &Target) -> BTreeSet<Topic> {
         self.on
             .get(target)
             .into_iter()
@@ -131,11 +134,11 @@ impl Reading {
     }
 
     #[must_use]
-    pub fn tagged(&self) -> BTreeMap<Target, BTreeSet<Tag>> {
+    pub fn memberships(&self) -> BTreeMap<Target, BTreeSet<Topic>> {
         self.on
             .keys()
-            .map(|target| (target.clone(), self.tags(target)))
-            .filter(|(_, tags)| !tags.is_empty())
+            .map(|target| (target.clone(), self.topics(target)))
+            .filter(|(_, topics)| !topics.is_empty())
             .collect()
     }
 
@@ -145,8 +148,8 @@ impl Reading {
             .aliases
             .iter()
             .filter(|(_, candidates)| !candidates.others.is_empty())
-            .map(|(tag, candidates)| Dispute::Aliases {
-                tag: tag.clone(),
+            .map(|(topic, candidates)| Dispute::Aliases {
+                topic: topic.clone(),
                 chosen: candidates.chosen.clone(),
                 others: candidates.others.clone(),
             });
@@ -158,43 +161,43 @@ impl Reading {
     }
 
     #[must_use]
-    pub fn tag(
+    pub fn add(
         &self,
         target: &Target,
-        tag: &Tag,
+        topic: &Topic,
         at: Datetime,
         actor: &Actor,
     ) -> Option<MembershipEvent> {
-        let spelled = self.spelling(tag);
-        (!self.tags(target).contains(&spelled))
-            .then(|| MembershipEvent::tagged(target.clone(), spelled, at, actor.clone()))
+        let spelled = self.spelling(topic);
+        (!self.topics(target).contains(&spelled))
+            .then(|| MembershipEvent::added(target.clone(), spelled, at, actor.clone()))
     }
 
-    /// Takes off every name of the tag this reading sees on `target`, and no add it has not
+    /// Takes off every name of the topic this reading sees on `target`, and no add it has not
     /// seen.
     #[must_use]
-    pub fn untag(
+    pub fn remove(
         &self,
         target: &Target,
-        tag: &Tag,
+        topic: &Topic,
         at: Datetime,
         actor: &Actor,
     ) -> Vec<MembershipEvent> {
-        let spelled = self.spelling(tag);
+        let spelled = self.spelling(topic);
         self.on
             .get(target)
             .into_iter()
             .flatten()
             .filter(|name| self.spelling(name) == spelled)
-            .map(|name| MembershipEvent::untagged(target.clone(), name.clone(), at, actor.clone()))
+            .map(|name| MembershipEvent::removed(target.clone(), name.clone(), at, actor.clone()))
             .collect()
     }
 
-    /// Afterwards every name of `from`'s tag and of `to`'s tag stands for `to`: a rename to a
-    /// name of another tag merges the two, and renaming back undoes a rename. Each write
+    /// Afterwards every name of `from`'s topic and of `to`'s topic stands for `to`: a rename to a
+    /// name of another topic merges the two, and renaming back undoes a rename. Each write
     /// supersedes what this reading holds for its name, so it settles disputes on those names.
     #[must_use]
-    pub fn rename(&self, from: &Tag, to: &Tag, at: Datetime, actor: &Actor) -> Vec<AliasEvent> {
+    pub fn rename(&self, from: &Topic, to: &Topic, at: Datetime, actor: &Actor) -> Vec<AliasEvent> {
         let itself = (!self.settled(to, &Alias::Itself))
             .then(|| AliasEvent::unaliased(to.clone(), at, actor.clone()));
         let pointed = Alias::As(to.clone());
@@ -209,7 +212,7 @@ impl Reading {
     }
 
     /// An unwritten register reads `Itself`.
-    fn settled(&self, name: &Tag, alias: &Alias) -> bool {
+    fn settled(&self, name: &Topic, alias: &Alias) -> bool {
         match self.aliases.get(name) {
             None => *alias == Alias::Itself,
             Some(candidates) => candidates.chosen == *alias && candidates.others.is_empty(),
@@ -217,8 +220,8 @@ impl Reading {
     }
 }
 
-fn follow(aliases: &BTreeMap<Tag, Candidates>, name: &Tag) -> (Tag, Option<BTreeSet<Tag>>) {
-    let mut path: Vec<&Tag> = Vec::new();
+fn follow(aliases: &BTreeMap<Topic, Candidates>, name: &Topic) -> (Topic, Option<BTreeSet<Topic>>) {
+    let mut path: Vec<&Topic> = Vec::new();
     let mut at = name;
     loop {
         if let Some(start) = path.iter().position(|seen| *seen == at) {

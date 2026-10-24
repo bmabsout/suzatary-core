@@ -43,8 +43,8 @@ const WORDS: [&str; 5] = [
     "secretary-memory-texts",
     "secretary-digest-texts",
     "secretary-lines-keys",
-    "secretary-tags",
-    "secretary-tag-aliases",
+    "secretary-topics",
+    "secretary-topic-aliases",
 ];
 /// Which the owner trashed himself: no vault run may delete it.
 const THEIRS: &str = "an-owners-file.pdf";
@@ -197,7 +197,7 @@ fn vault_keeps_the_newest_seven_and_deletes_the_rest_from_the_trash() {
 }
 
 /// The snapshot holds what nothing else holds: the memory's facts, the digest's summaries, the
-/// keys of locked words and the topic tags.
+/// keys of locked words and the topics.
 #[test]
 fn vault_snapshot_holds_the_words_and_the_keys_nothing_else_holds() {
     let vault = Vault::new("vault-words", &[]);

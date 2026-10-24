@@ -1,5 +1,5 @@
 //! The secretary's stores as replicas a tab pulls: what a replica lacks, by heads, and the
-//! decorations only the box can give, by content; and the tag stores, which a tab also writes.
+//! decorations only the box can give, by content; and the topic stores, which a tab also writes.
 
 mod common;
 
@@ -483,9 +483,9 @@ fn the_lines_skeleton_and_their_content_are_the_whole_pull() {
     assert_eq!(common::body_json(&mut none)["nodes"], serde_json::json!([]));
 }
 
-/// The tag store's one prodrome, as the box began it, and its heads.
-fn tags_begun(base: &str) -> (prodrome_core::event::Hash, Vec<String>) {
-    let all = objects(base, "tags", "");
+/// The topic store's one prodrome, as the box began it, and its heads.
+fn topics_begun(base: &str) -> (prodrome_core::event::Hash, Vec<String>) {
+    let all = objects(base, "topics", "");
     let objects = all["objects"].as_array().expect("objects");
     assert_eq!(objects.len(), 1, "the box began the store: {all}");
     let genesis = prodrome_core::event::Hash::new(objects[0]["hash"].as_str().expect("a name"))
@@ -499,12 +499,12 @@ fn tags_begun(base: &str) -> (prodrome_core::event::Hash, Vec<String>) {
     (genesis, heads)
 }
 
-/// A tab's tag on the first round of `default`, written as `actor` over `genesis`.
-fn tagged(genesis: &prodrome_core::event::Hash, actor: &str) -> String {
-    use suzatary_core::secretary::tags::membership_event::MembershipEvent;
-    let event = MembershipEvent::tagged(
+/// A tab's topic on the first round of `default`, written as `actor` over `genesis`.
+fn added(genesis: &prodrome_core::event::Hash, actor: &str) -> String {
+    use suzatary_core::secretary::topics::membership_event::MembershipEvent;
+    let event = MembershipEvent::added(
         "round:default/0".parse().expect("a target"),
-        suzatary_core::secretary::tags::tag::Tag::new("travel").expect("a tag"),
+        suzatary_core::secretary::topics::topic::Topic::new("travel").expect("a topic"),
         prodrome_core::literal::Datetime::new(2026, 9, 2, 12, 0, 0, 0).expect("an instant"),
         common::actor(actor),
     );
@@ -513,15 +513,15 @@ fn tagged(genesis: &prodrome_core::event::Hash, actor: &str) -> String {
     prodrome_core::event::canonical_envelope(&prodrome_core::event::Envelope::Change(change))
 }
 
-/// A tab posts a tag it wrote offline, and the box takes it as the actor its peer maps to, from
+/// A tab posts a topic it wrote offline, and the box takes it as the actor its peer maps to, from
 /// a device the history trusts; a re-post takes nothing, and a change naming another actor is
 /// refused by name.
 #[test]
-fn a_trusted_tab_writes_a_tag_as_its_own_actor() {
-    let base = writing("stores-tag");
-    let (genesis, _) = tags_begun(&base);
-    let url = format!("{base}/api/stores/tags/objects");
-    let print = tagged(&genesis, "ada");
+fn a_trusted_tab_writes_a_topic_as_its_own_actor() {
+    let base = writing("stores-topic");
+    let (genesis, _) = topics_begun(&base);
+    let url = format!("{base}/api/stores/topics/objects");
+    let print = added(&genesis, "ada");
     let mut taken = common::act(&url, &serde_json::json!({"objects": [print]}));
     assert_eq!(common::status(&taken), 200);
     let receipt = common::body_json(&mut taken);
@@ -531,7 +531,7 @@ fn a_trusted_tab_writes_a_tag_as_its_own_actor() {
         "{receipt}"
     );
     let heads = &receipt["heads"];
-    assert_eq!(objects(&base, "tags", "")["heads"], *heads);
+    assert_eq!(objects(&base, "topics", "")["heads"], *heads);
     let mut again = common::act(&url, &serde_json::json!({"objects": [print]}));
     assert_eq!(
         common::body_json(&mut again)["already"]
@@ -541,7 +541,7 @@ fn a_trusted_tab_writes_a_tag_as_its_own_actor() {
     );
     let mut foreign = common::act(
         &url,
-        &serde_json::json!({"objects": [tagged(&genesis, "triage")]}),
+        &serde_json::json!({"objects": [added(&genesis, "triage")]}),
     );
     let refused = common::body_json(&mut foreign);
     assert!(
@@ -550,18 +550,18 @@ fn a_trusted_tab_writes_a_tag_as_its_own_actor() {
             .is_some_and(|why| why.contains("triage's")),
         "{refused}"
     );
-    assert_eq!(objects(&base, "tags", "")["heads"], *heads);
+    assert_eq!(objects(&base, "topics", "")["heads"], *heads);
 }
 
-/// Nobody but a trusted device on a peer `web.act_as` maps writes a tag: an untrusted device
+/// Nobody but a trusted device on a peer `web.act_as` maps writes a topic: an untrusted device
 /// key, an unsigned request and a viewer who acts as nobody are refused at the door, and the
 /// store holds only its genesis after each. The box alone writes the inbox and the lines.
 #[test]
-fn only_a_trusted_device_of_a_mapped_peer_writes_a_tag() {
-    let base = writing("stores-tag-refused");
-    let (genesis, heads) = tags_begun(&base);
-    let url = format!("{base}/api/stores/tags/objects");
-    let body = serde_json::json!({"objects": [tagged(&genesis, "ada")]});
+fn only_a_trusted_device_of_a_mapped_peer_writes_a_topic() {
+    let base = writing("stores-topic-refused");
+    let (genesis, heads) = topics_begun(&base);
+    let url = format!("{base}/api/stores/topics/objects");
+    let body = serde_json::json!({"objects": [added(&genesis, "ada")]});
     let stranger = prodrome_core::sign::Secret::new(&"7".repeat(64)).expect("a seed");
     assert_eq!(
         common::status(&common::act_signed(&url, &body, &stranger)),
@@ -570,27 +570,27 @@ fn only_a_trusted_device_of_a_mapped_peer_writes_a_tag() {
     assert_eq!(common::status(&common::act_unsigned(&url, &body)), 403);
     let viewer = {
         let whois = common::FakeWhois::new().naming(common::v4(), ada());
-        let fakes = Fakes::new("stores-tag-viewer").whois(whois);
+        let fakes = Fakes::new("stores-topic-viewer").whois(whois);
         let deployment = common::deployment([ada()], []);
         common::Server::new(Arc::new(fakes), deployment, Vec::new())
             .start()
             .base
     };
-    let (viewer_genesis, viewer_heads) = tags_begun(&viewer);
-    let asked = serde_json::json!({"objects": [tagged(&viewer_genesis, "ada")]});
+    let (viewer_genesis, viewer_heads) = topics_begun(&viewer);
+    let asked = serde_json::json!({"objects": [added(&viewer_genesis, "ada")]});
     assert_eq!(
         common::status(&common::act(
-            &format!("{viewer}/api/stores/tags/objects"),
+            &format!("{viewer}/api/stores/topics/objects"),
             &asked
         )),
         403
     );
     assert_eq!(
-        objects(&viewer, "tags", "")["heads"],
+        objects(&viewer, "topics", "")["heads"],
         serde_json::json!(viewer_heads)
     );
     assert_eq!(
-        objects(&base, "tags", "")["heads"],
+        objects(&base, "topics", "")["heads"],
         serde_json::json!(heads)
     );
     for store in ["inbox", "lines"] {

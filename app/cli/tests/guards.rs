@@ -1465,8 +1465,8 @@ fn the_template_ignores_every_store_of_words_or_keys() {
         "/secretary-lines-keys/",
         "/secretary-memory-texts/",
         "/secretary-digest-texts/",
-        "/secretary-tags/",
-        "/secretary-tag-aliases/",
+        "/secretary-topics/",
+        "/secretary-topic-aliases/",
     ] {
         assert!(
             ignore.lines().any(|line| line.trim() == store),
@@ -1676,11 +1676,11 @@ fn safe_push_never_carries_a_key() {
     }
 }
 
-/// The topic tags never leave the box through the push: a tag's name is words, and a pushed
+/// The topics never leave the box through the push: a topic's name is words, and a pushed
 /// object can never be erased. Neither store is staged, and the pattern refuses every file of
 /// either, its objects, its lock and its `.gitattributes` included.
 #[test]
-fn safe_push_never_carries_a_tag() {
+fn safe_push_never_carries_a_topic() {
     let script = safe_push_script();
     let staged: Vec<String> = agent_add_paths()
         .into_iter()
@@ -1695,15 +1695,15 @@ fn safe_push_never_carries_a_tag() {
         .chain(assignments(&script, "DATA_EXTRA_PATTERN"))
         .collect();
     let name = "a".repeat(64);
-    for store in ["secretary-tags", "secretary-tag-aliases"] {
+    for store in ["secretary-topics", "secretary-topic-aliases"] {
         assert!(
             !staged.iter().any(|path| path.starts_with(store)),
             "{store} is staged: {staged:?}"
         );
         for refused in [
             format!("{store}/objects/{name}.py"),
-            format!("{store}/tags.lock"),
-            format!("{store}/tag-aliases.lock"),
+            format!("{store}/topics.lock"),
+            format!("{store}/topic-aliases.lock"),
             format!("{store}/.lock"),
             format!("{store}/quarantine/{name}.py"),
             format!("{store}/.gitattributes"),

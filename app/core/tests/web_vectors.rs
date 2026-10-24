@@ -2693,7 +2693,7 @@ fn the_answers_vector_holds_every_answer() {
             heads: vec![tip.clone()],
         },
         wire::StoreFrame {
-            store: wire::StoreName::TagAliases,
+            store: wire::StoreName::TopicAliases,
             heads: Vec::new(),
         },
     ]);

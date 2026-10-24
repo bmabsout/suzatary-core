@@ -564,12 +564,12 @@ pub enum StoreName {
     /// The conversations' lines.
     #[serde(rename = "lines")]
     Lines,
-    /// The topic tags on rounds and notes.
-    #[serde(rename = "tags")]
-    Tags,
-    /// The tags' aliases.
-    #[serde(rename = "tag-aliases")]
-    TagAliases,
+    /// The topics on rounds and notes.
+    #[serde(rename = "topics")]
+    Topics,
+    /// The topics' aliases.
+    #[serde(rename = "topic-aliases")]
+    TopicAliases,
 }
 
 impl StoreName {
@@ -577,8 +577,8 @@ impl StoreName {
     pub const ALL: [StoreName; 4] = [
         StoreName::Inbox,
         StoreName::Lines,
-        StoreName::Tags,
-        StoreName::TagAliases,
+        StoreName::Topics,
+        StoreName::TopicAliases,
     ];
 }
 

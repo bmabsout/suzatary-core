@@ -5000,7 +5000,7 @@
     {
       "value": {
         "heads": [],
-        "store": "tag-aliases"
+        "store": "topic-aliases"
       },
       "maps": []
     }

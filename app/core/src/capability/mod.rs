@@ -312,7 +312,7 @@ mod tests {
             inbox: _,
             memories: _,
             decisions: _,
-            tags: _,
+            topics: _,
             briefings: _,
             weather: _,
             calendar: _,

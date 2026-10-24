@@ -1,6 +1,6 @@
 //! A prodrome's objects on disk, as an interpreter of [`Prodrome`]: the chains, the agent's
 //! replicas, the inbox, the conversations, the memory's history, the digest's, the recorded
-//! decisions, the two tag stores and each plugin's store.
+//! decisions, the two topic stores and each plugin's store.
 //!
 //! `EventStore` does the work; around it this keeps two things the database does not.
 //!
@@ -25,8 +25,8 @@ use suzatary_core::secretary::digest_event::DigestEvent;
 use suzatary_core::secretary::inbox_event::InboxEvent;
 use suzatary_core::secretary::line_event::LineEvent;
 use suzatary_core::secretary::memory_event::MemoryEvent;
-use suzatary_core::secretary::tags::alias_event::AliasEvent;
-use suzatary_core::secretary::tags::membership_event::MembershipEvent;
+use suzatary_core::secretary::topics::alias_event::AliasEvent;
+use suzatary_core::secretary::topics::membership_event::MembershipEvent;
 use suzatary_core::store::{Prodrome, Reentrant, StoreError, WriteLock, append_to};
 
 use crate::durable;
@@ -59,10 +59,10 @@ pub enum Kind {
     Digests,
     /// The recorded decisions.
     Decisions,
-    /// The topic tags on the secretary's rounds and notes, box-local.
-    Tags,
-    /// The tags' aliases, box-local.
-    TagAliases,
+    /// The topics on the secretary's rounds and notes, box-local.
+    Topics,
+    /// The topics' aliases, box-local.
+    TopicAliases,
     /// A plugin's cache-tier store.
     Plugin,
 }
@@ -77,8 +77,8 @@ impl Kind {
             Kind::Memory => "memory",
             Kind::Digests => "digests",
             Kind::Decisions => "decisions",
-            Kind::Tags => "tags",
-            Kind::TagAliases => "tag-aliases",
+            Kind::Topics => "topics",
+            Kind::TopicAliases => "topic-aliases",
             Kind::Plugin => "plugin",
         }
     }
@@ -100,8 +100,8 @@ impl Kind {
             Kind::Memory => Hold::File("memory.lock"),
             Kind::Digests => Hold::File("digests.lock"),
             Kind::Decisions => Hold::File("decisions.lock"),
-            Kind::Tags => Hold::File("tags.lock"),
-            Kind::TagAliases => Hold::File("tag-aliases.lock"),
+            Kind::Topics => Hold::File("topics.lock"),
+            Kind::TopicAliases => Hold::File("topic-aliases.lock"),
             Kind::Plugin => Hold::File("store.lock"),
         }
     }
@@ -138,11 +138,11 @@ impl Kept for DecisionEvent {
 }
 
 impl Kept for MembershipEvent {
-    const KIND: Kind = Kind::Tags;
+    const KIND: Kind = Kind::Topics;
 }
 
 impl Kept for AliasEvent {
-    const KIND: Kind = Kind::TagAliases;
+    const KIND: Kind = Kind::TopicAliases;
 }
 
 impl Kept for Declared {
@@ -263,19 +263,19 @@ impl Objects<DecisionEvent> {
 }
 
 impl Objects<MembershipEvent> {
-    /// The tags at `root`, held by `tags.lock` across processes, since the server and the carry
-    /// verb both write: a `Genesis` labelled `tags`, then one `Change` per membership written.
+    /// The topics at `root`, held by `topics.lock` across processes, since the server and the carry
+    /// verb both write: a `Genesis` labelled `topics`, then one `Change` per membership written.
     #[must_use]
-    pub fn tags(root: impl Into<std::path::PathBuf>) -> Self {
+    pub fn topics(root: impl Into<std::path::PathBuf>) -> Self {
         Self::new(EventStore::new(root, Untrusted::none()))
     }
 }
 
 impl Objects<AliasEvent> {
-    /// The tags' aliases at `root`, held by `tag-aliases.lock` across processes: a `Genesis`
-    /// labelled `tag-aliases`, then one `Change` per alias written.
+    /// The topics' aliases at `root`, held by `topic-aliases.lock` across processes: a `Genesis`
+    /// labelled `topic-aliases`, then one `Change` per alias written.
     #[must_use]
-    pub fn tag_aliases(root: impl Into<std::path::PathBuf>) -> Self {
+    pub fn topic_aliases(root: impl Into<std::path::PathBuf>) -> Self {
         Self::new(EventStore::new(root, Untrusted::none()))
     }
 }

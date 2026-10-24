@@ -6,19 +6,19 @@ use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary};
 use prodrome_core::schema::Schema;
 
 use crate::literal::{Fields, Literal as _, Signature, record};
-use crate::secretary::tags::alias_registers::{AliasRegister, AliasRegisters};
-use crate::secretary::tags::tag::Tag;
+use crate::secretary::topics::alias_registers::{AliasRegister, AliasRegisters};
+use crate::secretary::topics::topic::Topic;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Alias {
     Itself,
-    /// Never the tag itself: [`AliasEvent::aliased`] refuses that.
-    As(Tag),
+    /// Never the topic itself: [`AliasEvent::aliased`] refuses that.
+    As(Topic),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AliasEvent {
-    tag: Tag,
+    topic: Topic,
     at: Datetime,
     actor: Actor,
     alias: Alias,
@@ -26,16 +26,16 @@ pub struct AliasEvent {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0} cannot be an alias of itself; it is a name of its own")]
-pub struct OfItself(pub Tag);
+pub struct OfItself(pub Topic);
 
 impl AliasEvent {
-    /// Refuses `to == tag`, so "its own name" has one spelling, [`AliasEvent::unaliased`].
-    pub fn aliased(tag: Tag, to: Tag, at: Datetime, actor: Actor) -> Result<Self, OfItself> {
-        if tag == to {
-            return Err(OfItself(tag));
+    /// Refuses `to == topic`, so "its own name" has one spelling, [`AliasEvent::unaliased`].
+    pub fn aliased(topic: Topic, to: Topic, at: Datetime, actor: Actor) -> Result<Self, OfItself> {
+        if topic == to {
+            return Err(OfItself(topic));
         }
         Ok(Self {
-            tag,
+            topic,
             at,
             actor,
             alias: Alias::As(to),
@@ -43,9 +43,9 @@ impl AliasEvent {
     }
 
     #[must_use]
-    pub fn unaliased(tag: Tag, at: Datetime, actor: Actor) -> Self {
+    pub fn unaliased(topic: Topic, at: Datetime, actor: Actor) -> Self {
         Self {
-            tag,
+            topic,
             at,
             actor,
             alias: Alias::Itself,
@@ -53,8 +53,8 @@ impl AliasEvent {
     }
 
     #[must_use]
-    pub fn tag(&self) -> &Tag {
-        &self.tag
+    pub fn topic(&self) -> &Topic {
+        &self.topic
     }
 
     #[must_use]
@@ -63,8 +63,8 @@ impl AliasEvent {
     }
 }
 
-const ALIASED: Signature = ("Aliased", &["tag", "at", "actor", "to"]);
-const UNALIASED: Signature = ("Unaliased", &["tag", "at", "actor"]);
+const ALIASED: Signature = ("Aliased", &["topic", "at", "actor", "to"]);
+const UNALIASED: Signature = ("Unaliased", &["topic", "at", "actor"]);
 const SIGNATURES: &[Signature] = &[ALIASED, UNALIASED];
 
 #[derive(Debug, Clone, Default)]
@@ -78,7 +78,7 @@ impl Vocabulary for AliasVocabulary {
 
 impl Schema for AliasEvent {
     type Vocabulary = AliasVocabulary;
-    type Key = Tag;
+    type Key = Topic;
     type Register = AliasRegister;
 
     fn registers(_: &AliasVocabulary) -> Vec<AliasRegister> {
@@ -89,7 +89,7 @@ impl Schema for AliasEvent {
 
     fn to_value(&self) -> Value {
         let head = vec![
-            self.tag.to_value(),
+            self.topic.to_value(),
             self.at.to_value(),
             self.actor.to_value(),
         ];
@@ -101,17 +101,21 @@ impl Schema for AliasEvent {
 
     fn from_value(_: &AliasVocabulary, value: &Value) -> Result<Self, ProdromeError> {
         let fields = Fields::among(value, SIGNATURES)?;
-        let (tag, at, actor) = (fields.get("tag")?, fields.get("at")?, fields.get("actor")?);
+        let (topic, at, actor) = (
+            fields.get("topic")?,
+            fields.get("at")?,
+            fields.get("actor")?,
+        );
         match fields.name() {
-            "Aliased" => Self::aliased(tag, fields.get("to")?, at, actor)
+            "Aliased" => Self::aliased(topic, fields.get("to")?, at, actor)
                 .map_err(|failed| ProdromeError::invalid(failed.to_string())),
-            "Unaliased" => Ok(Self::unaliased(tag, at, actor)),
+            "Unaliased" => Ok(Self::unaliased(topic, at, actor)),
             other => Err(crate::literal::no_arm("an alias event", other)),
         }
     }
 
-    fn key(&self) -> &Tag {
-        &self.tag
+    fn key(&self) -> &Topic {
+        &self.topic
     }
 
     fn at(&self) -> Datetime {
@@ -137,10 +141,10 @@ mod tests {
     }
 
     #[test]
-    fn a_tag_is_no_alias_of_itself() {
+    fn a_topic_is_no_alias_of_itself() {
         let at = Datetime::new(2026, 10, 21, 9, 0, 0, 0).expect("an instant");
         let ada = Actor::new("ada").expect("an actor");
-        let travel = Tag::new("travel").expect("a tag");
+        let travel = Topic::new("travel").expect("a topic");
         assert_eq!(
             AliasEvent::aliased(travel.clone(), travel.clone(), at, ada.clone()),
             Err(OfItself(travel.clone()))

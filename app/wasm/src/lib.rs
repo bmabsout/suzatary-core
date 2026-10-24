@@ -23,8 +23,8 @@ mod prose;
 mod rendering;
 mod secretary;
 mod signatures;
-mod tags;
 mod todos;
+mod topics;
 mod tripwire;
 mod unrendered;
 

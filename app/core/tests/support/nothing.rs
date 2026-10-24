@@ -127,7 +127,7 @@ impl Nothing {
                 },
             },
             decisions: crate::decisions::Decisions { store: &Nothing },
-            tags: crate::secretary::tags::stores::TagStores {
+            topics: crate::secretary::topics::stores::TopicStores {
                 memberships: &Nothing,
                 aliases: &Nothing,
             },
@@ -412,8 +412,8 @@ kept_nowhere!(crate::secretary::inbox_event::InboxEvent);
 kept_nowhere!(crate::secretary::line_event::LineEvent);
 kept_nowhere!(crate::secretary::memory_event::MemoryEvent);
 kept_nowhere!(crate::secretary::digest_event::DigestEvent);
-kept_nowhere!(crate::secretary::tags::membership_event::MembershipEvent);
-kept_nowhere!(crate::secretary::tags::alias_event::AliasEvent);
+kept_nowhere!(crate::secretary::topics::membership_event::MembershipEvent);
+kept_nowhere!(crate::secretary::topics::alias_event::AliasEvent);
 
 /// No owner: nothing here believes a retraction or an erasure.
 static NO_OWNERS: std::collections::BTreeSet<prodrome_core::event::Actor> =

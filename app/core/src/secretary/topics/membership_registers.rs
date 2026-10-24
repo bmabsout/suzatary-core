@@ -5,8 +5,8 @@ use prodrome_core::fold::{Frontier, Product, Register as _, RegisterType};
 use prodrome_core::literal::ProdromeError;
 use prodrome_core::registers::Stamp;
 
-use crate::secretary::tags::membership::Presence;
-use crate::secretary::tags::membership_event::MembershipEvent;
+use crate::secretary::topics::membership::Presence;
+use crate::secretary::topics::membership_event::MembershipEvent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MembershipRegister;

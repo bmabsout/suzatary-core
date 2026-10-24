@@ -60,7 +60,7 @@ export class Conversations {
   free(): void;
 }
 
-/** A replica of the tag store, `[{hash, text}]`, read once. */
+/** A replica of the topic store, `[{hash, text}]`, read once. */
 export class Memberships {
   constructor(objects: string);
   tips(): string;
@@ -70,8 +70,8 @@ export class Memberships {
   free(): void;
 }
 
-/** A replica of the tag aliases' store, `[{hash, text}]`, read once. */
-export class TagAliases {
+/** A replica of the topic aliases' store, `[{hash, text}]`, read once. */
+export class TopicAliases {
   constructor(objects: string);
   tips(): string;
   since(tips: string): string;
@@ -79,15 +79,15 @@ export class TagAliases {
   free(): void;
 }
 
-/** The tags both replicas read as, and the events that change them, printed for `append`. */
-export class TagReading {
-  constructor(memberships: Memberships, aliases: TagAliases);
-  /** `{<target>: [<tag>, …]}`. */
-  tagged(): string;
+/** The topics both replicas read as, and the events that change them, printed for `append`. */
+export class TopicReading {
+  constructor(memberships: Memberships, aliases: TopicAliases);
+  /** `{<target>: [<topic>, …]}`. */
+  memberships(): string;
   disputes(): string;
-  tag(target: string, tag: string, at: string, actor: string): string | undefined;
+  add(target: string, topic: string, at: string, actor: string): string | undefined;
   /** A JSON array of event prints. */
-  untag(target: string, tag: string, at: string, actor: string): string;
+  remove(target: string, topic: string, at: string, actor: string): string;
   /** A JSON array of event prints. */
   rename(from: string, to: string, at: string, actor: string): string;
   free(): void;

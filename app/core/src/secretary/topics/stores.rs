@@ -1,17 +1,17 @@
-//! The two tag stores, read together, since a membership's tag reads through the aliases.
+//! The two topic stores, read together, since a membership's topic reads through the aliases.
 
-use crate::secretary::tags::alias_event::AliasEvent;
-use crate::secretary::tags::membership_event::MembershipEvent;
-use crate::secretary::tags::reading::Reading;
+use crate::secretary::topics::alias_event::AliasEvent;
+use crate::secretary::topics::membership_event::MembershipEvent;
+use crate::secretary::topics::reading::Reading;
 use crate::store::{Prodrome, StoreError};
 
 #[derive(Clone, Copy)]
-pub struct TagStores<'a> {
+pub struct TopicStores<'a> {
     pub memberships: &'a dyn Prodrome<MembershipEvent>,
     pub aliases: &'a dyn Prodrome<AliasEvent>,
 }
 
-impl TagStores<'_> {
+impl TopicStores<'_> {
     /// # Errors
     /// Either store unreadable.
     pub fn reading(&self) -> Result<Reading, StoreError> {

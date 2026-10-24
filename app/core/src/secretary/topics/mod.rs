@@ -1,4 +1,4 @@
-//! Topic tags on the secretary's rounds and notes (`docs/TOPICTAGS-PLAN-2026-10-21.md`).
+//! Topic topics on the secretary's rounds and notes (`docs/TOPICS-PLAN-2026-10-21.md`).
 
 pub mod alias_event;
 pub mod alias_registers;
@@ -9,5 +9,5 @@ pub mod membership_event;
 pub mod membership_registers;
 pub mod reading;
 pub mod stores;
-pub mod tag;
 pub mod target;
+pub mod topic;

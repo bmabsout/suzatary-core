@@ -68,9 +68,9 @@ fn every_write_route_refuses_a_bare_post_from_loopback() {
         "/api/proposals/reject",
         // The error report's gate keeps the log to the logins that may write.
         "/api/client-errors",
-        // Loopback writing a tag would be the box's shell or the triage agent writing one.
-        "/api/stores/tags/objects",
-        "/api/stores/tag-aliases/objects",
+        // Loopback writing a topic would be the box's shell or the triage agent writing one.
+        "/api/stores/topics/objects",
+        "/api/stores/topic-aliases/objects",
     ] {
         let response = common::agent()
             .post(format!("{base}{path}"))

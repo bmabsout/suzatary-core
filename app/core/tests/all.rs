@@ -44,8 +44,8 @@ mod puller_port;
 mod release;
 #[path = "surface.rs"]
 mod surface;
-#[path = "tags.rs"]
-mod tags;
+#[path = "topics.rs"]
+mod topics;
 #[path = "transcript.rs"]
 mod transcript;
 #[path = "transport_port.rs"]

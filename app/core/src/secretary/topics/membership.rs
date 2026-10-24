@@ -1,15 +1,15 @@
-//! The membership store's key, so each (target, tag) pair is a register of its own.
+//! The membership store's key, so each (target, topic) pair is a register of its own.
 
 use prodrome_core::fold::Order;
 
-use crate::secretary::tags::tag::Tag;
-use crate::secretary::tags::target::Target;
+use crate::secretary::topics::target::Target;
+use crate::secretary::topics::topic::Topic;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Membership {
     pub target: Target,
     /// As its writer spelled it; an alias may spell it otherwise now.
-    pub tag: Tag,
+    pub topic: Topic,
 }
 
 /// `On` above `Off`: a removal supersedes the adds its writer saw, and concurrent writes read

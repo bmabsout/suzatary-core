@@ -909,7 +909,7 @@ fn a_request_sent_many_times_at_once_is_performed_once() {
 }
 
 const SECRET: &str = "sk-never-in-git-4d1f";
-const MARKER: &str = "marker-never-in-git-9c2e";
+const MARKER: &str = "marker-unpushed-9c2e";
 const KEPT: &str = "The car is on level four of the Elm garage";
 const GONE: &str = "Ada moved to Oslo in September";
 
@@ -992,19 +992,20 @@ fn performed_body(
             serde_json::json!({ "title": MARKER })
         }
         "secretary/conversations/{conversation}/erase" => serde_json::json!({ "turns": [0] }),
-        // A tag whose name is the marker, over a prodrome the box does not hold: refused by name,
+        // A topic whose name is the marker, over a prodrome the box does not hold: refused by name,
         // and still a request performed.
         "stores/{store}/objects" => {
-            let tagged = suzatary_core::secretary::tags::membership_event::MembershipEvent::tagged(
+            let added = suzatary_core::secretary::topics::membership_event::MembershipEvent::added(
                 "round:default/0".parse().expect("a target"),
-                suzatary_core::secretary::tags::tag::Tag::new(MARKER).expect("the marker is a tag"),
+                suzatary_core::secretary::topics::topic::Topic::new(MARKER)
+                    .expect("the marker is a topic"),
                 prodrome_core::literal::Datetime::new(2026, 9, 2, 12, 0, 0, 0).expect("an instant"),
                 common::actor("ada"),
             );
             let change = prodrome_core::change::mk_change(
                 prodrome_core::event::Hash::new("a".repeat(64)).expect("a name"),
                 Vec::new(),
-                tagged,
+                added,
             )
             .expect("a change");
             serde_json::json!({ "objects": [prodrome_core::event::canonical_envelope(
@@ -1169,7 +1170,7 @@ fn a_pushed_request_record_holds_nothing_said_either_way() {
             .replace("{conversation}", conversation)
             .replace("{index}", &index.to_string())
             .replace("{id}", id_in(route))
-            .replace("{store}", "tags");
+            .replace("{store}", "topics");
         let (body, key) = performed_body(route, &mut batches);
         let (status, said) = sent.send(&r, &path, &body, &key);
         // A body the route cannot read is refused before it performs, and leaves no record; every

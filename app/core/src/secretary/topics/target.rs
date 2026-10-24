@@ -1,4 +1,4 @@
-//! What a tag is put on, named by a turn index, which never moves because only the box appends
+//! What a topic is put on, named by a turn index, which never moves because only the box appends
 //! a conversation's turns. The one spelling is `round:<conversation>/<turn>` or
 //! `note:<conversation>/<turn>`, with no leading zero.
 
@@ -25,7 +25,7 @@ pub enum Target {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("a tag's target is round:<conversation>/<turn> or note:<conversation>/<turn>, got {0:?}")]
+#[error("a topic's target is round:<conversation>/<turn> or note:<conversation>/<turn>, got {0:?}")]
 pub struct NotATarget(pub String);
 
 impl fmt::Display for Target {

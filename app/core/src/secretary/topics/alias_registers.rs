@@ -1,11 +1,11 @@
-//! A tag's one register, its [`Alias`]. The order is discrete: two different aliases written
-//! concurrently for one tag are a conflict, which the reading shows and the next rename settles.
+//! A topic's one register, its [`Alias`]. The order is discrete: two different aliases written
+//! concurrently for one topic are a conflict, which the reading shows and the next rename settles.
 
 use prodrome_core::fold::{Discrete, Frontier, Product, Register as _, RegisterType};
 use prodrome_core::literal::ProdromeError;
 use prodrome_core::registers::Stamp;
 
-use crate::secretary::tags::alias_event::{Alias, AliasEvent};
+use crate::secretary::topics::alias_event::{Alias, AliasEvent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AliasRegister;

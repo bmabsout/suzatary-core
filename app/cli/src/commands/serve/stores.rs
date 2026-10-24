@@ -2,7 +2,7 @@
 //! move. The inbox and the conversations' lines are written only by the box, so a tab only
 //! pulls, a piece at a time; the lines' pull carries the keys of the words it sends. The lines'
 //! skeleton is that pull without the literals, and every store's literals are asked for by hash
-//! (`docs/LAZYSYNC-PLAN-2026-10-21.md`). The two tag stores are written by a tab too, which
+//! (`docs/LAZYSYNC-PLAN-2026-10-21.md`). The two topic stores are written by a tab too, which
 //! posts its replica's changes.
 
 use axum::Json;
@@ -27,15 +27,15 @@ pub fn named(segment: &str) -> Result<StoreName, Refusal> {
     match segment {
         "inbox" => Ok(StoreName::Inbox),
         "lines" => Ok(StoreName::Lines),
-        "tags" => Ok(StoreName::Tags),
-        "tag-aliases" => Ok(StoreName::TagAliases),
+        "topics" => Ok(StoreName::Topics),
+        "topic-aliases" => Ok(StoreName::TopicAliases),
         // A page from before the lines asks for the store they replaced: it is told a new version is ready.
         "conversations" => Err(Refusal::new(
             suzatary_core::refusal::Status::UpgradeRequired,
             "the conversations are read from the lines now: a new version of this page is ready, and Reload loads it",
         )),
         other => Err(Refusal::not_found(format!(
-            "a tab holds the inbox, the lines, the tags and the tag aliases, not {}",
+            "a tab holds the inbox, the lines, the topics and the topic aliases, not {}",
             suzatary_core::refusal::shown(other)
         ))),
     }
@@ -49,8 +49,8 @@ pub fn heads(store: StoreName, caps: &Server<'_>) -> Result<Vec<String>, StoreEr
     let tips = match store {
         StoreName::Inbox => caps.inbox.tips()?,
         StoreName::Lines => caps.conversations.lines.tips()?,
-        StoreName::Tags => caps.tags.memberships.tips()?,
-        StoreName::TagAliases => caps.tags.aliases.tips()?,
+        StoreName::Topics => caps.topics.memberships.tips()?,
+        StoreName::TopicAliases => caps.topics.aliases.tips()?,
     };
     let mut heads: Vec<String> = tips.iter().map(|h| h.as_str().to_owned()).collect();
     heads.sort();
@@ -84,29 +84,34 @@ pub fn objects(call: &Call<Reader, Since, ()>) -> Result<Json<wire::StorePayload
             routes::store_objects_since(caps.inbox, "inbox", since, epochs, now, cut)
         }
         StoreName::Lines => routes::lines_since(caps.conversations, since, epochs, now, cut),
-        StoreName::Tags => {
-            routes::store_objects_since(caps.tags.memberships, "tags", since, epochs, now, cut)
+        StoreName::Topics => {
+            routes::store_objects_since(caps.topics.memberships, "topics", since, epochs, now, cut)
         }
-        StoreName::TagAliases => {
-            routes::store_objects_since(caps.tags.aliases, "tag-aliases", since, epochs, now, cut)
-        }
+        StoreName::TopicAliases => routes::store_objects_since(
+            caps.topics.aliases,
+            "topic-aliases",
+            since,
+            epochs,
+            now,
+            cut,
+        ),
     }
     .map(Json)
 }
 
-/// A store a tab writes, named by its path segment: one of the tag stores.
+/// A store a tab writes, named by its path segment: one of the topic stores.
 pub enum Written {
-    /// `tags`.
-    Tags,
-    /// `tag-aliases`.
-    TagAliases,
+    /// `topics`.
+    Topics,
+    /// `topic-aliases`.
+    TopicAliases,
 }
 
 impl Params for Written {
     fn parse(asked: &Asked, _: &Chained) -> Result<Self, Refusal> {
         match named(asked.segment("store")?)? {
-            StoreName::Tags => Ok(Self::Tags),
-            StoreName::TagAliases => Ok(Self::TagAliases),
+            StoreName::Topics => Ok(Self::Topics),
+            StoreName::TopicAliases => Ok(Self::TopicAliases),
             StoreName::Inbox | StoreName::Lines => Err(Refusal::method_not_allowed(
                 "the box alone writes the inbox and the lines",
             )),
@@ -114,16 +119,16 @@ impl Params for Written {
     }
 }
 
-/// `POST /api/stores/<store>/objects`: a replica of a tag store handing its changes over, each
+/// `POST /api/stores/<store>/objects`: a replica of a topic store handing its changes over, each
 /// written as the actor the request was proven for.
 pub fn take(
     call: &Call<prodrome_core::event::Actor, Written, Literals>,
 ) -> Result<Json<wire::ReceiptPayload>, Refusal> {
-    let tags = call.state.first.caps.tags;
+    let topics = call.state.first.caps.topics;
     let (posted, actor) = (&call.body.0, &call.guard);
     match call.params {
-        Written::Tags => routes::receive_changes(tags.memberships, posted, actor),
-        Written::TagAliases => routes::receive_changes(tags.aliases, posted, actor),
+        Written::Topics => routes::receive_changes(topics.memberships, posted, actor),
+        Written::TopicAliases => routes::receive_changes(topics.aliases, posted, actor),
     }
     .map(Json)
 }
@@ -178,8 +183,8 @@ pub fn content(
     match store {
         StoreName::Inbox => routes::content(caps.inbox, hashes),
         StoreName::Lines => routes::content(caps.conversations.lines, hashes),
-        StoreName::Tags => routes::content(caps.tags.memberships, hashes),
-        StoreName::TagAliases => routes::content(caps.tags.aliases, hashes),
+        StoreName::Topics => routes::content(caps.topics.memberships, hashes),
+        StoreName::TopicAliases => routes::content(caps.topics.aliases, hashes),
     }
     .map(|answer| Immutable(Json(answer)))
 }

@@ -35,8 +35,8 @@ pub struct Server<'a> {
     pub memories: crate::secretary::memories::Memories<'a>,
     /// The recorded decisions, which a tapped proposal writes.
     pub decisions: crate::decisions::Decisions<'a>,
-    /// The topic tags on the secretary's rounds and notes, box-local.
-    pub tags: crate::secretary::tags::stores::TagStores<'a>,
+    /// The topics on the secretary's rounds and notes, box-local.
+    pub topics: crate::secretary::topics::stores::TopicStores<'a>,
     /// The saved briefings.
     pub briefings: &'a dyn Briefings,
     /// The day's forecast.

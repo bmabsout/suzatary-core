@@ -76,7 +76,7 @@ pub fn table() -> Vec<Route> {
             Scope::Box,
             mail::cancel_watch,
         ),
-        // The secretary's stores, as replicas a tab pulls; a tab posts only to the tag stores.
+        // The secretary's stores, as replicas a tab pulls; a tab posts only to the topic stores.
         Route::get("/api/stores/{store}/objects", Scope::Box, stores::objects),
         Route::post("/api/stores/{store}/objects", Scope::Box, stores::take),
         Route::get("/api/stores/{store}/content", Scope::Box, stores::content),

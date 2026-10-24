@@ -12,8 +12,8 @@
 # pasted credentials and do not belong in any backup). The words of the
 # secretary's memory (`secretary-memory-texts/`), the digest's summaries
 # (`secretary-digest-texts/`), the keys of the conversations' locked words
-# (`secretary-lines-keys/`, 32 bytes each), the topic tags and their aliases
-# (`secretary-tags/`, `secretary-tag-aliases/`, whose names are words) and the
+# (`secretary-lines-keys/`, 32 bytes each), the topics and their aliases
+# (`secretary-topics/`, `secretary-topic-aliases/`, whose names are words) and the
 # files its conversations hold ARE here: nothing else holds them. The conversations and the memory's and the digest's
 # histories are stores the data tree pushes, so they are not. The
 # box-local tier (`local/`: the person's prose, the leak guard's term lists,
@@ -93,7 +93,7 @@ tar czf "$WORK/state.tar.gz" --exclude="*.lock" -C "$HOME" \
   $(cd "$HOME" && ls -d .local/state/suzatary/oauth 2>/dev/null) \
   $(cd "$HOME" && ls .ms-oauth-*.json 2>/dev/null) \
   $(cd "$HOME" && ls Mail/*/.credentials.gmailieer.json 2>/dev/null) \
-  -C "$DATA" $(cd "$DATA" && ls -d secretary-memory-texts secretary-digest-texts secretary-lines-keys secretary-tags secretary-tag-aliases secretary/attachments secretary/files local 2>/dev/null)
+  -C "$DATA" $(cd "$DATA" && ls -d secretary-memory-texts secretary-digest-texts secretary-lines-keys secretary-topics secretary-topic-aliases secretary/attachments secretary/files local 2>/dev/null)
 
 gpg --batch --yes --trust-model always -r "$RECIPIENT" \
   -o "$OUT" --encrypt "$WORK/state.tar.gz"

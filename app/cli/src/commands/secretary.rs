@@ -1204,23 +1204,40 @@ enum Action {
         #[arg(long)]
         actor: Option<String>,
     },
-    /// The topic tags on rounds and notes.
-    Tags {
+    /// The topics on rounds and notes.
+    Topics {
         /// What to do with them.
         #[command(subcommand)]
-        action: TagsAction,
+        action: TopicsAction,
     },
 }
 
 #[derive(Debug, clap::Subcommand)]
-enum TagsAction {
-    /// Tag every round and note of each conversation with its title, once, as the assistant;
-    /// the default conversation's get no tag. A second run writes nothing.
+enum TopicsAction {
+    /// Give the rounds and notes of each conversation the map names its topics, once, as the
+    /// assistant; a conversation the map does not name gets no topic. A second run writes
+    /// nothing.
     Carry {
-        /// Print each conversation's tag and what it would tag, and write nothing.
+        /// A TOML file with one table per conversation id, each `topics = [..]` naming 1 to 3
+        /// topics.
+        #[arg(long, required_unless_present = "dry_run")]
+        map: Option<std::path::PathBuf>,
+        /// Write nothing: without `--map`, list every conversation to write the map from; with
+        /// it, print what each conversation would get.
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+/// What `suzatary secretary topics carry` does, parsed from its flags.
+#[derive(Debug, Clone)]
+pub enum CarryRun {
+    /// List every conversation: its id, date, round count and title.
+    List,
+    /// Print what each conversation would get from the map, and write nothing.
+    Show(std::path::PathBuf),
+    /// Write what the map gives each conversation.
+    Write(std::path::PathBuf),
 }
 
 /// The morning brief's question, which lives in core so transcripts can be read for answers.
@@ -1268,63 +1285,100 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
             reason,
             actor,
         } => dismiss(&instance, conversation, *n, reason, actor.as_deref()),
-        Action::Tags {
-            action: TagsAction::Carry { dry_run },
-        } => carry(&instance, *dry_run, &mut std::io::stdout()).map(|_| ()),
+        Action::Topics {
+            action: TopicsAction::Carry { map, dry_run },
+        } => {
+            let run = match (map, dry_run) {
+                (None, _) => CarryRun::List,
+                (Some(map), true) => CarryRun::Show(map.clone()),
+                (Some(map), false) => CarryRun::Write(map.clone()),
+            };
+            carry(&instance, &run, &mut std::io::stdout()).map(|_| ())
+        }
     }
 }
 
-/// `suzatary secretary tags carry`: each conversation's tag, and what it tags, said on `out`;
-/// with `dry_run` nothing is written. Answers how many memberships it wrote, or would write.
+/// `suzatary secretary topics carry`, said on `out`. Answers how many memberships it wrote, or
+/// would write; a listing answers 0.
 ///
 /// # Errors
-/// A store that does not read, or a membership not written.
+/// A map that does not read or is refused, a store that does not read, or a membership not
+/// written.
 pub fn carry(
     instance: &Instance,
-    dry_run: bool,
+    run: &CarryRun,
     out: &mut impl std::io::Write,
 ) -> anyhow::Result<usize> {
-    use suzatary_core::secretary::tags::carry::{self, Carrying};
+    use anyhow::Context as _;
+    use suzatary_core::secretary::topics::carry::{self, Carrying, Map};
     use suzatary_core::store::Prodrome as _;
     let refused =
         |refusal: suzatary_core::refusal::Refusal| anyhow::anyhow!("{}", refusal.message());
     let conversations =
         suzatary_core::secretary::list(conversations(instance).conversations()).map_err(refused)?;
-    let tags = instance.secretary.tags.open();
-    let _held = if dry_run {
-        None
+    let (path, write) = match run {
+        CarryRun::List => {
+            for listed in carry::listing(&conversations) {
+                let opened = listed.opened;
+                writeln!(
+                    out,
+                    "{}  {:04}-{:02}-{:02}  {} round(s)  {}",
+                    listed.conversation,
+                    opened.year(),
+                    opened.month(),
+                    opened.day(),
+                    listed.rounds,
+                    listed.title
+                )?;
+            }
+            return Ok(0);
+        }
+        CarryRun::Show(path) => (path, false),
+        CarryRun::Write(path) => (path, true),
+    };
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("reading the map {}", path.display()))?;
+    let map = Map::parse(&text, &conversations).with_context(|| {
+        format!(
+            "the map {} is refused whole, and nothing was written",
+            path.display()
+        )
+    })?;
+    let topics = instance.secretary.topics.open();
+    let _held = if write {
+        topics.begin()?;
+        Some(topics.memberships.locked()?)
     } else {
-        tags.begin()?;
-        Some(tags.memberships.locked()?)
+        None
     };
     let planned = carry::plan(
         &conversations,
-        &tags.stores().reading()?,
+        &map,
+        &topics.stores().reading()?,
         suzatary_core::capability::Clock::now(&suzatary_io::clock::SystemClock),
     );
     for carrying in &planned.conversations {
         match carrying {
-            Carrying::Tagged {
+            Carrying::Filed {
                 conversation,
-                tag,
+                topics,
                 rounds,
                 notes,
+                writes,
             } => writeln!(
                 out,
-                "{conversation}  {tag}  {rounds} round(s) and {notes} note(s) to tag"
+                "{conversation}  {}  {rounds} round(s) and {notes} note(s), {writes} membership(s) to write",
+                topics
+                    .topics()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )?,
-            Carrying::Default {
-                conversation,
-                rounds,
-                notes,
-            } => writeln!(
-                out,
-                "{conversation}  (no tag)  its {rounds} round(s) and {notes} note(s) stay untagged"
-            )?,
+            Carrying::Unnamed { conversation } => writeln!(out, "{conversation}  (no topic)")?,
         }
     }
     let count = planned.events.len();
-    if dry_run {
+    if !write {
         writeln!(
             out,
             "would write {count} membership(s) as assistant; wrote nothing"
@@ -1332,7 +1386,7 @@ pub fn carry(
         return Ok(count);
     }
     for event in planned.events {
-        tags.memberships.append(event)?;
+        topics.memberships.append(event)?;
     }
     writeln!(out, "wrote {count} membership(s) as assistant")?;
     Ok(count)

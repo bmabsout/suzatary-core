@@ -636,15 +636,16 @@ module's `Conversations.erased`), a forget that fails keeping the key until
 one succeeds. Its plaintext row of the old store is deleted once
 the lines' row holds objects, its rendered blocks cleared first.
 
-*(4b) TOPIC TAGS* (`docs/TOPICTAGS-PLAN-2026-10-21.md`, `secretary::tags`). Two
-stores of their own, named by `[secretary] tags`: `secretary-tags/`, one
-register per (target, tag), `Off < On`, read as an observed-remove set, and
-`secretary-tag-aliases/`, one register per tag name. A tag's name is words, so
-both are box-local, in the daily vault and never pushed; `suzatary init` and
-the server begin them. A tab pulls both as it pulls the lines, and `POST
-/api/stores/{tags,tag-aliases}/objects` takes a replica's changes under the
-act guard, each a `Change` whose event is the poster's actor
-(`sync::receive_changes`). The reading is `tags::Reading::of`, a function of
+*(4b) TOPICS* (`docs/TOPICS-PLAN-2026-10-21.md`, `secretary::topics`). Two
+stores of their own, named by `[secretary] topics`: `secretary-topics/`, one
+register per (target, topic), `Off < On`, read as an observed-remove set, and
+`secretary-topic-aliases/`, one register per topic name. A topic is one to
+three words and at most 24 characters (`Topic::new`). A topic's name is words,
+so both stores are box-local, in the daily vault and never pushed; `suzatary
+init` and the server begin them. A tab pulls both as it pulls the lines, and
+`POST /api/stores/{topics,topic-aliases}/objects` takes a replica's changes
+under the act guard, each a `Change` whose event is the poster's actor
+(`sync::receive_changes`). The reading is `topics::Reading::of`, a function of
 the two object sets, in the box and in the browser module alike.
 
 *(5) THE APP IS THE DOOR.* `#/secretary`, in the More sheet by `nav.ts`'s

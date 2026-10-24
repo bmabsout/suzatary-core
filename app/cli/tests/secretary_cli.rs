@@ -415,17 +415,11 @@ fn drafted() -> [suzatary_core::capability::Turn; 3] {
     ]
 }
 
-/// The carry on a fixture: a topic, a topic whose title has no letter, a daily sweep and the
-/// default conversation. The dry run says what each gets and writes nothing; the run tags each
-/// topic's rounds and note with its title, the sweep's with `sweep`, the untitled topic's with
-/// its id, and the default's with nothing; a second run writes nothing.
-#[test]
-fn the_carry_tags_each_conversation_s_rounds_with_its_title_once() {
+/// Four conversations on a fresh instance: a topic with a note, a topic, a daily sweep and the
+/// default.
+fn carried(name: &str) -> Instance {
     use suzatary_core::secretary::store::Kind;
-    use suzatary_core::secretary::tags::tag::Tag;
-    use suzatary_core::secretary::tags::target::Target;
-    use suzatary_core::store::Prodrome as _;
-    let instance = fresh_instance("carry");
+    let instance = fresh_instance(name);
     let [call, note, answer] = drafted();
     conversation(
         &instance,
@@ -445,7 +439,7 @@ fn the_carry_tags_each_conversation_s_rounds_with_its_title_once() {
     conversation(
         &instance,
         "2026-10-20-2",
-        "!!!",
+        "Hello",
         Kind::Topic,
         vec![asked("hello"), answered("Hello.")],
     );
@@ -463,57 +457,154 @@ fn the_carry_tags_each_conversation_s_rounds_with_its_title_once() {
         Kind::Default,
         vec![asked("hi"), answered("Hi."), asked("bye"), answered("Bye.")],
     );
-    let tags = instance.secretary.tags.open();
-    let held = || tags.memberships.objects().expect("reads").len();
-    let begun = held();
-    let run = |dry_run: bool| {
-        let mut said = Vec::new();
-        let count = suzatary_cli::commands::secretary::carry(&instance, dry_run, &mut said)
-            .expect("the carry runs");
-        let mut lines: Vec<String> = String::from_utf8(said)
-            .expect("utf-8")
-            .lines()
-            .map(str::to_owned)
-            .collect();
-        lines.sort();
-        (count, lines)
-    };
+    instance
+}
 
-    let (count, said) = run(true);
-    assert_eq!(count, 5);
+/// A carry map written under the test's scratch directory.
+fn carry_map(name: &str, text: &str) -> std::path::PathBuf {
+    let path = temp_dir(name).join("map.toml");
+    std::fs::write(&path, text).expect("the map is written");
+    path
+}
+
+/// The carry's count and its lines, sorted.
+fn carrying(
+    instance: &Instance,
+    run: &suzatary_cli::commands::secretary::CarryRun,
+) -> anyhow::Result<(usize, Vec<String>)> {
+    let mut said = Vec::new();
+    let count = suzatary_cli::commands::secretary::carry(instance, run, &mut said)?;
+    let mut lines: Vec<String> = String::from_utf8(said)
+        .expect("utf-8")
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    lines.sort();
+    Ok((count, lines))
+}
+
+/// How many objects the membership store holds.
+fn held(instance: &Instance) -> usize {
+    use suzatary_core::store::Prodrome as _;
+    instance
+        .secretary
+        .topics
+        .open()
+        .memberships
+        .objects()
+        .expect("reads")
+        .len()
+}
+
+/// The listing names each conversation with its date, rounds and title, and a map with any
+/// problem is refused whole, listing every problem, and writes nothing.
+#[test]
+fn the_carry_lists_the_conversations_and_refuses_a_wrong_map_whole() {
+    use suzatary_cli::commands::secretary::CarryRun;
+    let instance = carried("carry-refused");
+    let begun = held(&instance);
+    let (_, listed) = carrying(&instance, &CarryRun::List).expect("the listing runs");
+    assert_eq!(
+        listed,
+        vec![
+            "2026-10-20-1  2026-10-20  2 round(s)  Trip to the coast!",
+            "2026-10-20-2  2026-10-20  1 round(s)  Hello",
+            "2026-10-20-sweep  2026-10-20  1 round(s)  Sweep",
+            "default  2026-10-20  2 round(s)  Secretary",
+        ]
+    );
+
+    let wrong = carry_map(
+        "carry-wrong",
+        "[\"2026-10-20-1\"]\ntopics = [\"trip\"]\n\
+         [\"2026-10-21-9\"]\ntopics = [\"nowhere\"]\n\
+         [\"2026-10-20-2\"]\ntopics = [\"a-much-too-long-topic\", \"greetings\", \"greetings\"]\n\
+         [default]\ntopics = [\"a\", \"b\", \"c\", \"d\"]\n",
+    );
+    for refused in [CarryRun::Show(wrong.clone()), CarryRun::Write(wrong)] {
+        let refusal = format!(
+            "{:#}",
+            carrying(&instance, &refused).expect_err("the map is refused")
+        );
+        for named in [
+            "nothing was written",
+            "2026-10-21-9 is not a conversation the store holds",
+            "a topic is at most 3 words",
+            "2026-10-20-2 names greetings twice",
+            "default names 4 topic(s); name 1 to 3",
+        ] {
+            assert!(refusal.contains(named), "{named}: {refusal}");
+        }
+    }
+    assert_eq!(held(&instance), begun, "a refused map writes nothing");
+}
+
+/// A dry run with a map says what each conversation gets and writes nothing. The run gives each
+/// named conversation's rounds and note its topics and the others none, and a second run writes
+/// nothing.
+#[test]
+fn the_carry_gives_the_conversations_a_map_names_their_topics_once() {
+    use suzatary_cli::commands::secretary::CarryRun;
+    use suzatary_core::secretary::topics::target::Target;
+    use suzatary_core::secretary::topics::topic::Topic;
+    let instance = carried("carry");
+    let begun = held(&instance);
+    let good = carry_map(
+        "carry-good",
+        "[\"2026-10-20-1\"]\ntopics = [\"trip\", \"coast\"]\n[default]\ntopics = [\"daily\"]\n",
+    );
+    let (count, said) =
+        carrying(&instance, &CarryRun::Show(good.clone())).expect("the dry run runs");
+    assert_eq!(count, 8);
     assert_eq!(
         said,
         vec![
-            "2026-10-20-1  trip-to-the-coast  2 round(s) and 1 note(s) to tag",
-            "2026-10-20-2  2026-10-20-2  1 round(s) and 0 note(s) to tag",
-            "2026-10-20-sweep  sweep  1 round(s) and 0 note(s) to tag",
-            "default  (no tag)  its 2 round(s) and 0 note(s) stay untagged",
-            "would write 5 membership(s) as assistant; wrote nothing",
+            "2026-10-20-1  coast, trip  2 round(s) and 1 note(s), 6 membership(s) to write",
+            "2026-10-20-2  (no topic)",
+            "2026-10-20-sweep  (no topic)",
+            "default  daily  2 round(s) and 0 note(s), 2 membership(s) to write",
+            "would write 8 membership(s) as assistant; wrote nothing",
         ]
     );
-    assert_eq!(held(), begun, "a dry run writes nothing");
+    assert_eq!(held(&instance), begun, "a dry run writes nothing");
 
-    assert_eq!(run(false).0, 5);
-    let reading = tags.stores().reading().expect("reads");
+    assert_eq!(
+        carrying(&instance, &CarryRun::Write(good.clone()))
+            .expect("the carry runs")
+            .0,
+        8
+    );
+    let reading = instance
+        .secretary
+        .topics
+        .open()
+        .stores()
+        .reading()
+        .expect("reads");
     let target = |text: &str| text.parse::<Target>().expect("a target");
-    let tag = |text: &str| std::collections::BTreeSet::from([Tag::new(text).expect("a tag")]);
-    for (on, tagged) in [
-        ("round:2026-10-20-1/0", "trip-to-the-coast"),
-        ("note:2026-10-20-1/2", "trip-to-the-coast"),
-        ("round:2026-10-20-1/5", "trip-to-the-coast"),
-        ("round:2026-10-20-2/0", "2026-10-20-2"),
-        ("round:2026-10-20-sweep/0", "sweep"),
+    let topic = |names: &[&str]| {
+        names
+            .iter()
+            .map(|name| Topic::new(*name).expect("a topic"))
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    for (on, filed) in [
+        ("round:2026-10-20-1/0", &["trip", "coast"][..]),
+        ("note:2026-10-20-1/2", &["trip", "coast"]),
+        ("round:2026-10-20-1/5", &["trip", "coast"]),
+        ("round:default/0", &["daily"]),
+        ("round:default/2", &["daily"]),
     ] {
-        assert_eq!(reading.tags(&target(on)), tag(tagged), "{on}");
+        assert_eq!(reading.topics(&target(on)), topic(filed), "{on}");
     }
     assert_eq!(
-        reading.tagged().len(),
+        reading.memberships().len(),
         5,
-        "the default's rounds carry no tag"
+        "a conversation the map does not name gets no topic"
     );
-    let written = held();
+    let written = held(&instance);
 
-    let (again, said) = run(false);
+    let (again, said) = carrying(&instance, &CarryRun::Write(good)).expect("the carry runs again");
     assert_eq!(again, 0, "a second run writes nothing: {said:?}");
-    assert_eq!(held(), written);
+    assert_eq!(held(&instance), written);
 }

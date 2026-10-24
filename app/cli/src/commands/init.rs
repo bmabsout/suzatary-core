@@ -136,11 +136,11 @@ pub fn run_keyed(
     Ok(())
 }
 
-/// `onboarding`'s instance file written under `root`, its chains and tag stores begun, and read
+/// `onboarding`'s instance file written under `root`, its chains and topic stores begun, and read
 /// back.
 ///
 /// # Errors
-/// The file not written, a chain or a tag store not begun, or the file not reading back.
+/// The file not written, a chain or a topic store not begun, or the file not reading back.
 fn written(
     path: &Path,
     onboarding: &Onboarding,
@@ -157,10 +157,10 @@ fn written(
     suzatary_io::tier::ignored(&tier).with_context(|| format!("beginning {}", tier.display()))?;
     let read = Instance::read(path, env)?;
     read.secretary
-        .tags
+        .topics
         .open()
         .begin()
-        .context("beginning the tag stores")?;
+        .context("beginning the topic stores")?;
     Ok(read)
 }
 

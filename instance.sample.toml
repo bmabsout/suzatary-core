@@ -85,9 +85,9 @@ compact_bytes_per_day = 33554432
 compact_workers = 1
 settings = ".claude/secretary-settings.json"
 
-[secretary.tags]
-memberships = "secretary-tags"
-aliases = "secretary-tag-aliases"
+[secretary.topics]
+memberships = "secretary-topics"
+aliases = "secretary-topic-aliases"
 
 [persona]
 name = "Ada"

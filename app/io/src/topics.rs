@@ -1,22 +1,22 @@
-//! The two tag stores on disk, box-local and never pushed: a tag name is words.
+//! The two topic stores on disk, box-local and never pushed: a topic name is words.
 
-use suzatary_core::secretary::tags::alias_event::AliasEvent;
-use suzatary_core::secretary::tags::membership_event::MembershipEvent;
-use suzatary_core::secretary::tags::stores::TagStores;
+use suzatary_core::secretary::topics::alias_event::AliasEvent;
+use suzatary_core::secretary::topics::membership_event::MembershipEvent;
+use suzatary_core::secretary::topics::stores::TopicStores;
 use suzatary_core::store::StoreError;
 
 use crate::objects::Objects;
 
 /// The memberships and the aliases, opened together.
 #[derive(Debug)]
-pub struct Tags {
-    /// `secretary-tags/` by default.
+pub struct Topics {
+    /// `secretary-topics/` by default.
     pub memberships: Objects<MembershipEvent>,
-    /// `secretary-tag-aliases/` by default.
+    /// `secretary-topic-aliases/` by default.
     pub aliases: Objects<AliasEvent>,
 }
 
-impl Tags {
+impl Topics {
     /// Both stores, at their directories. Nothing is read until something asks.
     #[must_use]
     pub fn open(
@@ -24,8 +24,8 @@ impl Tags {
         aliases: impl Into<std::path::PathBuf>,
     ) -> Self {
         Self {
-            memberships: Objects::tags(memberships),
-            aliases: Objects::tag_aliases(aliases),
+            memberships: Objects::topics(memberships),
+            aliases: Objects::topic_aliases(aliases),
         }
     }
 
@@ -40,8 +40,8 @@ impl Tags {
 
     /// The record a reader or a writer holds.
     #[must_use]
-    pub fn stores(&self) -> TagStores<'_> {
-        TagStores {
+    pub fn stores(&self) -> TopicStores<'_> {
+        TopicStores {
             memberships: &self.memberships,
             aliases: &self.aliases,
         }
