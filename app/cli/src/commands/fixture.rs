@@ -91,6 +91,7 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
         connected,
         configuring,
         connections,
+        lines,
     } = args;
     let lapsed = *connections == Connections::Lapsed;
     let (root, port, propose, reviewed, settings) =
@@ -138,6 +139,7 @@ pub fn build(args: &Args) -> anyhow::Result<()> {
     if lapsed {
         reading_not_sending(&read, root)?;
     }
+    bulk_lines(&read, *lines)?;
     read.adopt(&signers)
         .whole()
         .context("adopting signatures on every chain")?;
@@ -1283,6 +1285,117 @@ pub struct Args {
     /// account that reads its mail and holds no grant to send.
     #[arg(long, value_enum, default_value_t = Connections::Fresh, requires = "settings")]
     connections: Connections,
+    /// How many more lines to write to the conversations, generated, for measuring a tab that
+    /// holds a large store: half in one conversation, the rest in smaller ones.
+    #[arg(long, default_value_t = 0)]
+    lines: usize,
+}
+
+/// `count` lines written to new conversations, each with its words locked under a key of its own
+/// as the box locks them: a model's answer of about 6 kB in three blocks and a person's question,
+/// alternating.
+fn bulk_lines(read: &crate::instance::Instance, count: usize) -> anyhow::Result<()> {
+    use prodrome_core::event::{Actor, canonical_envelope};
+    use prodrome_core::store::{MemoryStore, Replica as _};
+    use suzatary_core::capability::Turn;
+    use suzatary_core::secretary::line_event::LineEvent;
+    use suzatary_core::secretary::store::{ConversationId, Entry, Kind};
+    use suzatary_core::secretary::words::Words;
+
+    if count == 0 {
+        return Ok(());
+    }
+    let stores = read.conversation_stores();
+    let conversations = stores.conversations();
+    let opened = |n: usize, at| Entry::Opened {
+        at,
+        title: Words::kept(format!("Bulk conversation {n}")),
+        model: "scripted/fixture".to_owned(),
+        kind: Kind::Topic,
+    };
+    // Through the store itself first, which begins it if nothing has.
+    let start = fpl::instant_of(SystemClock.now()) - Duration::seconds(i64::try_from(count)? + 60);
+    suzatary_core::secretary::transcript::start(
+        conversations,
+        &ConversationId::new("bulk-0")?,
+        &opened(0, fpl::datetime_of(start)?),
+    )?;
+    let held = conversations.lines.objects()?;
+    let memory: MemoryStore<LineEvent> = MemoryStore::default();
+    let prints: std::collections::BTreeMap<Hash, Vec<u8>> = held
+        .iter()
+        .map(|(name, object)| (name.clone(), canonical_envelope(object).into_bytes()))
+        .collect();
+    memory.receive(prints.keys().cloned().collect(), &|name| {
+        prints.get(name).cloned()
+    })?;
+    let writer = Actor::new(suzatary_core::secretary::WRITES_AS.actor())?;
+    // Half the lines in one conversation, then each next conversation half the size of the last.
+    let mut sizes = Vec::new();
+    let mut left = count;
+    while left > 0 {
+        let size = (left / 2).max(left.min(20));
+        sizes.push(size);
+        left -= size;
+    }
+    let mut written = 0u32;
+    for (n, size) in sizes.into_iter().enumerate() {
+        let id = ConversationId::new(format!("bulk-{n}"))?;
+        // The first conversation's opening line is the store's own, above.
+        for line in usize::from(n == 0)..size {
+            written += 1;
+            // Every line a second after the one before, all before now, so none is dated in the future.
+            let at = fpl::datetime_of(start + Duration::seconds(i64::from(written)))?;
+            let entry = if line == 0 {
+                opened(n, at)
+            } else if line % 2 == 1 {
+                Entry::Said {
+                    at,
+                    turn: Turn::Person {
+                        text: format!("Question {line} about the permit, asked again."),
+                        references: Vec::new(),
+                        attachments: Vec::new(),
+                    },
+                    by: Some("ada".into()),
+                }
+            } else {
+                Entry::Said {
+                    at,
+                    turn: Turn::Model {
+                        text: [0, 1, 2]
+                            .map(|part| {
+                                format!("Answer {line}, part {part}: the registry has the form. ")
+                                    .repeat(30)
+                            })
+                            .join("\n\n"),
+                        calls: Vec::new(),
+                    },
+                    by: None,
+                }
+            };
+            let held = u32::try_from(line)?;
+            let (event, keys) = LineEvent::write(
+                id.clone(),
+                writer.clone(),
+                held,
+                &entry,
+                conversations.entropy,
+            )?;
+            for key in &keys {
+                conversations.keys.set(&key.name(), key)?;
+            }
+            memory.append(event)?;
+        }
+    }
+    let all = memory.held()?.dag;
+    let new: Vec<(Hash, String)> = all
+        .objects()
+        .iter()
+        .filter(|(name, _)| !prints.contains_key(*name))
+        .map(|(name, object)| (name.clone(), canonical_envelope(object)))
+        .collect();
+    conversations.lines.accept(&new)?;
+    Ok(())
 }
 
 /// What the `--settings` fixture's further connections stand at.

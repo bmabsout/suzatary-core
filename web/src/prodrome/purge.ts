@@ -8,14 +8,20 @@ import type { Obj } from "./replica"
 
 export namespace purge {
   export type Effects<O extends Obj> = {
-    // Every key `r`'s objects name as erased, with the answer keys of the blocks `keys` opens: `Conversations.erased`.
+    // Every key `r`'s objects name as erased, with the answer keys of the blocks `keys` opens: `Lines.erased`.
     readonly erased: (r: locked.Row<O>) => Promise<Erased>
     readonly forget: (blocks: readonly string[]) => Promise<lo.Settled<null>>
   }
 
   // The keys of `r` that may go now: none owed, or every owed one once its blocks are gone.
   export const forgotten = async <O extends Obj>(fx: Effects<O>, dead: locked.Dead<O>, r: locked.Row<O>): Promise<lo.Settled<readonly string[]>> => {
-    const owed = locked.owed(dead, r)
+    // A purge that cannot read which keys are erased keeps every key, to be asked again.
+    const read = await locked.owed(dead, r).then(
+      (o): lo.Settled<string[]> => lo.val(o),
+      (e: unknown): lo.Settled<string[]> => lo.error(lo.reason(e)),
+    )
+    if (read.type === "Error") return read
+    const owed = read.v
     if (owed.length === 0) return lo.val(owed)
     // A purge that cannot find the blocks keeps the keys owed, to be asked again.
     const fed = await fx.erased(locked.of(r.replica, Object.fromEntries(owed.map(n => [n, r.keys[n]!])))).then(

@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs"
 
 import type { Core, Named, Todos } from "../src/prodrome/core"
 import { chainsOf, entriesOf, foldObjects, linked, linker, linkerOf, objectsOf, verifyObjects } from "../src/prodrome/core"
+import lo from "../src/algebra/lo"
 import questions from "../src/prodrome/questions"
 import remote from "../src/prodrome/remote"
 import thirty from "../src/todo/thirty"
@@ -135,6 +136,32 @@ test("a holding sends each object once: a second holding of the same chains send
   assert.deepEqual([holdings[1]?.add, holdings[1]?.drop], [[], []])
   assert.deepEqual([holdings[2]?.add, holdings[2]?.drop.length], [[], ordered.length - 3])
 })
+
+test("a holding the worker refused is sent again whole, and the worker holds what it names and nothing else", () =>
+  channel(core, async r => {
+    // A first port that refuses the holding: what the worker took of it is unknown, so the next is whole.
+    const sent: questions.Asked[] = []
+    let answer: (m: questions.Answered) => void = () => {}
+    const refusing = remote.over({
+      postMessage: m => void sent.push(m),
+      addEventListener: (_, f) => void (answer = m => f({ data: m })),
+    })
+    const held = [{ name: "life", objects: ordered, untrusted: chain.untrusted }]
+    const first = refusing.hold(held)
+    answer({ id: 1, answer: lo.error("refused") })
+    await assert.rejects(first)
+    void refusing.hold([{ name: "life", objects: ordered.slice(0, 3), untrusted: chain.untrusted }])
+    const again = sent[1]?.question
+    assert.ok(again?.type === "Hold")
+    assert.deepEqual([again.chains[0]?.whole, again.chains[0]?.add.length, again.chains[0]?.drop], [true, 3, []])
+    // A worker holding more than the whole names lets the rest go.
+    await r.hold(held)
+    const at = instant(5)
+    await r.ask({ type: "Hold", chains: again.chains })
+    const read = await r.ask({ type: "Reading", chain: "life", at })
+    assert.ok(read.type === "Read")
+    assert.deepEqual(read.specs, foldObjects(core, ordered.slice(0, 3), at, chain.untrusted).specs)
+  }))
 
 test("a remount does not fold: the same chains at the same instant read the reading kept", () => {
   const { core: c, folds } = counted()

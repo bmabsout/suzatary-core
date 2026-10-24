@@ -4,6 +4,8 @@
 //! verb's answer, which quotes mail: neither a list nor `recall` should surface a line an email
 //! wrote.
 
+use std::borrow::Borrow;
+
 use crate::capability::Turn;
 use crate::secretary::store::{ConversationId, Kind, Stored};
 
@@ -89,10 +91,16 @@ pub const RECALL_CONTEXT: usize = 280;
 /// Ties on `at` break by conversation and index, so the order is stable. An answer is a finished
 /// one (a model turn with no calls); text on the way to a verb is part of the trace.
 #[must_use]
-pub fn search(conversations: &[Stored], needle: &Needle, context: usize, limit: usize) -> Vec<Hit> {
+pub fn search<S: Borrow<Stored>>(
+    conversations: &[S],
+    needle: &Needle,
+    context: usize,
+    limit: usize,
+) -> Vec<Hit> {
     let mut hits: Vec<Hit> = conversations
         .iter()
-        .flat_map(|stored| {
+        .map(Borrow::borrow)
+        .flat_map(|stored: &Stored| {
             stored
                 .turns
                 .iter()

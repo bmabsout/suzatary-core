@@ -4,7 +4,6 @@
 import type {
   BlockRow,
   ConversationPayload,
-  InboxProposalsPayload,
   MemoryPayload,
   ProposalRow,
   TurnRow,
@@ -14,8 +13,7 @@ import { blockBySource, drawnProposals, getMemory } from "../wire/api"
 import box from "../app/asked"
 import rendered from "../app/rendered"
 import storesync from "../prodrome/storesync"
-import { loadCore } from "../prodrome/core"
-import { heldChains, setOf, watchOthers, watchReplica } from "../prodrome/sync"
+import { watchOthers, watchReplica } from "../prodrome/sync"
 import turns from "../chat/turns"
 
 export namespace dressed {
@@ -72,23 +70,22 @@ export namespace dressed {
   // The Inbox's rows and the chains they were priced through, a remember card's headline with `memory`'s words. Nothing
   // waits on the network: the chains are the ones the tab holds, and the set is made inside the reading, with no wait
   // between it and the pricing, so `held` is what was priced.
-  export type Inbox = { readonly payload: InboxProposalsPayload; readonly held: readonly string[] }
-  export const inbox = async (at: string, memory: MemoryPayload | null): Promise<Inbox> => {
-    const [core, held] = await Promise.all([loadCore(), heldChains()])
-    const payload = await storesync.reading(s => s.inbox(at, memory, setOf(core, held).chains))
-    return { payload, held: held.map(c => c.name) }
-  }
+  export type Inbox = storesync.Proposals
+  export const inbox = (at: string, memory: MemoryPayload | null): Promise<Inbox> => storesync.proposals(at, memory)
+
+  // A conversation's window, refused in the core's words where the store holds no line of it.
+  const held = (id: string, w: Window, memory: MemoryPayload | null): Promise<ConversationPayload> =>
+    storesync.conversation(id, w, memory).then(one => (one.type === "Held" ? one.payload : storesync.absent(id)))
 
   // What a proposal's card needs and nothing more: every proposal, drawn, beside the newest turn, a remember card with
   // the words `memory` keeps for it.
   export const cards = async (id: string, memory: MemoryPayload | null): Promise<ConversationPayload> => {
-    const read = await storesync.conversation(id, one => (one.type === "Held" ? one.read({ limit: 1 }, memory) : storesync.absent(id)))
+    const read = await held(id, { limit: 1 }, memory)
     return { ...read, proposals: await proposalsOf(id, read.proposals) }
   }
 
   export const window = async (id: string, w: Window): Promise<ConversationPayload> => {
-    const at = (m: MemoryPayload | null): Promise<ConversationPayload> =>
-      storesync.conversation(id, one => (one.type === "Held" ? one.read(w, m) : storesync.absent(id)))
+    const at = (m: MemoryPayload | null): Promise<ConversationPayload> => held(id, w, m)
     const bare = await at(null)
     const m = await memory(bare)
     const read = m === null ? bare : await at(m)

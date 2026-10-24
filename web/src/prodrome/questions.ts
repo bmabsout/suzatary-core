@@ -3,21 +3,50 @@
 // a question names a chain, an instant, a reading or terms, never objects. The same `serve` runs in the worker and,
 // under test, in this thread, so an answer by message is the answer of the core read directly.
 
-import type { FoldPayload, SpecNode } from "../wire/generated/wire"
-import type { Acted, Chains, Core, CoreEnv, CoreFold, Linker, Named, Standing, Todos } from "./core"
-import { appendTo, foldOf, holdIn, linked, linker, linkerOf, listOf, objectsOf, standingIn, within } from "./core"
+import type {
+  ConversationPayload,
+  ConversationsPayload,
+  FoldPayload,
+  InboxProposalsPayload,
+  MemoryPayload,
+  SearchPayload,
+  SpecNode,
+} from "../wire/generated/wire"
+import type { Acted, Chains, Core, CoreEnv, CoreFold, Erased, Linker, Named, Proposals, Standing, Todos, Window } from "./core"
+import {
+  appendTo,
+  conversationOf,
+  deadOf,
+  erasedOf,
+  excludedOf,
+  foldOf,
+  holdIn,
+  inboxOf,
+  linesLeft,
+  linked,
+  linker,
+  linkerOf,
+  listOf,
+  listOfLines,
+  objectsOf,
+  searchOf,
+  standingIn,
+  within,
+} from "./core"
 import excluded from "./excluded"
 import lo from "../algebra/lo"
 import thirty from "../todo/thirty"
 
 export namespace questions {
   // A chain as the tab holds it now, by what changed since the last holding: names the worker lacks with their bytes,
-  // and names it holds that the tab no longer does.
+  // and names it holds that the tab no longer does; or, `whole`, every name it holds, replacing what the worker holds,
+  // after a holding the worker refused, since nothing then says what it took of it.
   export type Holding = {
     readonly name: string
     readonly untrusted: readonly string[]
     readonly add: readonly Named[]
     readonly drop: readonly string[]
+    readonly whole: boolean
   }
 
   // What names a reading: the chain folded, the chains it is linked through as they were held (each chain and the
@@ -32,6 +61,13 @@ export namespace questions {
 
   // What prices a term: a reading's functions, or the box's rows, each todo's `Ref` its row's value at `at`.
   export type Basis = { readonly type: "Fold"; readonly reading: Name } | { readonly type: "Rows"; readonly at: string; readonly functions: Readonly<Record<string, SpecNode>> }
+
+  // A store's objects as the tab holds them now, by what changed since it last said: the names the worker lacks with
+  // their bytes, and the names it holds that the tab no longer does.
+  export type Delta = { readonly add: readonly Named[]; readonly drop: readonly string[]; readonly whole: boolean }
+
+  // The keys of the lines' words by the same rule: each key's hex by its name, and the names let go.
+  export type Keys = { readonly add: Readonly<Record<string, string>>; readonly drop: readonly string[]; readonly whole: boolean }
 
   // A term's price: its value (`null` for ∅), or why it does not link.
   export type Priced = { readonly type: "Value"; readonly v: number | null } | { readonly type: "Refused"; readonly why: string }
@@ -52,6 +88,24 @@ export namespace questions {
     Thirty: { q: { readonly chain: string; readonly id: string; readonly ms: number }; a: thirty.Thirty }
     // What `key` is to `actor` under `root` in `chain`.
     Standing: { q: { readonly chain: string; readonly root: string | null; readonly actor: string; readonly key: string }; a: Standing }
+    // The inbox's objects changed by `delta`.
+    HoldInbox: { q: { readonly delta: Delta }; a: null }
+    // The lines' objects and keys changed: each object decoded once, here, as it arrives.
+    HoldLines: { q: { readonly delta: Delta; readonly keys: Keys }; a: null }
+    // The Inbox's rows at `at`, priced through every chain held.
+    Proposals: { q: { readonly at: string; readonly memory: MemoryPayload | null }; a: InboxProposalsPayload }
+    // Every conversation, newest first.
+    Conversations: { q: Record<never, never>; a: ConversationsPayload }
+    // One conversation's window, or a refusal naming it where no line of it is held.
+    Conversation: { q: { readonly id: string; readonly window: Window; readonly memory: MemoryPayload | null }; a: ConversationPayload }
+    // Every conversation's turns holding `q`.
+    Search: { q: { readonly q: string }; a: SearchPayload }
+    // The keys an erasure names, and every key in `told`, with the blocks their words fed where `keys` opens them.
+    Erased: { q: { readonly keys: Readonly<Record<string, string>>; readonly told: readonly string[] }; a: Erased }
+    // Every key an erasure of its own conversation names.
+    Dead: { q: Record<never, never>; a: readonly string[] }
+    // What the readings of the inbox and the lines leave out, joined.
+    Left: { q: Record<never, never>; a: excluded.T }
   }
   export type Kind = keyof Table
   export type Question = { [k in Kind]: { readonly type: k } & Table[k]["q"] }[Kind]
@@ -127,13 +181,46 @@ export namespace questions {
     }
     const sorted = (xs: readonly string[]): string => JSON.stringify([...xs].sort())
 
+    // The inbox's objects, and the core's reading of them, made again once per change of what is held.
+    const inbox = new Map<string, string>()
+    let inboxRead: Proposals | null = null
+    const proposals = (): Proposals => {
+      if (inboxRead !== null) return inboxRead
+      const read = new core.Proposals(objectsOf([...inbox].map(([hash, literal]) => ({ hash, literal }))))
+      inboxRead = read
+      return read
+    }
+    const holdInbox = (delta: Delta): null => {
+      if (delta.whole) inbox.clear()
+      for (const hash of delta.drop) inbox.delete(hash)
+      for (const o of delta.add) inbox.set(o.hash, o.literal)
+      if (delta.whole || delta.add.length > 0 || delta.drop.length > 0) {
+        inboxRead?.free()
+        inboxRead = null
+      }
+      return null
+    }
+    // The lines, held by what changed and read by what moved: the core keeps every decoded object and every reading.
+    const lines = new core.Lines()
+    // The names of the keys held, so a whole holding lets go of every one it does not name.
+    const keysHeld = new Set<string>()
+    const holdLines = (delta: Delta, keys: Keys): null => {
+      if (delta.add.length > 0 || delta.drop.length > 0) lines.hold(objectsOf(delta.add), JSON.stringify(delta.drop))
+      const drop = keys.whole ? [...keysHeld].filter(n => keys.add[n] === undefined) : keys.drop
+      if (Object.keys(keys.add).length > 0 || drop.length > 0) lines.keys(JSON.stringify(keys.add), JSON.stringify(drop))
+      for (const n of drop) keysHeld.delete(n)
+      for (const n of Object.keys(keys.add)) keysHeld.add(n)
+      return null
+    }
+
     const hold = (holding: readonly Holding[]): Answer<"Hold"> => {
       for (const h of holding) {
         const c = chains.get(h.name) ?? { objects: new Map<string, string>(), untrusted: [], version: 0, todos: null }
         chains.set(h.name, c)
+        if (h.whole) c.objects.clear()
         for (const hash of h.drop) c.objects.delete(hash)
         for (const o of h.add) c.objects.set(o.hash, o.literal)
-        if (h.add.length > 0 || h.drop.length > 0 || sorted(h.untrusted) !== sorted(c.untrusted) || c.version === 0) c.version = versions += 1
+        if (h.whole || h.add.length > 0 || h.drop.length > 0 || sorted(h.untrusted) !== sorted(c.untrusted) || c.version === 0) c.version = versions += 1
         c.untrusted = h.untrusted
       }
       for (const [name, c] of [...chains]) {
@@ -214,6 +301,25 @@ export namespace questions {
         }
         case "Standing":
           return standingIn(todosOf(named(q.chain)), q.root, q.actor, q.key)
+        case "HoldInbox":
+          return holdInbox(q.delta)
+        case "HoldLines":
+          return holdLines(q.delta, q.keys)
+        case "Proposals":
+          setNow()
+          return inboxOf(proposals(), q.at, q.memory, set)
+        case "Conversations":
+          return listOfLines(lines, proposals())
+        case "Conversation":
+          return conversationOf(lines, proposals(), q.id, q.window, q.memory)
+        case "Search":
+          return searchOf(lines, q.q)
+        case "Erased":
+          return erasedOf(lines, q.keys, q.told)
+        case "Dead":
+          return deadOf(lines)
+        case "Left":
+          return excluded.join(excludedOf(proposals()), linesLeft(lines))
       }
     }
   }

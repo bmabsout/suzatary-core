@@ -90,8 +90,20 @@ impl Stored {
     /// [`NotAConversation`] for a file with no opening line, or one recording
     /// a session for a proposal nothing proposed.
     pub fn of(id: &ConversationId, entries: &[Entry]) -> Result<Self, NotAConversation> {
-        let mut stored = Self::opened(id, entries.first())?;
-        for entry in &entries[1..] {
+        Self::of_lines(id, entries)
+    }
+
+    /// [`Stored::of`] over lines in order.
+    ///
+    /// # Errors
+    /// As [`Stored::of`].
+    pub fn of_lines<'e>(
+        id: &ConversationId,
+        entries: impl IntoIterator<Item = &'e Entry>,
+    ) -> Result<Self, NotAConversation> {
+        let mut entries = entries.into_iter();
+        let mut stored = Self::opened(id, entries.next())?;
+        for entry in entries {
             stored.fold(entry)?;
         }
         Ok(stored)

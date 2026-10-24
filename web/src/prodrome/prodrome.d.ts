@@ -39,11 +39,13 @@ export class Proposals {
   free(): void;
 }
 
-/** A set of conversation objects, `[{hash, text}]`, read once at the conversation schema. */
-export class Conversations {
-  constructor(objects: string);
-  /** Every conversation's transcript register, its heads. */
-  readings(at: string | null, untrusted: string): string;
+/** The lines a tab holds, each print decoded once, read by what moved since the last reading. */
+export class Lines {
+  constructor();
+  /** `[{hash, text}]` held and `[<name>]` let go. */
+  hold(add: string, drop: string): void;
+  /** The keys `{<name>: <hex>}` held and `[<name>]` let go. */
+  keys(add: string, drop: string): void;
   /** Every conversation, newest first. */
   list(inbox: Proposals): string;
   /** One conversation's window, the box's route's reading. */
@@ -57,6 +59,12 @@ export class Conversations {
   ): string;
   /** Every conversation's turns holding a query. */
   search(q: string): string;
+  /** `{<name>: [<answer key>]}`: the keys an erasure names, and the blocks their words fed. */
+  erased(keys: string, told: string): string;
+  /** `[<name>]`: every key an erasure of its own conversation names. */
+  dead(): string;
+  /** `{excluded}`: what the history leaves out. */
+  excluded(): string;
   free(): void;
 }
 

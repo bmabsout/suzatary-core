@@ -47,7 +47,7 @@ export namespace secretary {
       dispatch({ type: "Typed", q: field.value })
       if (timer !== null) clearTimeout(timer)
       const q = field.value.trim()
-      timer = q === "" ? null : setTimeout(() => void lo.of(storesync.reading(s => s.search(q))).then(found => dispatch({ type: "Found", q, found: lo.map(found, p => p.hits) })), DEBOUNCE_MS)
+      timer = q === "" ? null : setTimeout(() => void lo.of(storesync.search(q)).then(found => dispatch({ type: "Found", q, found: lo.map(found, p => p.hits) })), DEBOUNCE_MS)
     })
     return {
       node: el("div", { class: "chathead" }, field, writes),

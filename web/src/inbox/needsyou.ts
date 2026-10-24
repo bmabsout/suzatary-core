@@ -2,8 +2,6 @@
 // own; the box pushes the phone only when no page is open. What waits when the app opens is the baseline.
 
 import storesync from "../prodrome/storesync";
-import { loadCore } from "../prodrome/core";
-import { heldChains, setOf } from "../prodrome/sync";
 import dressed from "../chat/dressed";
 import time from "../app/time";
 import type { InboxProposal } from "../wire/generated/wire";
@@ -87,11 +85,12 @@ export function installNeedsYou(host: HTMLElement): void {
     baseline = waitingIds(all);
   };
   const read = (): void => {
-    void Promise.all([dressed.asked(), loadCore(), heldChains()])
-      .then(([memory, core, held]) => storesync.proposals(time.moment(), memory, setOf(core, held).chains))
+    void dressed
+      .asked()
+      .then((memory) => storesync.proposals(time.moment(), memory))
       .then(
         (read) => {
-          proposals = read.proposals;
+          proposals = read.payload.proposals;
           draw();
         },
         () => undefined,

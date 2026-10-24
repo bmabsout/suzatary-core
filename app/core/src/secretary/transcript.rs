@@ -19,8 +19,7 @@ use std::collections::{BTreeMap, BinaryHeap};
 
 use prodrome_core::event::{Actor, Envelope, Hash};
 use prodrome_core::literal::Datetime;
-use prodrome_core::registers::{Node, Stamp, fold};
-use prodrome_core::schema::Schema;
+use prodrome_core::registers::Node;
 
 use crate::secretary::conversations::Conversations;
 use crate::secretary::erasure::Erasure;
@@ -51,22 +50,57 @@ pub struct Written {
     pub line: LineEvent,
     /// The line as read, its words opened or gone.
     pub entry: Entry,
-    /// The positions, in [`Transcript::lines`], of every line it rests on, directly or not.
-    pub after: Vec<usize>,
+    /// The positions, in [`Transcript::lines`], of the lines it rests on directly.
+    pub rests_on: Vec<usize>,
+}
+
+/// One line of one conversation as a node holds it: its name, the line, and the names of the
+/// objects it rests on, which may include objects that are no line of the conversation.
+#[derive(Debug, Clone, Copy)]
+pub struct Write<'n> {
+    /// The object's name.
+    pub name: &'n Hash,
+    /// The line.
+    pub line: &'n LineEvent,
+    /// The names of the objects it rests on.
+    pub parents: &'n [Hash],
 }
 
 impl Transcript {
-    /// One conversation's writes, as the core's fold streams them, in causal order, each opened
-    /// by the key `key` answers for its name, and folded.
+    /// One conversation's writes, in any order, put in causal order, each opened by the key
+    /// `slots` answers for its name, and folded.
     ///
     /// # Errors
     /// [`NotAConversation`] for lines the fold refuses.
     pub fn of(
         id: &ConversationId,
-        stream: &[Stamp<LineEvent>],
+        writes: &[Write<'_>],
         slots: &impl Slots,
     ) -> Result<Self, NotAConversation> {
-        let lines = read_lines(causal(stream), slots);
+        let order = causal(
+            &writes
+                .iter()
+                .map(|write| (write.name, write.line.at(), write.parents))
+                .collect::<Vec<_>>(),
+        );
+        let erased = erasures(
+            order
+                .iter()
+                .map(|(at, _)| (writes[*at].name, writes[*at].line)),
+        );
+        let read = Through {
+            erased: &erased,
+            slots,
+        };
+        let lines: Vec<Written> = order
+            .into_iter()
+            .map(|(at, rests_on)| Written {
+                name: writes[at].name.clone(),
+                line: writes[at].line.clone(),
+                entry: writes[at].line.entry(&read),
+                rests_on,
+            })
+            .collect();
         let entries: Vec<Entry> = lines.iter().map(|w| w.entry.clone()).collect();
         let stored = Stored::of(id, &entries)?;
         // The fold makes a turn of each said line and each stop, and of nothing else.
@@ -82,6 +116,19 @@ impl Transcript {
             stored,
             turns,
         })
+    }
+
+    /// Every line `line` rests on, directly or not, by its position in [`Transcript::lines`].
+    #[must_use]
+    pub fn beneath(&self, line: usize) -> std::collections::BTreeSet<usize> {
+        let mut found = std::collections::BTreeSet::new();
+        let mut pending = self.lines[line].rests_on.clone();
+        while let Some(earlier) = pending.pop() {
+            if found.insert(earlier) {
+                pending.extend(&self.lines[earlier].rests_on);
+            }
+        }
+        found
     }
 
     /// Every line, in causal order.
@@ -127,12 +174,17 @@ impl Transcript {
     #[must_use]
     pub fn owed(&self) -> Vec<(usize, &Said)> {
         let mut settled = vec![false; self.lines.len()];
-        for (turn, &line) in self.turns.iter().enumerate() {
-            if self.stored.is_live(turn) && self.stored.closes(turn) {
+        let mut pending: Vec<usize> = self
+            .turns
+            .iter()
+            .enumerate()
+            .filter(|(turn, _)| self.stored.is_live(*turn) && self.stored.closes(*turn))
+            .map(|(_, &line)| line)
+            .collect();
+        while let Some(line) = pending.pop() {
+            if !settled[line] {
                 settled[line] = true;
-                for &before in &self.lines[line].after {
-                    settled[before] = true;
-                }
+                pending.extend(&self.lines[line].rests_on);
             }
         }
         self.stored
@@ -150,7 +202,7 @@ impl crate::rule::Named for Transcript {
         let rested_on: std::collections::BTreeSet<usize> = self
             .lines
             .iter()
-            .flat_map(|written| written.after.iter().copied())
+            .flat_map(|written| written.rests_on.iter().copied())
             .collect();
         crate::rule::ReadingName::of(
             self.lines
@@ -168,6 +220,17 @@ impl crate::rule::Named for Transcript {
 pub fn erasures<'l>(
     lines: impl IntoIterator<Item = (&'l Hash, &'l LineEvent)>,
 ) -> BTreeMap<KeyName, Erasure> {
+    erasers(lines)
+        .into_iter()
+        .map(|(key, (_, erasure))| (key, erasure.clone()))
+        .collect()
+}
+
+/// [`erasures`], each beside the name of the erasure line that says why.
+#[must_use]
+pub fn erasers<'l>(
+    lines: impl IntoIterator<Item = (&'l Hash, &'l LineEvent)>,
+) -> BTreeMap<KeyName, (&'l Hash, &'l Erasure)> {
     let mut named: BTreeMap<KeyName, (&Hash, &Erasure)> = BTreeMap::new();
     for (name, line) in lines {
         if let LineShape::Erased { keys, erasure } = line.shape() {
@@ -180,9 +243,6 @@ pub fn erasures<'l>(
         }
     }
     named
-        .into_iter()
-        .map(|(key, (_, erasure))| (key, erasure.clone()))
-        .collect()
 }
 
 /// A slot as one conversation reads it: erased where `erased` names its key, before anything
@@ -312,59 +372,43 @@ pub fn opened(
         .collect()
 }
 
-/// Each line of one conversation, in causal order, read as [`opened`] reads it.
-fn read_lines(causal: Vec<(Hash, LineEvent, Vec<usize>)>, slots: &impl Slots) -> Vec<Written> {
-    let erased = erasures(causal.iter().map(|(name, line, _)| (name, line)));
-    let read = Through {
-        erased: &erased,
-        slots,
-    };
-    let entries: Vec<Entry> = causal
-        .iter()
-        .map(|(_, line, _)| line.entry(&read))
-        .collect();
-    causal
-        .into_iter()
-        .zip(entries)
-        .map(|((name, line, after), entry)| Written {
-            name,
-            line,
-            entry,
-            after,
-        })
-        .collect()
-}
-
-/// Kahn's order over one conversation's writes, the least `(at, name)` among those ready first,
-/// each with the positions of the lines it rests on.
+/// Kahn's order over one conversation's writes, each `(name, at, parents)`, the least `(at, name)`
+/// among those ready first, each with the positions in the order of the writes it rests on.
 ///
-/// The fold's stream is already causal; this fixes which of the orders it allows is read, so the
-/// reading is a function of the writes and not of how the fold broke a tie.
-fn causal<E: Schema + Clone>(stream: &[Stamp<E>]) -> Vec<(Hash, E, Vec<usize>)> {
-    let rests: Vec<Vec<usize>> = stream
+/// A write is ready once every parent that is a write of the conversation is placed, so the cost
+/// is the writes and their edges: a parent that is no write here (the genesis) orders nothing.
+/// The order is a function of the writes, whatever order they are given in.
+pub(crate) fn causal(writes: &[(&Hash, Datetime, &[Hash])]) -> Vec<(usize, Vec<usize>)> {
+    let index: BTreeMap<&Hash, usize> = writes
         .iter()
-        .map(|later| {
-            (0..stream.len())
-                .filter(|&earlier| later.descends(&stream[earlier]))
+        .enumerate()
+        .map(|(at, (name, _, _))| (*name, at))
+        .collect();
+    let parents: Vec<Vec<usize>> = writes
+        .iter()
+        .map(|(_, _, parents)| {
+            parents
+                .iter()
+                .filter_map(|p| index.get(p).copied())
                 .collect()
         })
         .collect();
-    let mut waiting: Vec<usize> = rests.iter().map(Vec::len).collect();
-    let mut after: Vec<Vec<usize>> = vec![Vec::new(); stream.len()];
-    for (later, earlier) in rests.iter().enumerate() {
+    let mut waiting: Vec<usize> = parents.iter().map(Vec::len).collect();
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); writes.len()];
+    for (later, earlier) in parents.iter().enumerate() {
         for &one in earlier {
-            after[one].push(later);
+            children[one].push(later);
         }
     }
-    let key = |at: usize| Reverse((Schema::at(&*stream[at].event), stream[at].name.clone(), at));
-    let mut ready: BinaryHeap<Reverse<(Datetime, Hash, usize)>> = (0..stream.len())
+    let key = |at: usize| Reverse((writes[at].1, writes[at].0.clone(), at));
+    let mut ready: BinaryHeap<Reverse<(Datetime, Hash, usize)>> = (0..writes.len())
         .filter(|&at| waiting[at] == 0)
         .map(key)
         .collect();
-    let mut placed = vec![usize::MAX; stream.len()];
-    let mut order = Vec::with_capacity(stream.len());
+    let mut placed = vec![usize::MAX; writes.len()];
+    let mut order = Vec::with_capacity(writes.len());
     while let Some(Reverse((_, _, at))) = ready.pop() {
-        for &next in &after[at] {
+        for &next in &children[at] {
             waiting[next] -= 1;
             if waiting[next] == 0 {
                 ready.push(key(next));
@@ -376,13 +420,26 @@ fn causal<E: Schema + Clone>(stream: &[Stamp<E>]) -> Vec<(Hash, E, Vec<usize>)> 
     order
         .into_iter()
         .map(|at| {
-            (
-                stream[at].name.clone(),
-                (*stream[at].event).clone(),
-                rests[at].iter().map(|&earlier| placed[earlier]).collect(),
-            )
+            let mut rests_on: Vec<usize> = parents[at].iter().map(|&p| placed[p]).collect();
+            rests_on.sort_unstable();
+            (at, rests_on)
         })
         .collect()
+}
+
+/// The nodes' lines, by conversation, each with the objects it rests on.
+fn writes(nodes: &[Node<LineEvent>]) -> BTreeMap<&ConversationId, Vec<Write<'_>>> {
+    let mut by: BTreeMap<&ConversationId, Vec<Write<'_>>> = BTreeMap::new();
+    for node in nodes {
+        if let Some(line) = node.event() {
+            by.entry(line.conversation()).or_default().push(Write {
+                name: node.name(),
+                line,
+                parents: node.parents(),
+            });
+        }
+    }
+    by
 }
 
 /// Every conversation the nodes hold, read, each slot opened by the key `key` answers.
@@ -393,9 +450,9 @@ pub fn transcripts(
     nodes: &[Node<LineEvent>],
     slots: &impl Slots,
 ) -> Result<BTreeMap<ConversationId, Transcript>, NotAConversation> {
-    fold(nodes)
-        .entities()
-        .map(|(id, stream)| Ok((id.clone(), Transcript::of(id, stream, slots)?)))
+    writes(nodes)
+        .into_iter()
+        .map(|(id, writes)| Ok((id.clone(), Transcript::of(id, &writes, slots)?)))
         .collect()
 }
 
@@ -455,10 +512,9 @@ fn each_of(
     slots: &impl Slots,
 ) -> Result<Vec<(ConversationId, Read)>, StoreError> {
     let nodes = lines.nodes()?;
-    let folded = fold(&nodes);
-    let mut read: Vec<_> = folded
-        .entities()
-        .map(|(id, stream)| (id.clone(), Transcript::of(id, stream, slots)))
+    let mut read: Vec<_> = writes(&nodes)
+        .into_iter()
+        .map(|(id, writes)| (id.clone(), Transcript::of(id, &writes, slots)))
         .collect();
     read.sort_by(|a, b| b.0.cmp(&a.0));
     Ok(read)
@@ -522,15 +578,13 @@ pub fn read(
     id: &ConversationId,
 ) -> Result<Transcript, StoreError> {
     let nodes = conversations.lines.nodes()?;
-    let folded = fold(&nodes);
-    let stream = folded
-        .entities()
-        .find_map(|(key, stream)| (key == id).then_some(stream))
+    let writes = writes(&nodes)
+        .remove(id)
         .ok_or_else(|| StoreError::Absent {
             what: "conversation",
             name: id.to_string(),
         })?;
-    Transcript::of(id, stream, &conversations.slots()).map_err(unreadable)
+    Transcript::of(id, &writes, &conversations.slots()).map_err(unreadable)
 }
 
 /// One conversation's lines, in causal order.
@@ -550,11 +604,7 @@ pub fn lines(
 /// The store's.
 pub fn keys(conversations: Conversations<'_>) -> Result<Vec<ConversationId>, StoreError> {
     let nodes = conversations.lines.nodes()?;
-    let folded = fold(&nodes);
-    let mut ids: Vec<ConversationId> = folded.entities().map(|(id, _)| id.clone()).collect();
-    ids.sort();
-    ids.dedup();
-    Ok(ids)
+    Ok(writes(&nodes).into_keys().cloned().collect())
 }
 
 /// Destroy every key an erasure line names that the key store still holds, each once the blocks
@@ -762,7 +812,8 @@ mod tests {
         assert_eq!(entries[2], person(3, "second, on a clock gone back"));
         let held: Vec<u32> = transcript.lines().iter().map(|w| w.line.held()).collect();
         assert_eq!(held, [0, 1, 2, 3, 4]);
-        assert_eq!(transcript.lines()[4].after, [0, 1, 2, 3]);
+        assert_eq!(transcript.lines()[4].rests_on, [3]);
+        assert_eq!(transcript.beneath(4), [0, 1, 2, 3].into());
     }
 
     #[test]

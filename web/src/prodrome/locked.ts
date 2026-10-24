@@ -15,8 +15,8 @@ export namespace locked {
   // A key's bytes in hex, by its name: the name is the bytes' SHA-256, so one name holds one key.
   export type Keys = Readonly<Record<string, string>>
   export type Row<O extends Obj = StoredObject> = { readonly replica: Replica<O>; readonly keys: Keys }
-  // The keys a replica's objects name as erased: monotone in the objects.
-  export type Dead<O extends Obj = StoredObject> = (r: Replica<O>) => ReadonlySet<string>
+  // The keys a replica's objects name as erased, as the core's worker reads them: monotone in the objects.
+  export type Dead<O extends Obj = StoredObject> = (r: Replica<O>) => Promise<ReadonlySet<string>>
 
   export const NO_KEYS: Keys = {}
   export const none = <O extends Obj>(): Row<O> => ({ replica: empty<O>(), keys: NO_KEYS })
@@ -27,18 +27,22 @@ export namespace locked {
   export const names = (k: Keys): string[] => Object.keys(k).sort()
 
   export const sameKeys = (a: Keys, b: Keys): boolean => {
-    const [x, y] = [names(a), names(b)]
-    return x.length === y.length && x.every((n, i) => n === y[i] && a[n] === b[n])
+    const x = Object.keys(a)
+    return a === b || (x.length === Object.keys(b).length && x.every(n => a[n] === b[n]))
   }
 
-  // The union, a name spelled twice keeping its least spelling, so either order holds the same keys.
-  export const union = (a: Keys, b: Keys): Keys =>
-    Object.fromEntries(
-      [...new Set([...names(a), ...names(b)])].sort().map(n => {
-        const [x, y] = [a[n], b[n]]
-        return [n, x === undefined ? y! : y === undefined || x <= y ? x : y]
-      }),
-    )
+  // The union, a name spelled twice keeping its least spelling, so either order holds the same keys; `a` itself when `b`
+  // adds nothing, in time linear in `b`.
+  export const union = (a: Keys, b: Keys): Keys => {
+    let out: Record<string, string> | null = null
+    for (const [n, y] of Object.entries(b)) {
+      const x = (out ?? a)[n]
+      if (x !== undefined && x <= y) continue
+      out ??= { ...a }
+      out[n] = y
+    }
+    return out ?? a
+  }
 
   // The epoch of the box's word a row holds, 0 before the box has spoken: every epoch it answers with is 1 or more.
   const epochOf = <O extends Obj>(r: Row<O>): number => said(r.replica.box, 0, w => w.epoch)
@@ -55,15 +59,15 @@ export namespace locked {
   }
 
   // The keys the row holds that its objects name as erased.
-  export const owed = <O extends Obj>(dead: Dead<O>, r: Row<O>): string[] => {
-    const gone = dead(r.replica)
-    return gone.size === 0 ? [] : names(r.keys).filter(n => gone.has(n))
+  export const owed = async <O extends Obj>(dead: Dead<O>, r: Row<O>): Promise<string[]> => {
+    const gone = await dead(r.replica)
+    return gone.size === 0 ? [] : Object.keys(r.keys).filter(n => gone.has(n)).sort()
   }
 
   // The row less `gone`: what a purge leaves once their blocks are forgotten, the one step down.
   export const without = <O extends Obj>(r: Row<O>, gone: readonly string[]): Row<O> => {
     const drop = new Set(gone)
-    return names(r.keys).some(n => drop.has(n)) ? of(r.replica, Object.fromEntries(names(r.keys).filter(n => !drop.has(n)).map(n => [n, r.keys[n]!]))) : r
+    return gone.some(n => r.keys[n] !== undefined) ? of(r.replica, Object.fromEntries(Object.entries(r.keys).filter(([n]) => !drop.has(n)))) : r
   }
 
   // The one way down: an empty row of the generation after, holding no key.

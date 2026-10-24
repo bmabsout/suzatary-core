@@ -163,7 +163,8 @@ const asking = (at: asks.Proposal, taken?: () => void) => (answer: asks.Answer, 
     }
     else if (o.answer.type === "Lost" && o.held)
       void storesync
-        .reading((s) => s.conversation(at.conversation, { limit: 1 }, null).proposals.find((p) => p.index === at.index))
+        .conversation(at.conversation, { limit: 1 }, null)
+        .then((one) => (one.type === "Held" ? one.payload.proposals.find((p) => p.index === at.index) : undefined))
         .then((now) => (now === undefined ? undefined : toast(stage.said(now))));
   });
 

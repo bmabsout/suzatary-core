@@ -37,7 +37,6 @@ type Event = suzatary_core::record::TodoEvent;
 
 prodrome_wasm_exports::schema!(Todos = Event, priced);
 prodrome_wasm_exports::schema!(Proposals = suzatary_core::secretary::inbox_event::InboxEvent);
-prodrome_wasm_exports::schema!(Conversations = suzatary_core::secretary::line_event::LineEvent);
 
 fn refused(reason: impl AsRef<str>) -> JsError {
     JsError::new(reason.as_ref())

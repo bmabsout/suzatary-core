@@ -17,16 +17,18 @@ export namespace remote {
   }
 
   // What each chain holds as `hold` last told it, by name.
-  type Sent = Map<string, ReadonlySet<string>>
+  // Nothing, once the worker refused a holding: the next is sent whole.
+  type Sent = Map<string, ReadonlySet<string>> | null
 
   // The change from what was sent to `c`: pure, so a holding is a function of the two sets.
-  const delta = (sent: ReadonlySet<string>, c: Chain): questions.Holding => {
+  const delta = (sent: ReadonlySet<string> | null, c: Chain): questions.Holding => {
     const now = new Set(c.objects.map(o => o.hash))
     return {
       name: c.name,
       untrusted: c.untrusted,
-      add: c.objects.filter(o => !sent.has(o.hash)),
-      drop: [...sent].filter(h => !now.has(h)),
+      add: sent === null ? c.objects : c.objects.filter(o => !sent.has(o.hash)),
+      drop: sent === null ? [] : [...sent].filter(h => !now.has(h)),
+      whole: sent === null,
     }
   }
 
@@ -56,15 +58,18 @@ export namespace remote {
         waiting.set(id, { ok: v => ok(v as questions.Answer<K>), no })
         port.postMessage({ id, question })
       })
-    const sent: Sent = new Map()
+    let sent: Sent = new Map()
     return {
       // Sent before it returns, with no wait between reading `sent` and writing it, so two holdings in a row are each the
-      // change from the one before.
+      // change from the one before; a refused one makes the next whole.
       hold: chains => {
-        const holding = chains.map(c => delta(sent.get(c.name) ?? new Set(), c))
-        sent.clear()
-        for (const c of chains) sent.set(c.name, new Set(c.objects.map(o => o.hash)))
-        return ask({ type: "Hold", chains: holding })
+        const was = sent
+        const holding = chains.map(c => delta(was === null ? null : (was.get(c.name) ?? new Set()), c))
+        sent = new Map(chains.map(c => [c.name, new Set(c.objects.map(o => o.hash))]))
+        return ask({ type: "Hold", chains: holding }).catch((e: unknown) => {
+          sent = null
+          throw e
+        })
       },
       ask,
     }

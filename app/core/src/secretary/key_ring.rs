@@ -33,6 +33,34 @@ impl KeyRing {
         )
     }
 
+    /// The keys `given` names joined in, each kept only when its bytes are the key its name names,
+    /// and `gone` taken out; the names whose standing moved, held or not.
+    pub fn change(
+        &mut self,
+        given: &BTreeMap<KeyName, String>,
+        gone: &[KeyName],
+    ) -> std::collections::BTreeSet<KeyName> {
+        let mut moved = std::collections::BTreeSet::new();
+        for name in gone {
+            if let Some(mut bytes) = self.0.remove(name) {
+                zeroize::Zeroize::zeroize(&mut bytes);
+                moved.insert(name.clone());
+            }
+        }
+        for (name, bytes) in &Self::of(given).0 {
+            if self.0.insert(name.clone(), *bytes).is_none() {
+                moved.insert(name.clone());
+            }
+        }
+        moved
+    }
+
+    /// Whether the key named `name` is held.
+    #[must_use]
+    pub fn holds(&self, name: &KeyName) -> bool {
+        self.0.contains_key(name)
+    }
+
     /// The key named `name`, or missing.
     #[must_use]
     pub fn key(&self, name: &KeyName) -> Words<TextKey> {

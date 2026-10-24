@@ -73,8 +73,13 @@ real browser); each section says which.
   adds nothing (the same objects, heads and policy, `stores.same`) returns the
   same value, and one that changes only the policy is a step
   (`web/test/stores.test.ts`). `storesync.ts` is its
-  shell (IndexedDB, the pull by heads, each store's stream) and answers every
-  reading through `core.secretaryOf`, built once per change of what is held.
+  shell (IndexedDB, the pull by heads, each store's stream) and asks every
+  reading of the core's worker (`questions.ts`), which holds the stores by
+  what changed and reads the lines through a memoised fold: the memoised
+  reading is the plain one (`app/core/tests/held_lines.rs`
+  `the_memoised_reading_is_the_plain_one`), and one new line computes its
+  leaf, its conversation and the store
+  (`a_new_line_costs_its_leaf_its_conversation_and_the_store`).
   `chat/dressed.ts` dresses a conversation's reading with what only the box
   says, each asked by content.
 - **`lo.T<V>`** (`web/src/algebra/lo.ts`): a value on its way — what a page knows

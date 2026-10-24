@@ -186,9 +186,12 @@ pub fn block_named(stored: &Stored, sha: &str) -> Option<String> {
 
 /// Every conversation, newest first: what the list draws.
 #[must_use]
-pub fn conversations(stored: &[Stored], inbox: &inbox::Fold) -> wire::ConversationsPayload {
+pub fn conversations<S: std::borrow::Borrow<Stored>>(
+    stored: &[S],
+    inbox: &inbox::Fold,
+) -> wire::ConversationsPayload {
     wire::ConversationsPayload {
-        conversations: stored.iter().map(|one| row(one, inbox)).collect(),
+        conversations: stored.iter().map(|one| row(one.borrow(), inbox)).collect(),
     }
 }
 
@@ -292,7 +295,10 @@ pub fn waiting(fold: &inbox::Fold, set: &ChainSet<'_>) -> Vec<wire::InboxProposa
 ///
 /// # Errors
 /// [`Refusal::bad_request`] for a blank or over-long `q`.
-pub fn search(stored: &[Stored], q: &str) -> Answered<wire::SearchPayload> {
+pub fn search<S: std::borrow::Borrow<Stored>>(
+    stored: &[S],
+    q: &str,
+) -> Answered<wire::SearchPayload> {
     let needle = crate::secretary::search::Needle::new(q)
         .map_err(|refused| Refusal::bad_request(refused.to_string()))?;
     let hits = crate::secretary::search::search(

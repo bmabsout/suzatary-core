@@ -1,4 +1,5 @@
-// The lines' content on this device: each object's literal by its name, taken only when its bytes hash to that name.
+// The lines' content on this device: each object's literal by its name, taken only when its bytes hash to that name,
+// kept in the device's store and handed to the core's worker, which reads it; this thread keeps only the names.
 
 import type { ContentPayload, SkeletonNode } from "../wire/generated/wire"
 import idb from "../app/idb"
@@ -18,6 +19,8 @@ export namespace content {
     readonly lost: (bytes: number) => void
     // How many answers may be out at once, asked as each goes out.
     readonly atOnce: () => number
+    // Literals now held, handed to the reader once each; it settles once the reader has them.
+    readonly held: (rows: readonly Row[]) => Promise<void>
   }
 
   // The box's bounds on one answer (`query::MOST_HASHES`, `routes::MOST_CONTENT_BYTES`).
@@ -29,28 +32,28 @@ export namespace content {
   // is out at a time and a connection stays free for every other request.
   export const atOnce = (protocol: string): number => (protocol === "h2" || protocol === "h3" ? 4 : 1)
 
-  type Row = { readonly hash: string; readonly literal: string }
+  export type Row = { readonly hash: string; readonly literal: string }
 
-  const memory = new Map<string, string>()
+  const memory = new Set<string>()
   let moves = 0
 
-  export const literal = (name: string): string | undefined => memory.get(name)
+  export const has = (name: string): boolean => memory.has(name)
   // Counts every change of what is held, so a reading of it is named by it.
   export const version = (): number => moves
 
   const byName = (x: SkeletonNode, y: SkeletonNode): number => (x.hash < y.hash ? -1 : x.hash > y.hash ? 1 : 0)
 
-  // The longest run from the front of `queue` within `MOST_HASHES` names and `MOST_BYTES` of literals, one node alone
-  // whatever its size, in ascending order of name, so one set has one URL.
-  export const batch = (queue: readonly SkeletonNode[]): SkeletonNode[] => {
-    const out: SkeletonNode[] = []
+  // The longest run from the front of `queue` within `MOST_HASHES` items and `MOST_BYTES` by `size`, one item alone
+  // whatever its size. A fetch sorts its run by name, so one set has one URL.
+  export const batch = <A>(queue: readonly A[], size: (a: A) => number): A[] => {
+    const out: A[] = []
     let bytes = 0
     for (const n of queue) {
-      if (out.length > 0 && (out.length === MOST_HASHES || bytes + n.size > MOST_BYTES)) break
+      if (out.length > 0 && (out.length === MOST_HASHES || bytes + size(n) > MOST_BYTES)) break
       out.push(n)
-      bytes += n.size
+      bytes += size(n)
     }
-    return out.sort(byName)
+    return out
   }
 
   // The whole store newest first: a line by when it was written, structure before every line.
@@ -67,25 +70,35 @@ export namespace content {
     return wrong.length > 0 ? lo.error(`the box's bytes for ${wrong.join(", ")} are not what those names hash to`) : lo.val(answer.objects.map(o => ({ hash: o.hash, literal: o.literal })))
   }
 
-  const take = (rows: readonly Row[]): void => {
+  // Rows handed to the reader in runs of at most `MOST_BYTES`, so no one message holds the thread long.
+  const take = async (fx: Effects, rows: readonly Row[]): Promise<void> => {
     const fresh = rows.filter(r => !memory.has(r.hash))
-    for (const r of fresh) memory.set(r.hash, r.literal)
+    for (let at = 0; at < fresh.length; ) {
+      const run = batch(fresh.slice(at), r => r.literal.length)
+      await fx.held(run)
+      for (const r of run) memory.add(r.hash)
+      at += run.length
+    }
     if (fresh.length > 0) moves += 1
   }
 
-  // What the device's store holds of `names`, into memory; a store that does not open holds nothing.
-  export const load = async (names: readonly string[]): Promise<void> => {
+  // What the device's store holds of `names`, taken in, `MOST_HASHES` names a read so no one task asks for thousands; a
+  // store that does not open holds nothing.
+  const load = async (fx: Effects, names: readonly string[]): Promise<void> => {
     const wanted = names.filter(n => !memory.has(n))
-    if (wanted.length === 0 || !idb.available()) return
-    const found = await idb
-      .within(CONTENT, "readonly", s => Promise.all(wanted.map(n => idb.done(s.get(n)).then((v: unknown) => (typeof v === "string" ? [{ hash: n, literal: v }] : [])))))
-      .catch(() => [])
-    take(found.flat())
+    if (!idb.available()) return
+    for (let at = 0; at < wanted.length; at += MOST_HASHES) {
+      const run = wanted.slice(at, at + MOST_HASHES)
+      const found = await idb
+        .within(CONTENT, "readonly", s => Promise.all(run.map(n => idb.done(s.get(n)).then((v: unknown) => (typeof v === "string" ? [{ hash: n, literal: v }] : [])))))
+        .catch(() => [])
+      await take(fx, found.flat())
+    }
   }
 
-  const keep = async (rows: readonly Row[]): Promise<void> => {
-    take(rows)
+  const keep = async (fx: Effects, rows: readonly Row[]): Promise<void> => {
     if (idb.available()) await idb.within(CONTENT, "readwrite", s => Promise.all(rows.map(r => idb.done(s.put(r.literal, r.hash)))))
+    await take(fx, rows)
   }
 
   // One name asked for: queued in a lane, or in an answer that is out; settled once that answer comes or is lost.
@@ -114,7 +127,7 @@ export namespace content {
       try {
         const rows = await fx.ask(names).then(a => admit(names, a))
         if (rows.type === "Error") throw new Error(rows.e)
-        await keep(rows.v)
+        await keep(fx, rows.v)
         fx.came(bytes)
         for (const n of names) waits.get(n)?.come()
       } catch (e: unknown) {
@@ -130,7 +143,7 @@ export namespace content {
     const pump = (): void => {
       while (out < fx.atOnce() && queues.First.length + queues.Behind.length > 0) {
         const lane: Lane = queues.First.length > 0 ? "First" : "Behind"
-        const sent = batch(queues[lane])
+        const sent = batch(queues[lane], n => n.size).sort(byName)
         const going = new Set(sent.map(n => n.hash))
         queues[lane] = queues[lane].filter(n => !going.has(n.hash))
         out += 1
@@ -139,7 +152,7 @@ export namespace content {
     }
 
     return async (lane, nodes) => {
-      await load(nodes.map(n => n.hash))
+      await load(fx, nodes.map(n => n.hash))
       const lacking = nodes.filter(n => !memory.has(n.hash))
       const fresh = lacking.filter(n => !waits.has(n.hash))
       for (const n of fresh) waits.set(n.hash, wait(n))
@@ -154,12 +167,15 @@ export namespace content {
     }
   }
 
-  // Every row no name in `named` holds dropped, on the device and here: content of an object the skeleton no longer
-  // names is read by nothing.
-  export const keepOnly = async (named: ReadonlySet<string>): Promise<lo.Settled<null>> => {
-    const gone = [...memory.keys()].filter(n => !named.has(n))
+  // Every row no name in `named` holds dropped, on the device, here and by the reader (`letGo`): content of an object
+  // the skeleton no longer names is read by nothing.
+  export const keepOnly = async (named: ReadonlySet<string>, letGo: (names: readonly string[]) => Promise<void>): Promise<lo.Settled<null>> => {
+    const gone = [...memory].filter(n => !named.has(n))
     for (const n of gone) memory.delete(n)
-    if (gone.length > 0) moves += 1
+    if (gone.length > 0) {
+      moves += 1
+      await letGo(gone)
+    }
     if (!idb.available()) return lo.val(null)
     return idb
       .within(CONTENT, "readwrite", async s => {

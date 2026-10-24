@@ -6,8 +6,8 @@ import assert from "node:assert/strict"
 import { createRequire } from "node:module"
 import { readFileSync } from "node:fs"
 
-import type { Core, Named } from "../src/prodrome/core"
-import { chainsOf, erasedOf, keptChains, objectsOf, secretaryOf } from "../src/prodrome/core"
+import type { Core, Lines, Named, Window } from "../src/prodrome/core"
+import { chainsOf, conversationOf, erasedOf, inboxOf, keptChains, listOfLines, objectsOf } from "../src/prodrome/core"
 import { parentsOf } from "../src/prodrome/replica"
 import type { MemoryPayload } from "../src/wire/generated/wire"
 import turns from "../src/chat/turns"
@@ -41,28 +41,40 @@ const inbox = named(box.inbox)
 const conversations = named(box.conversations)
 const chains = box.chains.map(c => ({ name: c.name, untrusted: c.untrusted, objects: named(c.objects), heads: [] }))
 
-/** Every answer the box gave, read by the module from these objects: the raw strings, so equal means byte for byte. */
-const answers = (i: readonly Named[], c: readonly Named[], held = chains, given: Record<string, string> = box.keys): string[] => {
-  const keys = JSON.stringify(given)
+/** The worker's lines holding `c` and the keys `given`; the caller frees them. */
+const linesOf = (c: readonly Named[], given: Record<string, string> = box.keys): Lines => {
+  const t = new core.Lines()
+  t.hold(objectsOf(c), "[]")
+  t.keys(JSON.stringify(given), "[]")
+  return t
+}
+
+/** Every answer the box gave, read by the module from the inbox `i` and the lines `t`: the raw strings, so equal means byte for byte. */
+const read = (i: readonly Named[], t: Lines, held = chains): string[] => {
   const p = new core.Proposals(objectsOf(i))
-  const t = new core.Conversations(objectsOf(c))
-  const o = t.opened(keys)
   const priced = new core.Chains()
   try {
     for (const h of held) priced.hold(h.name, objectsOf(h.objects), JSON.stringify(h.untrusted))
     const memory = JSON.stringify(box.memory)
     return [
       p.inbox(box.at, priced, memory),
-      o.list(p),
+      t.list(p),
       ...box.windows.map(w =>
-        o.conversation(w.id, p, w.before ?? undefined, w.limit ?? undefined, w.about ?? undefined, w.memory ? memory : undefined)),
-      ...box.searches.map(s => o.search(s.q)),
+        t.conversation(w.id, p, w.before ?? undefined, w.limit ?? undefined, w.about ?? undefined, w.memory ? memory : undefined)),
+      ...box.searches.map(s => t.search(s.q)),
     ]
   } finally {
     priced.free()
-    o.free()
-    t.free()
     p.free()
+  }
+}
+
+const answers = (i: readonly Named[], c: readonly Named[], held = chains, given: Record<string, string> = box.keys): string[] => {
+  const t = linesOf(c, given)
+  try {
+    return read(i, t, held)
+  } finally {
+    t.free()
   }
 }
 const expected = [box.proposals, box.list, ...box.windows.map(w => w.answer), ...box.searches.map(s => s.answer)]
@@ -103,7 +115,7 @@ test("the module reads the box's objects as the box does, byte for byte", () => 
 
 test("an erased slot reads as erased whatever key a tab still holds, and the tab forgets what the box's sweep does", () => {
   assert.deepEqual(answers(inbox, conversations, chains, box.stale), expected, "a stale key opens nothing an erasure names")
-  const lines = new core.Conversations(objectsOf(conversations))
+  const lines = linesOf(conversations, {})
   try {
     assert.deepEqual(erasedOf(lines, box.stale, []), box.erased)
     assert.deepEqual(erasedOf(lines, box.keys, []), Object.fromEntries(Object.keys(box.erased).map(k => [k, []])), "the box gives no key an erasure names")
@@ -122,20 +134,33 @@ test("a reading is a function of the object set: any order, any duplicate", () =
   })
 })
 
-test("a sync cut anywhere reads, and the last round reads as the box", () => {
+test("a sync cut anywhere reads, and the last round reads as the box, in lines held round by round", () => {
   forAll(25, r => {
     const i = rounds(r, causal(r, inbox))
     const c = rounds(r, causal(r, conversations))
-    // The two stores sync apart, so a conversation can name a proposal the inbox has not brought yet: that refusal is
-    // the reading's, and any other is a bug.
-    for (const held of i) for (const lines of c.slice(0, 2)) {
-      try {
-        answers(held, lines)
-      } catch (error: unknown) {
-        assert.match(String(error), /does not hold|no conversation named/)
+    // One tab's lines, each round's new objects held on top of the last's, so every round reads through what the
+    // rounds before it computed.
+    const t = new core.Lines()
+    t.keys(JSON.stringify(box.keys), "[]")
+    try {
+      let held = 0
+      for (const lines of c) {
+        t.hold(objectsOf(lines.slice(held)), "[]")
+        held = lines.length
+        // The two stores sync apart, so a conversation can name a proposal the inbox has not brought yet: that refusal
+        // is the reading's, and any other is a bug.
+        for (const inboxHeld of i) {
+          try {
+            read(inboxHeld, t)
+          } catch (error: unknown) {
+            assert.match(String(error), /does not hold|no conversation named/)
+          }
+        }
       }
+      assert.deepEqual(read(i.at(-1) ?? [], t), expected)
+    } finally {
+      t.free()
     }
-    assert.deepEqual(answers(i.at(-1) ?? [], c.at(-1) ?? []), expected)
   })
 })
 
@@ -158,9 +183,14 @@ test("a proposal is priced by the todo it serves, and by nothing where the tab h
 })
 
 test("the decoded readings are the wire's shapes", () => {
-  const lines = new core.Conversations(objectsOf(conversations))
-  const s = secretaryOf(core, inbox, lines, box.keys)
+  const lines = linesOf(conversations)
+  const p = new core.Proposals(objectsOf(inbox))
   const held = chainsOf(core, chains.map(c => heldChain(c.name, c.objects, c.untrusted)))
+  const s = {
+    inbox: (at: string, memory: MemoryPayload | null, chains: typeof held) => inboxOf(p, at, memory, chains),
+    list: () => listOfLines(lines, p),
+    conversation: (id: string, w: Window, memory: MemoryPayload | null) => conversationOf(lines, p, id, w, memory),
+  }
   try {
     const listed = s.inbox(box.at, box.memory, held).proposals.map(p => p.headline)
     assert.equal(listed.length, 5)
@@ -187,7 +217,7 @@ test("the decoded readings are the wire's shapes", () => {
     assert.throws(() => s.conversation("nowhere", {}, null), /no conversation named/)
   } finally {
     held.free()
-    s.free()
+    p.free()
     lines.free()
   }
 })

@@ -1,6 +1,6 @@
 // A device holding part of the lines' content holds a state the box could have sent: its skeleton is a down-set the box
-// sent, its content is the box's bytes for their names, and every reading it answers is the reading of the whole pull
-// at the same skeleton, or names what it still fetches.
+// sent, its content is the box's bytes for their names, and every reading the worker answers of the content held is the
+// reading of the whole pull at the same skeleton, or the page names what it still fetches.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -8,7 +8,7 @@ import { createRequire } from "node:module"
 import { readFileSync } from "node:fs"
 
 import type { Core, Named } from "../src/prodrome/core"
-import { objectsOf, secretaryOf } from "../src/prodrome/core"
+import { conversationOf, listOfLines, objectsOf, searchOf } from "../src/prodrome/core"
 import lines from "../src/prodrome/lines"
 import content from "../src/prodrome/content"
 import { empty, pulled } from "../src/prodrome/replica"
@@ -47,23 +47,26 @@ const skeleton = (r: Rng): Replica<SkeletonNode> => {
   return pulled(empty<SkeletonNode>(), { ...box.skeleton, objects: nodes, untrusted: [], root: null }, 1)
 }
 
-// Some of the box's literals, whatever the skeleton holds, those outside it included.
-const fetched = (r: Rng): lines.Literal => {
-  const kept = new Map([...literals].filter(() => r.bool(0.7)))
-  return name => kept.get(name)
-}
+// Some of the box's literals for nodes the skeleton holds: content is fetched for a node the skeleton names, and let go
+// once none names it.
+const fetched = (r: Rng, s: Replica<SkeletonNode>): ReadonlyMap<string, string> =>
+  new Map(s.objects.filter(() => r.bool(0.7)).map(n => [n.hash, literals.get(n.hash)!]))
 
-// Every answer a reading of `objects` gives about `scope`, or the refusal it gives instead.
+// Every answer the worker's lines holding `objects` give about `scope`, or the refusal they give instead.
 const read = (objects: readonly Named[], scope: lines.Scope): string => {
-  const t = new core.Conversations(objectsOf(objects))
-  const s = secretaryOf(core, inbox, t, box.keys)
+  const held = new core.Lines()
+  const proposals = new core.Proposals(objectsOf(inbox))
   try {
-    return scope.type === "Whole" ? JSON.stringify([s.list(), s.search("draft"), s.search("train")]) : JSON.stringify(s.conversation(scope.id, {}, null))
+    held.hold(objectsOf(objects), "[]")
+    held.keys(JSON.stringify(box.keys), "[]")
+    return scope.type === "Whole"
+      ? JSON.stringify([listOfLines(held, proposals), searchOf(held, "draft"), searchOf(held, "train")])
+      : JSON.stringify(conversationOf(held, proposals, scope.id, {}, null))
   } catch (e: unknown) {
     return `refused: ${String(e)}`
   } finally {
-    s.free()
-    t.free()
+    proposals.free()
+    held.free()
   }
 }
 
@@ -72,27 +75,21 @@ const scopes: readonly lines.Scope[] = [lines.WHOLE, ...ids.map((id): lines.Scop
 test("law: a reading of part-fetched lines is the whole pull's reading at the same skeleton, or names what it fetches", () => {
   forAll(40, r => {
     const s = skeleton(r)
-    const literal = fetched(r)
+    const kept = fetched(r, s)
+    const has = (name: string): boolean => kept.has(name)
     const names = new Set(s.objects.map(n => n.hash))
     // What the box's whole pull at this skeleton would have sent: every node with its literal.
     const whole = s.objects.map(n => ({ hash: n.hash, literal: literals.get(n.hash)! }))
     for (const scope of scopes) {
-      const need = lines.need(s, literal, scope)
+      const need = lines.need(s, has, scope)
       if (need.type === "Fetching") {
         assert.ok(need.nodes.length > 0)
-        assert.ok(need.nodes.every(n => names.has(n.hash) && literal(n.hash) === undefined), "it fetches only what the skeleton names and the device lacks")
+        assert.ok(need.nodes.every(n => names.has(n.hash) && !has(n.hash)), "it fetches only what the skeleton names and the device lacks")
         continue
       }
-      const under = new Set(need.objects.map(o => o.hash))
-      assert.ok(
-        need.objects.every(o => names.has(o.hash) && literal(o.hash) === o.literal && s.objects.find(n => n.hash === o.hash)!.parents.every(p => under.has(p))),
-        "it reads a down-set of the skeleton, each with the box's bytes",
-      )
-      assert.equal(read(need.objects, scope), read(whole, scope), JSON.stringify(scope))
+      const held = [...kept].map(([hash, literal]) => ({ hash, literal }))
+      assert.equal(read(held, scope), read(whole, scope), JSON.stringify(scope))
     }
-    const held = lines.held(s, literal)
-    const kept = new Set(held.map(o => o.hash))
-    assert.ok(held.every(o => names.has(o.hash) && s.objects.find(n => n.hash === o.hash)!.parents.every(p => kept.has(p))), "what a purge reads is a down-set too")
   })
 })
 
@@ -127,6 +124,7 @@ test("an opened conversation's names go out before the whole store's batches sti
     came: () => {},
     lost: () => {},
     atOnce: () => 4,
+    held: () => Promise.resolve(),
   })
   // One name a batch, so the whole store queues more batches than go out at once.
   const one = box.skeleton.nodes.map(n => ({ ...n, size: content.MOST_BYTES }))

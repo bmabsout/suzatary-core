@@ -605,7 +605,7 @@ proptest! {
             .map(|(at, _)| at)
             .collect();
         let rests_on = |later: usize, earlier: usize| {
-            later == earlier || read.lines()[turn_lines[later]].after.contains(&turn_lines[earlier])
+            later == earlier || read.beneath(turn_lines[later]).contains(&turn_lines[earlier])
         };
         let closing = |turn: usize| {
             let closes = match &stored.turns[turn].turn {

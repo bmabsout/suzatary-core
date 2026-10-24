@@ -8,8 +8,8 @@ import { createHash } from "node:crypto"
 import { createRequire } from "node:module"
 import { readFileSync } from "node:fs"
 
-import type { Core, Named, Secretary } from "../src/prodrome/core"
-import { entriesOf, keptChains, objectsOf, secretaryOf } from "../src/prodrome/core"
+import type { Core, Lines, Named, Proposals } from "../src/prodrome/core"
+import { conversationOf, entriesOf, excludedOf, inboxOf, keptChains, linesLeft, listOfLines, objectsOf, searchOf } from "../src/prodrome/core"
 import excluded from "../src/prodrome/excluded"
 import type { MemoryPayload } from "../src/wire/generated/wire"
 import { heldChain } from "./held"
@@ -47,30 +47,35 @@ const inbox = named(box.inbox)
 const conversations = named(box.conversations)
 const held = [...inbox, unread, resting]
 
-const answers = (s: Secretary): unknown[] => [
-  s.inbox(box.at, box.memory, none),
-  s.list(),
-  ...s.list().conversations.map(c => s.conversation(c.id, {}, box.memory)),
-  s.search("deed"),
+// The inbox `i` and the box's lines as the worker reads them.
+type Reading = { readonly p: Proposals; readonly lines: Lines }
+const answers = ({ p, lines }: Reading): unknown[] => [
+  inboxOf(p, box.at, box.memory, none),
+  listOfLines(lines, p),
+  ...listOfLines(lines, p).conversations.map(c => conversationOf(lines, p, c.id, {}, box.memory)),
+  searchOf(lines, "deed"),
 ]
-const reading = <A>(i: readonly Named[], ask: (s: Secretary) => A): A => {
-  const lines = new core.Conversations(objectsOf(conversations))
-  const s = secretaryOf(core, i, lines, box.keys)
+const leftOf = ({ p, lines }: Reading): excluded.T => excluded.join(excludedOf(p), linesLeft(lines))
+const reading = <A>(i: readonly Named[], ask: (s: Reading) => A): A => {
+  const lines = new core.Lines()
+  const p = new core.Proposals(objectsOf(i))
   try {
-    return ask(s)
+    lines.hold(objectsOf(conversations), "[]")
+    lines.keys(JSON.stringify(box.keys), "[]")
+    return ask({ p, lines })
   } finally {
-    s.free()
+    p.free()
     lines.free()
   }
 }
 
 test("law: an unparseable print and what rests on it change no reading of the rest", () => {
   assert.deepEqual(reading(held, answers), reading(inbox, answers))
-  assert.deepEqual(reading(inbox, s => s.excluded), excluded.NONE)
+  assert.deepEqual(reading(inbox, leftOf), excluded.NONE)
 })
 
 test("law: what was left out is exactly the print, in the parse's words, with what rests on it", () => {
-  const left = reading(held, s => s.excluded)
+  const left = reading(held, leftOf)
   assert.deepEqual(left.map(x => [x.name, x.resting]), [[unread.hash, [resting.hash]]])
   assert.match(left[0]?.why ?? "", /^failed to parse: Asked\.act: Remember\(\.\.\.\) has no field text$/)
   assert.equal(excluded.said(excluded.left(left)), "1 object on this device could not be read and was left out (1 resting on it)")

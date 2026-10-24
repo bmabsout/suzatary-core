@@ -28,7 +28,7 @@ const effects = (forget: lo.Settled<null>, alter: lo.Settled<null> = lo.val(null
       erased: async r => (said.push(["erased", locked.names(r.keys)]), { [DEAD]: ["block"] }),
       forget: blocks => (said.push(["forget", blocks]), Promise.resolve(forget)),
     },
-    dead: () => new Set([DEAD]),
+    dead: () => Promise.resolve(new Set([DEAD])),
     alter: gone => (said.push(["alter", gone]), Promise.resolve(alter)),
     owing: failed => void said.push(["owing", failed]),
   }
@@ -65,6 +65,6 @@ test("a device copy that was not written is said, and the key is owed again by t
 
 test("a row that owes nothing asks for no forget and writes nothing to the device", async () => {
   const { fx, said } = effects(lo.val(null))
-  await take.into({ ...fx, dead: () => new Set() }, incoming)
+  await take.into({ ...fx, dead: () => Promise.resolve(new Set<string>()) }, incoming)
   assert.deepEqual(said, [["Held", [DEAD, LIVE]], ["owing", null]])
 })

@@ -1,11 +1,15 @@
 // The stores' effectful shell: kept on the device, pulled from the box by heads, told of a move by each store's
-// stream, and read by the core once per change of what is held, never once per question. A store's row holds its
-// replica and the keys of their words; a key an erasure names is dropped once the blocks its words fed are forgotten.
-// The inbox's replica holds its objects. The lines' holds their skeleton, and a reading fetches the content it needs
-// by name (`content`), reading the lines only once every one it reads is held (`lines.need`).
+// stream, and read by the core in its worker (`questions`), which holds the inbox's objects and the lines' content by
+// what changed and reads them by what moved, so this thread does no reading that grows with the stores. A store's row
+// holds its replica and the keys of their words; a key an erasure names is dropped once the blocks its words fed are
+// forgotten. The inbox's replica holds its objects. The lines' holds their skeleton, and a reading fetches the content
+// it needs by name (`content`), asking the worker only once every line it reads is held (`lines.need`).
 
-import type { Chains, Conversations, Core, Erased, Proposals, Secretary, Window } from "./core"
-import { CoreError, erasedOf, loadCore, objectsOf, secretaryOf } from "./core"
+import type { Erased, Window } from "./core"
+import { CoreError } from "./core"
+import remote from "./remote"
+import questions from "./questions"
+import { askHeld } from "./sync"
 import heads from "./heads"
 import excluded from "./excluded"
 import readings from "./readings"
@@ -24,49 +28,18 @@ import stores from "./stores"
 import serial from "../algebra/serial"
 import once from "../algebra/once"
 import lo from "../algebra/lo"
-import table from "../algebra/table"
 import sources from "../algebra/source"
 import stream from "../algebra/stream"
 import time from "../app/time"
 import d from "../wire/decoder"
 import payload from "../wire/generated/payload"
 import { storeContent, storeObjects, storeSkeleton } from "../wire/api"
-import type { ConversationPayload, InboxProposalsPayload, MemoryPayload, SkeletonNode, StoredObject } from "../wire/generated/wire"
+import type { ConversationPayload, ConversationsPayload, InboxProposalsPayload, MemoryPayload, SearchPayload, SkeletonNode, StoredObject } from "../wire/generated/wire"
 import pieces from "./pieces"
 import http from "../wire/http"
 
 export namespace storesync {
-  // A replica is a down-set, so its heads name its objects.
-  const setOf = <O extends Obj>(r: Replica<O>): string => `${r.generation}|${[...r.heads].sort().join(",")}`
   const NONE_DEAD: ReadonlySet<string> = new Set()
-
-  // What this tab reads the lines' held content with, made once the core is loaded: one `Conversations` over the
-  // largest down-set of the skeleton whose content is held, shared by the purge and the keys it names erased.
-  type Reader = { readonly core: Core; readonly held: (r: Replica<SkeletonNode>) => Conversations; readonly dead: locked.Dead<SkeletonNode> }
-
-  const readerOf = (core: Core): Reader => {
-    let last: { readonly at: string; readonly lines: Conversations } | null = null
-    const held = (r: Replica<SkeletonNode>): Conversations => {
-      const at = `${setOf(r)}|${content.version()}`
-      if (last?.at === at) return last.lines
-      const made = new core.Conversations(objectsOf(lines.held(r, content.literal)))
-      last?.lines.free()
-      last = { at, lines: made }
-      return made
-    }
-    const seen = table.of<ReadonlySet<string>>(table.lru(8))
-    const dead: locked.Dead<SkeletonNode> = r => {
-      const at = `${setOf(r)}|${content.version()}`
-      const kept = table.hit(seen.get(at))
-      if (kept !== undefined) return kept
-      // A skeleton holding no erasure names no key, which is what most hold, so the core is asked only of one that does.
-      const named = lines.erases(r) ? new Set(Object.keys(erasedOf(held(r), locked.NO_KEYS, []))) : NONE_DEAD
-      seen.insert(at, named)
-      return named
-    }
-    return { core, held, dead }
-  }
-  const reader = once.of(() => loadCore().then(readerOf)).get
 
   const source = sources.create<stores.T, stores.Event>(stores.NONE, stores.step)
   const bars = sources.create<progress.T, progress.Event>(progress.NONE, progress.step)
@@ -97,9 +70,9 @@ export namespace storesync {
     readonly rows: Rows<locked.Row<O>>
     readonly shape: (raw: unknown) => lo.Settled<Shape<O>>
     readonly ask: (since: heads.Heads) => Promise<Answer<O>>
-    readonly dead: (rd: Reader) => locked.Dead<O>
+    readonly dead: locked.Dead<O>
     // Every key `r`'s objects name as erased and every key in `told`, with the blocks `r.keys` opens of each.
-    readonly erased: (rd: Reader, r: locked.Row<O>, told: readonly string[]) => Promise<Erased>
+    readonly erased: (r: locked.Row<O>, told: readonly string[]) => Promise<Erased>
     // What follows a landing that moved the row.
     readonly landed: (row: locked.Row<O>) => Promise<void>
     // What runs before the row is first read.
@@ -136,7 +109,7 @@ export namespace storesync {
     rows: objectRows,
     shape: keyed(objectRows),
     ask: since => storeObjects(name, since).then(a => ({ said: a, keys: a.keys, erased: a.erased, rest: a.rest, size: a.size, weight: a.weight })),
-    dead: () => () => NONE_DEAD,
+    dead: () => Promise.resolve(NONE_DEAD),
     erased: () => Promise.resolve({}),
     landed: () => Promise.resolve(),
     restoring: () => Promise.resolve(),
@@ -159,7 +132,9 @@ export namespace storesync {
     came: bytes => bars.dispatch({ type: "Came", name: "lines", bytes }),
     lost: bytes => bars.dispatch({ type: "Lost", name: "lines", bytes }),
     atOnce: () => content.atOnce(http.protocol()),
+    held: rows => remote.ask({ type: "HoldLines", delta: { add: rows, drop: [], whole: false }, keys: NO_KEYS }).then(() => undefined),
   })
+  const NO_KEYS: questions.Keys = { add: {}, drop: [], whole: false }
 
   const linesNone = locked.none<SkeletonNode>()
   // A skeleton holds no write of this device's: the box alone writes the lines.
@@ -173,16 +148,22 @@ export namespace storesync {
     shape: keyed(linesRows),
     ask: since =>
       storeSkeleton(since).then(a => ({ said: { ...a, objects: a.nodes, untrusted: [], root: null }, keys: a.keys, erased: a.erased, rest: a.rest, size: a.size, weight: a.weight })),
-    dead: rd => rd.dead,
+    // The worker reads the largest down-set of the content it holds, and holds content only by the skeleton's names:
+    // fetched by them, and what the skeleton no longer names let go at its landing (`content.keepOnly`). A word was only
+    // ever rendered from a conversation read whole.
+    dead: () => remote.ask({ type: "Dead" }).then(names => new Set(names)),
     // The blocks a key's words fed are found by opening its lines, so their content is fetched first; a fetch that
     // fails rejects, and the keys stay owed.
-    erased: async (rd, r, told) => {
+    erased: async (r, told) => {
       await fetching("First", lines.naming(r.replica, locked.names(r.keys)))
-      return erasedOf(rd.held(r.replica), r.keys, told)
+      return remote.ask({ type: "Erased", keys: r.keys, told })
     },
     landed: async row => {
       if (row.replica.objects.length > 0) await retire()
-      const gone = await content.keepOnly(new Set(row.replica.objects.map(n => n.hash)))
+      const gone = await content.keepOnly(
+        new Set(row.replica.objects.map(n => n.hash)),
+        drop => remote.ask({ type: "HoldLines", delta: { add: [], drop, whole: false }, keys: NO_KEYS }).then(() => undefined),
+      )
       if (gone.type === "Error") told("lines", gone.e)
     },
     restoring: () => cleared(),
@@ -267,11 +248,16 @@ export namespace storesync {
 
   const syncOf = <O extends Obj>(st: Store<O>, replaced: () => void): Sync => {
     const name = st.name
-    const taking = (rd: Reader, told: readonly string[]): take.Effects<O> => ({
+    const taking = (told: readonly string[]): take.Effects<O> => ({
       held: st.held,
-      dispatch: e => (e.type === "Held" ? st.hold(e.row) : source.dispatch({ type: "Forgot", name, keys: e.keys })),
-      purge: { erased: r => st.erased(rd, r, told), forget: rendered.store.forget },
-      dead: told.length === 0 ? st.dead(rd) : r => new Set([...st.dead(rd)(r), ...told]),
+      dispatch: e => {
+        if (e.type === "Held") return st.hold(e.row)
+        source.dispatch({ type: "Forgot", name, keys: e.keys })
+        // The worker lets go of a forgotten key's words now, not at the next reading, which may never come.
+        if (name === "lines") void holdKeys(source.state().lines.keys).catch(() => undefined)
+      },
+      purge: { erased: r => st.erased(r, told), forget: rendered.store.forget },
+      dead: told.length === 0 ? st.dead : r => st.dead(r).then(dead => new Set([...dead, ...told])),
       alter: gone => (idb.available() ? alterRow(st.rows, kept(name), r => locked.without(r, gone)) : Promise.resolve(lo.val(null))),
       owing: failed => owing(name, failed),
     })
@@ -289,7 +275,7 @@ export namespace storesync {
     const pieceAt = (at: number): string => `${piecesOf}${String(at).padStart(12, "0")}`
 
     // One read of the row per page.
-    const restoredOne = async (rd: Reader): Promise<void> => {
+    const restoredOne = async (): Promise<void> => {
       await st.restoring()
       const read = await heldRow({ parse: st.shape }, kept(name))
       if (read.type === "Held" && read.v.type === "Bare") {
@@ -297,24 +283,24 @@ export namespace storesync {
         return told(name, gone.type === "Error" ? gone.e : null)
       }
       told(name, read.type === "Unreadable" ? read.why : null)
-      if (read.type === "Held" && read.v.type === "Keyed") await take.into(taking(rd, []), read.v.row)
+      if (read.type === "Held" && read.v.type === "Keyed") await take.into(taking([]), read.v.row)
       // The pieces a pull kept and did not land, another tab's included: held beside the row, never read by a page.
       const left = await heldRows(st.rows, piecesOf)
       pending = left.rows.reduce(locked.join, pending)
       if (left.unread.length > 0) told(name, left.unread.join("; "))
     }
-    const restored = once.of(() => reader().then(restoredOne))
+    const restored = once.of(restoredOne)
 
     type Piece = { readonly asked: Replica<O>; readonly answer: Answer<O>; readonly rest: number }
 
     // One piece kept: the erasures it names forgotten from what pages read, then the piece held beside it, less any key
     // those name, and written on the device by itself. It holds only what was asked of a replica, so another tab's reset
     // kept meanwhile, a later generation, keeps it out when it lands, and the next piece is asked of the reset.
-    const keep = async (rd: Reader, { asked, answer }: Piece): Promise<void> => {
+    const keep = async ({ asked, answer }: Piece): Promise<void> => {
       readings.told(`epoch/${kept(name)}`, excluded.behind(kept(name), wentBack(asked, answer.said)))
       bars.dispatch({ type: "Piece", name, size: answer.size, weight: answer.weight })
       // Only while more pieces are to come: the last lands with the erasure's lines, which then read as erased.
-      if (answer.erased.length > 0 && answer.rest > 0) await take.into(taking(rd, answer.erased), st.none)
+      if (answer.erased.length > 0 && answer.rest > 0) await take.into(taking(answer.erased), st.none)
       const piece = locked.without(locked.of(pulled(replicaOf<O>({ ...st.none.replica.held, generation: asked.generation }), answer.said, time.now()), answer.keys), answer.erased)
       pending = locked.without(locked.join(pending, piece), answer.erased)
       if (idb.available() && answer.said.objects.length > 0) {
@@ -327,16 +313,16 @@ export namespace storesync {
 
     // What the pieces brought, landed in one step, so a page reading the store reads it once, whole; then the row written
     // once with what another tab kept joined in, and the pieces' own rows deleted.
-    const land = async (rd: Reader, last: Piece): Promise<void> => {
+    const land = async (last: Piece): Promise<void> => {
       const was = st.held()
       const brought = pending
-      await take.into(taking(rd, last.answer.erased), brought)
+      await take.into(taking(last.answer.erased), brought)
       pending = st.none
       const now = st.held()
       // Without IndexedDB what is held is the only copy, as the chains' is.
       if (now !== was && idb.available()) {
         const { row, unread } = await keepRow(st.rows, kept(name), { type: "Join", replica: now })
-        if (row.type === "Val") await take.into(taking(rd, last.answer.erased), row.v)
+        if (row.type === "Val") await take.into(taking(last.answer.erased), row.v)
         told(name, unread)
       }
       if (brought !== st.none && idb.available()) {
@@ -369,7 +355,7 @@ export namespace storesync {
     // What the box's later epoch overtook dropped, on the device first, so no copy from before it, another tab's included,
     // reaches it: the row reset to an empty one of the generation after, keys and all, the kept pieces deleted, and the
     // pull's progress with them, so it starts again from nothing.
-    const startOver = async (rd: Reader): Promise<void> => {
+    const startOver = async (): Promise<void> => {
       const row = idb.available()
         ? await holdRow(st.rows, kept(name), { type: "Reset", shown: new Set(), floor: 0, over: "Unread" })
         : lo.val(locked.reset(st.held()))
@@ -386,7 +372,7 @@ export namespace storesync {
       was.done("Replaced")
       replaced()
       settled()
-      await take.into(taking(rd, []), row.v)
+      await take.into(taking([]), row.v)
     }
 
     // By pieces, each asked from what is held, landed and not, and kept before the next. A pull that did not end whole
@@ -395,17 +381,16 @@ export namespace storesync {
     const pullNow = (): Promise<boolean> =>
       restored
         .get()
-        .then(reader)
-        .then(rd =>
+        .then(() =>
           pieces.pull({
             ask: async () => {
               const piece = await askOf()
               if (!stores.overtaken(parts(), piece.answer.said)) return piece
-              await startOver(rd)
+              await startOver()
               return askOf()
             },
-            keep: piece => keep(rd, piece),
-            land: last => land(rd, last),
+            keep,
+            land,
             held: () => [st.held(), pending],
           }),
         )
@@ -500,84 +485,81 @@ export namespace storesync {
   const ready = readyOf(stores.NAMES, all)
   const inboxReady = readyOf(["inbox"], inboxOnly)
 
-  let proposalsRead: { readonly inbox: Replica; readonly p: Proposals } | null = null
+  // What the worker was last told of the inbox and of the keys: the inbox right before a reading of it, the keys then
+  // and when a purge lets one go. Each is nothing once the worker refused what was sent, and the next is sent whole.
+  let inboxSent: { readonly replica: Replica; readonly names: ReadonlySet<string> } | null = { replica: stores.NONE.inbox.replica, names: new Set() }
+  let keysSent: locked.Keys | null = locked.NO_KEYS
 
-  // Every proposal at `at`, priced through `chains`, read from the inbox alone: what a page that reads no conversation,
-  // the "Needs you" popup, asks, so it pulls the inbox and never the lines.
-  export const proposals = async (at: string, memory: MemoryPayload | null, chains: Chains): Promise<InboxProposalsPayload> => {
+  // Each sent before it returns, with no wait between reading what was sent and writing it, so two in a row are each
+  // the change from the one before.
+  const holdInbox = (replica: Replica): Promise<null> => {
+    const was = inboxSent
+    if (replica === was?.replica) return Promise.resolve(null)
+    const names = new Set(replica.objects.map(o => o.hash))
+    const delta =
+      was === null
+        ? { add: replica.objects, drop: [], whole: true }
+        : { add: replica.objects.filter(o => !was.names.has(o.hash)), drop: [...was.names].filter(n => !names.has(n)), whole: false }
+    inboxSent = { replica, names }
+    return remote.ask({ type: "HoldInbox", delta }).catch((e: unknown) => {
+      inboxSent = null
+      throw e
+    })
+  }
+
+  const holdKeys = (keys: locked.Keys): Promise<null> => {
+    const was = keysSent
+    if (keys === was) return Promise.resolve(null)
+    const add = was === null ? keys : Object.fromEntries(Object.entries(keys).filter(([n, k]) => was[n] !== k))
+    const drop = was === null ? [] : Object.keys(was).filter(n => keys[n] === undefined)
+    keysSent = keys
+    return remote.ask({ type: "HoldLines", delta: { add: [], drop: [], whole: false }, keys: { add, drop, whole: was === null } }).catch((e: unknown) => {
+      keysSent = null
+      throw e
+    })
+  }
+
+  // The Inbox's rows at `at`, priced through every chain the tab holds, read from the inbox alone, and the chains they
+  // were priced through: what a page that reads no conversation asks, so it pulls the inbox and never the lines.
+  export type Proposals = { readonly payload: InboxProposalsPayload; readonly held: readonly string[] }
+  export const proposals = async (at: string, memory: MemoryPayload | null): Promise<Proposals> => {
     await inboxReady.get()
-    const rd = await reader()
-    const inbox = source.state().inbox.replica
-    if (proposalsRead?.inbox !== inbox) {
-      proposalsRead?.p.free()
-      proposalsRead = { inbox, p: new rd.core.Proposals(objectsOf(inbox.objects)) }
-    }
-    const read = d.json(payload.InboxProposalsPayload)(proposalsRead.p.inbox(at, chains, memory === null ? undefined : JSON.stringify(memory)))
-    if (read.type === "Error") throw new Error(`the inbox's proposals: unexpected shape (${read.e})`)
-    return read.v
+    const holding = holdInbox(source.state().inbox.replica)
+    const [, { held, answer }] = await Promise.all([holding, askHeld(() => ({ type: "Proposals", at, memory }))])
+    return { payload: answer, held: held.held.map(c => c.name) }
   }
 
-  // Each scope's reading, kept while the stores it read stand: a later change frees it.
-  const reads = new Map<string, { readonly t: stores.T; readonly s: Secretary }>()
-  const scopeKey = (scope: lines.Scope): string => (scope.type === "Whole" ? "" : scope.id)
-
-  // Each scope's lines, kept while the lines' replica stands, however the other stores move: a `Conversations` reads
-  // its lines once (every line verified and folded, seconds on a phone for the whole store) and every reading of it
-  // after that reuses what it read.
-  const linesOf = new Map<string, { readonly at: string; readonly lines: Conversations }>()
-  const conversationsOf = (core: Core, key: string, at: string, objects: readonly StoredObject[]): Conversations => {
-    const kept = linesOf.get(key)
-    if (kept?.at === at) return kept.lines
-    for (const [k, l] of linesOf) {
-      if (l.at === at) continue
-      l.lines.free()
-      linesOf.delete(k)
-    }
-    const made = new core.Conversations(objectsOf(objects))
-    linesOf.set(key, { at, lines: made })
-    return made
-  }
-
-  // The reading of `scope` once every line it reads is held, fetching what is not, a conversation's before the whole
-  // store's; the question runs while the reading is current, so nothing may keep `s`.
-  const over = async <A>(scope: lines.Scope, ask: (s: Secretary) => A): Promise<A> => {
+  // `question` asked of the worker once every line `scope` reads is held, fetching what is not, a conversation's before
+  // the whole store's. The holdings go out right before it, so it reads what is held now; messages arrive in order.
+  const over = async <K extends questions.Kind>(scope: lines.Scope, question: questions.Of<K>): Promise<questions.Answer<K>> => {
     await ready.get()
-    const rd = await reader()
     for (;;) {
       const t = source.state()
-      const need = lines.need(t.lines.replica, content.literal, scope)
+      const need = lines.need(t.lines.replica, content.has, scope)
       if (need.type === "Fetching") {
         await fetching(scope.type === "Whole" ? "Behind" : "First", need.nodes)
         continue
       }
-      const key = scopeKey(scope)
-      const was = reads.get(key)
-      if (was?.t === t) return ask(was.s)
-      for (const [k, r] of reads) {
-        if (k !== key && r.t === t) continue
-        r.s.free()
-        reads.delete(k)
-      }
-      const read = conversationsOf(rd.core, key, setOf(t.lines.replica), need.objects)
-      const s = secretaryOf(rd.core, t.inbox.replica.objects, read, t.lines.keys)
-      reads.set(key, { t, s })
-      if (scope.type === "Whole") readings.told("stores", excluded.left(s.excluded))
-      return ask(s)
+      const holding = Promise.all([holdInbox(t.inbox.replica), holdKeys(t.lines.keys)])
+      const [, answer, left] = await Promise.all([holding, remote.ask(question), scope.type === "Whole" ? remote.ask({ type: "Left" }) : null])
+      if (left !== null) readings.told("stores", excluded.left(left))
+      return answer
     }
   }
 
   // The whole of both stores: the list and a search read every conversation.
-  export const reading = <A>(ask: (s: Secretary) => A): Promise<A> => over(lines.WHOLE, ask)
+  export const list = (): Promise<ConversationsPayload> => over(lines.WHOLE, { type: "Conversations" })
+  export const search = (q: string): Promise<SearchPayload> => over(lines.WHOLE, { type: "Search", q })
 
   // One conversation over its own lines alone, which reads as the whole store reads it; absent where the store holds no
   // line of it, read off the skeleton without fetching anything.
-  export type One = { readonly type: "Absent" } | { readonly type: "Held"; readonly read: (w: Window, memory: MemoryPayload | null) => ConversationPayload }
+  export type One = { readonly type: "Absent" } | { readonly type: "Held"; readonly payload: ConversationPayload }
 
-  export const conversation = async <A>(id: string, ask: (one: One) => A): Promise<A> => {
+  export const conversation = async (id: string, window: Window, memory: MemoryPayload | null): Promise<One> => {
     await ready.get()
     return lines.holds(source.state().lines.replica, id)
-      ? over({ type: "Conversation", id }, s => ask({ type: "Held", read: (w, memory) => s.conversation(id, w, memory) }))
-      : ask({ type: "Absent" })
+      ? { type: "Held", payload: await over({ type: "Conversation", id }, { type: "Conversation", id, window, memory }) }
+      : { type: "Absent" }
   }
 
   // A conversation read where the store holds none of it, in the words the core refuses one with.

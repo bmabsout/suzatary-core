@@ -1559,9 +1559,16 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   no connection (2026-10-21: every store's
   objects are also served by hash, `…/content?hashes=`, kept for good, and
   the lines' skeleton at `GET /api/stores/lines/skeleton?since=`;
-  `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core once per
-  change of what is held (`secretaryOf`: one `Proposals` and one
-  `Conversations`, kept until the next change). Since stage 2 of that plan
+  `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core in its worker
+  (`questions.ts`, 2026-10-24): the page sends the inbox's objects, the
+  lines' content and their keys by what changed, and asks for the list, a
+  conversation, a search or a purge's keys; the worker keeps one
+  `Proposals` per change of the inbox and one `Lines`
+  (`secretary::held_lines::HeldLines`), which decodes each line once and
+  reads through the Prodrome's memoised fold, one node per conversation and
+  one leaf per line, so a new line computes its leaf, its conversation and
+  the store, and the page's thread reads nothing that grows with the
+  stores. Since stage 2 of that plan
   the tab pulls the lines' skeleton in place of their objects and keeps each
   literal by its name in the `content` store, fetched when a reading needs
   it: a conversation reads its own lines and what they rest on, the list and

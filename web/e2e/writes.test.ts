@@ -40,13 +40,13 @@ const DEFAULT = `(async () => {
   const pulled = async (store) => (await fetch(\`/api/stores/\${store}/objects\`)).json();
   const objects = (answer) => JSON.stringify(answer.objects.map((o) => ({ hash: o.hash, text: o.literal })));
   const [kept, asked] = [await pulled("lines"), await pulled("inbox")];
-  const lines = new core.Conversations(objects(kept));
-  const opened = lines.opened(JSON.stringify(kept.keys));
+  const lines = new core.Lines();
+  lines.hold(objects(kept), "[]");
+  lines.keys(JSON.stringify(kept.keys), "[]");
   const inbox = new core.Proposals(objects(asked));
   try {
-    return JSON.parse(opened.conversation("default", inbox));
+    return JSON.parse(lines.conversation("default", inbox));
   } finally {
-    opened.free();
     lines.free();
     inbox.free();
   }

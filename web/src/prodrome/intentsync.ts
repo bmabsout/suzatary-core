@@ -43,7 +43,7 @@ export namespace intentsync {
     if (ids.length === 0) return
     // A conversation not yet held is absent from the store, never a caught refusal.
     const read = new Map(
-      await Promise.all(ids.map(id => storesync.conversation(id, (one): readonly [string, ConversationPayload | null] => [id, one.type === "Held" ? one.read({}, null) : null]))),
+      await Promise.all(ids.map(id => storesync.conversation(id, {}, null).then((one): readonly [string, ConversationPayload | null] => [id, one.type === "Held" ? one.payload : null]))),
     )
     retract(asks.holds(id => read.get(id) ?? null))
   }

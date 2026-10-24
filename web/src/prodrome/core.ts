@@ -31,7 +31,7 @@ import { untrustedOf } from "./replica";
 export interface Core {
   Todos: new (objects: string) => Todos;
   Proposals: new (objects: string) => Proposals;
-  Conversations: new (objects: string) => Conversations;
+  Lines: new () => Lines;
   Chains: new () => Chains;
   /** `undefined` where the term reads `∅`. */
   fulfillment: (term: string, now: string, env: string) => number | undefined;
@@ -158,19 +158,14 @@ export function chainsOf(core: Core, held: readonly HeldChain[]): Chains {
   }
 }
 
-/** A set of conversation objects read once at the conversation schema; a reading of both stores takes the inbox's class. */
-export interface Conversations {
-  tips: () => string;
-  readings: (at: string | null, untrusted: string) => string;
-  /** These lines opened once with the pull's keys, `{<name>: <hex>}` as JSON. */
-  opened: (keys: string) => Opened;
-  /** `{<name>: [<answer key>, …]}`: every key an erasure names, with the blocks its words fed where `keys` opens it. */
-  erased: (keys: string, told: string) => string;
-  free: () => void;
-}
-
-/** The lines read once with their keys: a slot without its key reads as missing, one an erasure names as erased. */
-export interface Opened {
+/**
+ * The lines a tab holds, each print decoded once as it is held and each key by name, read through the core's memoised
+ * fold, so a reading computes only the conversations and lines that moved since the last one. A slot without its key
+ * reads as missing, one an erasure names as erased.
+ */
+export interface Lines {
+  hold: (add: string, drop: string) => void;
+  keys: (add: string, drop: string) => void;
   list: (inbox: Proposals) => string;
   conversation: (
     id: string,
@@ -181,6 +176,10 @@ export interface Opened {
     memory: string | undefined,
   ) => string;
   search: (q: string) => string;
+  /** `{<name>: [<answer key>, …]}`: every key an erasure names, with the blocks its words fed where `keys` opens it. */
+  erased: (keys: string, told: string) => string;
+  dead: () => string;
+  excluded: () => string;
   free: () => void;
 }
 
@@ -350,7 +349,6 @@ function asked<S extends { free: () => void }, T>(store: new (objects: string) =
 export type Read<A> = A & { readonly excluded: excluded.T };
 
 const Tipped = obj<{ excluded: excluded.T }>({ excluded: excluded.decoder });
-const excludedOf = (s: { tips: () => string }): excluded.T => checked("tips", s.tips(), Tipped).excluded;
 
 /** Rehash and parse every object, walk from every tip, and put the lot in one causal order. */
 export function verifyObjects(core: Core, links: readonly Named[]): CoreVerdict {
@@ -563,30 +561,13 @@ export function proposalReadings(
   return checked("readings", asked(core.Proposals, links, (p) => p.readings(at, JSON.stringify(untrusted))), ProposalReadings);
 }
 
-// --- the secretary's two stores, read once per sync ------------------------------
+// --- the secretary's two stores ---------------------------------------------------
 
 /** One conversation's window in the box's query's words: before a turn, at most `limit`, about a reference. */
 export interface Window {
   before?: number;
   limit?: number;
   about?: string;
-}
-
-/**
- * The inbox and the conversations read once by the core: the objects cross into the module when this is made,
- * every reading asks of what is there, and `free` gives the memory back. Each answer is the box's own reading
- * of the same objects (`suzatary_core::secretary::readings`).
- */
-export interface Secretary {
-  /** Each proposal priced through `chains`, the replicas the chain pages read. */
-  inbox: (at: string, memory: MemoryPayload | null, chains: Chains) => InboxProposalsPayload;
-  list: () => ConversationsPayload;
-  /** `memory` is the memory route's answer, `null` for one not read, which reads every receipt unread. */
-  conversation: (id: string, window: Window, memory: MemoryPayload | null) => ConversationPayload;
-  search: (q: string) => SearchPayload;
-  /** What either store's reading left out, the join of the two. */
-  excluded: excluded.T;
-  free: () => void;
 }
 
 const shown = (n: number | undefined): string | undefined => (n === undefined ? undefined : String(n));
@@ -600,55 +581,28 @@ export function functionsOf(core: Core): ReadonlySet<string> {
   return new Set(checked("kept functions", core.kept_functions(), arr(str)));
 }
 
-/**
- * The erased keys of what `lines` holds, and every key named in `told` (what the box's pull says an erasure anywhere in
- * the store names), the blocks of each that `keys` still opens: the box's sweep's own reading (`transcript::dead`).
- */
-export function erasedOf(lines: Conversations, keys: Readonly<Record<string, string>>, told: readonly string[]): Erased {
-  return checked("erased", lines.erased(JSON.stringify(keys), JSON.stringify(told)), Erased);
-}
+/** What a class's reading leaves out, as its `tips` (or the lines' `excluded`) answers it. */
+export const excludedOf = (s: { tips: () => string }): excluded.T => checked("tips", s.tips(), Tipped).excluded;
+export const linesLeft = (lines: Lines): excluded.T => checked("excluded", lines.excluded(), Tipped).excluded;
 
-/** `lines` is its caller's: a reading frees what it made, the inbox and the opened lines, and never `lines`. */
-export function secretaryOf(
-  core: Core,
-  inbox: readonly Named[],
-  lines: Conversations,
-  keys: Readonly<Record<string, string>>,
-): Secretary {
-  const proposals = new core.Proposals(objectsOf(inbox));
-  let opened: Opened | undefined;
-  let left: excluded.T;
-  try {
-    opened = lines.opened(JSON.stringify(keys));
-    left = excluded.join(excludedOf(proposals), excludedOf(lines));
-  } catch (error: unknown) {
-    opened?.free();
-    proposals.free();
-    throw error;
-  }
-  const read = opened;
-  return {
-    inbox: (at, memory, chains) =>
-      checked("inbox", proposals.inbox(at, chains, memory === null ? undefined : JSON.stringify(memory)), payload.InboxProposalsPayload),
-    list: () => checked("list", read.list(proposals), payload.ConversationsPayload),
-    conversation: (id, window, memory) =>
-      checked(
-        "conversation",
-        read.conversation(
-          id,
-          proposals,
-          shown(window.before),
-          shown(window.limit),
-          window.about,
-          memory === null ? undefined : JSON.stringify(memory),
-        ),
-        payload.ConversationPayload,
-      ),
-    search: (q) => checked("search", read.search(q), payload.SearchPayload),
-    excluded: left,
-    free: () => {
-      read.free();
-      proposals.free();
-    },
-  };
-}
+const memoryOf = (memory: MemoryPayload | null): string | undefined => (memory === null ? undefined : JSON.stringify(memory));
+
+/** The Inbox's rows at `at`, each proposal priced through `chains`, a remember card's headline with `memory`'s words. */
+export const inboxOf = (proposals: Proposals, at: string, memory: MemoryPayload | null, chains: Chains): InboxProposalsPayload =>
+  checked("inbox", proposals.inbox(at, chains, memoryOf(memory)), payload.InboxProposalsPayload);
+
+export const listOfLines = (lines: Lines, inbox: Proposals): ConversationsPayload => checked("list", lines.list(inbox), payload.ConversationsPayload);
+
+export const conversationOf = (lines: Lines, inbox: Proposals, id: string, window: Window, memory: MemoryPayload | null): ConversationPayload =>
+  checked("conversation", lines.conversation(id, inbox, shown(window.before), shown(window.limit), window.about, memoryOf(memory)), payload.ConversationPayload);
+
+export const searchOf = (lines: Lines, q: string): SearchPayload => checked("search", lines.search(q), payload.SearchPayload);
+
+/**
+ * Every key an erasure of its own conversation names, and every key named in `told`, each with the blocks its words fed
+ * where `keys` opens it: the box's sweep's own reading (`transcript::dead`).
+ */
+export const erasedOf = (lines: Lines, keys: Readonly<Record<string, string>>, told: readonly string[]): Erased =>
+  checked("erased", lines.erased(JSON.stringify(keys), JSON.stringify(told)), Erased);
+
+export const deadOf = (lines: Lines): readonly string[] => checked("dead", lines.dead(), arr(str));

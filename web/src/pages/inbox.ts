@@ -73,7 +73,7 @@ export namespace inboxPage {
   const gather = async (): Promise<{ all: waiting.Waiting[]; unplaced: waiting.Unplaced[]; problems: string[]; box: inboxState.Box; memory: MemoryPayload | null }> => {
     const answered = answers.now()
     const known = lo.withDefault(answered, NONE)
-    const [inbox, listed] = await Promise.all([lo.of(dressed.inbox(time.moment(), known.memory)), lo.of(storesync.reading(s => s.list()))])
+    const [inbox, listed] = await Promise.all([lo.of(dressed.inbox(time.moment(), known.memory)), lo.of(storesync.list())])
     const read = lo.withDefault(inbox, null)
     readings.told("inbox", excluded.left(excluded.NONE, [...(read?.payload.failed ?? []), ...known.folds.flatMap(f => f.failed)]))
     return {
