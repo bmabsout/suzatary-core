@@ -803,6 +803,53 @@ secretary propose_email [why mistyped] refused 400: why must be a string
 secretary propose_email [why garbled] answered {"attachments":[],"cc":[],"held":[],"next":"The owner sees this with its exact text, its reason and its sources as links, and taps it, dismisses it with a reason, or leaves it. You cannot send it and there is no verb that can; do not offer to.","proposed":0,"sources":["todo:life/alpha"],"subject":"Hello","to":["c@d.test"],"why":"?"}
 secretary propose_email [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary propose_email [chain mistyped] refused 400: chain must be a string or null
+secretary propose_forward [valid] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [account missing] refused 400: account is required
+secretary propose_forward [account null] refused 400: account is required
+secretary propose_forward [account mistyped] refused 400: account must be a string
+secretary propose_forward [account garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [as missing] refused 400: as is required
+secretary propose_forward [as null] refused 400: as is required
+secretary propose_forward [as mistyped] refused 400: as: unknown variant `x`, expected `inline` or `attached`
+secretary propose_forward [cc given] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [cc null] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [cc mistyped] refused 400: cc must be a string or null
+secretary propose_forward [cc garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [message missing] refused 400: message is required
+secretary propose_forward [message null] refused 400: message is required
+secretary propose_forward [message mistyped] refused 400: message must be a string
+secretary propose_forward [message garbled] refused 404: the local corpus holds no message "?"
+secretary propose_forward [note given] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [note null] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [note mistyped] refused 400: note must be a string or null
+secretary propose_forward [note garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [revises given] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [revises null] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [revises mistyped] refused 400: revises must be a whole number or null
+secretary propose_forward [revises negative] refused 400: revises must be a whole number that is not negative
+secretary propose_forward [revises fractional] refused 400: revises must be a whole number that is not negative
+secretary propose_forward [serves given] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [serves null] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [serves mistyped] refused 400: serves must be a string or null
+secretary propose_forward [serves garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [sources missing] refused 400: sources is required
+secretary propose_forward [sources null] refused 400: sources is required
+secretary propose_forward [sources mistyped] refused 400: sources must be a string
+secretary propose_forward [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_forward [subject missing] refused 400: subject is required
+secretary propose_forward [subject null] refused 400: subject is required
+secretary propose_forward [subject mistyped] refused 400: subject must be a string
+secretary propose_forward [subject garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [to missing] refused 400: to is required
+secretary propose_forward [to null] refused 400: to is required
+secretary propose_forward [to mistyped] refused 400: to must be a string
+secretary propose_forward [to garbled] refused 400: to must be an email address
+secretary propose_forward [why missing] refused 400: why is required
+secretary propose_forward [why null] refused 400: why is required
+secretary propose_forward [why mistyped] refused 400: why must be a string
+secretary propose_forward [why garbled] refused 404: the local corpus holds no message "Hello"
+secretary propose_forward [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
+secretary propose_forward [chain mistyped] refused 400: chain must be a string or null
 secretary propose_act [valid] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [account given] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [account null] refused 400: account is required for act="auth"
@@ -1228,4 +1275,4 @@ secretary proposals_reject [why mistyped] refused 400: why must be a string
 secretary proposals_reject [why garbled] refused 404: no proposal named '0000000000000000000000000000000000000000000000000000000000000000'
 secretary proposals_reject [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary proposals_reject [chain mistyped] refused 400: chain must be a string or null
-secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, upload_read, sync_mail, search_older, watch_mail, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, proposals_list, proposals_accept, proposals_reject
+secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, upload_read, sync_mail, search_older, watch_mail, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_forward, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, proposals_list, proposals_accept, proposals_reject

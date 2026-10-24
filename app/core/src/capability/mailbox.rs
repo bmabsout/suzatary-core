@@ -93,6 +93,11 @@ pub trait Mailbox: Sync {
     /// Every attachment on one message, `id` resolved as [`Mailbox::message`] resolves it.
     fn attachments(&self, id: &str) -> Result<Vec<crate::mail::AttachmentMeta>, MailError>;
 
+    /// One message file, by its notmuch id, recorded for a forward and never its bytes, which
+    /// only the owner's tap reads ([`crate::held_value::Reveal`]); a file over `cap` bytes is
+    /// not read.
+    fn stored(&self, id: &str, cap: u64) -> Result<crate::mail::Stored, MailError>;
+
     /// One attachment's bytes; an unlisted `name` is [`MailError::Absent`].
     fn attachment(&self, id: &str, name: &str) -> Result<crate::mail::AttachmentFile, MailError>;
 

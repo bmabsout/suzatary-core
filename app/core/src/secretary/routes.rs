@@ -108,6 +108,7 @@ impl<'a> Drawn<'a> {
                 // Neither reads a chain: an email leaves the box and an act is performed by the
                 // box itself.
                 Proposal::Email(_)
+                | Proposal::Forward(_)
                 | Proposal::Act(_)
                 | Proposal::Remember { .. }
                 | Proposal::Decide(_) => None,
@@ -176,7 +177,8 @@ fn sources(
         .standings()
         .filter_map(|standing| match &standing.object.asked.proposal {
             Proposal::Email(draft) => held_value::Written::parse(&draft.body).ok(),
-            Proposal::Changes(_)
+            Proposal::Forward(_)
+            | Proposal::Changes(_)
             | Proposal::Act(_)
             | Proposal::Remember { .. }
             | Proposal::Decide(_) => None,
@@ -579,7 +581,8 @@ pub fn edit(
 pub struct Effectors<'a> {
     /// Sends a tapped email.
     pub post: &'a dyn Post,
-    /// Reads a tapped email's held values, to write them into the message on the wire.
+    /// Reads a tapped email's held values, and a tapped forward's message, to put them on the
+    /// wire.
     pub reveal: &'a dyn Reveal,
     /// Performs a tapped act (a sign-in, a web request).
     pub performer: &'a dyn Perform,
@@ -704,6 +707,8 @@ enum KeptMail {
 enum Prepared<'p, 'c> {
     /// Send this message.
     Email(&'p Draft),
+    /// Forward this stored message.
+    Forward(&'p crate::secretary::store::Forward),
     /// Append this changeset.
     Changes(&'p Changeset),
     /// Store `value` under a name minted against the names declared at the tap.
@@ -795,6 +800,10 @@ impl<'p, 'c> Prepared<'p, 'c> {
             Proposal::Email(draft) => {
                 answer.plain()?;
                 Prepared::Email(draft)
+            }
+            Proposal::Forward(forward) => {
+                answer.plain()?;
+                Prepared::Forward(forward)
             }
             Proposal::Changes(changeset) => {
                 answer.plain()?;
@@ -1032,6 +1041,7 @@ fn performed(
     } = *reach;
     Ok(match prepared {
         Prepared::Email(draft) => mailed(caps, effectors, id, draft),
+        Prepared::Forward(forward) => forwarded(caps, effectors, id, forward),
         Prepared::Changes(changeset) => apply(cards, changeset),
         Prepared::Secret { name, value } => secret(
             effectors.secrets,
@@ -1498,6 +1508,7 @@ pub fn ask_trust(
                 | Act::CalendarEvent { .. },
             )
             | Proposal::Email(_)
+            | Proposal::Forward(_)
             | Proposal::Changes(_)
             | Proposal::Remember { .. }
             | Proposal::Decide(_) => None,
@@ -1575,6 +1586,7 @@ pub fn withdraw_trusted(
                 | Act::Erase { .. },
             )
             | Proposal::Email(_)
+            | Proposal::Forward(_)
             | Proposal::Changes(_)
             | Proposal::Remember { .. }
             | Proposal::Decide(_) => None,
@@ -1709,6 +1721,58 @@ fn fetch(caps: &Server<'_>, one: &attached::Attached) -> Result<Vec<u8>, String>
                     .map_err(|failed| failed.to_string()),
             }
         }
+    }
+}
+
+/// Forward a stored message as its card showed it, or nothing: only one the proposal's
+/// conversation read, its file read once and sent, or its text and attachments read from it,
+/// only while its digest holds.
+fn forwarded(
+    caps: &Server<'_>,
+    effectors: &Effectors<'_>,
+    id: &ConversationId,
+    forward: &crate::secretary::store::Forward,
+) -> Performed {
+    use crate::held_value::Reopened;
+    use crate::secretary::store::Style;
+    let not_sent = |reason: String| Performed::Tried(Tried::NotSent { reason });
+    let file = &forward.message.file;
+    match super::read(caps.conversations, id) {
+        Ok(stored) if crate::secretary::read_mail::ReadMail::of(&stored).reads(&file.id) => {}
+        Ok(_) => {
+            return not_sent(
+                "the message comes from no mail this conversation read; nothing was sent"
+                    .to_owned(),
+            );
+        }
+        Err(refused) => return not_sent(refused.message().to_owned()),
+    }
+    let original = match effectors.reveal.original(&file.id, file.size) {
+        Err(failed) => return not_sent(format!("the message could not be read: {failed}")),
+        Ok(Reopened::Gone) => {
+            return not_sent("the corpus no longer holds the message; nothing was sent".to_owned());
+        }
+        Ok(Reopened::Resized) => {
+            return not_sent(attached::Unattachable::OriginalChanged.to_string());
+        }
+        Ok(Reopened::Read(original)) => original,
+    };
+    let note = match held_value::Written::parse(&forward.note)
+        .map_err(|malformed| malformed.to_string())
+        .and_then(|written| {
+            held_value::fill(&written, effectors.reveal).map_err(|unfilled| unfilled.to_string())
+        }) {
+        Ok(note) => note,
+        Err(why) => return not_sent(why),
+    };
+    let body = match forward.message.style {
+        Style::Inline => note.then(&forward.quoted(&original)),
+        Style::Attached => note,
+    };
+    let read = crate::attachment::AttachmentId::of(&original.raw);
+    match attached::read_from(&file.sha256, &read, forward.parts(original)) {
+        Ok(parts) => effectors.post.send(&forward.draft(), body, parts),
+        Err(changed) => not_sent(changed.to_string()),
     }
 }
 

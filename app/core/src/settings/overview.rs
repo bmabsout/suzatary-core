@@ -100,6 +100,7 @@ impl Asking {
                         | Act::CalendarEvent { .. },
                     )
                     | Proposal::Email(_)
+                    | Proposal::Forward(_)
                     | Proposal::Changes(_)
                     | Proposal::Remember { .. }
                     | Proposal::Decide(_) => return None,

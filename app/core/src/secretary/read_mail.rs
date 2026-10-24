@@ -45,7 +45,13 @@ impl ReadMail {
     /// Whether the message `handle` names was read.
     #[must_use]
     pub fn holds(&self, handle: &Handle) -> bool {
-        self.0.contains(handle.message())
+        self.reads(handle.message())
+    }
+
+    /// Whether the message `message`, a notmuch id, was read.
+    #[must_use]
+    pub fn reads(&self, message: &str) -> bool {
+        self.0.contains(message)
     }
 }
 

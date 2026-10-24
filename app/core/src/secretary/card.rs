@@ -4,9 +4,11 @@
 use crate::coding::RoutineId;
 use crate::repos::Visibility;
 use crate::secretary::inbox_reading::Reading;
+use crate::secretary::store::Style;
 use crate::web::WebKind;
 use crate::wire::{
-    Asker, Asks, Cached, Card, CardAnswer, CardField, CardLink, HeldIn, ProposedAct, RememberWords,
+    Asker, Asks, Cached, Card, CardAnswer, CardField, CardFile, CardLink, HeldIn, ProposedAct,
+    RememberWords,
 };
 
 /// The card for a proposal.
@@ -26,6 +28,31 @@ pub fn of(act: &ProposedAct) -> Card {
             files: attachments.clone(),
             ..email(account, (to, cc), subject, body, attachments.len(), held)
         },
+        ProposedAct::Forward {
+            account,
+            to,
+            cc,
+            subject,
+            note,
+            attachments,
+            original,
+            style,
+            held,
+        } => forward(
+            email(
+                account,
+                (to, cc),
+                subject,
+                note,
+                attachments.len(),
+                &HeldIn::Read { values: Vec::new() },
+            ),
+            &to.join(", "),
+            original,
+            *style,
+            held,
+            attachments,
+        ),
         ProposedAct::Changes {
             changes, problem, ..
         } => changeset(changes, problem),
@@ -745,6 +772,44 @@ fn email(
         uncertain: "It may have been sent. Check Sent; it is never sent again.".to_owned(),
         sentence,
         ..card("Proposed email", "", fields, "send")
+    }
+}
+
+/// A forward: an email's card, its original named above the note, and its question naming the
+/// original and every held value the tap sends as the message holds it.
+fn forward(
+    email: Card,
+    to: &str,
+    original: &str,
+    style: Style,
+    held: &[String],
+    files: &[CardFile],
+) -> Card {
+    let how = match style {
+        Style::Inline => "below the note",
+        Style::Attached => "attached as an .eml file",
+    };
+    let mut fields = email.fields;
+    fields.push(field("Forwards", &format!("{original}, {how}")));
+    let holding = if held.is_empty() {
+        String::new()
+    } else {
+        fields.push(field("Held values in its text", &held.join(", ")));
+        format!(" Its text includes your {}.", held.join(", "))
+    };
+    Card {
+        title: "Proposed forward".to_owned(),
+        files: files.to_vec(),
+        answers: vec![CardAnswer {
+            done: format!("forwarded to {to}"),
+            asks: Asks::Confirm {
+                question: format!("Forward {original} to {to}?{holding}"),
+                yes: "Yes, forward it".to_owned(),
+            },
+            ..answer("send", "Forward")
+        }],
+        fields,
+        ..email
     }
 }
 

@@ -185,6 +185,16 @@ mod tests {
         ) -> Result<Vec<crate::mail::AttachmentMeta>, crate::capability::MailError> {
             Ok(Vec::new())
         }
+        fn stored(
+            &self,
+            id: &str,
+            _: u64,
+        ) -> Result<crate::mail::Stored, crate::capability::MailError> {
+            Err(crate::capability::MailError::Absent {
+                kind: "message",
+                name: id.to_owned(),
+            })
+        }
         fn attachment(
             &self,
             id: &str,

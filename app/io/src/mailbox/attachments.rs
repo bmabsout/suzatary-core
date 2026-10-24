@@ -40,7 +40,7 @@ fn attachment_name(part: &mail_parser::MessagePart<'_>) -> String {
 }
 
 /// `type/subtype`, lower-cased; `""` when the part has no `Content-Type`.
-fn mime_of(part: &mail_parser::MessagePart<'_>) -> String {
+pub(crate) fn mime_of(part: &mail_parser::MessagePart<'_>) -> String {
     part.content_type().map_or_else(String::new, |ct| {
         ct.c_subtype.as_deref().map_or_else(
             || ct.c_type.to_lowercase(),

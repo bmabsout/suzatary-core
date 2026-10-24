@@ -258,6 +258,9 @@ impl Mailbox for Fixed {
     fn attachments(&self, id: &str) -> Result<Vec<AttachmentMeta>, MailError> {
         Nothing.attachments(id)
     }
+    fn stored(&self, id: &str, cap: u64) -> Result<suzatary_core::mail::Stored, MailError> {
+        Nothing.stored(id, cap)
+    }
     fn attachment(&self, id: &str, name: &str) -> Result<AttachmentFile, MailError> {
         Nothing.attachment(id, name)
     }
@@ -358,6 +361,7 @@ fn valid(verb: &str, name: &str) -> Value {
         ("remember", "kind") => json!("person"),
         ("watch_mail", "on") => json!("sender"),
         ("propose_act", "act") => json!("auth"),
+        ("propose_forward", "as") => json!("attached"),
         ("search_older", "query") => json!("subject:invite"),
         ("search_older", "since") => json!("2023-01-01"),
         ("drive_read", "path") => json!("/my-files/a.pdf"),

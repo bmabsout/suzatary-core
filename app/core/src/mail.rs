@@ -148,6 +148,108 @@ pub struct AttachmentFile {
     pub content: Vec<u8>,
 }
 
+/// What recording a message file for a forward found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stored {
+    /// The file is larger than the cap asked for, so it was not read.
+    TooLarge {
+        /// Its size in bytes.
+        size: u64,
+    },
+    /// The file, read once and recorded.
+    Recorded(StoredMessage),
+}
+
+/// A message file as a forward records it: its digest, the held values in its text and its
+/// attachments, never its words. The tap sends these bytes or nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
+pub struct StoredMessage {
+    /// Its notmuch id.
+    pub id: String,
+    /// The file's size in bytes.
+    pub size: u64,
+    /// The SHA-256 of the file.
+    pub sha256: crate::attachment::AttachmentId,
+    /// The held values in its text, in order.
+    pub held: Vec<crate::held_value::Held>,
+    /// Its attachments, in the file's order.
+    pub parts: Vec<StoredPart>,
+}
+
+/// One attachment of a stored message, by its place in the file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
+pub struct StoredPart {
+    /// Its filename, or `attachment-<n>` for the `n`th when it names none.
+    pub name: String,
+    /// Its `type/subtype`.
+    pub media: String,
+    /// Its decoded size in bytes.
+    pub size: u64,
+    /// The SHA-256 of its decoded bytes.
+    pub sha256: crate::attachment::AttachmentId,
+}
+
+/// `StoredMessage(id, size, sha256, held, parts)`.
+pub const STORED_MESSAGE: crate::literal::Signature =
+    ("StoredMessage", &["id", "size", "sha256", "held", "parts"]);
+/// `StoredPart(name, media, size, sha256)`.
+pub const STORED_PART: crate::literal::Signature =
+    ("StoredPart", &["name", "media", "size", "sha256"]);
+
+impl crate::literal::Literal for StoredMessage {
+    fn to_value(&self) -> prodrome_core::literal::Value {
+        crate::literal::record(
+            STORED_MESSAGE,
+            vec![
+                self.id.to_value(),
+                self.size.to_value(),
+                self.sha256.to_value(),
+                self.held.to_value(),
+                self.parts.to_value(),
+            ],
+        )
+    }
+
+    fn from_value(
+        value: &prodrome_core::literal::Value,
+    ) -> Result<Self, prodrome_core::literal::ProdromeError> {
+        let fields = crate::literal::Fields::of(value, STORED_MESSAGE)?;
+        Ok(StoredMessage {
+            id: fields.get("id")?,
+            size: fields.get("size")?,
+            sha256: fields.get("sha256")?,
+            held: fields.get("held")?,
+            parts: fields.get("parts")?,
+        })
+    }
+}
+
+impl crate::literal::Literal for StoredPart {
+    fn to_value(&self) -> prodrome_core::literal::Value {
+        crate::literal::record(
+            STORED_PART,
+            vec![
+                self.name.to_value(),
+                self.media.to_value(),
+                self.size.to_value(),
+                self.sha256.to_value(),
+            ],
+        )
+    }
+
+    fn from_value(
+        value: &prodrome_core::literal::Value,
+    ) -> Result<Self, prodrome_core::literal::ProdromeError> {
+        let fields = crate::literal::Fields::of(value, STORED_PART)?;
+        Ok(StoredPart {
+            name: fields.get("name")?,
+            media: fields.get("media")?,
+            size: fields.get("size")?,
+            sha256: fields.get("sha256")?,
+        })
+    }
+}
+
 /// The cap on an attachment's extracted characters, read for one fact rather than whole.
 pub const MAX_ATTACHMENT_CHARS: usize = 100_000;
 

@@ -70,6 +70,12 @@ pub enum Unattachable {
         /// The same of what the source holds now.
         now: String,
     },
+    /// A forwarded message's file is not the one the card showed, which no later tap changes.
+    #[error(
+        "the message changed since the forward was proposed, so nothing was sent; ask the \
+         secretary for a new forward of it"
+    )]
+    OriginalChanged,
 }
 
 impl Attached {
@@ -161,8 +167,9 @@ pub fn within_cap(attached: &[Attached]) -> Result<(), Unattachable> {
     }
 }
 
-/// The parts a tap may send, each fetched again and matching its digest; [`checked`] is the only
-/// constructor, so a transport handed one is handed the bytes the card showed.
+/// The parts a tap may send, each fetched again and matching its digest; [`checked`] and
+/// [`read_from`] are the only constructors, so a transport handed one is handed the bytes the card
+/// showed.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Checked(Vec<Attachment>);
 
@@ -177,6 +184,23 @@ impl Checked {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+/// `parts`, read out of a forwarded message's file, when that file's digest as `read` is the
+/// one the card `recorded`.
+///
+/// # Errors
+/// [`Unattachable::OriginalChanged`].
+pub fn read_from(
+    recorded: &AttachmentId,
+    read: &AttachmentId,
+    parts: Vec<Attachment>,
+) -> Result<Checked, Unattachable> {
+    if recorded == read {
+        Ok(Checked(parts))
+    } else {
+        Err(Unattachable::OriginalChanged)
     }
 }
 

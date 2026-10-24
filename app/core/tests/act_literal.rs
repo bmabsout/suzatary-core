@@ -49,6 +49,12 @@ fn every_act() -> Vec<String> {
             r#"{{"act":"email","account":"her@example.test","to":["a@example.test","b@example.test"],"cc":["c@example.test"],"subject":"Files","body":"Attached.","attachments":[{attachments}]}}"#
         ),
         format!(
+            r#"{{"act":"forward","account":"her@example.test","to":["counsel@example.test"],"cc":[],"subject":"Fwd: Notice","note":"","message":{{"file":{{"id":"m1@example.test","size":4096,"sha256":"{SHA}","held":[{{"kind":"ssn","hint":"3456"}},{{"kind":"code","hint":""}}],"parts":[{{"name":"image.png","media":"image/png","size":5,"sha256":"{SHA}"}},{{"name":"image.png","media":"image/png","size":6,"sha256":"{SHA}"}}]}},"style":"inline","from":"notices@example.test","subject":"Notice","date":"2026-10-20T09:00:00"}}}}"#
+        ),
+        format!(
+            r#"{{"act":"forward","account":"her@example.test","to":["counsel@example.test"],"cc":["c@example.test"],"subject":"Fwd: Notice","note":"See below.","message":{{"file":{{"id":"m1@example.test","size":4096,"sha256":"{SHA}","held":[],"parts":[]}},"style":"attached","from":"notices@example.test","subject":"Notice","date":null}}}}"#
+        ),
+        format!(
             r#"{{"act":"changes","chain":"life","acts":[{},
               {{"act":"update","todo":"lease","body":null,"detail":null,"detail_append":null,"rationale":null,"priority":null,"waiting_on":null,"clear_waiting_on":false}},
               {{"act":"update","todo":"lease","body":"Renew it","detail":"","detail_append":"And the deposit.","rationale":"sooner","priority":{{"how":"flat","percent":30}},"waiting_on":"the landlord","clear_waiting_on":true,"category":"home","subtodos":[{{"body":"call","done":true}},{{"body":"sign","done":false}}],"defer_to":"2026-10-12"}},

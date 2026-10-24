@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 pub enum Proposal {
     /// Mail to send — the whole message, so the text shown is the text sent.
     Email(Draft),
+    /// A stored message to forward, around a note: the card names the original, and the tap
+    /// reads it again unmasked.
+    Forward(super::Forward),
     /// Chain acts to append as the trusted actor, against one chain.
     ///
     /// The acts are stored and the events are not, since an `Authored` built at proposal time would
@@ -65,6 +68,7 @@ impl Proposal {
         use crate::secretary::acts::Act;
         match self {
             Proposal::Email(_)
+            | Proposal::Forward(_)
             | Proposal::Changes(_)
             | Proposal::Remember { .. }
             | Proposal::Decide(_) => false,
@@ -111,6 +115,11 @@ impl Proposal {
             Proposal::Email(draft) => {
                 format!("email {} — {}", draft.to.join(", "), draft.subject)
             }
+            Proposal::Forward(forward) => format!(
+                "forward {} to {}",
+                forward.message.subject,
+                forward.to.join(", ")
+            ),
             Proposal::Changes(changeset) => format!(
                 "{} change{} on {}: {}",
                 changeset.acts().len(),
@@ -138,13 +147,14 @@ impl Proposal {
 /// `Remember(text, kind)`.
 pub const REMEMBER: crate::literal::Signature = ("Remember", &["text", "kind"]);
 
-/// An act is its arm's own constructor: `Email`, `Changes`, `Remember`, `Decide`, or one of the
-/// acts the box performs.
+/// An act is its arm's own constructor: `Email`, `Forward`, `Changes`, `Remember`, `Decide`, or
+/// one of the acts the box performs.
 impl crate::literal::Literal for Proposal {
     fn to_value(&self) -> prodrome_core::literal::Value {
         use crate::literal::record;
         match self {
             Proposal::Email(draft) => draft.to_value(),
+            Proposal::Forward(forward) => forward.to_value(),
             Proposal::Changes(changeset) => changeset.to_value(),
             Proposal::Act(act) => act.to_value(),
             Proposal::Remember { text, kind } => {
@@ -160,6 +170,7 @@ impl crate::literal::Literal for Proposal {
         use crate::literal::{Fields, arm};
         Ok(match arm(value)? {
             "Email" => Proposal::Email(Draft::from_value(value)?),
+            "Forward" => Proposal::Forward(super::Forward::from_value(value)?),
             "Changes" => {
                 Proposal::Changes(crate::secretary::changes::Changeset::from_value(value)?)
             }

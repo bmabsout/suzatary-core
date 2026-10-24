@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use common::{FakeCorpus, FakeMessage, FakeModel, Fakes};
 use suzatary_core::capability::MailError;
-use suzatary_core::held_value::{Handle, Reveal, Revealed, Shown};
+use suzatary_core::held_value::{Handle, Reopened, Reveal, Revealed, Shown};
 use suzatary_core::redact::Kind;
 
 /// A synthetic SSN no person holds.
@@ -30,6 +30,10 @@ impl Reveal for OneValue {
         } else {
             Revealed::Gone
         })
+    }
+
+    fn original(&self, _: &str, _: u64) -> Result<Reopened, MailError> {
+        Ok(Reopened::Gone)
     }
 }
 

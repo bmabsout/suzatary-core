@@ -36,14 +36,14 @@ pub struct ProposeEmailArgs {
 }
 
 /// One address, shaped by [`crate::mail::address::EmailAddress`], refused with its field name.
-fn address(text: &str, field: &str) -> Result<String, Refusal> {
+pub(super) fn address(text: &str, field: &str) -> Result<String, Refusal> {
     crate::mail::address::EmailAddress::new(text)
         .map(|address| address.as_str().to_owned())
         .map_err(|_| Refusal::bad_request(format!("{field} must be an email address")))
 }
 
 /// A comma-separated list of addresses.
-fn addresses(list: &str, field: &str) -> Result<Vec<String>, Refusal> {
+pub(super) fn addresses(list: &str, field: &str) -> Result<Vec<String>, Refusal> {
     list.split(',')
         .map(str::trim)
         .filter(|one| !one.is_empty())

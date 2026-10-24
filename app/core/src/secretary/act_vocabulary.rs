@@ -9,6 +9,8 @@ use crate::todo::price;
 /// inbox event's, so one walker reads an `Asked` whole.
 pub const SIGNATURES: &[Signature] = &[
     store::EMAIL,
+    store::FORWARD,
+    store::FORWARDED,
     store::REMEMBER,
     crate::decisions::DECIDE,
     changes::CHANGES,
@@ -55,4 +57,7 @@ pub const SIGNATURES: &[Signature] = &[
     attachment_source::FROM_UPLOAD,
     attachment_source::FROM_KEPT,
     attachment_source::FROM_REPO,
+    crate::mail::STORED_MESSAGE,
+    crate::mail::STORED_PART,
+    crate::held_value::HELD,
 ];

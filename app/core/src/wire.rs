@@ -1903,6 +1903,27 @@ pub enum ProposedAct {
         /// The owner's held values its body carries.
         held: HeldIn,
     },
+    /// A stored message to forward around a note.
+    Forward {
+        /// The address it is sent as.
+        account: String,
+        /// The recipients.
+        to: Vec<String>,
+        /// The copies.
+        cc: Vec<String>,
+        /// The subject, verbatim.
+        subject: String,
+        /// The note above the original, verbatim.
+        note: String,
+        /// Every file it carries: the original's attachments inline, or its `.eml`.
+        attachments: Vec<CardFile>,
+        /// The original's sender, subject and date, as one line.
+        original: String,
+        /// How the original travels.
+        style: crate::secretary::store::Style,
+        /// Each held value in the original's text, as "SSN ending 3456".
+        held: Vec<String>,
+    },
     /// Chain acts, drawn as the same diff rows a triage batch is.
     Changes {
         /// The chain.

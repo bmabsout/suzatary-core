@@ -449,6 +449,16 @@ fn load(
                     "subject": draft.subject,
                     "body": draft.body,
                 }),
+                store::Proposal::Forward(forward) => serde_json::json!({
+                    "act": "forward",
+                    "account": forward.account,
+                    "to": forward.to,
+                    "cc": forward.cc,
+                    "subject": forward.subject,
+                    "note": forward.note,
+                    "message": forward.message.file.id,
+                    "as": forward.message.style.as_str(),
+                }),
                 store::Proposal::Changes(changeset) => serde_json::json!({
                     "act": "changes",
                     "chain": changeset.chain(),

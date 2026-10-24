@@ -330,6 +330,7 @@ mod tests {
             .filter_map(|noticed| match &noticed.proposal {
                 Proposal::Act(act) => Some(act),
                 Proposal::Email(_)
+                | Proposal::Forward(_)
                 | Proposal::Changes(_)
                 | Proposal::Remember { .. }
                 | Proposal::Decide(_) => None,

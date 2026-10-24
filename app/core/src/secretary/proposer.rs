@@ -61,6 +61,7 @@ impl Proposer {
                     | Act::Configure { .. },
                 )
                 | Proposal::Email(_)
+                | Proposal::Forward(_)
                 | Proposal::Changes(_)
                 | Proposal::Remember { .. }
                 | Proposal::Decide(_) => crate::wire::Asker::Box {},

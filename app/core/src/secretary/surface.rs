@@ -13,9 +13,9 @@ use super::verbs::{
     Attachments, Briefing, BriefingDelta, Calendar, Context, Decisions, DraftNote, DriveList,
     DriveRead, Forget, GitDiffSummary, History, JunkDigest, JunkShow, ListOpenTodos,
     ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
-    ProposeCodingSession, ProposeDecision, ProposeEmail, ProposePatch, Recall, Record, Remember,
-    RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail, TodoAdd,
-    TodoShow, TodoUpdate, UploadRead, WatchMail, Weather, Web, WithdrawProposal, Zoom,
+    ProposeCodingSession, ProposeDecision, ProposeEmail, ProposeForward, ProposePatch, Recall,
+    Record, Remember, RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail,
+    TodoAdd, TodoShow, TodoUpdate, UploadRead, WatchMail, Weather, Web, WithdrawProposal, Zoom,
 };
 use crate::agent::{Holds, Says};
 use crate::authoring::Writer;
@@ -139,6 +139,7 @@ verbs! {
     TodoUpdate: powers(Writes, Tainted),
     Record: powers(Writes, Tainted),
     ProposeEmail: powers(Proposes, Tainted),
+    ProposeForward: powers(Proposes, Tainted),
     ProposeAct: powers(Proposes, Tainted),
     ProposeChanges: powers(Proposes, Tainted),
     WithdrawProposal: powers(Proposes, Tainted),

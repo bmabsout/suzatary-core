@@ -613,6 +613,7 @@ impl Fold {
                     Some((text.clone(), liveness))
                 }
                 Proposal::Email(_)
+                | Proposal::Forward(_)
                 | Proposal::Changes(_)
                 | Proposal::Act(_)
                 | Proposal::Decide(_) => None,

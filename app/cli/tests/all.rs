@@ -47,6 +47,8 @@ mod default_conversation;
 mod drive;
 #[path = "erase.rs"]
 mod erase;
+#[path = "forwarding.rs"]
+mod forwarding;
 #[path = "frontend.rs"]
 mod frontend;
 #[path = "gate.rs"]

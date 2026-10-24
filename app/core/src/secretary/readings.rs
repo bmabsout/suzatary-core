@@ -20,7 +20,9 @@ use crate::secretary::inbox_reading::{Reading, Words};
 use crate::secretary::memory::Fact;
 use crate::secretary::responded::{Done, Responded, Tried, Withdrawal};
 use crate::secretary::salted_text::TextName;
-use crate::secretary::store::{ConversationId, Proposal, Said, Standing, Stored, stamp};
+use crate::secretary::store::{
+    ConversationId, Forward, Proposal, Said, Standing, Stored, Style, stamp,
+};
 use crate::secretary::turn_shape::TurnShape;
 use crate::wire;
 
@@ -947,6 +949,60 @@ pub fn state(reading: &Reading) -> (wire::ProposalState, String) {
     }
 }
 
+/// A forward's card fields: its own message's, the original named in one line, and the files
+/// it sends, each opening the original.
+fn forward_on_wire(forward: &Forward) -> wire::ProposedAct {
+    let original = &forward.message;
+    let file = &original.file;
+    let opening = || wire::FileFrom::Mail {
+        message: file.id.clone(),
+    };
+    let attachments = match original.style {
+        Style::Inline => file
+            .parts
+            .iter()
+            .map(|part| wire::CardFile {
+                name: part.name.clone(),
+                media: part.media.clone(),
+                size: crate::secretary::card::bytes(part.size),
+                sha256: part.sha256.to_string(),
+                from: opening(),
+            })
+            .collect(),
+        Style::Attached => vec![wire::CardFile {
+            name: crate::secretary::store::EML.to_owned(),
+            media: "message/rfc822".to_owned(),
+            size: crate::secretary::card::bytes(file.size),
+            sha256: file.sha256.to_string(),
+            from: opening(),
+        }],
+    };
+    wire::ProposedAct::Forward {
+        account: forward.account.clone(),
+        to: forward.to.clone(),
+        cc: forward.cc.clone(),
+        subject: forward.subject.clone(),
+        note: forward.note.clone(),
+        attachments,
+        original: [
+            Some(original.subject.clone()),
+            Some(format!("from {}", original.from)),
+            original.date.clone(),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(", "),
+        style: original.style,
+        held: file
+            .held
+            .iter()
+            .map(crate::held_value::Held::said)
+            .collect(),
+    }
+}
+
 pub(crate) fn proposal(
     index: usize,
     standing: &Standing,
@@ -963,6 +1019,7 @@ pub(crate) fn proposal(
             attachments: draft.attachments.iter().map(card_file).collect(),
             held: held_in(&draft.body, draws),
         },
+        Proposal::Forward(forward) => forward_on_wire(forward),
         // The diff is derived against the chain as it stands, and only while the proposal stands.
         Proposal::Changes(changeset) => {
             let (changes, problem) = if standing.object.reading.performs() {

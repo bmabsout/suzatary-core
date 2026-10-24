@@ -323,6 +323,60 @@ impl Values {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    /// Each value as a card names it, in order, with the hint its placeholder shows.
+    #[must_use]
+    pub fn held(&self) -> Vec<Held> {
+        self.0
+            .iter()
+            .map(|(kind, value)| Held {
+                kind: *kind,
+                hint: Placeholder::of(*kind, value, Reach::Withheld).hint,
+            })
+            .collect()
+    }
+}
+
+/// One held value as a card names it: its kind and the hint its placeholder shows, never the
+/// value.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Held {
+    /// What kind of number it is.
+    pub kind: Kind,
+    /// Its last [`HINT_DIGITS`] digits, `""` for a value too short to show any.
+    pub hint: String,
+}
+
+impl Held {
+    /// "SSN ending 3456", or "verification code".
+    #[must_use]
+    pub fn said(&self) -> String {
+        Placeholder {
+            kind: self.kind,
+            hint: self.hint.clone(),
+            reach: Reach::Withheld,
+        }
+        .described()
+    }
+}
+
+/// `Held(kind, hint)`.
+pub const HELD: crate::literal::Signature = ("Held", &["kind", "hint"]);
+
+impl crate::literal::Literal for Held {
+    fn to_value(&self) -> prodrome_core::literal::Value {
+        crate::literal::record(HELD, vec![self.kind.to_value(), self.hint.to_value()])
+    }
+
+    fn from_value(
+        value: &prodrome_core::literal::Value,
+    ) -> Result<Self, prodrome_core::literal::ProdromeError> {
+        let fields = crate::literal::Fields::of(value, HELD)?;
+        Ok(Held {
+            kind: fields.get("kind")?,
+            hint: fields.get("hint")?,
+        })
+    }
 }
 
 /// Two spellings of one number: `000-12-3456` and `000 12 3456` are the same value.
@@ -437,6 +491,44 @@ pub trait Reveal {
     /// # Errors
     /// The mail index's own failure.
     fn reveal(&self, handle: &Handle) -> Result<Revealed, crate::capability::MailError>;
+
+    /// The message `message`, a notmuch id, unmasked, for the tap that forwards it, read only
+    /// when its file is still `size` bytes long.
+    ///
+    /// # Errors
+    /// The mail index's own failure.
+    fn original(&self, message: &str, size: u64) -> Result<Reopened, crate::capability::MailError>;
+}
+
+/// What the tap's read of a forwarded message found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Reopened {
+    /// The corpus no longer holds it.
+    Gone,
+    /// Its file is no longer the size the proposal recorded, so it was not read.
+    Resized,
+    /// The file, read once.
+    Read(Original),
+}
+
+/// A stored message with every held value in place, read only by the tap that forwards it. Every
+/// field is read from `raw`, so the digest of `raw` vouches for all of them.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Original {
+    /// The message file's bytes, which an attached forward carries whole.
+    pub raw: Vec<u8>,
+    /// The headers a page shows.
+    pub headers: Vec<crate::mail::MailHeader>,
+    /// The body as text.
+    pub body: String,
+    /// Every attachment, in the file's order.
+    pub parts: Vec<crate::mail::send::Attachment>,
+}
+
+impl std::fmt::Debug for Original {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Original({} bytes, unmasked)", self.raw.len())
+    }
 }
 
 /// A draft's body with each held value written in, for the transport alone; it never prints in a
@@ -445,6 +537,14 @@ pub trait Reveal {
 pub struct Filled(String);
 
 impl Filled {
+    /// This body followed by `text`, which the tap read from a forwarded message's file and
+    /// checked against the digest its card recorded.
+    #[must_use]
+    pub fn then(mut self, text: &str) -> Self {
+        self.0.push_str(text);
+        self
+    }
+
     /// The body to put on the wire.
     #[must_use]
     pub fn into_string(self) -> String {
@@ -522,6 +622,10 @@ pub struct Unread;
 impl Reveal for Unread {
     fn reveal(&self, _: &Handle) -> Result<Revealed, crate::capability::MailError> {
         Ok(Revealed::Gone)
+    }
+
+    fn original(&self, _: &str, _: u64) -> Result<Reopened, crate::capability::MailError> {
+        Ok(Reopened::Gone)
     }
 }
 
@@ -604,6 +708,9 @@ mod tests {
         impl Reveal for Holds {
             fn reveal(&self, _: &Handle) -> Result<Revealed, crate::capability::MailError> {
                 Ok(Revealed::Value(Shown::new(Kind::Ssn, SSN)))
+            }
+            fn original(&self, _: &str, _: u64) -> Result<Reopened, crate::capability::MailError> {
+                Ok(Reopened::Gone)
             }
         }
         let handle = Handle::new("x@example.test", 0).expect("a handle");

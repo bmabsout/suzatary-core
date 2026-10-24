@@ -6,6 +6,7 @@
 
 pub mod attachments;
 pub mod dedup;
+pub mod forwarded;
 pub mod held;
 pub mod message;
 pub mod text;
@@ -22,13 +23,13 @@ use self::message::NotmuchMessage;
 use suzatary_core::capability::{Datetime, MailError, Mailbox, Query};
 use suzatary_core::enclosed::Enclosure;
 use suzatary_core::file_read::FileRead;
-use suzatary_core::held_value::{self, Handle, Reveal, Revealed};
+use suzatary_core::held_value::{self, Handle, Reopened, Reveal, Revealed};
 use suzatary_core::mail::account::{MailAccount, Roster};
 use suzatary_core::mail::known::Known;
 use suzatary_core::mail::local_state::{Ambiguous, Kept};
 use suzatary_core::mail::verbs;
 use suzatary_core::mail::{
-    AttachmentFile, AttachmentMeta, MAX_BODY_CHARS, MailLink, MailMessage, MailRow, clip,
+    AttachmentFile, AttachmentMeta, MAX_BODY_CHARS, MailLink, MailMessage, MailRow, Stored, clip,
     headers_of, web_links,
 };
 
@@ -433,6 +434,36 @@ impl Notmuch {
             .map_err(|failed| MailError::Unreachable(failed.to_string()))
     }
 
+    /// The file notmuch holds for the message `id`, its first when it holds several, and that
+    /// file's size; `None` when it holds none.
+    fn file_of(&self, id: &str) -> Result<Option<(PathBuf, u64)>, MailError> {
+        let query = by_id_query(std::iter::once(id));
+        if query.is_empty() {
+            return Ok(None);
+        }
+        let listed = self.run(&["search", "--output=files", "--duplicate=1", &query])?;
+        let listed = String::from_utf8_lossy(&listed);
+        let Some(path) = listed.lines().map(str::trim).find(|line| !line.is_empty()) else {
+            return Ok(None);
+        };
+        let path = PathBuf::from(path);
+        let size = std::fs::metadata(&path)
+            .map_err(|failed| MailError::Unreachable(failed.to_string()))?
+            .len();
+        Ok(Some((path, size)))
+    }
+
+    /// At most `limit + 1` bytes of the file at `path`, so a file that grew since it was
+    /// measured reads as longer than `limit` and no further.
+    fn read_file(path: &Path, limit: u64) -> Result<Vec<u8>, MailError> {
+        use std::io::Read as _;
+        let mut bytes = Vec::new();
+        std::fs::File::open(path)
+            .and_then(|file| file.take(limit.saturating_add(1)).read_to_end(&mut bytes))
+            .map_err(|failed| MailError::Unreachable(failed.to_string()))?;
+        Ok(bytes)
+    }
+
     /// A last-resort hash-prefix lookup by re-hashing thirty days of mail (about eight seconds),
     /// so only a hand-run write may call it.
     pub fn scan_for_hash(&self, prefix: &str) -> Result<Option<String>, MailError> {
@@ -730,6 +761,21 @@ impl Reveal for Notmuch {
                 Revealed::Value(held_value::Shown::new(kind, value))
             }))
     }
+
+    fn original(&self, message: &str, size: u64) -> Result<Reopened, MailError> {
+        Ok(match self.file_of(message)? {
+            None => Reopened::Gone,
+            Some((_, now)) if now != size => Reopened::Resized,
+            Some((path, _)) => {
+                let raw = Self::read_file(&path, size)?;
+                if raw.len() as u64 == size {
+                    Reopened::Read(forwarded::original(raw))
+                } else {
+                    Reopened::Resized
+                }
+            }
+        })
+    }
 }
 
 impl Mailbox for Notmuch {
@@ -806,6 +852,24 @@ impl Mailbox for Notmuch {
 
     fn attachments(&self, id: &str) -> Result<Vec<AttachmentMeta>, MailError> {
         Ok(attachments::list(&self.raw_bytes(id)?))
+    }
+
+    fn stored(&self, id: &str, cap: u64) -> Result<Stored, MailError> {
+        let (path, size) = self.file_of(id)?.ok_or_else(|| MailError::Absent {
+            kind: "message",
+            name: id.to_owned(),
+        })?;
+        if size > cap {
+            return Ok(Stored::TooLarge { size });
+        }
+        let raw = Self::read_file(&path, cap)?;
+        Ok(if raw.len() as u64 > cap {
+            Stored::TooLarge {
+                size: raw.len() as u64,
+            }
+        } else {
+            Stored::Recorded(forwarded::stored(id, &raw))
+        })
     }
 
     fn attachment(&self, id: &str, name: &str) -> Result<AttachmentFile, MailError> {

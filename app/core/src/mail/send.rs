@@ -378,15 +378,51 @@ pub fn build_mime(out: &Outgoing, message_id: &str, date: i64) -> Result<Vec<u8>
     // `text_body`, not an explicit body, which would drop the attachments.
     builder = builder.text_body(out.body.as_str());
     for attachment in &out.attachments {
-        builder = builder.attachment(
-            attachment.mime_type.as_str(),
-            attachment.filename.as_str(),
-            attachment.content.as_slice(),
-        );
+        builder = match whole_message(attachment) {
+            Some(part) => {
+                builder.attachments.get_or_insert_with(Vec::new).push(part);
+                builder
+            }
+            None => builder.attachment(
+                attachment.mime_type.as_str(),
+                attachment.filename.as_str(),
+                attachment.content.as_slice(),
+            ),
+        };
     }
     builder
         .write_to_vec()
         .map_err(|failed| SendError::Unbuildable(failed.to_string()))
+}
+
+/// A `message/rfc822` attachment as RFC 2046 §5.2.1 wants it, in 7bit or 8bit rather than
+/// base64, its lines ended by CRLF; `None` for any other attachment, and for a message with a
+/// NUL or a line over 998 octets, which neither encoding carries and base64 still does.
+fn whole_message(attachment: &Attachment) -> Option<mail_builder::mime::MimePart<'_>> {
+    if !attachment.mime_type.eq_ignore_ascii_case("message/rfc822") {
+        return None;
+    }
+    let mut lines = Vec::with_capacity(attachment.content.len());
+    for line in attachment.content.split(|byte| *byte == b'\n') {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        if line.len() > 998 || line.contains(&0) {
+            return None;
+        }
+        lines.extend_from_slice(line);
+        lines.extend_from_slice(b"\r\n");
+    }
+    if attachment.content.ends_with(b"\n") {
+        lines.truncate(lines.len() - 2);
+    }
+    let encoding = if lines.is_ascii() { "7bit" } else { "8bit" };
+    Some(
+        mail_builder::mime::MimePart::new(
+            attachment.mime_type.as_str(),
+            mail_builder::mime::BodyPart::Binary(lines.into()),
+        )
+        .attachment(attachment.filename.as_str())
+        .transfer_encoding(encoding),
+    )
 }
 
 /// The MIME type to guess for an attachment, from a short table then a default.

@@ -277,6 +277,9 @@ impl Mailbox for Nothing {
     fn attachments(&self, _id: &str) -> Result<Vec<AttachmentMeta>, MailError> {
         Ok(Vec::new())
     }
+    fn stored(&self, id: &str, _cap: u64) -> Result<crate::mail::Stored, MailError> {
+        Err(absent("message", id))
+    }
     fn attachment(&self, _id: &str, name: &str) -> Result<crate::mail::AttachmentFile, MailError> {
         Err(absent("attachment", name))
     }

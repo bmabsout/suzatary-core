@@ -690,6 +690,8 @@ pub struct FakeMailbox {
     pub attachment_reads: HashMap<(String, String), FileRead>,
     /// Attachment bytes by message id and attachment name.
     pub attachment_files: Mutex<HashMap<(String, String), suzatary_core::mail::AttachmentFile>>,
+    /// Each message's file, by notmuch id.
+    pub message_files: HashMap<String, Vec<u8>>,
     asked_messages: Mutex<Vec<String>>,
     asked_threads: Mutex<Vec<String>>,
 }
@@ -733,6 +735,13 @@ impl FakeMailbox {
     #[must_use]
     pub fn with_attachments(mut self, id: impl Into<String>, listed: Vec<AttachmentMeta>) -> Self {
         self.attachment_lists.insert(id.into(), listed);
+        self
+    }
+
+    /// This mailbox, plus one message's file.
+    #[must_use]
+    pub fn with_message_file(mut self, id: impl Into<String>, raw: Vec<u8>) -> Self {
+        self.message_files.insert(id.into(), raw);
         self
     }
 
@@ -850,6 +859,23 @@ impl Mailbox for FakeMailbox {
                 kind: "message",
                 name: id.to_owned(),
             })
+    }
+
+    fn stored(&self, id: &str, cap: u64) -> Result<suzatary_core::mail::Stored, MailError> {
+        let raw = self
+            .message_files
+            .get(id)
+            .ok_or_else(|| MailError::Absent {
+                kind: "message",
+                name: id.to_owned(),
+            })?;
+        Ok(if raw.len() as u64 > cap {
+            suzatary_core::mail::Stored::TooLarge {
+                size: raw.len() as u64,
+            }
+        } else {
+            suzatary_core::mail::Stored::Recorded(suzatary_io::mailbox::forwarded::stored(id, raw))
+        })
     }
 
     fn attachment(

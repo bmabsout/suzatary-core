@@ -197,6 +197,30 @@ attachments. The built design keeps them in the body instead, so the stored
 - The stored proposal, the inbox and the transcript keep the placeholder.
   `Filled` and `Shown` print no value in a `{:?}`.
 
+**Forwarding a stored message (built).** `propose_forward` sends one stored
+message whole, so a held value in it leaves as the message holds it:
+
+- The proposal (`store::Forward`) records the message's notmuch id, its file's
+  size and SHA-256, its attachments by their place in the file, and the held
+  values in its text by kind and last four digits (`held_value::Values::held`).
+  It holds none of the original's words. A file over 20 MB is refused after a
+  `stat`, before it is read.
+- The card shows the recipients, the original, its attachments and each held
+  value in its text ("SSN ending 3456"). The question names them too. A value
+  inside an attachment is not named.
+- The tap reads the original again through `Reveal::original`, which the
+  server's state holds and no record does. It reads the file once, and only
+  while it is still the recorded size. The text and the attachments, or the
+  file itself, are built from that one read and sent only while its digest
+  holds. The `.eml` part goes as 7bit or 8bit (RFC 2046 §5.2.1).
+- The draft it builds goes to the same `Post`, and nothing stores it. A file
+  that changed since the proposal refuses the send and says to ask for a new
+  forward. `propose_email` cannot attach a stored message.
+- `app/cli/tests/forwarding.rs` pins the boundary: the model's answer, the
+  card and every store hold the placeholder, in both of the number's
+  spellings, only the send holds the number, and two attachments of one name
+  are both sent.
+
 ## Stage 3: the attachments and the PDF hold fold in
 
 A file the box holds back today becomes a held value of kind `file`, under

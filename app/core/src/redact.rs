@@ -212,7 +212,8 @@ fn scrubbed(tree: serde_json::Value) -> serde_json::Value {
 }
 
 /// Which held number a span of text is, by the label beside it or, with none, by its shape.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Kind {
     /// A Social Security number.
     Ssn,
@@ -264,6 +265,22 @@ impl Kind {
         }
     }
 
+    /// The kind as its stored form spells it, the same word its serde form reads.
+    #[must_use]
+    pub fn word(self) -> &'static str {
+        match self {
+            Kind::Ssn => "ssn",
+            Kind::Itin => "itin",
+            Kind::Tin => "tin",
+            Kind::Ein => "ein",
+            Kind::Code => "code",
+            Kind::Card => "card",
+            Kind::Account => "account",
+            Kind::Routing => "routing",
+            Kind::Iban => "iban",
+        }
+    }
+
     fn of_identity_label(label: &str) -> Self {
         let label = label.to_ascii_lowercase();
         if label == "itin" {
@@ -277,6 +294,8 @@ impl Kind {
         }
     }
 }
+
+crate::literal::text_literal!(Kind => |kind| kind.word().to_owned());
 
 /// One held number in a text: its byte range and its kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
