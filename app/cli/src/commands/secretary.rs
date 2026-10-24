@@ -9,6 +9,7 @@ use anyhow::Context as _;
 use suzatary_core::capability::{Manual, Manuals, Secretary};
 use suzatary_core::conversation::round::Ending;
 use suzatary_core::excerpt::Excerpt;
+use suzatary_core::held_value::Filled;
 use suzatary_core::mail::send::{Composed, Outgoing};
 use suzatary_core::secretary::attached::Checked;
 use suzatary_core::secretary::responded::{Done, Performed, Tried};
@@ -39,12 +40,12 @@ pub enum Postman {
 }
 
 impl Post for Postman {
-    fn send(&self, draft: &Draft, attachments: Checked) -> Performed {
+    fn send(&self, draft: &Draft, body: Filled, attachments: Checked) -> Performed {
         match self {
-            Postman::Real(instance) => post(instance, draft, attachments),
+            Postman::Real(instance) => post(instance, draft, body, attachments),
             #[cfg(feature = "fixture")]
             Postman::Recording(path) => {
-                record(path, draft, attachments).unwrap_or_else(|failed| failed)
+                record(path, draft, body, attachments).unwrap_or_else(|failed| failed)
             }
         }
     }
@@ -1011,7 +1012,7 @@ fn begin_recording(
 
 /// Build the message and hand it to the transport its account resolves to; the `From` is the
 /// roster's canonical address, never the model-written `account`.
-fn post(instance: &Instance, draft: &Draft, attachments: Checked) -> Performed {
+fn post(instance: &Instance, draft: &Draft, body: Filled, attachments: Checked) -> Performed {
     let Some(sender) = instance.mail.accounts.sending(&draft.account) else {
         return Performed::Tried(Tried::NotSent {
             reason: format!(
@@ -1026,7 +1027,7 @@ fn post(instance: &Instance, draft: &Draft, attachments: Checked) -> Performed {
         to: draft.to.clone(),
         cc: draft.cc.clone(),
         subject: draft.subject.clone(),
-        body: draft.body.clone(),
+        body: body.into_string(),
         attachments: attachments.into_parts(),
         in_reply_to: None,
         references: Vec::new(),
@@ -1045,11 +1046,17 @@ fn post(instance: &Instance, draft: &Draft, attachments: Checked) -> Performed {
     }
 }
 
-/// The fixture's recorder: one JSON line per message that would have gone, the draft's fields
-/// and the whole MIME message `send.rs` built, unless the first line of `<file>.failures`
-/// (`not_sent` or `unknown`) is consumed to fail this send on cue: what failed is the error.
+/// The fixture's recorder: one JSON line per message that would have gone, the draft's fields as
+/// stored and the whole MIME message `send.rs` built with the held values written in, unless the
+/// first line of `<file>.failures` (`not_sent` or `unknown`) is consumed to fail this send on
+/// cue: what failed is the error.
 #[cfg(feature = "fixture")]
-fn record(path: &Path, draft: &Draft, attachments: Checked) -> Result<Performed, Performed> {
+fn record(
+    path: &Path,
+    draft: &Draft,
+    body: Filled,
+    attachments: Checked,
+) -> Result<Performed, Performed> {
     use std::io::Write as _;
     let not_sent = |failed: &dyn std::fmt::Display| {
         Performed::Tried(Tried::NotSent {
@@ -1083,7 +1090,7 @@ fn record(path: &Path, draft: &Draft, attachments: Checked) -> Result<Performed,
         to: draft.to.clone(),
         cc: draft.cc.clone(),
         subject: draft.subject.clone(),
-        body: draft.body.clone(),
+        body: body.into_string(),
         attachments: attachments.into_parts(),
         in_reply_to: None,
         references: Vec::new(),

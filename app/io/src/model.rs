@@ -17,6 +17,7 @@ use suzatary_core::capability::{
     Clock, Conversation, Delta, Halt, Model, ModelError, Reply, Secret, Session, SessionId,
     SessionModel, Sessioned, TokenUsage, Turn,
 };
+use suzatary_core::for_model::ForModel;
 use suzatary_core::secretary::store::stamp;
 
 use crate::attachments::AttachmentStore;
@@ -214,7 +215,11 @@ impl ClaudeCli {
     }
 
     /// What goes down stdin, and the token it runs under.
-    fn feed(&self, prompt: String, turns: &[Turn]) -> Result<(Stdin, Option<Secret>), ModelError> {
+    fn feed(
+        &self,
+        prompt: ForModel,
+        turns: &[Turn],
+    ) -> Result<(Stdin, Option<Secret>), ModelError> {
         let token = self.ready()?;
         Ok((stdin_of(prompt, Blocks::of(&self.stores, turns)?), token))
     }
@@ -291,9 +296,9 @@ impl ClaudeCli {
     /// # Errors
     /// [`ModelError`] when the CLI could not be run, failed, printed no result or one this box
     /// cannot read, or ended with no reply.
-    pub fn plain(&self, system: &str, text: &str) -> Result<String, ModelError> {
+    pub fn plain(&self, system: &ForModel, text: ForModel) -> Result<String, ModelError> {
         let token = self.ready()?;
-        let stdin = stdin_of(text.to_owned(), Blocks::default());
+        let stdin = stdin_of(text, Blocks::default());
         let ran = succeed(&self.command(Mode::Plain { system }, stdin, token.as_ref()))
             .map_err(|e| self.failure(e))?;
         reply_of(last_result(&ran.out())?)
@@ -502,7 +507,7 @@ pub enum Mode<'a> {
     /// [`ClaudeCli::plain`]: `system` as the whole system prompt, no tools, no session.
     Plain {
         /// The system prompt, in place of the CLI's own.
-        system: &'a str,
+        system: &'a ForModel,
     },
 }
 
@@ -543,7 +548,7 @@ pub fn argv(model: &str, fence: &Fence, mode: Mode<'_>) -> Vec<String> {
                 "stream-json",
                 "--verbose",
                 "--system-prompt",
-                system,
+                system.as_str(),
                 "--no-session-persistence",
                 "--disable-slash-commands",
             ]
@@ -580,16 +585,16 @@ pub struct Stdin {
 /// Plain text when there are no blocks; otherwise one stream-json user
 /// message, the blocks followed by the text.
 #[must_use]
-pub fn stdin_of(prompt: String, blocks: Blocks) -> Stdin {
+pub fn stdin_of(prompt: ForModel, blocks: Blocks) -> Stdin {
     if blocks.is_empty() {
         return Stdin {
             args: Vec::new(),
-            payload: prompt,
+            payload: prompt.into_string(),
         };
     }
     let message = serde_json::json!({
         "type": "user",
-        "message": { "role": "user", "content": blocks.content(&prompt) },
+        "message": { "role": "user", "content": blocks.content(prompt.as_str()) },
     });
     Stdin {
         args: vec!["--input-format".to_owned(), "stream-json".to_owned()],
@@ -600,6 +605,7 @@ pub fn stdin_of(prompt: String, blocks: Blocks) -> Stdin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use suzatary_core::for_model::ForModel;
 
     use suzatary_core::attachment::Attachment;
 
@@ -628,7 +634,7 @@ mod tests {
 
     #[test]
     fn text_goes_down_stdin_as_it_always_did_when_there_is_no_block() {
-        let plain = stdin_of("hello".to_owned(), Blocks::default());
+        let plain = stdin_of(ForModel::of("hello"), Blocks::default());
         assert!(plain.args.is_empty(), "no --input-format without a block");
         assert_eq!(plain.payload, "hello");
     }
@@ -643,7 +649,7 @@ mod tests {
         let sent = store.put(PNG).expect("kept");
         let fed = ClaudeCli::new("m", shipped())
             .with_uploads(store)
-            .feed("what is this".to_owned(), &[person_with(vec![sent])])
+            .feed(ForModel::of("what is this"), &[person_with(vec![sent])])
             .expect("fed")
             .0;
         let content = &message_of(&fed)["message"]["content"];
@@ -675,7 +681,7 @@ mod tests {
         };
         let fed = ClaudeCli::new("m", shipped())
             .with_files(files)
-            .feed("read it".to_owned(), &[turn])
+            .feed(ForModel::of("read it"), &[turn])
             .expect("fed")
             .0;
         let content = &message_of(&fed)["message"]["content"];
@@ -700,7 +706,7 @@ mod tests {
     #[test]
     fn a_photo_with_no_store_is_refused_not_dropped() {
         let cli = ClaudeCli::new("m", shipped());
-        let refused = cli.feed("x".to_owned(), &[person_with(vec![photo(1)])]);
+        let refused = cli.feed(ForModel::of("x"), &[person_with(vec![photo(1)])]);
         assert!(matches!(refused, Err(ModelError::Failed(why)) if why.contains("no upload store")));
         let dir = tempfile::tempdir().expect("scratch");
         let store = AttachmentStore::new(
@@ -709,7 +715,7 @@ mod tests {
         );
         let missing = cli
             .with_uploads(store)
-            .feed("x".to_owned(), &[person_with(vec![photo(1)])]);
+            .feed(ForModel::of("x"), &[person_with(vec![photo(1)])]);
         assert!(matches!(missing, Err(ModelError::Failed(why)) if why.contains("no upload")));
     }
 
@@ -725,11 +731,12 @@ mod tests {
     #[test]
     fn every_mode_carries_the_whole_fence() {
         let id = a_session_id();
+        let system = ForModel::of("s");
         for mode in [
             Mode::Stateless,
             Mode::Open { session_id: &id },
             Mode::Resume { session_id: &id },
-            Mode::Plain { system: "s" },
+            Mode::Plain { system: &system },
         ] {
             let built = argv("m", &shipped(), mode);
             let after = |flag: &str| {
@@ -802,7 +809,8 @@ mod tests {
     /// projects, where a transcript would outlive the answer.
     #[test]
     fn a_call_with_no_session_persists_none() {
-        for mode in [Mode::Stateless, Mode::Plain { system: "s" }] {
+        let system = ForModel::of("s");
+        for mode in [Mode::Stateless, Mode::Plain { system: &system }] {
             let built = argv("claude-haiku-4-5", &shipped(), mode);
             assert!(!built.iter().any(|arg| arg == "--session-id"));
             assert!(!built.iter().any(|arg| arg == "--resume"));
@@ -1012,13 +1020,17 @@ mod tests {
                     })
                 }
             }));
-        let locked = cli.plain("", "hi").expect_err("refused");
+        let locked = cli
+            .plain(&ForModel::of(""), ForModel::of("hi"))
+            .expect_err("refused");
         assert!(
             matches!(&locked, ModelError::Unreachable(why) if why.contains("locked")),
             "{locked:?}"
         );
         unlocked.store(true, std::sync::atomic::Ordering::SeqCst);
-        let ran = cli.plain("", "hi").expect_err("no such binary");
+        let ran = cli
+            .plain(&ForModel::of(""), ForModel::of("hi"))
+            .expect_err("no such binary");
         assert!(
             !matches!(&ran, ModelError::Unreachable(why) if why.contains("locked")),
             "{ran:?}"
@@ -1050,7 +1062,7 @@ mod tests {
             Mode::Open { session_id: &id },
             Mode::Resume { session_id: &id },
         ] {
-            let cmd = cli.command(mode, stdin_of(String::new(), Blocks::default()), None);
+            let cmd = cli.command(mode, stdin_of(ForModel::of(""), Blocks::default()), None);
             let ttl = cmd
                 .env
                 .iter()
@@ -1076,8 +1088,10 @@ mod tests {
         );
         let text = ask.text();
         let cmd = cli.command(
-            Mode::Plain { system: PROMPT },
-            stdin_of(text.clone(), Blocks::default()),
+            Mode::Plain {
+                system: &ForModel::of(PROMPT),
+            },
+            stdin_of(ForModel::of(&text), Blocks::default()),
             None,
         );
         let argv: Vec<String> = cmd

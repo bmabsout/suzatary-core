@@ -1,12 +1,17 @@
-//! A held value, stage 1 of `docs/HELDVALUES-PLAN-2026-10-22.md`: an identity number in mail,
-//! which the box keeps where it is and a model reads only as a [`Placeholder`].
+//! A held value (`docs/HELDVALUES-PLAN-2026-10-22.md`): a number in mail that [`crate::redact`]
+//! recognises, which the box keeps where it is and a model reads only as a [`Placeholder`].
 //!
 //! Every text a model reads goes through [`mask`], with the message it came from, or through
-//! [`withheld`] when no message is known. A placeholder names the number's kind and its last
-//! digits, never the number. A [`Handle`] in a placeholder names the message and the number's
-//! place in it; the owner's trusted device asks the box for that one value on a tap.
+//! [`withheld`] when no message is known. A placeholder names the number's kind and, for every
+//! kind but a code, its last digits, never the number. A [`Handle`] in a placeholder names the
+//! message and the number's place in it. The owner's trusted device asks the box for that one
+//! value on a tap, and a proposed email that carries the placeholder in its body has the value
+//! written in by [`fill`] when the owner taps Send.
+
+use std::sync::LazyLock;
 
 use base64::Engine as _;
+use regex::Regex;
 use serde_json::Value;
 
 use crate::redact::{Kind, identity_numbers};
@@ -14,7 +19,7 @@ use crate::redact::{Kind, identity_numbers};
 /// The text form's prefix.
 pub const PREFIX: &str = "held:";
 
-/// How many of a number's last digits a placeholder shows.
+/// How many of a number's last digits a placeholder shows, for a kind that shows any.
 pub const HINT_DIGITS: usize = 4;
 
 /// The longest Message-ID a handle names: RFC 5322's line limit.
@@ -103,6 +108,10 @@ pub enum Reach {
 }
 
 /// What a model reads in a number's place.
+///
+/// A placeholder itself never reads as a number: [`crate::redact`] skips its hint, and a
+/// handle's base64 of an ASCII Message-ID has a letter in every fourth place, so it holds no run
+/// of four digits.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Placeholder {
     kind: Kind,
@@ -110,65 +119,203 @@ pub struct Placeholder {
     reach: Reach,
 }
 
+/// How many digits a value needs before its placeholder shows its last [`HINT_DIGITS`]: a shorter
+/// value, such as a code or a short account number, would show most of itself.
+pub const MIN_HINTED: usize = 9;
+
+/// A placeholder as written, its kind's name, hint and whatever stands where a handle goes: a
+/// written placeholder whose handle does not decode is refused, never sent as its text.
+static WRITTEN: LazyLock<Regex> = LazyLock::new(|| {
+    let names: Vec<String> = Kind::ALL
+        .iter()
+        .map(|kind| regex::escape(kind.name()))
+        .collect();
+    Regex::new(&format!(
+        r"\[({})(?: ending ([0-9]{{1,{HINT_DIGITS}}}))? · (?:tap to show · ([^\]]*)|withheld)\]",
+        names.join("|")
+    ))
+    .expect("a pattern built from the kinds' literal names")
+});
+
 impl Placeholder {
     /// The placeholder for `value`, a number of `kind`.
     #[must_use]
     pub fn of(kind: Kind, value: &str, reach: Reach) -> Self {
         let digits: Vec<char> = value.chars().filter(char::is_ascii_digit).collect();
-        let hint = digits[digits.len().saturating_sub(HINT_DIGITS)..]
-            .iter()
-            .collect();
+        let hint = if digits.len() >= MIN_HINTED {
+            digits[digits.len() - HINT_DIGITS..].iter().collect()
+        } else {
+            String::new()
+        };
         Self { kind, hint, reach }
     }
 
-    /// The text form: `[SSN ending 3456 · tap to show · held:…]`, or `[SSN ending 3456 ·
-    /// withheld]`.
+    /// The text form: `[SSN ending 3456 · tap to show · held:…]`, `[SSN ending 3456 ·
+    /// withheld]`, or for a short value `[verification code · tap to show · held:…]`.
     #[must_use]
     pub fn print(&self) -> String {
-        match &self.reach {
-            Reach::Revealable(handle) => format!(
-                "[{} ending {} · tap to show · {}]",
-                self.kind.name(),
-                self.hint,
-                handle.print()
-            ),
-            Reach::Withheld => format!("[{} ending {} · withheld]", self.kind.name(), self.hint),
+        let reach = match &self.reach {
+            Reach::Revealable(handle) => format!("tap to show · {}", handle.print()),
+            Reach::Withheld => "withheld".to_owned(),
+        };
+        format!("[{} · {reach}]", self.described())
+    }
+
+    /// The kind and hint as a person reads them: `SSN ending 3456`, `verification code`.
+    #[must_use]
+    pub fn described(&self) -> String {
+        if self.hint.is_empty() {
+            self.kind.name().to_owned()
+        } else {
+            format!("{} ending {}", self.kind.name(), self.hint)
         }
+    }
+
+    /// What it is.
+    #[must_use]
+    pub fn kind(&self) -> Kind {
+        self.kind
+    }
+
+    /// Whether a tap can reach it.
+    #[must_use]
+    pub fn reach(&self) -> &Reach {
+        &self.reach
     }
 }
 
-/// One message's identity numbers as written, each once, in the order they first appear.
+/// One stretch of a [`Written`] text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Part {
+    /// Text as written.
+    Text(String),
+    /// A placeholder, read.
+    Held(Placeholder),
+}
+
+/// A text a model wrote, such as a proposed email's body, with each placeholder read once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Written(Vec<Part>);
+
+/// A written placeholder whose handle is no handle's text form.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{0} names no held value: its handle is not one the box printed")]
+pub struct Malformed(pub String);
+
+impl Written {
+    /// Read `text`.
+    ///
+    /// # Errors
+    /// [`Malformed`] for the first placeholder whose handle does not decode.
+    pub fn parse(text: &str) -> Result<Self, Malformed> {
+        let mut parts = Vec::new();
+        let mut at = 0;
+        for captures in WRITTEN.captures_iter(text) {
+            let (Some(whole), Some(name)) = (captures.get(0), captures.get(1)) else {
+                continue;
+            };
+            let Some(kind) = Kind::ALL
+                .into_iter()
+                .find(|kind| kind.name() == name.as_str())
+            else {
+                continue;
+            };
+            let reach = match captures.get(3) {
+                Some(handle) => Reach::Revealable(
+                    Handle::parse(handle.as_str())
+                        .map_err(|_| Malformed(whole.as_str().to_owned()))?,
+                ),
+                None => Reach::Withheld,
+            };
+            if whole.start() > at {
+                parts.push(Part::Text(text[at..whole.start()].to_owned()));
+            }
+            parts.push(Part::Held(Placeholder {
+                kind,
+                hint: captures.get(2).map_or("", |hint| hint.as_str()).to_owned(),
+                reach,
+            }));
+            at = whole.end();
+        }
+        if at < text.len() {
+            parts.push(Part::Text(text[at..].to_owned()));
+        }
+        Ok(Self(parts))
+    }
+
+    /// Its placeholders, in order.
+    pub fn held(&self) -> impl Iterator<Item = &Placeholder> {
+        self.0.iter().filter_map(|part| match part {
+            Part::Held(placeholder) => Some(placeholder),
+            Part::Text(_) => None,
+        })
+    }
+}
+
+/// `text` with every placeholder whose handle does not name `message` written as withheld: raw
+/// mail never carries one the box printed, so such a placeholder is a sender's attempt to have
+/// another message's value sent.
+fn foreign_withheld(text: &str, message: &str) -> String {
+    WRITTEN
+        .replace_all(text, |captures: &regex::Captures<'_>| {
+            let whole = captures.get(0).map_or("", |whole| whole.as_str());
+            let own = captures
+                .get(3)
+                .and_then(|handle| Handle::parse(handle.as_str()).ok())
+                .is_some_and(|handle| handle.message() == message);
+            match (own, captures.get(1)) {
+                (false, Some(name)) => format!(
+                    "[{}{} · withheld]",
+                    name.as_str(),
+                    captures
+                        .get(2)
+                        .map_or(String::new(), |hint| format!(" ending {}", hint.as_str()))
+                ),
+                (true, _) | (_, None) => whole.to_owned(),
+            }
+        })
+        .into_owned()
+}
+
+/// One message's held numbers as written, each once with the kind it was first found as, in the
+/// order they first appear.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Values(Vec<String>);
+pub struct Values(Vec<(Kind, String)>);
 
 impl Values {
     /// The numbers in `texts`, read in order: one message's every decoded text.
     pub fn of<'a>(texts: impl IntoIterator<Item = &'a str>) -> Self {
-        let mut values: Vec<String> = Vec::new();
+        let mut values: Vec<(Kind, String)> = Vec::new();
         for text in texts {
             for found in identity_numbers(text) {
                 let value = &text[found.start..found.end];
-                if !values.iter().any(|held| same(held, value)) {
-                    values.push(value.to_owned());
+                if !values.iter().any(|(_, held)| same(held, value)) {
+                    values.push((found.kind, value.to_owned()));
                 }
             }
         }
         Self(values)
     }
 
-    /// The value at `ordinal`.
+    /// The value at `ordinal`, and its kind.
     #[must_use]
-    pub fn get(&self, ordinal: u16) -> Option<&str> {
-        self.0.get(usize::from(ordinal)).map(String::as_str)
+    pub fn get(&self, ordinal: u16) -> Option<(Kind, &str)> {
+        self.0
+            .get(usize::from(ordinal))
+            .map(|(kind, value)| (*kind, value.as_str()))
     }
 
-    /// Where `value` is among them, by its digits.
+    /// The placeholder of `value`, revealable by its place among them in `message`, of the kind
+    /// it was first found as, so every place it is written prints alike.
     #[must_use]
-    pub fn ordinal_of(&self, value: &str) -> Option<u16> {
-        self.0
-            .iter()
-            .position(|held| same(held, value))
-            .and_then(|at| u16::try_from(at).ok())
+    pub fn placeholder(&self, message: &str, value: &str) -> Option<Placeholder> {
+        let at = self.0.iter().position(|(_, held)| same(held, value))?;
+        let handle = Handle::new(message, u16::try_from(at).ok()?).ok()?;
+        Some(Placeholder::of(
+            self.0[at].0,
+            value,
+            Reach::Revealable(handle),
+        ))
     }
 
     /// Whether there are none.
@@ -180,25 +327,27 @@ impl Values {
 
 /// Two spellings of one number: `000-12-3456` and `000 12 3456` are the same value.
 fn same(a: &str, b: &str) -> bool {
-    a.chars()
-        .filter(char::is_ascii_digit)
-        .eq(b.chars().filter(char::is_ascii_digit))
+    let kept = |text: &str| {
+        text.chars()
+            .filter(char::is_ascii_alphanumeric)
+            .map(|c| c.to_ascii_uppercase())
+            .collect::<String>()
+    };
+    kept(a) == kept(b)
 }
 
-/// `text` with each identity number replaced by its placeholder, revealable when `values`, the
-/// numbers of `message`, hold it.
+/// `text` with each held number replaced by its placeholder, revealable when `values`, the
+/// numbers of `message`, hold it, and every placeholder naming another message withheld.
 #[must_use]
 pub fn mask(text: &str, message: &str, values: &Values) -> String {
-    replaced(text, |kind, value| {
-        let reach = values
-            .ordinal_of(value)
-            .and_then(|ordinal| Handle::new(message, ordinal).ok())
-            .map_or(Reach::Withheld, Reach::Revealable);
-        Placeholder::of(kind, value, reach)
+    replaced(&foreign_withheld(text, message), |kind, value| {
+        values
+            .placeholder(message, value)
+            .unwrap_or_else(|| Placeholder::of(kind, value, Reach::Withheld))
     })
 }
 
-/// `text` with each identity number replaced by a placeholder no tap reveals.
+/// `text` with each held number replaced by a placeholder no tap reveals.
 #[must_use]
 pub fn withheld(text: &str) -> String {
     replaced(text, |kind, value| {
@@ -237,19 +386,31 @@ pub fn withheld_value(value: Value) -> Value {
 
 /// A held value read back for the owner, which never prints in a log line or a `{:?}`.
 #[derive(Clone, PartialEq, Eq)]
-pub struct Shown(String);
+pub struct Shown {
+    kind: Kind,
+    value: String,
+}
 
 impl Shown {
-    /// The value, as the message writes it.
+    /// The value, as the message writes it, and the kind the message holds it as.
     #[must_use]
-    pub fn new(value: &str) -> Self {
-        Self(value.to_owned())
+    pub fn new(kind: Kind, value: &str) -> Self {
+        Self {
+            kind,
+            value: value.to_owned(),
+        }
     }
 
     /// The value, for the one answer that carries it.
     #[must_use]
     pub fn into_string(self) -> String {
-        self.0
+        self.value
+    }
+
+    /// The placeholder the box prints for it.
+    #[must_use]
+    pub fn placeholder(&self, reach: Reach) -> Placeholder {
+        Placeholder::of(self.kind, &self.value, reach)
     }
 }
 
@@ -276,6 +437,82 @@ pub trait Reveal {
     /// # Errors
     /// The mail index's own failure.
     fn reveal(&self, handle: &Handle) -> Result<Revealed, crate::capability::MailError>;
+}
+
+/// A draft's body with each held value written in, for the transport alone; it never prints in a
+/// log line or a `{:?}`, and [`fill`] is its only constructor.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Filled(String);
+
+impl Filled {
+    /// The body to put on the wire.
+    #[must_use]
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl std::fmt::Debug for Filled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Filled(a body with its held values)")
+    }
+}
+
+/// Why a body's held values could not be written in. Each names the value as its card did, never
+/// the value.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum Unfilled {
+    /// A code, which the owner types themselves and the box never sends.
+    #[error("a verification code is never sent: the owner types it where it is asked for")]
+    Code,
+    /// A placeholder no tap reaches.
+    #[error("the {0} is withheld, so the box cannot write it into a message")]
+    Withheld(String),
+    /// Its message is gone, or holds no value at that place.
+    #[error("the {0} is no longer held: its message is gone or no longer names it")]
+    Gone(String),
+    /// The value at that place is not the one the card described.
+    #[error(
+        "the message now holds a different value where the {0} was, so the card no longer describes what would be sent"
+    )]
+    Changed(String),
+    /// The mail index failed.
+    #[error("could not read the {0}: {1}")]
+    Unreadable(String, String),
+}
+
+/// `written` with every placeholder replaced by the value it names, read now through `reveal`;
+/// the owner's tap on Send is its only caller.
+///
+/// # Errors
+/// [`Unfilled`] for the first placeholder that is a code, withheld, gone, changed or unreadable.
+pub fn fill(written: &Written, reveal: &dyn Reveal) -> Result<Filled, Unfilled> {
+    let mut out = String::new();
+    for part in &written.0 {
+        let placeholder = match part {
+            Part::Text(text) => {
+                out.push_str(text);
+                continue;
+            }
+            Part::Held(placeholder) => placeholder,
+        };
+        let named = placeholder.described();
+        let handle = match (&placeholder.kind, &placeholder.reach) {
+            (Kind::Code, _) => return Err(Unfilled::Code),
+            (_, Reach::Withheld) => return Err(Unfilled::Withheld(named)),
+            (_, Reach::Revealable(handle)) => handle,
+        };
+        let shown = match reveal.reveal(handle) {
+            Ok(Revealed::Value(shown)) => shown,
+            Ok(Revealed::Gone) => return Err(Unfilled::Gone(named)),
+            Err(failed) => return Err(Unfilled::Unreadable(named, failed.to_string())),
+        };
+        if shown.placeholder(placeholder.reach.clone()) != *placeholder {
+            return Err(Unfilled::Changed(named));
+        }
+        out.push_str(&shown.value);
+    }
+    Ok(Filled(out))
 }
 
 /// A server that reads no mail: every handle is gone.
@@ -340,13 +577,47 @@ mod tests {
         assert_eq!(withheld(text), text);
     }
 
-    /// A placeholder reads as no number, so masking twice changes nothing.
+    /// A placeholder reads as no number, so masking twice changes nothing, for every kind.
     #[test]
     fn a_masked_text_masks_to_itself() {
-        let values = Values::of([SSN]);
-        let once = mask(&format!("SSN {SSN}"), "x@example.test", &values);
+        let text = format!(
+            "SSN {SSN}; your verification code is 482913; card 4111 1111 1111 1111; account \
+             000123456789, routing 021000021; IBAN GB82 WEST 1234 5698 7654 32"
+        );
+        let values = Values::of([text.as_str()]);
+        let once = mask(&text, "x@example.test", &values);
+        assert_eq!(
+            Written::parse(&once).expect("written").held().count(),
+            6,
+            "{once}"
+        );
+        assert!(!once.contains("482913"), "{once}");
         assert_eq!(mask(&once, "x@example.test", &values), once);
         assert_eq!(withheld(&once), once);
+        assert_eq!(withheld(&withheld(&text)), withheld(&text));
+    }
+
+    /// The value and a body that holds it print as neither in a log line nor a `{:?}`.
+    #[test]
+    fn a_read_value_and_a_filled_body_never_print() {
+        struct Holds;
+        impl Reveal for Holds {
+            fn reveal(&self, _: &Handle) -> Result<Revealed, crate::capability::MailError> {
+                Ok(Revealed::Value(Shown::new(Kind::Ssn, SSN)))
+            }
+        }
+        let handle = Handle::new("x@example.test", 0).expect("a handle");
+        let body = format!(
+            "It is {}.",
+            Placeholder::of(Kind::Ssn, SSN, Reach::Revealable(handle)).print()
+        );
+        let filled = fill(&Written::parse(&body).expect("written"), &Holds).expect("filled");
+        let printed = format!(
+            "{filled:?} {:?}",
+            Holds.reveal(&Handle::new("x@example.test", 0).expect("a handle"))
+        );
+        assert!(!printed.contains(SSN), "{printed}");
+        assert_eq!(filled.into_string(), format!("It is {SSN}."));
     }
 
     #[test]
@@ -381,6 +652,28 @@ mod tests {
     }
 
     proptest! {
+        /// A placeholder's text form is read back as the same placeholder, whatever its kind.
+        #[test]
+        fn a_placeholder_round_trips(
+            at in 0..Kind::ALL.len(),
+            value in "[0-9]{9,19}",
+            message in "[ -~]{1,80}",
+            ordinal in any::<u16>(),
+            revealable in any::<bool>(),
+        ) {
+            let reach = if revealable {
+                Reach::Revealable(Handle::new(&message, ordinal).expect("a handle"))
+            } else {
+                Reach::Withheld
+            };
+            let placeholder = Placeholder::of(Kind::ALL[at], &value, reach);
+            let text = format!("a {} b", placeholder.print());
+            prop_assert_eq!(
+                Written::parse(&text).expect("written").held().cloned().collect::<Vec<_>>(),
+                vec![placeholder]
+            );
+        }
+
         /// The text form prints and parses back to the same handle.
         #[test]
         fn a_handle_round_trips(message in "[ -~]{1,200}", ordinal in any::<u16>()) {

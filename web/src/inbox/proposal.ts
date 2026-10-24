@@ -10,12 +10,13 @@
 import app from "../app/app";
 import pairing from "../app/pairing";
 import signer from "../prodrome/signer";
-import { attachmentUrl, pairDevice } from "../wire/api";
+import { attachmentUrl, pairDevice, revealHeld } from "../wire/api";
 import type { CardAnswer, CardFile, FileFrom, ProposalRow, ProposedObject } from "../wire/generated/wire";
 import proposed from "./proposed";
 import type { Child } from "../view/dom";
 import { el } from "../view/dom";
 import placeholder from "../view/placeholder";
+import heldvalue from "../view/heldvalue";
 import disclosure from "../view/disclosure";
 import { noteField, noteOf } from "../view/noteline";
 import coding from "./coding";
@@ -262,7 +263,7 @@ export function proposalCard(id: string, proposal: ProposalRow, frame: ProposalF
       proposal.sources.map((text) => source(text, frame.titles)),
     ),
     card.fields.map((shown) => field(shown.label, shown.value)),
-    card.body === "" ? null : el("pre", { class: "proposalbody" }, card.body),
+    card.body === "" ? null : heldvalue.within(el("pre", { class: "proposalbody" }, card.body), revealHeld),
     card.files.length === 0 ? null : el("ul", { class: "proposalfiles" }, card.files.map(fileRow)),
     // A changeset's rows, drawn as a triage batch's are and confirmed whole.
     card.rows.length === 0 ? null : el("div", { class: "proposedchangeset" }, ...card.rows.map((row) => objectRow(row, new Set(), null))),

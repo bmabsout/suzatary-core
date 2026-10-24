@@ -31,7 +31,7 @@ impl Verb for DriveRead {
         other type is refused by name. In a folder the owner has allowed it reads \
         at once; anywhere else it is ASKED, on a card naming the file, and the \
         file arrives in this conversation if they tap Read. Every SSN, ITIN, TIN \
-        and EIN in text is already `[redacted]`, and a PDF whose text names one \
+        and EIN, code, and card or bank number in text is already `[redacted]`, and a PDF whose text names one \
         comes back as that text, not as itself: never try to recover one, and \
         never quote an ID number back, from text or from a scan. When a task needs the number, say \
         which file holds it and let them copy it. `why` and `sources` are \

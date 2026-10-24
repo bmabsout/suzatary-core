@@ -86,6 +86,7 @@ fn value_text(value: &HeaderValue<'_>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use suzatary_core::redact::Kind;
 
     /// Synthetic numbers no person holds.
     const SSN: &str = "000-12-3456";
@@ -99,8 +100,8 @@ mod tests {
              Content-Type: text/plain\n\nSSN {SSN} and again 000 12 3456\n--XX--\n"
         );
         let values = values(raw.as_bytes(), &[&format!("SSN {SSN}")]);
-        assert_eq!(values.get(0), Some(ITIN));
-        assert_eq!(values.get(1), Some(SSN));
+        assert_eq!(values.get(0), Some((Kind::Itin, ITIN)));
+        assert_eq!(values.get(1), Some((Kind::Ssn, SSN)));
         assert_eq!(values.get(2), None);
     }
 

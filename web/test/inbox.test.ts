@@ -179,7 +179,7 @@ test("where: a reference this app has no card for, an unreadable one and no cont
 function proposalRow(over: Partial<ProposalRow> = {}): ProposalRow {
   return {
     index: 3,
-    act: { kind: "email", account: "a@b.test", to: ["c@d.test"], cc: [], subject: "The deed", body: "…", attachments: [] },
+    act: { kind: "email", account: "a@b.test", to: ["c@d.test"], cc: [], subject: "The deed", body: "…", attachments: [], held: { type: "Read", values: [] } },
     card: aCard(),
     why: "he asked",
     sources: [],

@@ -74,7 +74,7 @@ function proposalAt(index: number, turn: number): ProposalRow {
   const sources = ["mail:abc123abc123"];
   return {
     index,
-    act: { kind: "email", account: "a", to: [], cc: [], subject: "s", body: "b", attachments: [] },
+    act: { kind: "email", account: "a", to: [], cc: [], subject: "s", body: "b", attachments: [], held: { type: "Read", values: [] } },
     card: aCard(),
     why: "because",
     sources,

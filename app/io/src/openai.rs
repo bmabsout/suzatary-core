@@ -186,8 +186,8 @@ impl<H: Http> OpenAiCompatible<H> {
         let body = serde_json::json!({
             "model": &self.model,
             "messages": [
-                { "role": "system", "content": prompt.system },
-                { "role": "user", "content": prompt.user },
+                { "role": "system", "content": prompt.system.as_str() },
+                { "role": "user", "content": prompt.user.as_str() },
             ],
         });
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));

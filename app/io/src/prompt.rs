@@ -6,6 +6,7 @@ use std::fmt::Write as _;
 
 use suzatary_core::capability::{Conversation, Delta, Turn};
 use suzatary_core::enclosed::{Enclosed, Enclosure};
+use suzatary_core::for_model::ForModel;
 use suzatary_core::reference::Reference;
 use suzatary_core::secretary::turn_shape::{self, TurnShape};
 
@@ -13,19 +14,17 @@ use suzatary_core::secretary::turn_shape::{self, TurnShape};
 /// a wire with no `system` field reads [`Prompt::joined`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Prompt {
-    /// The rules the secretary works under, unchanged from the conversation.
-    pub system: String,
+    /// The rules the secretary works under, from the conversation.
+    pub system: ForModel,
     /// The verb list and the transcript, in the order a model reads them.
-    pub user: String,
+    pub user: ForModel,
 }
 
 impl Prompt {
     /// The exact text `ClaudeCli` sends: `system` immediately followed by `user`.
     #[must_use]
-    pub fn joined(&self) -> String {
-        let mut whole = self.system.clone();
-        whole.push_str(&self.user);
-        whole
+    pub fn joined(&self) -> ForModel {
+        ForModel::of(&format!("{}{}", self.system.as_str(), self.user.as_str()))
     }
 }
 
@@ -33,7 +32,6 @@ impl Prompt {
 /// any model that turns text into text can answer it.
 #[must_use]
 pub fn prompt_of(conversation: &Conversation, tools: &serde_json::Value, reads: Reads) -> Prompt {
-    let system = conversation.system.clone();
     let mut user = String::new();
     user.push_str("\n\n# The verbs you may call\n\n");
     user.push_str(&serde_json::to_string_pretty(tools).unwrap_or_else(|_| "[]".to_owned()));
@@ -59,19 +57,22 @@ pub fn prompt_of(conversation: &Conversation, tools: &serde_json::Value, reads: 
          `say` is what the owner reads; `calls` are verbs from the list above, which \
          this box will run and hand back to you. An empty `calls` ends the exchange.",
     );
-    Prompt { system, user }
+    Prompt {
+        system: ForModel::of(&conversation.system),
+        user: ForModel::of(&user),
+    }
 }
 
 /// The turns since the model last answered with no calls: `SessionModel::resume`'s message.
 /// No header or verb list, which the session already holds from the call that opened it.
 #[must_use]
-pub fn delta_prompt(delta: &Delta, reads: Reads) -> String {
+pub fn delta_prompt(delta: &Delta, reads: Reads) -> ForModel {
     let mut out = String::new();
     for turn in delta.turns() {
         format_turn(&mut out, turn, reads);
         out.push_str("\n\n");
     }
-    out
+    ForModel::of(&out)
 }
 
 /// One turn, labelled; the one spelling [`prompt_of`] and [`delta_prompt`] share.
@@ -348,7 +349,7 @@ mod tests {
             &serde_json::json!([{"name": "context"}]),
             Reads::Files,
         );
-        assert_eq!(prompt.system, "You are the secretary.");
+        assert_eq!(prompt.system.as_str(), "You are the secretary.");
         let joined = prompt.joined();
         assert!(joined.starts_with("You are the secretary."));
         assert!(joined.contains("\"name\": \"context\""));
@@ -494,7 +495,7 @@ mod tests {
              this box will run and hand back to you. An empty `calls` ends the exchange.",
         );
 
-        assert_eq!(prompt.joined(), expected);
+        assert_eq!(prompt.joined().as_str(), expected);
     }
 
     /// `delta_prompt` labels turns as `prompt_of` does, so a resumed session reads a turn as a

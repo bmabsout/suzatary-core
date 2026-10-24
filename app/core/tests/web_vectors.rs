@@ -2275,6 +2275,7 @@ fn the_answers_vector_holds_every_answer() {
             subject: "The deed".to_owned(),
             body: "Attached.".to_owned(),
             attachments: files.clone(),
+            held: wire::HeldIn::Read { values: Vec::new() },
         };
         proposal.card.files = files;
     }

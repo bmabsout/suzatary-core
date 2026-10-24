@@ -67,6 +67,7 @@ pub mod outcome;
 pub mod phase;
 pub mod proposer;
 pub mod queue;
+pub mod read_mail;
 pub mod readings;
 pub mod responded;
 pub mod review;

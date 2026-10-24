@@ -1,7 +1,7 @@
 //! What reading one file for the model answers: the file itself, or its text.
 //!
-//! No identity number the box can find reaches a model: a PDF whose text layer names an SSN,
-//! ITIN, TIN or EIN is withheld and answered by that text, redacted. [`FileRead::of`] is the only
+//! No held number the box can find reaches a model: a PDF whose text layer names one
+//! ([`crate::redact`]) is withheld and answered by that text, redacted. [`FileRead::of`] is the only
 //! way to a [`Readable`], so a file that skipped the check does not typecheck.
 //!
 //! A scan's pixels cannot be redacted: a PDF with no text layer, and an image, are handed over
@@ -44,9 +44,9 @@ pub enum FileRead {
 /// particular: each reader frames it.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Withheld {
-    /// Its text names an SSN, ITIN, TIN or EIN.
-    #[error("its text names an identity number (an SSN, ITIN, TIN or EIN)")]
-    IdentityNumber,
+    /// Its text names a number [`crate::redact`] holds.
+    #[error("its text names an identity number, a code, or a card or bank number")]
+    HeldNumber,
     /// Over [`MAX_PDF`], in bytes.
     #[error("it is {}, over the 20 MB a model reads", megabytes(*.0))]
     TooLarge(usize),
@@ -129,7 +129,7 @@ fn pdf(bytes: Vec<u8>, layer: &str) -> FileRead {
     let redacted = redact(&text);
     let pages = layer.matches('\u{c}').count();
     let withheld = if redacted.as_str() != text {
-        Some(Withheld::IdentityNumber)
+        Some(Withheld::HeldNumber)
     } else if bytes.len() > MAX_PDF {
         Some(Withheld::TooLarge(bytes.len()))
     } else if pages > MAX_PAGES {
@@ -196,7 +196,7 @@ mod tests {
         };
         assert!(!text.as_str().contains("6789"), "{text:?}");
         assert!(text.as_str().contains("70,000"));
-        assert_eq!(withheld, Some(Withheld::IdentityNumber));
+        assert_eq!(withheld, Some(Withheld::HeldNumber));
     }
 
     #[test]

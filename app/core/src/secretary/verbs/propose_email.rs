@@ -51,6 +51,57 @@ fn addresses(list: &str, field: &str) -> Result<Vec<String>, Refusal> {
         .collect()
 }
 
+/// What the body's held values are, as the card names them. Refused: a placeholder in the
+/// subject, since the tap writes values into the body alone; a placeholder whose handle does not
+/// decode; a code; a withheld value; and a value from a message this conversation did not read,
+/// so mail the model read cannot have another message's value sent.
+fn held_in(
+    caps: &Secretary<'_>,
+    conversation: &ConversationId,
+    subject: &str,
+    body: &str,
+) -> Result<Vec<String>, Refusal> {
+    use crate::held_value::{Reach, Written};
+    use crate::redact::Kind;
+    let written = |text: &str| {
+        Written::parse(text).map_err(|malformed| Refusal::bad_request(malformed.to_string()))
+    };
+    if let Some(placeholder) = written(subject)?.held().next() {
+        return Err(Refusal::bad_request(format!(
+            "the subject names the {}: a held value goes in the body, where the owner's tap \
+             writes it in; the subject is sent as written",
+            placeholder.described()
+        )));
+    }
+    let body = written(body)?;
+    if body.held().next().is_none() {
+        return Ok(Vec::new());
+    }
+    let read = crate::secretary::read_mail::ReadMail::of(&secretary::read(
+        caps.conversations,
+        conversation,
+    )?);
+    body.held()
+        .map(|placeholder| match (placeholder.kind(), placeholder.reach()) {
+            (Kind::Code, _) => Err(Refusal::bad_request(
+                "a verification code is never sent: the owner types it where it is asked for",
+            )),
+            (_, Reach::Withheld) => Err(Refusal::bad_request(format!(
+                "the body names the {} as withheld, which the box cannot read again; only a \
+                 value written `· tap to show · held:…` can be sent",
+                placeholder.described()
+            ))),
+            (_, Reach::Revealable(handle)) if !read.holds(handle) => {
+                Err(Refusal::bad_request(format!(
+                    "the {} comes from a message this conversation has not read; `show` it first",
+                    placeholder.described()
+                )))
+            }
+            (_, Reach::Revealable(_)) => Ok(placeholder.described()),
+        })
+        .collect()
+}
+
 /// `attach`, each entry resolved now and recorded with its digest; absent is none.
 ///
 /// # Errors
@@ -305,10 +356,18 @@ impl Verb for ProposeEmail {
         of one of their repositories, a PDF such as their CV included. Only their own things can be attached: nothing from the \
         web and nothing you wrote. Each is read now and recorded with its name, \
         type, size and SHA-256, the card shows every one, and the tap sends \
-        exactly those bytes or nothing. At most 20 MB in all.";
+        exactly those bytes or nothing. At most 20 MB in all.\n\n\
+        A HELD VALUE (an SSN, a card or bank number you read as \
+        `[SSN ending 3456 · tap to show · held:…]`) goes in the BODY as that \
+        placeholder, copied whole, where the number belongs. The card tells the \
+        owner it is included, and only their tap writes the real number into \
+        the message; you never see it. Only a value from a message this \
+        conversation read can be sent. A verification code, a `withheld` \
+        placeholder and a placeholder in the subject are refused.";
 
     fn run(call: &Call<'_>, args: ProposeEmailArgs) -> Result<Value, Refusal> {
         let reasons = reasons_of(&args.why, &args.sources)?;
+        let held = held_in(call.caps, call.conversation, &args.subject, &args.body)?;
         let draft = Draft {
             account: address(&args.account, "account")?,
             to: addresses(&args.to, "to")?,
@@ -337,6 +396,7 @@ impl Verb for ProposeEmail {
             "to": draft.to,
             "cc": draft.cc,
             "subject": draft.subject,
+            "held": held,
             "attachments": draft.attachments.iter().map(|one| json!({
                 "name": one.name,
                 "media": one.media,

@@ -130,7 +130,7 @@ function row(r: Rng): Row {
         },
         proposal: {
           index: r.int(5),
-          act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [] },
+          act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [], held: { type: "Read", values: [] } },
           card: aCard(),
           why: "",
           sources: [],
@@ -310,7 +310,7 @@ test("a link to a setup card unfolds the Setup row once; closed by the reader, n
     conversation: { id: "setup", title: "Setup", model: "test", opened: "", turns: [], proposals: [], unplaced: [], state: "idle", first: 0, total: 0, again: null },
     proposal: {
       index: 0,
-      act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [] },
+      act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [], held: { type: "Read", values: [] } },
       card: aCard({ by: { kind: "setup" } }),
       why: "",
       sources: [],

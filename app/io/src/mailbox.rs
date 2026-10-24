@@ -726,8 +726,8 @@ impl Reveal for Notmuch {
         let (_, values) = unmasked(msg);
         Ok(values
             .get(handle.ordinal())
-            .map_or(Revealed::Gone, |value| {
-                Revealed::Value(held_value::Shown::new(value))
+            .map_or(Revealed::Gone, |(kind, value)| {
+                Revealed::Value(held_value::Shown::new(kind, value))
             }))
     }
 }

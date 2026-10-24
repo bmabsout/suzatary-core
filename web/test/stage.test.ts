@@ -12,7 +12,7 @@ const states: readonly ProposalState[] = [
 
 const row = (state: ProposalState, tries: number): ProposalRow => ({
   index: 0,
-  act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [] },
+  act: { kind: "email", account: "a@b.test", to: [], cc: [], subject: "", body: "", attachments: [], held: { type: "Read", values: [] } },
   card: aCard(),
   why: "",
   sources: [],

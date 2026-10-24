@@ -205,6 +205,7 @@ pub fn tap(
                 caps,
                 &Effectors {
                     post: state.postman.as_ref(),
+                    reveal: state.reveal.as_ref(),
                     performer: state.acting.as_ref(),
                     secrets: state.secrets.as_ref(),
                     verify: state.verify.as_ref(),

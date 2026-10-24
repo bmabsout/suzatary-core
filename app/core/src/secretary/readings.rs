@@ -91,6 +91,8 @@ pub trait Draw {
     fn origins(&self, plugin: &str) -> Option<Vec<String>>;
     /// How the person reaches the app at a terminal, which a step's command is spelled in.
     fn reach(&self) -> &crate::connect::Reach;
+    /// The message a held value comes from, in the box's words: its sender, subject and date.
+    fn source(&self, handle: &crate::held_value::Handle) -> String;
 }
 
 /// Renders nothing, so every block stays its source.
@@ -124,6 +126,37 @@ impl Draw for Undrawn {
 
     fn reach(&self) -> &crate::connect::Reach {
         &crate::connect::PLAIN
+    }
+
+    fn source(&self, _: &crate::held_value::Handle) -> String {
+        UNREAD_SOURCE.to_owned()
+    }
+}
+
+/// What a card says of a held value's message where the reading reads no mail.
+pub const UNREAD_SOURCE: &str = "from a message this reading does not look up";
+
+/// The held values `body` carries, each with its message, read with the one parse the tap reads.
+fn held_in(body: &str, draws: &dyn Draw) -> wire::HeldIn {
+    use crate::held_value::{Reach, Written};
+    match Written::parse(body) {
+        Ok(written) => wire::HeldIn::Read {
+            values: written
+                .held()
+                .map(|placeholder| wire::HeldFrom {
+                    named: placeholder.described(),
+                    from: match placeholder.reach() {
+                        Reach::Revealable(handle) => draws.source(handle),
+                        Reach::Withheld => {
+                            "withheld, from nothing the box can read again".to_owned()
+                        }
+                    },
+                })
+                .collect(),
+        },
+        Err(malformed) => wire::HeldIn::Unreadable {
+            why: malformed.to_string(),
+        },
     }
 }
 
@@ -928,6 +961,7 @@ pub(crate) fn proposal(
             subject: draft.subject.clone(),
             body: draft.body.clone(),
             attachments: draft.attachments.iter().map(card_file).collect(),
+            held: held_in(&draft.body, draws),
         },
         // The diff is derived against the chain as it stands, and only while the proposal stands.
         Proposal::Changes(changeset) => {

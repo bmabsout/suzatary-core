@@ -354,7 +354,7 @@ mod tests {
         let naming = crate::pdftotext::minimal_pdf("SSN 123-45-6789");
         assert!(matches!(
             store.put(&naming),
-            Err(UploadError::Withheld(Withheld::IdentityNumber))
+            Err(UploadError::Withheld(Withheld::HeldNumber))
         ));
         assert!(matches!(
             store.bytes(&AttachmentId::of(&naming)),

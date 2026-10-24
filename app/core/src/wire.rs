@@ -1831,6 +1831,8 @@ pub enum ProposedAct {
         body: String,
         /// Every file it carries.
         attachments: Vec<CardFile>,
+        /// The owner's held values its body carries.
+        held: HeldIn,
     },
     /// Chain acts, drawn as the same diff rows a triage batch is.
     Changes {
@@ -2133,6 +2135,31 @@ pub struct CardLink {
     pub label: String,
     /// Where it goes: an https page, or a path on the box itself.
     pub href: String,
+}
+
+/// The held values a proposed email's body carries, as its card names them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "type")]
+pub enum HeldIn {
+    /// Each value, in the order the body names it.
+    Read {
+        /// One per placeholder.
+        values: Vec<HeldFrom>,
+    },
+    /// A placeholder whose handle does not decode; the tap refuses the send.
+    Unreadable {
+        /// The box's words.
+        why: String,
+    },
+}
+
+/// One held value a proposed email carries: what it is, and the message it comes from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+pub struct HeldFrom {
+    /// The kind and hint: `SSN ending 3456`.
+    pub named: String,
+    /// The message, in the box's words: its sender, subject and date, or that it is gone.
+    pub from: String,
 }
 
 /// One file a proposed email carries, as the card shows it before the tap.

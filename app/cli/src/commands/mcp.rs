@@ -14,6 +14,7 @@ use rmcp::{RoleServer, ServerHandler, ServiceExt};
 use suzatary_core::agent;
 use suzatary_core::capability::Agent;
 use suzatary_core::deployment::Deployment;
+use suzatary_core::for_model::ForModel;
 
 /// The server's name, which the tool guard matches as `mcp__suzatary__*`.
 pub const NAME: &str = "suzatary";
@@ -44,6 +45,11 @@ fn listed() -> Result<Vec<Tool>, ErrorData> {
             None,
         )
     })
+}
+
+/// The one block the agent reads: text the masker read.
+fn to_agent(text: &ForModel) -> ContentBlock {
+    ContentBlock::text(text.as_str().to_owned())
 }
 
 /// A string answer as plain text, so it does not arrive quoted; anything else as JSON.
@@ -101,10 +107,8 @@ impl ServerHandler for Tools {
             ErrorData::internal_error(format!("the verb did not finish: {failed}"), None)
         })?;
         Ok(match answered {
-            Ok(answer) => CallToolResult::success(vec![ContentBlock::text(shown(&answer)?)]),
-            Err(refusal) => {
-                CallToolResult::error(vec![ContentBlock::text(refusal.message().to_owned())])
-            }
+            Ok(answer) => CallToolResult::success(vec![to_agent(&ForModel::of(&shown(&answer)?))]),
+            Err(refusal) => CallToolResult::error(vec![to_agent(&ForModel::of(refusal.message()))]),
         }
         .into())
     }

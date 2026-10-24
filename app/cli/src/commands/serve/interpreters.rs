@@ -1091,8 +1091,10 @@ impl Compact for CompactorModel {
                 "the subscription is down to the reserve automated jobs never take".to_owned(),
             ));
         }
-        self.asked
-            .plain(suzatary_core::secretary::compact_ask::PROMPT, &ask.text())
+        self.asked.plain(
+            &suzatary_core::for_model::ForModel::of(suzatary_core::secretary::compact_ask::PROMPT),
+            suzatary_core::for_model::ForModel::of(&ask.text()),
+        )
     }
 }
 

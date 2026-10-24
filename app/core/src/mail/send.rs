@@ -21,7 +21,7 @@ pub struct Attachment {
 /// One message to send, plain text only. [`Outgoing::new`] is its one constructor, so every
 /// value has at least one recipient, a subject and something to say, and each address on it
 /// is an [`EmailAddress`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Outgoing {
     sender: EmailAddress,
     to: Vec<EmailAddress>,
@@ -34,7 +34,7 @@ pub struct Outgoing {
 }
 
 /// A message as it was written, before [`Outgoing::new`] checks it.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct Composed {
     /// An address this deployment may send as.
     pub sender: String,
@@ -52,6 +52,45 @@ pub struct Composed {
     pub in_reply_to: Option<String>,
     /// The chain, bare; defaults to just the parent so the reply stays threaded.
     pub references: Vec<String>,
+}
+
+/// A body's length in place of the body: a tapped body holds the owner's held values.
+struct Withheld(usize);
+
+impl std::fmt::Debug for Withheld {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{} bytes>", self.0)
+    }
+}
+
+impl std::fmt::Debug for Outgoing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Outgoing")
+            .field("sender", &self.sender)
+            .field("to", &self.to)
+            .field("cc", &self.cc)
+            .field("subject", &self.subject)
+            .field("body", &Withheld(self.body.len()))
+            .field("attachments", &self.attachments.len())
+            .field("in_reply_to", &self.in_reply_to)
+            .field("references", &self.references)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for Composed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Composed")
+            .field("sender", &self.sender)
+            .field("to", &self.to)
+            .field("cc", &self.cc)
+            .field("subject", &self.subject)
+            .field("body", &Withheld(self.body.len()))
+            .field("attachments", &self.attachments.len())
+            .field("in_reply_to", &self.in_reply_to)
+            .field("references", &self.references)
+            .finish()
+    }
 }
 
 impl Outgoing {

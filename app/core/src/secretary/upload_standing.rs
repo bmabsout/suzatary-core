@@ -10,7 +10,7 @@ pub enum UploadStanding {
     /// Searchable by these words: a PDF's text layer or a private file's text, identity numbers
     /// redacted, or `""` for a photo, since the box reads no text out of pixels.
     Indexed(String),
-    /// Held back until the owner keeps it private: its text names an identity number, so the
+    /// Held back until the owner keeps it private: its text names a held number, so the
     /// index reads nothing of it.
     Held,
     /// No live turn names it, or the store no longer holds it: the index keeps nothing of it.
@@ -47,10 +47,10 @@ impl UploadStanding {
                             Self::Indexed(readable.text().as_str().to_owned())
                         }
                         FileRead::Text {
-                            withheld: Some(Withheld::IdentityNumber),
+                            withheld: Some(Withheld::HeldNumber),
                             ..
                         } => Self::Held,
-                        // Too large or too long for a model, and naming no identity number.
+                        // Too large or too long for a model, and naming no held number.
                         FileRead::Text {
                             text,
                             withheld: Some(Withheld::TooLarge(_) | Withheld::TooManyPages(_)) | None,

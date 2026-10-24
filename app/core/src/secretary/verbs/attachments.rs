@@ -27,8 +27,9 @@ impl Verb for Attachments {
         image is handed to you AS ITSELF, attached to this answer (a scanned PDF \
         page by page), so read it there; `text/*` comes back as its text; \
         anything else (`.docx`, a zip) is a sentence naming its type, never \
-        opened or run. A PDF whose text names an SSN, ITIN, TIN or EIN is not \
-        handed over: its text comes back with the number `[redacted]`. Use it to \
+        opened or run. A PDF whose text names an SSN, ITIN, TIN or EIN, a code, \
+        or a card or bank number is not handed over: its text comes back with the \
+        number `[redacted]`. Use it to \
         read a salary in an HR letter or a notice's receipt number without the \
         owner opening the file; `propose_email`'s `attach` sends one.";
 

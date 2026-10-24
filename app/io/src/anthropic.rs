@@ -101,7 +101,7 @@ impl AnthropicMessages {
         let body = MessagesRequest {
             model: &self.model,
             max_tokens: self.max_tokens,
-            system: &prompt.system,
+            system: prompt.system.as_str(),
             stream: true,
             messages: vec![MessageParam {
                 role: "user",
@@ -137,12 +137,16 @@ impl AnthropicMessages {
 
 impl AnthropicMessages {
     /// The user message's content: the text alone, or the turns' blocks and then the text.
-    fn content(&self, conversation: &Conversation, user: String) -> Result<Value, ModelError> {
+    fn content(
+        &self,
+        conversation: &Conversation,
+        user: suzatary_core::for_model::ForModel,
+    ) -> Result<Value, ModelError> {
         let blocks = Blocks::of(&self.stores, &conversation.turns)?;
         Ok(if blocks.is_empty() {
-            Value::String(user)
+            Value::String(user.into_string())
         } else {
-            Value::Array(blocks.content(&user))
+            Value::Array(blocks.content(user.as_str()))
         })
     }
 }
@@ -314,6 +318,7 @@ impl SseAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use suzatary_core::for_model::ForModel;
 
     /// A PDF a verb handed over crosses as a document block, before the text.
     #[test]
@@ -343,7 +348,7 @@ mod tests {
             ..Stores::default()
         });
         let content = api
-            .content(&conversation, "the transcript".to_owned())
+            .content(&conversation, ForModel::of("the transcript"))
             .expect("built");
         assert_eq!(content[0]["type"], "document");
         assert_eq!(content[0]["source"]["media_type"], "application/pdf");
@@ -354,7 +359,7 @@ mod tests {
                     system: String::new(),
                     turns: Vec::new(),
                 },
-                "only text".to_owned(),
+                ForModel::of("only text"),
             )
             .expect("built");
         assert_eq!(plain, Value::from("only text"));

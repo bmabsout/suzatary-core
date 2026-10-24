@@ -360,7 +360,7 @@ fn the_opening_turn_and_the_system_prompt_are_the_cases_own_input() {
         &suzatary_core::agent::tools(),
         suzatary_io::prompt::Reads::Files,
     );
-    assert_eq!(prompt.system, system);
+    assert_eq!(prompt.system.as_str(), system);
     assert!(prompt.user.contains("deadbeefcafefeed"));
 }
 

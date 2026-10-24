@@ -1996,9 +1996,17 @@ impl suzatary_core::secretary::routes::Post for Recorder {
     fn send(
         &self,
         draft: &suzatary_core::secretary::store::Draft,
+        body: suzatary_core::held_value::Filled,
         attachments: suzatary_core::secretary::attached::Checked,
     ) -> suzatary_core::secretary::responded::Performed {
-        self.sent.lock().expect("not poisoned").push(draft.clone());
+        // What went on the wire: the body with its held values written in.
+        self.sent
+            .lock()
+            .expect("not poisoned")
+            .push(suzatary_core::secretary::store::Draft {
+                body: body.into_string(),
+                ..draft.clone()
+            });
         self.parts
             .lock()
             .expect("not poisoned")
@@ -2022,11 +2030,12 @@ impl suzatary_core::secretary::routes::Post for FailsFirst {
     fn send(
         &self,
         draft: &suzatary_core::secretary::store::Draft,
+        body: suzatary_core::held_value::Filled,
         attachments: suzatary_core::secretary::attached::Checked,
     ) -> suzatary_core::secretary::responded::Performed {
         match self.failures.lock().expect("not poisoned").pop_front() {
             Some(failed) => failed,
-            None => self.sent.send(draft, attachments),
+            None => self.sent.send(draft, body, attachments),
         }
     }
 }

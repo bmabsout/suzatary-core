@@ -6,7 +6,7 @@ use crate::repos::Visibility;
 use crate::secretary::inbox_reading::Reading;
 use crate::web::WebKind;
 use crate::wire::{
-    Asker, Asks, Cached, Card, CardAnswer, CardField, CardLink, ProposedAct, RememberWords,
+    Asker, Asks, Cached, Card, CardAnswer, CardField, CardLink, HeldIn, ProposedAct, RememberWords,
 };
 
 /// The card for a proposal.
@@ -21,9 +21,10 @@ pub fn of(act: &ProposedAct) -> Card {
             subject,
             body,
             attachments,
+            held,
         } => Card {
             files: attachments.clone(),
-            ..email(account, to, cc, subject, body, attachments.len())
+            ..email(account, (to, cc), subject, body, attachments.len(), held)
         },
         ProposedAct::Changes {
             changes, problem, ..
@@ -601,7 +602,7 @@ fn document(name: &str, folder: &str, size: &str, sentence: &str) -> Card {
                 done: format!("reading {name}"),
                 asks: Asks::Confirm {
                     question: format!(
-                        "Allow {name} once? It is read into this conversation, with any SSN, ITIN, TIN or EIN replaced by [redacted], and the copy read can go on an email you tap."
+                        "Allow {name} once? It is read into this conversation, with any SSN, ITIN, TIN or EIN, code, or card or bank number replaced by [redacted], and the copy read can go on an email you tap."
                     ),
                     yes: "Yes, allow once".to_owned(),
                 },
@@ -685,23 +686,51 @@ fn web(request: WebKind, target: &str, host: &str, always: &str, sentence: &str)
 /// who it goes to.
 fn email(
     account: &str,
-    to: &[String],
-    cc: &[String],
+    (to, cc): (&[String], &[String]),
     subject: &str,
     body: &str,
     files: usize,
+    held: &HeldIn,
 ) -> Card {
+    let everyone = to.iter().chain(cc).cloned().collect::<Vec<_>>().join(", ");
     let to = to.join(", ");
     let mut fields = vec![field("From", account), field("To", &to)];
     if !cc.is_empty() {
         fields.push(field("Cc", &cc.join(", ")));
     }
     fields.push(field("Subject", subject));
-    // The question counts the files, so the yes is to the message with them.
-    let carrying = match files {
-        0 => String::new(),
-        1 => " with 1 attachment".to_owned(),
-        n => format!(" with {n} attachments"),
+    let named: Vec<String> = match held {
+        HeldIn::Read { values } => values.iter().fold(Vec::new(), |mut named, value| {
+            let value = format!("your {}", value.named);
+            if !named.contains(&value) {
+                named.push(value);
+            }
+            named
+        }),
+        HeldIn::Unreadable { .. } => Vec::new(),
+    };
+    let mut carrying = named;
+    match files {
+        0 => {}
+        1 => carrying.push("1 attachment".to_owned()),
+        n => carrying.push(format!("{n} attachments")),
+    }
+    let carrying = match carrying.as_slice() {
+        [] => String::new(),
+        some => format!(" with {}", some.join(" and ")),
+    };
+    let sentence = match held {
+        HeldIn::Read { values } if values.is_empty() => String::new(),
+        HeldIn::Read { values } => format!(
+            "Includes {}. Everyone on To and Cc receives it: {everyone}. The box writes the real \
+             value into the message only when you tap Send.",
+            values
+                .iter()
+                .map(|value| format!("your {}, {}", value.named, value.from))
+                .collect::<Vec<_>>()
+                .join("; and ")
+        ),
+        HeldIn::Unreadable { why } => format!("{why}. Send refuses it."),
     };
     Card {
         body: body.to_owned(),
@@ -714,6 +743,7 @@ fn email(
             ..answer("send", "Send")
         }],
         uncertain: "It may have been sent. Check Sent; it is never sent again.".to_owned(),
+        sentence,
         ..card("Proposed email", "", fields, "send")
     }
 }
@@ -1037,6 +1067,7 @@ mod tests {
             subject: "The permit".to_owned(),
             body: "the whole body, never clamped".to_owned(),
             attachments: Vec::new(),
+            held: HeldIn::Read { values: Vec::new() },
         });
         let labels: Vec<&str> = card.fields.iter().map(|f| f.label.as_str()).collect();
         assert_eq!(
@@ -1234,6 +1265,7 @@ mod tests {
             subject: "The notice".to_owned(),
             body: "attached".to_owned(),
             attachments: vec![notice.clone()],
+            held: HeldIn::Read { values: Vec::new() },
         });
         assert_eq!(card.files, vec![notice]);
         assert_eq!(
@@ -1253,6 +1285,7 @@ mod tests {
             subject: "The permit".to_owned(),
             body: "the body".to_owned(),
             attachments: Vec::new(),
+            held: HeldIn::Read { values: Vec::new() },
         });
         let one = |response| {
             Reading::One(Answer {

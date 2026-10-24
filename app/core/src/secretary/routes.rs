@@ -10,6 +10,7 @@ use prodrome_core::event::TodoId;
 use crate::believed::Preview;
 use crate::capability::{Clock, Server, Turn};
 use crate::deployment::Deployment;
+use crate::held_value::{self, Filled, Reveal};
 use crate::mail::oauth::Consent;
 use crate::reference::{ProposalRef, Reference, TodoRef};
 use crate::refusal::{Answered, Refusal};
@@ -31,9 +32,10 @@ use crate::wire;
 /// Sending a proposed message, the one effect behind a tap; deliberately in no capability bundle,
 /// so no verb can send.
 pub trait Post {
-    /// Put this message on a wire, as `account`, with `attachments`, and answer what happened:
-    /// sent, or the transport's own words and whether the far end may hold the message.
-    fn send(&self, draft: &Draft, attachments: Checked) -> Performed;
+    /// Put this message on a wire, as `account`, with `body` in the draft's body's place and
+    /// `attachments`, and answer what happened: sent, or the transport's own words and whether
+    /// the far end may hold the message.
+    fn send(&self, draft: &Draft, body: Filled, attachments: Checked) -> Performed;
 }
 
 /// Performs a proposed act; like [`Post`], in no bundle, and it takes the [`Consent`] only a tap
@@ -85,6 +87,9 @@ struct Drawn<'a> {
     plugins: Vec<crate::plugin::Manifest>,
     /// How the person reaches the app at a terminal.
     reach: crate::connect::Reach,
+    /// Each held value a standing email carries, by its message's notmuch id: that message in
+    /// the box's words.
+    sources: std::collections::BTreeMap<String, String>,
 }
 
 impl<'a> Drawn<'a> {
@@ -154,13 +159,68 @@ impl<'a> Drawn<'a> {
                 .map(|coding| coding.routine.clone()),
             plugins: cards.plugins.map(<[_]>::to_vec).unwrap_or_default(),
             reach: cards.reach.clone(),
+            sources: sources(lines, cards),
         }
     }
+}
+
+/// The message of every held value a standing email carries, read once per reading.
+fn sources(
+    lines: &crate::secretary::store::Lines,
+    cards: &Cards<'_>,
+) -> std::collections::BTreeMap<String, String> {
+    let Some(mail) = cards.chains.first().map(|bound| bound.caps.mail) else {
+        return std::collections::BTreeMap::new();
+    };
+    let messages: std::collections::BTreeSet<String> = lines
+        .standings()
+        .filter_map(|standing| match &standing.object.asked.proposal {
+            Proposal::Email(draft) => held_value::Written::parse(&draft.body).ok(),
+            Proposal::Changes(_)
+            | Proposal::Act(_)
+            | Proposal::Remember { .. }
+            | Proposal::Decide(_) => None,
+        })
+        .flat_map(|written| {
+            written
+                .held()
+                .filter_map(|held| match held.reach() {
+                    held_value::Reach::Revealable(handle) => Some(handle.message().to_owned()),
+                    held_value::Reach::Withheld => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    messages
+        .into_iter()
+        .map(|message| {
+            let said = match mail.message(&message) {
+                Ok(read) => {
+                    let date = read.row.date.map_or(String::new(), |date| {
+                        format!(", {:04}-{:02}-{:02}", date.year(), date.month(), date.day())
+                    });
+                    format!(
+                        "from the message from {}, \u{201c}{}\u{201d}{date}",
+                        read.row.sender, read.row.subject
+                    )
+                }
+                Err(_) => "from a message no longer in the mail index".to_owned(),
+            };
+            (message, said)
+        })
+        .collect()
 }
 
 impl Draw for Drawn<'_> {
     fn routine(&self) -> Option<&crate::coding::RoutineId> {
         self.routine.as_ref()
+    }
+
+    fn source(&self, handle: &held_value::Handle) -> String {
+        self.sources
+            .get(handle.message())
+            .cloned()
+            .unwrap_or_else(|| crate::secretary::readings::UNREAD_SOURCE.to_owned())
     }
 
     fn reach(&self) -> &crate::connect::Reach {
@@ -519,6 +579,8 @@ pub fn edit(
 pub struct Effectors<'a> {
     /// Sends a tapped email.
     pub post: &'a dyn Post,
+    /// Reads a tapped email's held values, to write them into the message on the wire.
+    pub reveal: &'a dyn Reveal,
     /// Performs a tapped act (a sign-in, a web request).
     pub performer: &'a dyn Perform,
     /// Stores a tapped secret.
@@ -969,7 +1031,7 @@ fn performed(
         tap,
     } = *reach;
     Ok(match prepared {
-        Prepared::Email(draft) => mailed(caps, effectors.post, draft),
+        Prepared::Email(draft) => mailed(caps, effectors, id, draft),
         Prepared::Changes(changeset) => apply(cards, changeset),
         Prepared::Secret { name, value } => secret(
             effectors.secrets,
@@ -1575,13 +1637,43 @@ fn trusted(
     }
 }
 
-/// Send a draft with its attachments fetched again and checked against the card, or nothing.
-fn mailed(caps: &Server<'_>, post: &dyn Post, draft: &Draft) -> Performed {
+/// Send a draft with its held values read again and checked against the card, each from a
+/// message the proposal's conversation read, and its attachments fetched again and checked, or
+/// nothing.
+fn mailed(
+    caps: &Server<'_>,
+    effectors: &Effectors<'_>,
+    id: &ConversationId,
+    draft: &Draft,
+) -> Performed {
+    let not_sent = |reason: String| Performed::Tried(Tried::NotSent { reason });
+    let written = match held_value::Written::parse(&draft.body) {
+        Ok(written) => written,
+        Err(malformed) => return not_sent(malformed.to_string()),
+    };
+    let read = match written.held().next() {
+        None => crate::secretary::read_mail::ReadMail::default(),
+        Some(_) => match super::read(caps.conversations, id) {
+            Ok(stored) => crate::secretary::read_mail::ReadMail::of(&stored),
+            Err(refused) => return not_sent(refused.message().to_owned()),
+        },
+    };
+    if let Some(unread) = written.held().find(|held| match held.reach() {
+        held_value::Reach::Revealable(handle) => !read.holds(handle),
+        held_value::Reach::Withheld => false,
+    }) {
+        return not_sent(format!(
+            "the {} comes from a message this conversation did not read",
+            unread.described()
+        ));
+    }
+    let body = match held_value::fill(&written, effectors.reveal) {
+        Ok(body) => body,
+        Err(unfilled) => return not_sent(unfilled.to_string()),
+    };
     match attached::checked(&draft.attachments, |one| fetch(caps, one)) {
-        Ok(parts) => post.send(draft, parts),
-        Err(refused) => Performed::Tried(Tried::NotSent {
-            reason: refused.to_string(),
-        }),
+        Ok(parts) => effectors.post.send(draft, body, parts),
+        Err(refused) => not_sent(refused.to_string()),
     }
 }
 
@@ -2234,6 +2326,7 @@ mod tests {
             routine: None,
             plugins: Vec::new(),
             reach: crate::connect::PLAIN.clone(),
+            sources: std::collections::BTreeMap::new(),
         }
     }
 
@@ -2270,6 +2363,7 @@ mod tests {
             routine: None,
             plugins: Vec::new(),
             reach: crate::connect::PLAIN.clone(),
+            sources: std::collections::BTreeMap::new(),
         };
         let row = proposal(
             0,
@@ -2319,6 +2413,7 @@ mod tests {
             routine: None,
             plugins: Vec::new(),
             reach: crate::connect::PLAIN.clone(),
+            sources: std::collections::BTreeMap::new(),
         };
         let row = proposal(
             0,
@@ -2359,6 +2454,7 @@ mod tests {
             routine: None,
             plugins: Vec::new(),
             reach: crate::connect::PLAIN.clone(),
+            sources: std::collections::BTreeMap::new(),
         };
         let row = proposal(
             0,
@@ -2401,6 +2497,7 @@ mod tests {
             subject,
             body,
             attachments,
+            ..
         } = &row.act
         else {
             panic!("an email proposal drew a changes act: {:?}", row.act);

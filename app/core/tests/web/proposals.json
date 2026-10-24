@@ -10,7 +10,11 @@
       "cc": [],
       "subject": "Your deed (0)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -73,7 +77,11 @@
       "cc": [],
       "subject": "Your deed (1)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -127,7 +135,11 @@
       "cc": [],
       "subject": "Your deed (2)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -181,7 +193,11 @@
       "cc": [],
       "subject": "Your deed (3)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -244,7 +260,11 @@
       "cc": [],
       "subject": "Your deed (4)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -298,7 +318,11 @@
       "cc": [],
       "subject": "Your deed (5)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -352,7 +376,11 @@
       "cc": [],
       "subject": "Your deed (6)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -406,7 +434,11 @@
       "cc": [],
       "subject": "Your deed (7)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",
@@ -460,7 +492,11 @@
       "cc": [],
       "subject": "Your deed (8)",
       "body": "Following up on the deed.",
-      "attachments": []
+      "attachments": [],
+      "held": {
+        "type": "Read",
+        "values": []
+      }
     },
     "card": {
       "title": "Proposed email",

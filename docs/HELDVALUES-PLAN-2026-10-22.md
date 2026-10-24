@@ -14,10 +14,10 @@ A held value has four parts:
 - **Where the box holds it.** It is never pushed, never in a model's context,
   never in a log line and never in a public tree.
 - **A handle**, which names it. The handle is not the value.
-- **A kind**: SSN, ITIN, TIN or EIN today. Passport, code, account number and
-  file come with the stages below.
+- **A kind**: SSN, ITIN, TIN, EIN, verification code, card, account, routing
+  number or IBAN. Passport and file come with the stages below.
 - **A hint**: the last four digits, which a person needs to tell two values
-  apart.
+  apart. A code has no hint, since its last four digits are most of it.
 
 The box offers three uses of a held value, each on the owner's tap:
 
@@ -117,7 +117,7 @@ number, and the box finds the message.
   the dots in that one node and nowhere else: not in a page state, a cache, a
   replica or a stored line.
 
-**What it does not cover yet:**
+**What stage 1 did not cover:**
 
 - **Attachments.** A text attachment's numbers still arrive as `[redacted]`
   (`file_read`), and a PDF naming one is still withheld. Both guards are kept.
@@ -129,16 +129,73 @@ number, and the box finds the message.
   parameter and any JWT, runs only on stored conversation lines and does not
   reach a model's answer.
 
-## Stage 2: SEND
+## Stage 2 (built): the wider patterns and SEND
 
-A `propose_email` draft carries held values by handle in a field of their own,
-beside its attachments, never in the body text. The card shows the
-recipients, the subject, the body with each placeholder in place, and a line
-"includes your SSN ending 3456". The tap that sends reads each value through
-`Reveal` inside the postman (`commands::mail::deliver` stays the one file
-that names the transport) and substitutes it into the outgoing MIME. The
-stored proposal, the inbox and the transcript keep the handle. A value that
-reads as `Gone` at the tap refuses the send by name.
+**The patterns.** `redact::identity_numbers` also finds these kinds. Each
+format is chosen so that dates, prices and phone numbers do not match:
+
+- a verification or two-factor code: four to eight digits, or `ddd ddd`,
+  after a label that names the code with its noun (verification code,
+  security code, one-time password, and the words for a verification code in
+  Portuguese, Spanish, French, German and Arabic) within 60 characters on its
+  line, or within 20 characters of such a label or of verification, verify,
+  passcode, OTP, 2FA or MFA; four or five digits right after `code` or
+  `code:`; six to eight digits within 20 characters of code, codes or PIN,
+  unless the word before makes it a postal, zip, promo, error or dialling code.
+  A label claims only the first number beside it; a closer order, invoice,
+  reference, flight, room, fee or total label claims the number instead; a
+  year and a `yyyymmdd` date are not codes; and no label is read inside a
+  placeholder;
+- a card number anywhere: a stretch of digit groups of 13 to 19 digits with a
+  Visa, Mir, Mastercard, American Express, Discover, UnionPay, RuPay, Maestro
+  (16 to 19 digits only), JCB or Diners prefix at one of that issuer's lengths,
+  and a valid Luhn check digit, never after a `+`;
+- a bank account number: six to seventeen digits, in a row or in groups,
+  within 20 characters of account, acct, a/c, checking or savings, unless an
+  order, invoice, tracking, booking, telephone or help label is closer, and not
+  grouped as a phone number (`ddd-ddd-dddd`) or a date;
+- a routing number: nine digits within 20 characters of routing, ABA, RTN or
+  transit, whose ABA checksum holds;
+- an IBAN anywhere, in either case, whose mod-97 check holds.
+
+A labelled code, account or routing number must stand alone: no `+` or
+currency beside it, no digit beside it across a hyphen, dot, comma or slash,
+and no run of three digits or more across one space ("code 482913 10 minutes"
+stays a code). When matches overlap, a code wins (its last digits are most of
+it), then a kind whose checksum held, then the closest label. A value shorter
+than nine digits shows no digits in its placeholder. The same patterns redact a
+document's text and a stored conversation line, through `redact`. Every model
+client takes `for_model::ForModel`, whose one constructor masks, so every text
+sent to a model passes the masker: the secretary's prompts, the compactor's,
+and the triage agent's tool answers.
+
+**SEND.** The plan put the handles in a field of the draft beside its
+attachments. The built design keeps them in the body instead, so the stored
+`Email` literal does not change:
+
+- The secretary copies the placeholder it read into the body of a
+  `propose_email` draft, where the number belongs. `propose_email` refuses a
+  placeholder in the subject, a `withheld` one, a code (the owner types a code
+  themselves), and one whose handle does not decode.
+- `held_value::Written::parse` reads a body once into text and `Placeholder`s;
+  `propose_email`, the card's reading and `fill` use that one parse.
+- Each value must come from a message the conversation read
+  (`secretary::read_mail::ReadMail`: the messages a `show`, a `search` or a
+  reference answered), checked when it is proposed and again on the tap. The
+  mail reader writes a placeholder in raw mail that names another message as
+  withheld, so a sender cannot have another message's value sent.
+- The card's sentence names each value, its message (sender, subject, date)
+  and every To and Cc that receives it; its question names the value, and the
+  page draws the placeholder as a chip.
+- The tap's `mailed` step calls `held_value::fill` with the server's `Reveal`.
+  `fill` reads each value again, checks that its kind and hint print the same
+  placeholder the card showed, and returns a `Filled` body. `Post::send` takes
+  that body, and `commands::mail::deliver` stays the one file that names the
+  transport.
+- A value that is gone, changed or unreadable refuses the send with a sentence
+  that names the value by its kind and hint.
+- The stored proposal, the inbox and the transcript keep the placeholder.
+  `Filled` and `Shown` print no value in a `{:?}`.
 
 ## Stage 3: the attachments and the PDF hold fold in
 
@@ -149,10 +206,8 @@ the file's name and size. REVEAL opens it on the owner's device, and SEND
 attaches it on the tap. `FileRead`'s `[redacted]` text becomes placeholders
 whose handles name the file and the place in its text layer.
 
-## Stage 4: FIND and the wider patterns
+## Stage 4: FIND and passports
 
 - A search row says `names a held SSN`, from the values the mask counted,
   never the value.
-- New kinds (passport, account number, code) each arrive with their own
-  pattern and its tests, once the owner chooses the patterns. A code is short
-  and everywhere, so that choice is a policy, not a regex.
+- Passport numbers and A-numbers arrive with their own patterns and tests.

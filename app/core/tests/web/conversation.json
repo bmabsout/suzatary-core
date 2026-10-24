@@ -73,7 +73,11 @@
         "cc": [],
         "subject": "Your deed",
         "body": "Following up on the deed — draft attached.",
-        "attachments": []
+        "attachments": [],
+        "held": {
+          "type": "Read",
+          "values": []
+        }
       },
       "card": {
         "title": "Proposed email",

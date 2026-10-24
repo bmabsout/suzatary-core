@@ -426,7 +426,7 @@ pub fn upload(call: &Call<Writer, (), Upload>) -> Result<Json<wire::Uploaded>, R
             file: wire::AttachmentRow::from(&file),
         })),
         // Held back for the owner, who may keep it private in his Drive or not send it.
-        Err(UploadError::Withheld(why @ Withheld::IdentityNumber)) => {
+        Err(UploadError::Withheld(why @ Withheld::HeldNumber)) => {
             Ok(Json(wire::Uploaded::Sensitive {
                 why: why.to_string(),
                 folder: suzatary_core::vault::FOLDER.to_owned(),

@@ -10,7 +10,8 @@ export namespace heldvalue {
   // The value, `null` when the box no longer holds it or answered a replay.
   export type Reveal = (handle: string) => Promise<string | null>
 
-  const PATTERN = /\[(SSN|ITIN|TIN|EIN) ending (\d{0,4}) · (?:tap to show · (held:[A-Za-z0-9_-]+\.\d+)|withheld)\]/g
+  const PATTERN =
+    /\[(SSN|ITIN|TIN|EIN|verification code|card|account|routing number|IBAN)(?: ending (\d{1,4}))? · (?:tap to show · (held:[A-Za-z0-9_-]+\.\d+)|withheld)\]/g
 
   export const text = (t: string): Token => ({ type: "Text", text: t })
 
@@ -34,17 +35,22 @@ export namespace heldvalue {
 
   export const holds = (s: string): boolean => tokens(s).some((t) => t.type === "Held")
 
+  // As the box's card names it: `SSN ending 3456`, or a code, whose digits it never shows.
+  const described = (kind: string, hint: string): string => (hint === "" ? kind : `${kind} ending ${hint}`)
+
+  const dotted = (kind: string, hint: string): string => `${kind} ${hint === "" ? "••••••" : `••••${hint}`}`
+
   // Dots and the last digits; on a tap the value replaces them in place, kept nowhere but this node.
   export const chip = (kind: string, hint: string, handle: string | null, reveal: Reveal): HTMLElement => {
-    const label = el("span", { class: "heldlabel" }, `${kind} ••••${hint}`)
-    const box = el("span", { class: "heldvalue", title: handle === null ? `${kind} ending ${hint}, withheld` : `${kind} ending ${hint}` }, label)
+    const label = el("span", { class: "heldlabel" }, dotted(kind, hint))
+    const box = el("span", { class: "heldvalue", title: handle === null ? `${described(kind, hint)}, withheld` : described(kind, hint) }, label)
     if (handle === null) return box
     const button = el("button", { type: "button", class: "heldshow" }, "Show")
     button.addEventListener("click", () => {
       button.disabled = true
       reveal(handle).then(
         (v) => {
-          label.textContent = v ?? `${kind} ••••${hint} (no longer held; open the message again)`
+          label.textContent = v ?? `${dotted(kind, hint)} (no longer held; open the message again)`
           button.remove()
         },
         () => {

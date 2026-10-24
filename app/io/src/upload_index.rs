@@ -135,11 +135,11 @@ impl UploadIndex for UploadIndexFiles {
                     layer.as_deref(),
                 ))
             }
-            // The owner kept it private because its text names an identity number.
+            // The owner kept it private because its text names a held number.
             Some(Stored::Private { copy, .. }) => Some(FileRead::Text {
                 text: suzatary_core::redact::redact(&copy.text),
                 truncated: false,
-                withheld: Some(Withheld::IdentityNumber),
+                withheld: Some(Withheld::HeldNumber),
             }),
         })
     }
@@ -222,7 +222,7 @@ mod tests {
         ));
     }
 
-    /// A PDF naming an identity number that reached the store is held, with no entry, until the
+    /// A PDF naming a held number that reached the store is held, with no entry, until the
     /// owner keeps it private; then it is indexed by its redacted text.
     #[test]
     fn a_held_pdf_is_not_indexed_until_it_is_kept_private() {
@@ -255,7 +255,7 @@ mod tests {
         match index.open(&id).expect("opened") {
             Some(FileRead::Text {
                 text,
-                withheld: Some(Withheld::IdentityNumber),
+                withheld: Some(Withheld::HeldNumber),
                 ..
             }) => assert!(!text.as_str().contains("6789")),
             other => panic!("a private file is its redacted text: {other:?}"),
