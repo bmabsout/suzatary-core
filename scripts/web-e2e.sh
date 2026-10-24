@@ -244,6 +244,23 @@ secrets_store="$work/secrets-store.env"
 # so a caller-side timeout lands on a process this script does not own, and
 # prefer plain `kill`/SIGTERM over `-9` when stopping it early.
 cleanup() {
+  local status=$?
+  # A failed run says how each fixture server ended: a server that dies leaves its scenes failing
+  # with "Failed to fetch" or no warm markup, and its log is gone with $work.
+  if (( status != 0 )) && [[ -d "$work" ]]; then
+    {
+      echo "==> the fixture servers, as this run (exit $status) ends"
+      for pidfile in "$work"/*.pid; do
+        [[ -e "$pidfile" ]] || continue
+        local name pid
+        name="$(basename "$pidfile" .pid)"
+        pid="$(cat "$pidfile")"
+        if kill -0 "$pid" 2>/dev/null; then echo "  $name (pid $pid): running"; else echo "  $name (pid $pid): EXITED"; fi
+        [[ -f "$work/$name.log" ]] && tail -n 15 "$work/$name.log" | sed 's/^/      /'
+      done
+      journalctl -k --since "-1h" 2>/dev/null | grep -iE "out of memory|killed process" | tail -n 5 | sed 's/^/  kernel: /' || true
+    } >&2
+  fi
   for pid in "${servers[@]:-}"; do
     [[ -n "$pid" ]] || continue
     kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
@@ -562,9 +579,9 @@ start() { # name [fixture-chain flags…] [-- serve flags…]
 # cache degrades to raw source for a moment, which is right for a person and
 # wrong for a test that asserts on a rendered <strong>. So this waits for the
 # one todo whose body carries markup to come back with its `rich.body` filled.
-ready() { # base
-  local waited=0
-  until curl -fsS "$1/api/todo/file-permit" 2>/dev/null \
+ready() { # name base
+  local name=$1 base=$2 waited=0 started=$SECONDS
+  until curl -fsS "$base/api/todo/file-permit" 2>/dev/null \
     | node -e '
 let data = "";
 process.stdin.on("data", chunk => { data += chunk; });
@@ -580,7 +597,15 @@ process.stdin.on("end", () => {
     sleep 0.2
     waited=$((waited + 1))
     if (( waited > 1200 )); then
-      echo "web-e2e.sh: $1 never served warm markup" >&2
+      local pid
+      pid=$(cat "$work/$name.pid")
+      {
+        echo "web-e2e.sh: $name ($base) never served warm markup in $((SECONDS - started)) s"
+        if kill -0 "$pid" 2>/dev/null; then echo "  its server, pid $pid, is running"; else echo "  its server, pid $pid, has exited"; fi
+        echo "  the last answer to /api/todo/file-permit: $(curl -sS -o /dev/null -w '%{http_code} in %{time_total} s' "$base/api/todo/file-permit" 2>&1)"
+        echo "  the last 40 lines of $name.log:"
+        tail -n 40 "$work/$name.log" | sed 's/^/    /'
+      } >&2
       exit 1
     fi
   done
@@ -641,15 +666,15 @@ shell_base="$(start shell -- --build-fixture "$shell_build" --dist "$shell_dist"
 # Collected here, in the MAIN shell — not inside `start`'s subshell — which is
 # what makes `cleanup` able to reach them at all (see the note in `start`).
 servers+=("$(cat "$work/read.pid")" "$(cat "$work/proposed.pid")" "$(cat "$work/write.pid")" "$(cat "$work/shell.pid")" "$(cat "$work/bootstrap.pid")" "$(cat "$work/connect.pid")" "$(cat "$work/links.pid")" "$(cat "$work/epoch.pid")" "$(cat "$work/google.pid")" "$(cat "$work/fake-google.pid")")
-ready "$read_base"
-ready "$proposed_base"
-ready "$bootstrap_base"
-ready "$connect_base"
-ready "$links_base"
-ready "$google_base"
-ready "$epoch_base"
-ready "$write_base"
-ready "$shell_base"
+ready read "$read_base"
+ready proposed "$proposed_base"
+ready bootstrap "$bootstrap_base"
+ready connect "$connect_base"
+ready links "$links_base"
+ready google "$google_base"
+ready epoch "$epoch_base"
+ready write "$write_base"
+ready shell "$shell_base"
 echo "    reads    $read_base (a viewer, never an actor — its chain cannot move)"
 echo "    proposed $proposed_base (the same viewer, with a batch waiting)"
 echo "    writes   $write_base"
