@@ -168,7 +168,7 @@ async fn serve<W: Guarded, P: Params, B: Body, O: Outcome>(
     // be trusted on each, read where the door reads it.
     let trusting = match scope {
         Scope::Box => state.chain_stores(),
-        Scope::Chain | Scope::Named => vec![chain.caps.chain],
+        Scope::Chain | Scope::Named => vec![chain.caps.secretary.chain],
     };
     let mut traced = Traced::of(<W::Proof as Proof>::ASKS, &parts);
     let (body, proof) =

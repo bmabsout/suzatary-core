@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use suzatary_core::capability::RenderCache;
 use suzatary_core::secretary::conversations::Conversations;
+use suzatary_core::secretary::line_event::LineEvent;
 use suzatary_core::secretary::opened::Opened;
 
 use crate::objects;
@@ -16,7 +17,7 @@ use crate::texts::SystemEntropy;
 /// The lines and their keys, at their two directories.
 pub struct ConversationStores {
     /// The lines, pushed.
-    pub lines: objects::Conversations,
+    pub lines: objects::Objects<LineEvent>,
     /// The keys, box-local, vaulted, never pushed.
     pub keys: TextKeys,
     /// Where the keys are, so the stores can be opened again.
@@ -38,7 +39,7 @@ impl ConversationStores {
         renders: Arc<dyn RenderCache + Send + Sync>,
     ) -> Self {
         Self {
-            lines: objects::Objects::lines(lines),
+            lines: objects::Objects::open(lines),
             keys: text_keys::open(keys.clone()),
             opened: opened_at(&keys),
             keys_at: keys,

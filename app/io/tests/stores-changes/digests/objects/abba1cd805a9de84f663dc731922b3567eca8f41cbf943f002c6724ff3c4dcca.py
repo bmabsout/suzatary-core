@@ -1,0 +1,1 @@
+Genesis(label='digests', nonce='00000000000000000000000000000000')

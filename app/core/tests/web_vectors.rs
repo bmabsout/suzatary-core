@@ -421,13 +421,16 @@ impl Bundle {
 /// The server's record, with this bundle behind every effect a route reads.
 fn server_of(bundle: &Bundle) -> Server<'_> {
     Server {
-        chain: bundle,
-        render: bundle,
-        clock: bundle,
-        model: bundle,
+        secretary: suzatary_core::capability::Secretary {
+            chain: bundle,
+            render: bundle,
+            clock: bundle,
+            model: bundle,
+            inbox: &bundle.inbox,
+            conversations: bundle.conversations.conversations(),
+            ..Nothing::secretary()
+        },
         answers: bundle,
-        inbox: &bundle.inbox,
-        conversations: bundle.conversations.conversations(),
         ..Nothing::server()
     }
 }

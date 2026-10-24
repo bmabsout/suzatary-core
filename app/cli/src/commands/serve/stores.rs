@@ -24,21 +24,23 @@ use super::reply::Immutable;
 /// # Errors
 /// [`Refusal::not_found`] for a name that is no store's.
 pub fn named(segment: &str) -> Result<StoreName, Refusal> {
-    match segment {
-        "inbox" => Ok(StoreName::Inbox),
-        "lines" => Ok(StoreName::Lines),
-        "topics" => Ok(StoreName::Topics),
-        "topic-aliases" => Ok(StoreName::TopicAliases),
-        // A page from before the lines asks for the store they replaced: it is told a new version is ready.
-        "conversations" => Err(Refusal::new(
+    if let Some(store) = StoreName::ALL
+        .into_iter()
+        .find(|store| store.kind().name() == segment)
+    {
+        return Ok(store);
+    }
+    // A page from before the lines asks for the store they replaced: it is told a new version is ready.
+    if segment == "conversations" {
+        return Err(Refusal::new(
             suzatary_core::refusal::Status::UpgradeRequired,
             "the conversations are read from the lines now: a new version of this page is ready, and Reload loads it",
-        )),
-        other => Err(Refusal::not_found(format!(
-            "a tab holds the inbox, the lines, the topics and the topic aliases, not {}",
-            suzatary_core::refusal::shown(other)
-        ))),
+        ));
     }
+    Err(Refusal::not_found(format!(
+        "a tab holds the inbox, the lines, the topics and the topic aliases, not {}",
+        suzatary_core::refusal::shown(segment)
+    )))
 }
 
 /// A store's heads, sorted.
@@ -47,10 +49,10 @@ pub fn named(segment: &str) -> Result<StoreName, Refusal> {
 /// The store's own.
 pub fn heads(store: StoreName, caps: &Server<'_>) -> Result<Vec<String>, StoreError> {
     let tips = match store {
-        StoreName::Inbox => caps.inbox.tips()?,
-        StoreName::Lines => caps.conversations.lines.tips()?,
-        StoreName::Topics => caps.topics.memberships.tips()?,
-        StoreName::TopicAliases => caps.topics.aliases.tips()?,
+        StoreName::Inbox => caps.secretary.inbox.tips()?,
+        StoreName::Lines => caps.secretary.conversations.lines.tips()?,
+        StoreName::Topics => caps.secretary.topics.memberships.tips()?,
+        StoreName::TopicAliases => caps.secretary.topics.aliases.tips()?,
     };
     let mut heads: Vec<String> = tips.iter().map(|h| h.as_str().to_owned()).collect();
     heads.sort();
@@ -77,24 +79,21 @@ impl Params for Since {
 pub fn objects(call: &Call<Reader, Since, ()>) -> Result<Json<wire::StorePayload>, Refusal> {
     let caps = call.state.first.caps;
     let Since { store, since } = &call.params;
-    let (epochs, now) = (call.state.epochs.as_ref(), caps.clock.now());
+    let (epochs, now) = (call.state.epochs.as_ref(), caps.secretary.clock.now());
     let cut = routes::Cut::PIECE;
     match store {
         StoreName::Inbox => {
-            routes::store_objects_since(caps.inbox, "inbox", since, epochs, now, cut)
+            routes::store_objects_since(caps.secretary.inbox, since, epochs, now, cut)
         }
-        StoreName::Lines => routes::lines_since(caps.conversations, since, epochs, now, cut),
+        StoreName::Lines => {
+            routes::lines_since(caps.secretary.conversations, since, epochs, now, cut)
+        }
         StoreName::Topics => {
-            routes::store_objects_since(caps.topics.memberships, "topics", since, epochs, now, cut)
+            routes::store_objects_since(caps.secretary.topics.memberships, since, epochs, now, cut)
         }
-        StoreName::TopicAliases => routes::store_objects_since(
-            caps.topics.aliases,
-            "topic-aliases",
-            since,
-            epochs,
-            now,
-            cut,
-        ),
+        StoreName::TopicAliases => {
+            routes::store_objects_since(caps.secretary.topics.aliases, since, epochs, now, cut)
+        }
     }
     .map(Json)
 }
@@ -124,7 +123,7 @@ impl Params for Written {
 pub fn take(
     call: &Call<prodrome_core::event::Actor, Written, Literals>,
 ) -> Result<Json<wire::ReceiptPayload>, Refusal> {
-    let topics = call.state.first.caps.topics;
+    let topics = call.state.first.caps.secretary.topics;
     let (posted, actor) = (&call.body.0, &call.guard);
     match call.params {
         Written::Topics => routes::receive_changes(topics.memberships, posted, actor),
@@ -149,10 +148,10 @@ pub fn skeleton(
 ) -> Result<Json<wire::SkeletonPayload>, Refusal> {
     let caps = call.state.first.caps;
     routes::lines_skeleton(
-        caps.conversations,
+        caps.secretary.conversations,
         &call.params.0,
         call.state.epochs.as_ref(),
-        caps.clock.now(),
+        caps.secretary.clock.now(),
         routes::Cut::PIECE,
     )
     .map(Json)
@@ -181,10 +180,10 @@ pub fn content(
     let caps = call.state.first.caps;
     let Wanted { store, hashes } = &call.params;
     match store {
-        StoreName::Inbox => routes::content(caps.inbox, hashes),
-        StoreName::Lines => routes::content(caps.conversations.lines, hashes),
-        StoreName::Topics => routes::content(caps.topics.memberships, hashes),
-        StoreName::TopicAliases => routes::content(caps.topics.aliases, hashes),
+        StoreName::Inbox => routes::content(caps.secretary.inbox, hashes),
+        StoreName::Lines => routes::content(caps.secretary.conversations.lines, hashes),
+        StoreName::Topics => routes::content(caps.secretary.topics.memberships, hashes),
+        StoreName::TopicAliases => routes::content(caps.secretary.topics.aliases, hashes),
     }
     .map(|answer| Immutable(Json(answer)))
 }
@@ -193,9 +192,9 @@ pub fn content(
 /// conversations. A decision names a batch on any chain this box serves.
 pub fn waiting(call: &Call<Reader, (), ()>) -> Result<Json<wire::WaitingPayload>, Refusal> {
     let caps = call.state.first.caps;
-    let inbox = suzatary_core::secretary::inbox::fold(caps.inbox)?;
+    let inbox = suzatary_core::secretary::inbox::fold(caps.secretary.inbox)?;
     let read = call.state.chains_read();
-    let set = read.set(caps.clock.now());
+    let set = read.set(caps.secretary.clock.now());
     let chains: Vec<_> = call
         .state
         .chains
@@ -207,13 +206,20 @@ pub fn waiting(call: &Call<Reader, (), ()>) -> Result<Json<wire::WaitingPayload>
             .chains
             .get(name.as_str())
             .map_or(Ok(Vec::new()), |chained| {
-                let target = chained.caps.chain.objects()?;
-                let replica = chained.caps.proposals.objects()?;
+                let target = chained.caps.secretary.chain.objects()?;
+                let replica = chained.caps.secretary.proposals.objects()?;
                 Ok(suzatary_core::proposals::batches(
                     &suzatary_core::sync::Objects::of(&target),
                     &suzatary_core::sync::Objects::of(&replica),
                 ))
             })
     };
-    routes::waiting(&inbox, caps.conversations.lines, &set, &chains, &batches).map(Json)
+    routes::waiting(
+        &inbox,
+        caps.secretary.conversations.lines,
+        &set,
+        &chains,
+        &batches,
+    )
+    .map(Json)
 }

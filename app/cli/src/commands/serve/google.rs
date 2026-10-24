@@ -229,7 +229,7 @@ pub fn callback(call: &Call<Reader, Callback, ()>) -> Result<Redirect, Refusal> 
     let state = &call.state;
     let by = suzatary_core::gate::actor_of(&state.deployment, &call.admitted)?;
     let consenting = &state.consenting;
-    let now = state.first.caps.clock.now();
+    let now = state.first.caps.secretary.clock.now();
     let taken = consenting.table().take(
         call.params.state(),
         &by,
@@ -307,9 +307,13 @@ fn ended(
     performed: Performed,
 ) -> Result<(), Refusal> {
     let caps = state.first.caps;
-    if let Some(conversation) =
-        google_sign_in::end(caps.conversations, caps.inbox, card, now, performed)?
-    {
+    if let Some(conversation) = google_sign_in::end(
+        caps.secretary.conversations,
+        caps.secretary.inbox,
+        card,
+        now,
+        performed,
+    )? {
         state.heard(&conversation);
     }
     state.notice();

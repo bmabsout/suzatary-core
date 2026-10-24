@@ -1,22 +1,19 @@
 //! The membership store's schema: `Added` and `Removed`, each writing its pair's one register.
 
 use prodrome_core::event::Actor;
-use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary};
-use prodrome_core::schema::Schema;
+use prodrome_core::fold::{Frontier, RegisterType};
+use prodrome_core::literal::{Datetime, ProdromeError, Value};
+use prodrome_core::registers::Stamp;
 
-use crate::literal::{Fields, Literal as _, Signature, record};
+use crate::envelope::{Event, Head, Says, Vocab};
+use crate::literal::{Fields, Literal as _, Signature};
 use crate::secretary::topics::membership::{Membership, Presence};
-use crate::secretary::topics::membership_registers::{MembershipRegister, MembershipRegisters};
 use crate::secretary::topics::target::Target;
 use crate::secretary::topics::topic::Topic;
+use crate::sole::{One, Only, Sole};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MembershipEvent {
-    membership: Membership,
-    at: Datetime,
-    actor: Actor,
-    presence: Presence,
-}
+/// A topic put on a target or taken off it.
+pub type MembershipEvent = Event<Presence>;
 
 impl MembershipEvent {
     #[must_use]
@@ -29,23 +26,9 @@ impl MembershipEvent {
         Self::of(Membership { target, topic }, at, actor, Presence::Off)
     }
 
-    fn of(membership: Membership, at: Datetime, actor: Actor, presence: Presence) -> Self {
-        Self {
-            membership,
-            at,
-            actor,
-            presence,
-        }
-    }
-
-    #[must_use]
-    pub fn membership(&self) -> &Membership {
-        &self.membership
-    }
-
     #[must_use]
     pub fn presence(&self) -> Presence {
-        self.presence
+        *self.said()
     }
 }
 
@@ -53,74 +36,85 @@ const ADDED: Signature = ("Added", &["target", "topic", "at", "actor"]);
 const REMOVED: Signature = ("Removed", &["target", "topic", "at", "actor"]);
 const SIGNATURES: &[Signature] = &[ADDED, REMOVED];
 
-#[derive(Debug, Clone, Default)]
-pub struct MembershipVocabulary;
+/// The membership store's schema.
+pub type MembershipVocabulary = Vocab<Presence>;
 
-impl Vocabulary for MembershipVocabulary {
-    fn signature(&self, name: &str) -> Option<prodrome_core::literal::Signature<'_>> {
-        Table(SIGNATURES).find(name)
+/// A membership's key is two fields, its target's and its topic's.
+impl Head for Membership {
+    fn head(&self) -> Vec<Value> {
+        vec![self.target.to_value(), self.topic.to_value()]
     }
 }
 
-impl Schema for MembershipEvent {
-    type Vocabulary = MembershipVocabulary;
+impl Says for Presence {
     type Key = Membership;
-    type Register = MembershipRegister;
+    type Register = Only;
+    type Registers<'a> = One<'a, MembershipEvent>;
 
-    fn registers(_: &MembershipVocabulary) -> Vec<MembershipRegister> {
-        vec![MembershipRegister]
+    const EVENTS: &'static [Signature] = SIGNATURES;
+
+    fn registers() -> Vec<Only> {
+        vec![Only]
     }
 
-    type Registers<'a> = MembershipRegisters<'a>;
-
-    fn to_value(&self) -> Value {
-        let signature = match self.presence {
-            Presence::On => ADDED,
-            Presence::Off => REMOVED,
-        };
-        record(
-            signature,
-            vec![
-                self.membership.target.to_value(),
-                self.membership.topic.to_value(),
-                self.at.to_value(),
-                self.actor.to_value(),
-            ],
-        )
+    fn writes(_: &MembershipEvent) -> impl Iterator<Item = Only> {
+        std::iter::once(Only)
     }
 
-    fn from_value(_: &MembershipVocabulary, value: &Value) -> Result<Self, ProdromeError> {
-        let fields = Fields::among(value, SIGNATURES)?;
+    fn body(&self) -> (Signature, Vec<Value>) {
+        match self {
+            Presence::On => (ADDED, Vec::new()),
+            Presence::Off => (REMOVED, Vec::new()),
+        }
+    }
+
+    fn parse(fields: &Fields<'_>) -> Result<MembershipEvent, ProdromeError> {
         let presence = match fields.name() {
             "Added" => Presence::On,
             "Removed" => Presence::Off,
             other => return Err(crate::literal::no_arm("a membership event", other)),
         };
-        Ok(Self::of(
-            Membership {
-                target: fields.get("target")?,
-                topic: fields.get("topic")?,
-            },
+        let membership = Membership {
+            target: fields.get("target")?,
+            topic: fields.get("topic")?,
+        };
+        Ok(MembershipEvent::of(
+            membership,
             fields.get("at")?,
             fields.get("actor")?,
             presence,
         ))
     }
+}
 
-    fn key(&self) -> &Membership {
-        &self.membership
+/// The register's type: a [`Presence`]. It is not inflationary: a removal after an add goes
+/// down, and only causal order decides that it does.
+#[derive(Debug)]
+pub struct PresenceRegister;
+
+impl RegisterType<MembershipEvent> for PresenceRegister {
+    type Value<'e> = Presence;
+
+    fn value(event: &MembershipEvent) -> Option<Presence> {
+        Some(event.presence())
     }
+}
 
-    fn at(&self) -> Datetime {
-        self.at
+impl Sole for MembershipEvent {
+    fn reading<'a>(frontier: &Frontier<'a, Self>) -> Vec<&'a Stamp<Self>> {
+        frontier.reading::<PresenceRegister>()
     }
+}
 
-    fn actor(&self) -> &Actor {
-        &self.actor
-    }
-
-    fn writes(&self) -> impl Iterator<Item = MembershipRegister> {
-        std::iter::once(MembershipRegister)
+impl One<'_, MembershipEvent> {
+    /// `Off` where nothing wrote it.
+    #[must_use]
+    pub fn presence(&self) -> Presence {
+        self.reading()
+            .iter()
+            .map(|stamp| stamp.event.presence())
+            .max()
+            .unwrap_or(Presence::Off)
     }
 }
 

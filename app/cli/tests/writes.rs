@@ -627,12 +627,12 @@ fn the_closed_world_is_the_one_world_and_library_built_here() {
     );
 }
 
-/// The inbox and the memory's history are opened in one place, the instance's openers, so each
-/// store's place is named once, by the instance file.
+/// The inbox's and the memory's places are read in one file, the instance's, so each store is
+/// opened where its place is named.
 #[test]
 fn the_inbox_and_the_memory_are_opened_by_the_instance_alone() {
     for store in ["inbox", "memory"] {
-        let needle = ["Objects::", store, "("].concat();
+        let needle = ["secretary.", store, ".clone()"].concat();
         assert_eq!(
             production_callers(&needle),
             vec!["cli/src/instance.rs"],

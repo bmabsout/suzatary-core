@@ -226,13 +226,19 @@ fn uploads(state: &State) -> Result<&super::Uploads, Refusal> {
 
 /// `GET /api/secretary/memory`: every standing fact.
 pub fn memory(call: &Call<Reader, (), ()>) -> Result<Json<wire::MemoryPayload>, Refusal> {
-    secretary_routes::memory(call.chain.caps.memories).map(Json)
+    secretary_routes::memory(call.chain.caps.secretary.memories).map(Json)
 }
 
 /// `POST /api/secretary/memory/<id>/forget`: erase one fact.
 pub fn forget(call: &Call<Actor, FactId, ()>) -> Result<Json<wire::MemoryPayload>, Refusal> {
     let caps = call.chain.caps;
-    secretary_routes::forget(caps.memories, caps.clock, &call.guard, call.params).map(Json)
+    secretary_routes::forget(
+        caps.secretary.memories,
+        caps.secretary.clock,
+        &call.guard,
+        call.params,
+    )
+    .map(Json)
 }
 
 /// `POST /api/secretary/conversations`: open a topic.
@@ -268,8 +274,8 @@ pub fn erase(
             // The erased turns' uploads leave the index now, not at the next search.
             let caps = call.chain.caps;
             if let Err(failed) = suzatary_core::secretary::file_search::reindex(
-                caps.conversations,
-                caps.upload_index,
+                caps.secretary.conversations,
+                caps.secretary.upload_index,
             ) {
                 tracing::warn!(
                     "secretary: reindexing the uploads after an erasure: {}",
@@ -289,7 +295,7 @@ pub fn block(call: &Call<Reader, Block, ()>) -> Result<Json<wire::BlockRender>, 
     let source = match call.state.workers.closed(id, sha) {
         Some(source) => Some(source),
         None => readings::block_named(
-            &suzatary_core::secretary::read(call.chain.caps.conversations, id)?,
+            &suzatary_core::secretary::read(call.chain.caps.secretary.conversations, id)?,
             sha,
         ),
     };
@@ -327,7 +333,7 @@ fn stamped(state: &State, actor: &Actor, references: &[Reference]) -> Stamp {
         stamp::pointing(
             actor.as_str(),
             references,
-            &read.set(state.first.caps.clock.now()),
+            &read.set(state.first.caps.secretary.clock.now()),
         )
     } else {
         Stamp::Actor(actor.as_str().to_owned())

@@ -451,7 +451,7 @@ fn only_an_owner_retracts() {
     let kept = the.kept();
     for actor in ["assistant", "triage", "plugin", "compactor"] {
         let forged = prodrome_core::event::parse_event::<DigestEvent>(
-            &suzatary_core::secretary::digest_event::DigestVocabulary,
+            &suzatary_core::secretary::digest_event::DigestVocabulary::default(),
             &format!(
                 "Retracted(node='{}', at=datetime(2026, 10, 6, 12, 0, 0), actor='{actor}')",
                 node.as_str()

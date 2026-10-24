@@ -11,32 +11,28 @@
 //! summary. Every call to a model is an `Asked`, appended BEFORE the call is made, so what the
 //! compactor spent is a fold over these objects that no failure can leave uncounted; an `Asked`
 //! writes no register, so it never stands as a node's reading.
-//! Only a [`Tap`] makes a `Retracted`, and it is about standing ([`Schema::asks`]), so one
+//! Only a [`Tap`] makes a `Retracted`, and it is about standing (`Schema::asks`), so one
 //! written as anyone but an owner claims and moves nothing ([`crate::secretary::digest_policy`]).
-//! Every other event writes the node's one register, discrete ([`crate::secretary::digest_registers`]):
+//! Every other event writes the node's one register, discrete ([`Sole`]):
 //! two summaries no later write descends from are a conflict, never settled by time.
 
 use prodrome_core::event::{Actor, Hash};
-use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary};
-use prodrome_core::schema::Schema;
+use prodrome_core::fold::Frontier;
+use prodrome_core::literal::{Datetime, ProdromeError, Value};
+use prodrome_core::registers::Stamp;
 
-use crate::literal::{Fields, Literal as _, Signature, record};
+use crate::envelope::{Event, Says, Vocab};
+use crate::literal::{Fields, Literal as _, Signature};
+use crate::sole::{One, Only, Sole};
 
 use crate::models::ModelName;
 use crate::secretary::digest_line::{Line, NODE_BYTES};
-use crate::secretary::digest_registers::{NodeRegister, NodeRegisters};
 use crate::secretary::salted_text::{Text, TextName};
 use crate::secretary::taint::Taint;
 use crate::secretary::tap::Tap;
 
 /// One event about one node: which, when, who wrote it, and what it says.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DigestEvent {
-    node: Hash,
-    at: Datetime,
-    actor: Actor,
-    said: Said,
-}
+pub type DigestEvent = Event<Said>;
 
 /// What an event says of its node.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,39 +129,30 @@ impl DigestEvent {
     /// `shortest` bytes, under today's [`NODE_BYTES`].
     #[must_use]
     pub fn unfit(node: Hash, at: Datetime, actor: Actor, model: ModelName, shortest: u32) -> Self {
-        Self {
+        let limit = u32::try_from(NODE_BYTES).unwrap_or(u32::MAX);
+        Self::of(
             node,
             at,
             actor,
-            said: Said::Unfit {
+            Said::Unfit {
                 model,
-                limit: u32::try_from(NODE_BYTES).unwrap_or(u32::MAX),
+                limit,
                 shortest,
             },
-        }
+        )
     }
 
     /// A call of `sent` bytes about `node` that `actor` is about to make.
     #[must_use]
     pub fn asked(node: Hash, at: Datetime, actor: Actor, sent: u64) -> Self {
-        Self {
-            node,
-            at,
-            actor,
-            said: Said::Asked { sent },
-        }
+        Self::of(node, at, actor, Said::Asked { sent })
     }
 
     /// Node `node`'s summary retracted by whoever tapped `tap`: the actor is the gate's
     /// mapping of the peer, never an argument.
     #[must_use]
     pub fn retracted(node: Hash, at: Datetime, tap: &Tap) -> Self {
-        Self {
-            node,
-            at,
-            actor: tap.who().clone(),
-            said: Said::Retracted,
-        }
+        Self::of(node, at, tap.who().clone(), Said::Retracted)
     }
 
     /// The one door both the constructors and the parse go through.
@@ -187,30 +174,13 @@ impl DigestEvent {
             Said::Summarized { .. } | Said::Unfit { .. } | Said::Asked { .. } | Said::Retracted => {
             }
         }
-        Ok(Self {
-            node,
-            at,
-            actor,
-            said,
-        })
-    }
-
-    /// The node.
-    #[must_use]
-    pub fn node(&self) -> &Hash {
-        &self.node
-    }
-
-    /// What it says.
-    #[must_use]
-    pub fn said(&self) -> &Said {
-        &self.said
+        Ok(Self::of(node, at, actor, said))
     }
 
     /// The bytes it sent, if it is a call.
     #[must_use]
     pub fn sent(&self) -> Option<u64> {
-        match &self.said {
+        match self.said() {
             Said::Asked { sent } => Some(*sent),
             Said::Summarized { .. } | Said::Unfit { .. } | Said::Retracted => None,
         }
@@ -237,33 +207,34 @@ const RETRACTED: Signature = ("Retracted", &["node", "at", "actor"]);
 const SIGNATURES: &[Signature] = &[SUMMARIZED, UNFIT, ASKED, RETRACTED];
 
 /// The digest's whitelist: its constructors and nothing else, since no event nests a term.
-#[derive(Debug, Clone, Default)]
-pub struct DigestVocabulary;
+pub type DigestVocabulary = Vocab<Said>;
 
-impl Vocabulary for DigestVocabulary {
-    fn signature(&self, name: &str) -> Option<prodrome_core::literal::Signature<'_>> {
-        Table(SIGNATURES).find(name)
-    }
-}
-
-impl Schema for DigestEvent {
-    type Vocabulary = DigestVocabulary;
+impl Says for Said {
     type Key = Hash;
-    type Register = NodeRegister;
+    type Register = Only;
+    type Registers<'a> = One<'a, DigestEvent>;
 
-    fn registers(_: &DigestVocabulary) -> Vec<NodeRegister> {
-        vec![NodeRegister]
+    const EVENTS: &'static [Signature] = SIGNATURES;
+
+    fn registers() -> Vec<Only> {
+        vec![Only]
     }
 
-    type Registers<'a> = NodeRegisters<'a>;
+    /// A call writes no register: it is counted, and never a node's reading.
+    fn writes(event: &DigestEvent) -> impl Iterator<Item = Only> {
+        (!matches!(event.said(), Said::Asked { .. }))
+            .then_some(Only)
+            .into_iter()
+    }
 
-    fn to_value(&self) -> Value {
-        let head = [
-            self.node.to_value(),
-            self.at.to_value(),
-            self.actor.to_value(),
-        ];
-        let (signature, own) = match &self.said {
+    /// A retraction is about standing ([`crate::secretary::digest_policy`]); an attempt binds
+    /// whoever wrote it.
+    fn asks(event: &DigestEvent) -> bool {
+        matches!(event.said(), Said::Retracted)
+    }
+
+    fn body(&self) -> (Signature, Vec<Value>) {
+        match self {
             Said::Summarized {
                 text,
                 over,
@@ -290,12 +261,10 @@ impl Schema for DigestEvent {
             ),
             Said::Asked { sent } => (ASKED, vec![sent.to_value()]),
             Said::Retracted => (RETRACTED, Vec::new()),
-        };
-        record(signature, head.into_iter().chain(own).collect())
+        }
     }
 
-    fn from_value(_: &DigestVocabulary, value: &Value) -> Result<Self, ProdromeError> {
-        let fields = Fields::among(value, SIGNATURES)?;
+    fn parse(fields: &Fields<'_>) -> Result<DigestEvent, ProdromeError> {
         let said = match fields.name() {
             "Summarized" => Said::Summarized {
                 text: fields.get("text")?,
@@ -323,36 +292,19 @@ impl Schema for DigestEvent {
         )
         .map_err(|failed| ProdromeError::invalid(failed.to_string()))
     }
+}
 
-    fn key(&self) -> &Hash {
-        &self.node
-    }
-
-    fn at(&self) -> Datetime {
-        self.at
-    }
-
-    fn actor(&self) -> &Actor {
-        &self.actor
-    }
-
-    /// A call writes no register: it is counted, and never a node's reading.
-    fn writes(&self) -> impl Iterator<Item = NodeRegister> {
-        (!matches!(self.said, Said::Asked { .. }))
-            .then_some(NodeRegister)
-            .into_iter()
-    }
-
-    /// A retraction is about standing ([`crate::secretary::digest_policy`]); an attempt binds
-    /// whoever wrote it.
-    fn asks(&self) -> bool {
-        matches!(self.said, Said::Retracted)
+/// Discrete, so not inflationary: a retraction may follow a summary and a summary a retraction.
+impl Sole for DigestEvent {
+    fn reading<'a>(frontier: &Frontier<'a, Self>) -> Vec<&'a Stamp<Self>> {
+        frontier.candidates()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use prodrome_core::event::{canonical, parse_event};
+    use prodrome_core::schema::Schema as _;
     use proptest::prelude::*;
 
     use super::*;
@@ -399,11 +351,11 @@ mod tests {
                     .expect("an event"),
                 DigestEvent::unfit(name(node), at(), ada.clone(), model(), shortest),
                 DigestEvent::asked(name(node), at(), ada.clone(), sent),
-                DigestEvent { node: name(node), at: at(), actor: ada, said: Said::Retracted },
+                DigestEvent::of(name(node), at(), ada, Said::Retracted),
             ] {
                 let print = canonical(&event);
                 prop_assert!(!print.contains(words.trim()), "{print}");
-                prop_assert_eq!(parse_event::<DigestEvent>(&DigestVocabulary, &print), Ok(event));
+                prop_assert_eq!(parse_event::<DigestEvent>(&DigestVocabulary::default(), &print), Ok(event));
             }
         }
     }
@@ -412,14 +364,20 @@ mod tests {
     #[test]
     fn every_count_round_trips_at_its_widest() {
         let ada = Actor::new("ada").expect("an actor");
-        let mut unfit = DigestEvent::unfit(name(1), at(), ada.clone(), model(), u32::MAX);
-        if let Said::Unfit { limit, .. } = &mut unfit.said {
-            *limit = u32::MAX;
-        }
+        let unfit = DigestEvent::of(
+            name(1),
+            at(),
+            ada.clone(),
+            Said::Unfit {
+                model: model(),
+                limit: u32::MAX,
+                shortest: u32::MAX,
+            },
+        );
         for event in [DigestEvent::asked(name(1), at(), ada, u64::MAX), unfit] {
             let print = canonical(&event);
             assert_eq!(
-                parse_event::<DigestEvent>(&DigestVocabulary, &print),
+                parse_event::<DigestEvent>(&DigestVocabulary::default(), &print),
                 Ok(event),
                 "{print}"
             );
@@ -449,7 +407,7 @@ mod tests {
         )
         .expect("ok");
         let long = canonical(&event).replace("bytes=6", &format!("bytes={}", NODE_BYTES + 1));
-        assert!(parse_event::<DigestEvent>(&DigestVocabulary, &long).is_err());
+        assert!(parse_event::<DigestEvent>(&DigestVocabulary::default(), &long).is_err());
     }
 
     /// A call is counted and stands as no node's reading: it writes no register.

@@ -264,8 +264,12 @@ pub fn grant(caps: &Server<'_>, plugin: &PluginName, origin: &Origin) -> Result<
         asking(plugin, origin),
     )
     // Each paste is the owner asking again, so a grant once dismissed is asked for anew.
-    .since(caps.clock.now())
+    .since(caps.secretary.clock.now())
     .holding()
-    .file(caps.conversations, caps.inbox, caps.clock.now())
+    .file(
+        caps.secretary.conversations,
+        caps.secretary.inbox,
+        caps.secretary.clock.now(),
+    )
     .map(|_| ())
 }

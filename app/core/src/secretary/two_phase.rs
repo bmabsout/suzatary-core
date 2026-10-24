@@ -2,7 +2,7 @@
 //! forgotten, each by id; what stands is the first half minus the second.
 //!
 //! Ordered by what it holds ([`Held`], inclusion of both halves), and a function of the object
-//! set: each fact's half is read off its register ([`crate::secretary::memory_registers`]), which
+//! set: each fact's half is read off its register ([`crate::secretary::memory_event::LifeRegister`]), which
 //! is inflationary, so a larger history holds more and the union of two histories holds the join
 //! of what each does. Nothing here reads a fact's words; [`crate::secretary::memory::Memory`]
 //! joins them.
@@ -17,7 +17,6 @@ use prodrome_core::registers::{Node, Stamp, fold};
 
 use crate::secretary::memory::{FactId, Kind, Origin};
 use crate::secretary::memory_event::{MemoryEvent, Said};
-use crate::secretary::memory_registers::FactRegisters;
 use crate::secretary::salted_text::TextName;
 use crate::secretary::texts::{Liveness, Naming};
 
@@ -71,7 +70,8 @@ impl TwoPhase {
         let folded = fold(nodes);
         let mut read = Self::default();
         for (&fact, stream) in folded.entities() {
-            let registers: FactRegisters<'_> = prodrome_core::fold::read(stream, None, &Everything);
+            let registers: crate::sole::One<'_, MemoryEvent> =
+                prodrome_core::fold::read(stream, None, &Everything);
             if let Some(gone) = registers.reading().iter().find_map(|stamp| gone(stamp)) {
                 read.forgotten.insert(fact, gone);
             }

@@ -19,10 +19,10 @@ fn the_default_opens_once_and_a_replica_reads_it() {
     let caps = fakes.server();
     let open = || {
         suzatary_core::secretary::read_or_open_default(
-            caps.conversations,
-            caps.model,
+            caps.secretary.conversations,
+            caps.secretary.model,
             &suzatary_core::secretary::store::DEFAULT,
-            caps.clock.now(),
+            caps.secretary.clock.now(),
         )
         .expect("the default opens")
     };

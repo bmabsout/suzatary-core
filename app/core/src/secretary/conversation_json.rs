@@ -7,20 +7,20 @@ use prodrome_wasm_exports::wire::json_literal;
 use serde_json::Value;
 
 use crate::secretary::line_event::{LineEvent, LineVocabulary};
-use crate::secretary::transcript_registers::TranscriptRegister;
+use crate::sole::Only;
 
 impl Json for LineEvent {
     fn key_field(_: &LineVocabulary) -> &'static str {
         "conversation"
     }
 
-    fn register(_: &LineVocabulary, _: TranscriptRegister) -> &'static str {
+    fn register(_: &LineVocabulary, _: Only) -> &'static str {
         "transcript"
     }
 
     /// A transcript's value is the line itself, its words locked (its down-set is read by ancestry, never from the
     /// value), so its JSON is the line's literal.
-    fn value(&self, _: TranscriptRegister) -> Value {
+    fn value(&self, _: Only) -> Value {
         json_literal(&Schema::to_value(self))
     }
 }
@@ -65,7 +65,7 @@ mod tests {
         fn a_value_is_its_line(text in "[a-z ]{0,24}", minute in 0u32..59) {
             let one = said(&text, minute);
             let two = said(&text, minute);
-            prop_assert_eq!(one.value(TranscriptRegister), two.value(TranscriptRegister));
+            prop_assert_eq!(one.value(Only), two.value(Only));
             let back = LineEvent::from_value(&LineVocabulary, &one.to_value()).expect("it reads back");
             prop_assert_eq!(back, one);
         }

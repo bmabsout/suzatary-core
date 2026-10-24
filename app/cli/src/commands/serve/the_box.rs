@@ -58,16 +58,16 @@ impl Body for Report {
 /// `GET /api/briefings`: every day that has one.
 pub fn briefings(call: &Call<Reader, (), ()>) -> Result<Json<wire::BriefingsPayload>, Refusal> {
     let caps = call.chain.caps;
-    routes::briefings(caps.briefings, caps.conversations).map(Json)
+    routes::briefings(caps.secretary.briefings, caps.secretary.conversations).map(Json)
 }
 
 /// `GET /api/briefings/<date>`: one day's, block by block.
 pub fn briefing(call: &Call<Reader, Day, ()>) -> Result<Json<wire::BriefingPayload>, Refusal> {
     let caps = call.chain.caps;
     routes::briefing(
-        caps.briefings,
-        caps.render,
-        caps.conversations,
+        caps.secretary.briefings,
+        caps.secretary.render,
+        caps.secretary.conversations,
         caps.answers,
         call.params.0,
     )
@@ -77,7 +77,12 @@ pub fn briefing(call: &Call<Reader, Day, ()>) -> Result<Json<wire::BriefingPaylo
 /// `GET /api/calendar/<date>`: a week of the owner's calendars from that day.
 pub fn calendar(call: &Call<Reader, Day, ()>) -> Result<Json<wire::CalendarPayload>, Refusal> {
     let caps = call.chain.caps;
-    routes::calendar(caps.calendar, caps.render, call.params.0).map(Json)
+    routes::calendar(
+        caps.secretary.calendar,
+        caps.secretary.render,
+        call.params.0,
+    )
+    .map(Json)
 }
 
 /// `GET /api/presence`: a shown page's ping, which decides whether a decision rings the
@@ -89,7 +94,7 @@ pub fn presence(call: &Call<Reader, (), ()>) -> StatusCode {
 
 /// `GET /api/about`: the version and build this process is.
 pub fn about(call: &Call<Reader, (), ()>) -> Result<Json<wire::AboutPayload>, Refusal> {
-    let now = call.chain.caps.clock.now();
+    let now = call.chain.caps.secretary.clock.now();
     call.state
         .stamp
         .about(&call.state.chains_read().set(now))
@@ -106,7 +111,7 @@ pub fn portal(call: &Call<Reader, (), ()>) -> Json<wire::PortalPayload> {
 /// them now.
 pub fn releases(call: &Call<Reader, (), ()>) -> Result<Json<wire::ReleasesPayload>, Refusal> {
     let plan = Plan::declared().map_err(|e| Refusal::internal(e.to_string()))?;
-    let now = call.chain.caps.clock.now();
+    let now = call.chain.caps.secretary.clock.now();
     routes::releases(&plan, &call.state.chains_read().set(now)).map(Json)
 }
 
@@ -126,7 +131,7 @@ pub fn device(
     call: &Call<Actor, (), wire::Registering>,
 ) -> Result<Json<wire::DevicePayload>, Refusal> {
     let caps = call.chain.caps;
-    devices::register_device(caps.devices, caps.clock, &call.body, &call.guard).map(Json)
+    devices::register_device(caps.devices, caps.secretary.clock, &call.body, &call.guard).map(Json)
 }
 
 /// A device's public key, as `POST /api/act/key` carries it.
@@ -210,10 +215,10 @@ pub fn pair(call: &Call<Asker, (), PairingCode>) -> Result<Json<serde_json::Valu
             );
             let caps = state.first.caps;
             match suzatary_core::secretary::routes::withdraw_trusted(
-                caps.inbox,
-                caps.chain,
+                caps.secretary.inbox,
+                caps.secretary.chain,
                 &keys.root().public(),
-                caps.clock.now(),
+                caps.secretary.clock.now(),
             ) {
                 Ok(withdrawn) if !withdrawn.is_empty() => {
                     state.heard(&suzatary_core::secretary::store::DEFAULT);

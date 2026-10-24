@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use prodrome_core::declared::Declared;
 
-use super::{Doc, Log, Prodrome, Replica};
+use super::{Doc, Kind, Log, Prodrome, Replica, Store};
 use crate::attachment::AttachmentId;
 use crate::chains::ChainName;
 use crate::decisions::DecisionEvent;
@@ -19,6 +19,8 @@ use crate::secretary::locked_text::{KeyName, TextKey};
 use crate::secretary::memory::Fact;
 use crate::secretary::memory_event::MemoryEvent;
 use crate::secretary::salted_text::{Text, TextName};
+use crate::secretary::topics::alias_event::AliasEvent;
+use crate::secretary::topics::membership_event::MembershipEvent;
 use crate::upload::Upload;
 
 /// The whole store, as one value: every chain beside the agent's replica of it, and the box's
@@ -44,6 +46,10 @@ pub struct Database<'a> {
     pub digest_texts: &'a dyn Doc<TextName, Text<Line>>,
     /// The recorded decisions: designs and plans as items, keyed by decision.
     pub decisions: &'a dyn Prodrome<DecisionEvent>,
+    /// The topics on the secretary's rounds and notes.
+    pub topics: &'a dyn Prodrome<MembershipEvent>,
+    /// The topics' aliases.
+    pub topic_aliases: &'a dyn Prodrome<AliasEvent>,
     /// What each plugin learned, by its name: a cache-tier replica at the plugin's declared
     /// schema, rebuilt by syncing again.
     pub plugins: BTreeMap<PluginName, &'a dyn Prodrome<Declared>>,
@@ -69,36 +75,46 @@ pub struct Area<'a> {
 }
 
 impl Database<'_> {
-    /// Every prodrome's fsck findings, named `<chain> chain`, `<chain> proposals`, `inbox`,
-    /// `conversations`, `memory`, `digests`, `decisions` and `plugin <name>`.
+    /// Every prodrome's fsck findings, each under the name [`Kind::name`] gives its store, a
+    /// chain's and a plugin's after their own names.
     #[must_use]
     pub fn verify(&self) -> Vec<(String, Vec<String>)> {
         self.chains
             .iter()
             .flat_map(|(name, area)| {
                 [
-                    (format!("{name} chain"), area.events.verify()),
-                    (format!("{name} proposals"), area.proposals.verify()),
+                    (
+                        format!("{name} {}", Kind::Chain.name()),
+                        area.events.verify(),
+                    ),
+                    (
+                        format!("{name} {}", Kind::Proposals.name()),
+                        area.proposals.verify(),
+                    ),
                 ]
             })
             .chain([
-                (
-                    "inbox".to_owned(),
-                    crate::secretary::inbox::findings(self.inbox),
-                ),
-                (
-                    "conversations".to_owned(),
+                found(self.inbox, crate::secretary::inbox::findings(self.inbox)),
+                found(
+                    self.conversations,
                     crate::secretary::transcript::findings(self.conversations, self.inbox),
                 ),
-                ("memory".to_owned(), self.memory.verify()),
-                ("digests".to_owned(), self.digests.verify()),
-                ("decisions".to_owned(), self.decisions.verify()),
+                found(self.memory, self.memory.verify()),
+                found(self.digests, self.digests.verify()),
+                found(self.decisions, self.decisions.verify()),
+                found(self.topics, self.topics.verify()),
+                found(self.topic_aliases, self.topic_aliases.verify()),
             ])
             .chain(
-                self.plugins
-                    .iter()
-                    .map(|(name, store)| (format!("plugin {name}"), store.verify())),
+                self.plugins.iter().map(|(name, store)| {
+                    (format!("{} {name}", Kind::Plugin.name()), store.verify())
+                }),
             )
             .collect()
     }
+}
+
+/// `findings` under the name of `store`'s kind.
+fn found<E: Store>(_: &dyn Prodrome<E>, findings: Vec<String>) -> (String, Vec<String>) {
+    (E::KIND.name().to_owned(), findings)
 }

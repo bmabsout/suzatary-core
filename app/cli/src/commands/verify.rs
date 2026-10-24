@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use suzatary_core::chains::ChainName;
-use suzatary_core::store::{Area, Database};
+use suzatary_core::store::{Area, Database, Kind};
 
 use super::{proposals_of, proposing_of, store_of};
 use crate::commands::serve::interpreters::{file_store, upload_store};
@@ -17,9 +17,8 @@ use crate::instance::Instance;
 
 /// `suzatary verify` — fsck every store the data push stages.
 ///
-/// The database's own fsck, [`Database::verify`], over every chain and its proposal replica,
-/// the inbox, the conversations, the memory, the digests and the decisions, and beside it the
-/// request records, which the database does not hold. A replica is read as the agent's run
+/// The database's own fsck, [`Database::verify`], over every prodrome it holds, and beside it
+/// the request records, which the database does not hold. A replica is read as the agent's run
 /// opens it, its chain's objects taken in first, since a key the chain registered since the
 /// last run proves what the replica holds. The plugins' stores are the cache tier, never
 /// pushed and rebuilt by syncing, so a damaged one is no reason to hold the data back.
@@ -45,7 +44,8 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
     let memory_texts = suzatary_io::texts::Texts::open(instance.secretary.memory_texts());
     let digests = instance.digest_store();
     let digest_texts = suzatary_io::texts::Texts::open(instance.secretary.digest_texts());
-    let decisions = suzatary_io::objects::Objects::decisions(instance.decisions());
+    let decisions = suzatary_io::objects::Objects::open(instance.decisions());
+    let topics = instance.secretary.topics.open();
     let triage = suzatary_io::state::State::open(instance.mail.state.clone());
     let triage_local = suzatary_io::state::Local::open(instance.local.mail());
     let devices = suzatary_io::devices::Devices::open(instance.paths.devices.clone());
@@ -65,6 +65,8 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
         digests: &digests,
         digest_texts: &digest_texts,
         decisions: &decisions,
+        topics: &topics.memberships,
+        topic_aliases: &topics.aliases,
         plugins: BTreeMap::new(),
         triage: &triage,
         triage_local: &triage_local,
@@ -79,26 +81,9 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
 
     // Where each store lives, by the name its findings carry, so an OK line says which
     // directory was read.
-    let roots: BTreeMap<String, PathBuf> = instance
-        .chains
+    let roots: BTreeMap<String, PathBuf> = Kind::ALL
         .iter()
-        .flat_map(|chain| {
-            [
-                (format!("{} chain", chain.policy.name), chain.events.clone()),
-                (
-                    format!("{} proposals", chain.policy.name),
-                    chain.proposals.clone(),
-                ),
-            ]
-        })
-        .chain([
-            ("inbox".to_owned(), instance.secretary.inbox.clone()),
-            ("conversations".to_owned(), instance.secretary.line_store()),
-            ("memory".to_owned(), instance.secretary.memory.clone()),
-            ("digests".to_owned(), instance.secretary.digests.clone()),
-            ("decisions".to_owned(), instance.decisions()),
-            ("requests".to_owned(), instance.requests()),
-        ])
+        .flat_map(|kind| instance.directories(*kind))
         .collect();
 
     let mut total = 0;

@@ -655,12 +655,11 @@ pub fn mail_sync(instance: &Instance) -> suzatary_io::mail_sync::Timer {
     suzatary_io::mail_sync::Timer::new(instance.paths.last_sync.clone(), &instance.mail.heartbeat)
 }
 
-/// The owner's uploads: `attachments/` inside the conversations directory, so it
-/// is box-local and git-ignored with them, and skipped by their listing.
+/// The owner's uploads, skipped by the conversations' listing.
 #[must_use]
 pub fn upload_store(instance: &Instance) -> suzatary_io::attachments::AttachmentStore {
     suzatary_io::attachments::AttachmentStore::new(
-        instance.secretary.conversations.join("attachments"),
+        instance.secretary.uploads(),
         suzatary_io::pdftotext::Pdftotext::new(instance.code()),
     )
 }
@@ -675,11 +674,10 @@ pub fn upload_index(instance: &Instance) -> suzatary_io::upload_index::UploadInd
     )
 }
 
-/// The files verbs hand the model: `files/` inside the conversations directory, beside the
-/// uploads and git-ignored with them.
+/// The files verbs hand the model.
 #[must_use]
 pub fn file_store(instance: &Instance) -> suzatary_io::blobs::Blobs {
-    suzatary_io::blobs::Blobs::open(instance.secretary.conversations.join("files"))
+    suzatary_io::blobs::Blobs::open(instance.secretary.kept())
 }
 
 /// The entry [`pick_entry`] picks from `job`'s order, and its interpreter.

@@ -465,7 +465,7 @@ impl Due {
                 scratch.path().join("lines-keys"),
                 Arc::new(suzatary_core::secretary::conversations::Forgot::default()),
             ),
-            proposals: Objects::inbox(scratch.path().join("inbox")),
+            proposals: Objects::open(scratch.path().join("inbox")),
             _feed: feed,
             _scratch: scratch,
             actor,

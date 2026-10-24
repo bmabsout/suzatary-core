@@ -63,8 +63,24 @@ const DIGEST_TEXTS: &str = "secretary-digest-texts";
 /// The calendar plugin's store, a cache-tier store, pinned in `tests/stores-changes/` only.
 const CALENDAR: &str = "cache/plugins/ics/store";
 
+/// The recorded decisions and the two topic stores, pinned in `tests/stores-changes/` only.
+const DECISIONS: &str = "decisions";
+const TOPICS: &str = "secretary-topics";
+const TOPIC_ALIASES: &str = "secretary-topic-aliases";
+
 /// Every store pinned in `tests/stores-changes/` only.
-const CHANGED: [&str; 6] = [INBOX, LINES, LINE_KEYS, MEMORY, MEMORY_TEXTS, CALENDAR];
+const CHANGED: [&str; 10] = [
+    DIGESTS,
+    INBOX,
+    LINES,
+    LINE_KEYS,
+    MEMORY,
+    MEMORY_TEXTS,
+    CALENDAR,
+    DECISIONS,
+    TOPICS,
+    TOPIC_ALIASES,
+];
 
 /// The triage's bookkeeping in its keyed form, pushed and box-local, pinned in
 /// `tests/stores-changes/` only.
@@ -108,7 +124,7 @@ impl suzatary_core::capability::Entropy for Counted {
 /// The lines and their keys under `root`.
 fn lines_at(root: &Path) -> (Objects<LineEvent>, suzatary_io::text_keys::TextKeys) {
     (
-        Objects::lines(root.join(LINES)),
+        Objects::open(root.join(LINES)),
         suzatary_io::text_keys::open(root.join(LINE_KEYS)),
     )
 }
@@ -271,7 +287,7 @@ fn proposals(root: &Path) {
 /// The inbox's prodrome begun with a nonce of zeros, so its bytes can be pinned; the store's own
 /// first write draws a random one.
 fn begun(root: &Path) -> Objects<suzatary_core::secretary::inbox_event::InboxEvent> {
-    let store = Objects::inbox(root.join(INBOX));
+    let store = Objects::open(root.join(INBOX));
     rooted(&store, "inbox");
     store
 }
@@ -385,10 +401,10 @@ fn owners() -> std::collections::BTreeSet<prodrome_core::event::Actor> {
 /// The memory: a `Genesis` begun with a nonce of zeros, two facts remembered and one forgotten,
 /// whose text is deleted.
 fn memories(root: &Path) {
-    let history = Objects::memory(root.join(MEMORY));
+    let history = Objects::open(root.join(MEMORY));
     rooted(&history, "memory");
     let texts = suzatary_io::texts::Texts::open(root.join(MEMORY_TEXTS));
-    let cards = Objects::inbox(root.join(INBOX));
+    let cards = Objects::open(root.join(INBOX));
     let (lines, keys) = lines_at(root);
     let digests = Objects::digests(root.join(DIGESTS), owners());
     let digest_texts = suzatary_io::texts::Texts::open(root.join(DIGEST_TEXTS));
@@ -535,12 +551,97 @@ fn uploads(root: &Path) {
         .expect("kept");
 }
 
+/// The digest: a `Genesis` begun with a nonce of zeros, and one node's summary retracted by
+/// the owner.
+fn digests(root: &Path) {
+    use prodrome_core::event::parse_event;
+    use suzatary_core::secretary::digest_event::{DigestEvent, DigestVocabulary};
+    let store = Objects::digests(root.join(DIGESTS), owners());
+    rooted(&store, "digests");
+    let retracted = parse_event::<DigestEvent>(
+        &DigestVocabulary::default(),
+        &format!(
+            "Retracted(node='{}', at=datetime(2026, 9, 20, 14, 0, 0), actor='ada')",
+            "a".repeat(64)
+        ),
+    )
+    .expect("a retraction");
+    store.append(retracted).expect("appends");
+}
+
+/// The recorded decisions: a `Genesis` begun with a nonce of zeros, one decision decided, a
+/// second superseding it, and the first withdrawn.
+fn decisions(root: &Path) {
+    use suzatary_core::decisions::{DecisionEvent, DecisionId, Statement};
+    let store = Objects::<DecisionEvent>::open(root.join(DECISIONS));
+    rooted(&store, "decisions");
+    let id = |name: &str| DecisionId::new(name).expect("an id");
+    let said = |title: &str| {
+        Statement::new(
+            title,
+            suzatary_core::record::MarkupSource::escaped("The *body*."),
+            "Because.",
+        )
+        .expect("a statement")
+    };
+    let decided = |name: &str, minute, supersedes: &[&str]| {
+        DecisionEvent::decided(
+            id(name),
+            at(15, minute),
+            owner(),
+            said(name),
+            supersedes.iter().map(|link| id(link)).collect(),
+        )
+        .expect("a decision")
+    };
+    store.append(decided("first", 0, &[])).expect("appends");
+    store
+        .append(decided("second", 1, &["first"]))
+        .expect("appends");
+    store
+        .append(
+            DecisionEvent::withdrawn(id("first"), at(15, 2), owner(), "Replaced.")
+                .expect("a withdrawal"),
+        )
+        .expect("appends");
+}
+
+/// The topics and their aliases, each begun with a nonce of zeros: a round put on a topic and
+/// taken off another, and the first topic renamed.
+fn topics(root: &Path) {
+    use suzatary_core::secretary::topics::alias_event::AliasEvent;
+    use suzatary_core::secretary::topics::membership_event::MembershipEvent;
+    use suzatary_core::secretary::topics::topic::Topic;
+    let topics = suzatary_io::topics::Topics::open(root.join(TOPICS), root.join(TOPIC_ALIASES));
+    rooted(&topics.memberships, "topics");
+    rooted(&topics.aliases, "topic-aliases");
+    let round = || "round:default/0".parse().expect("a target");
+    let topic = |name: &str| Topic::new(name).expect("a topic");
+    for event in [
+        MembershipEvent::added(round(), topic("travel"), at(16, 0), owner()),
+        MembershipEvent::added(round(), topic("taxes"), at(16, 1), owner()),
+        MembershipEvent::removed(round(), topic("taxes"), at(16, 2), owner()),
+    ] {
+        topics.memberships.append(event).expect("appends");
+    }
+    topics
+        .aliases
+        .append(
+            AliasEvent::aliased(topic("travel"), topic("trips"), at(16, 3), owner())
+                .expect("an alias"),
+        )
+        .expect("appends");
+}
+
 fn write_every_store(root: &Path) {
     chain(root);
     proposals(root);
     let asked = inbox(root);
     conversations(root, &asked);
     memories(root);
+    digests(root);
+    decisions(root);
+    topics(root);
     calendar(root);
     devices(root);
     state(root);
@@ -585,6 +686,18 @@ fn conversations_read(store: suzatary_core::secretary::conversations::Conversati
     names.len()
 }
 
+/// A copy of every pinned store under `root`; answers where the changed stores' pins are.
+fn copy_pins(root: &Path) -> PathBuf {
+    copy(&golden(), root);
+    let changed = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/stores-changes");
+    for store in CHANGED {
+        copy(&changed.join(store), &root.join(store));
+    }
+    std::fs::copy(changed.join("state.json"), root.join("state.json")).expect("a copy");
+    copy(&changed.join("local"), &root.join("local"));
+    changed
+}
+
 #[test]
 fn reading_a_copy_of_every_store_writes_nothing() {
     use suzatary_core::attachment::AttachmentId;
@@ -593,19 +706,13 @@ fn reading_a_copy_of_every_store_writes_nothing() {
 
     let dir = tempfile::tempdir().expect("a scratch dir");
     let root = dir.path();
-    copy(&golden(), root);
-    let changed = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/stores-changes");
-    for store in CHANGED {
-        copy(&changed.join(store), &root.join(store));
-    }
-    std::fs::copy(changed.join("state.json"), root.join("state.json")).expect("a copy");
-    copy(&changed.join("local"), &root.join("local"));
+    let changed = copy_pins(root);
 
     let chain = Objects::chain(EventStore::new(root.join("events"), policy()));
     let replica = Replica::new(root.join("events-triage"), policy());
-    let inbox = Objects::inbox(root.join(INBOX));
+    let inbox = Objects::open(root.join(INBOX));
     let (lines, keys) = lines_at(root);
-    let memory = Objects::memory(root.join(MEMORY));
+    let memory = Objects::open(root.join(MEMORY));
     let memory_texts = suzatary_io::texts::Texts::open(root.join(MEMORY_TEXTS));
     let digests = Objects::digests(root.join(DIGESTS), owners());
     let digest_texts = suzatary_io::texts::Texts::open(root.join(DIGEST_TEXTS));
@@ -618,6 +725,7 @@ fn reading_a_copy_of_every_store_writes_nothing() {
     let devices = suzatary_io::devices::Devices::open(root.join("devices"));
     let uploads = AttachmentStore::new(root.join("secretary/attachments"), Pdftotext::new("."));
     let kept = Blobs::open(root.join("secretary/files"));
+    let topics = suzatary_io::topics::Topics::open(root.join(TOPICS), root.join(TOPIC_ALIASES));
     let database = Database {
         chains: [(
             ChainName::new("life").expect("a chain name"),
@@ -634,7 +742,9 @@ fn reading_a_copy_of_every_store_writes_nothing() {
         memory_texts: &memory_texts,
         digests: &digests,
         digest_texts: &digest_texts,
-        decisions: &Objects::decisions(root.join("decisions")),
+        decisions: &Objects::open(root.join(DECISIONS)),
+        topics: &topics.memberships,
+        topic_aliases: &topics.aliases,
         plugins: [(ics(), &calendar as &dyn Prodrome<_>)].into(),
         triage: &triage,
         triage_local: &triage_local,
@@ -674,6 +784,7 @@ fn reading_a_copy_of_every_store_writes_nothing() {
     .read()
     .expect("reads");
     assert_eq!((read.facts.len(), read.forgotten.len()), (1, 1));
+    decisions_and_topics_read(&database);
     let phones = suzatary_core::devices::everyone(database.devices).expect("reads");
     assert_eq!(phones.values().map(|them| them.0.len()).sum::<usize>(), 2);
     triage_reads(&database);
@@ -689,6 +800,23 @@ fn reading_a_copy_of_every_store_writes_nothing() {
     let after = tree(root);
     let pinned = pinned_with(&changed);
     assert!(after == pinned, "{}", differences(&after, &pinned));
+}
+
+/// Both decisions and the one topic still on its round read back.
+fn decisions_and_topics_read(database: &suzatary_core::store::Database<'_>) {
+    let ledger = suzatary_core::decisions::Decisions {
+        store: database.decisions,
+    }
+    .ledger()
+    .expect("reads");
+    assert_eq!(ledger.len(), 2);
+    let reading = suzatary_core::secretary::topics::stores::TopicStores {
+        memberships: database.topics,
+        aliases: database.topic_aliases,
+    }
+    .reading()
+    .expect("reads");
+    assert_eq!(reading.memberships().len(), 1);
 }
 
 /// The triage's two documents read back through the key as one.

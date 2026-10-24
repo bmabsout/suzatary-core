@@ -1,0 +1,1 @@
+Genesis(label='topic-aliases', nonce='00000000000000000000000000000000')

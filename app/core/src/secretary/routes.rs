@@ -300,20 +300,20 @@ pub fn open(
             .map_err(|refused| Refusal::bad_request(refused.to_string()))?
             .into()
     };
-    let taken = transcript::keys(caps.conversations)
+    let taken = transcript::keys(caps.secretary.conversations)
         .map_err(|failed| Refusal::internal(failed.to_string()))?;
     let today = cards
         .deployment
         .zone
-        .day(prodrome_core::fpl::instant_of(caps.clock.now()));
+        .day(prodrome_core::fpl::instant_of(caps.secretary.clock.now()));
     let id = ConversationId::minted(today, &taken);
     let stored = super::start(
-        caps.conversations,
-        caps.model,
+        caps.secretary.conversations,
+        caps.secretary.model,
         &id,
         &title,
         Kind::Topic,
-        caps.clock.now(),
+        caps.secretary.clock.now(),
     )?;
     payload(&stored, caps, cards)
 }
@@ -329,7 +329,13 @@ pub fn rename(
     id: &ConversationId,
     title: &str,
 ) -> Answered<wire::ConversationPayload> {
-    let stored = super::title::rename(caps.conversations, caps.clock, by, id, title)?;
+    let stored = super::title::rename(
+        caps.secretary.conversations,
+        caps.secretary.clock,
+        by,
+        id,
+        title,
+    )?;
     payload(&stored, caps, cards)
 }
 
@@ -356,7 +362,7 @@ pub fn erase(
     id: &ConversationId,
     erasing: &Erasing,
 ) -> Answered<wire::ConversationPayload> {
-    let read = transcript::read(caps.conversations, id)?;
+    let read = transcript::read(caps.secretary.conversations, id)?;
     let lines: Vec<usize> = match erasing {
         Erasing::Whole(wire::Yes) => (0..read.lines().len()).collect(),
         Erasing::Turns(turns) => turns
@@ -381,17 +387,17 @@ pub fn erase(
         .collect();
     if !keys.is_empty() {
         transcript::erase(
-            caps.conversations,
+            caps.secretary.conversations,
             id,
             keys,
             crate::secretary::erasure::Erasure::Asked {
                 by: tap.who().clone(),
             },
-            caps.clock.now(),
+            caps.secretary.clock.now(),
         )?;
     }
     // The summaries that read them are copies, deleted by the memory's sweep.
-    caps.memories.sweep_after_write();
+    caps.secretary.memories.sweep_after_write();
     newest(caps, cards, id)
 }
 
@@ -405,7 +411,7 @@ pub fn newest(
     cards: &Cards<'_>,
     id: &ConversationId,
 ) -> Answered<wire::ConversationPayload> {
-    payload(&super::read(caps.conversations, id)?, caps, cards)
+    payload(&super::read(caps.secretary.conversations, id)?, caps, cards)
 }
 
 /// `GET …/<id>/drawn?indices=<n>,…`: proposals `indices` drawn against the todo chains, which a
@@ -421,16 +427,16 @@ pub fn drawn(
     id: &ConversationId,
     indices: &[usize],
 ) -> Answered<wire::DrawnPayload> {
-    let stored = super::read(caps.conversations, id)?;
-    let fold = inbox::fold(caps.inbox)?;
+    let stored = super::read(caps.secretary.conversations, id)?;
+    let fold = inbox::fold(caps.secretary.inbox)?;
     let drawn = Drawn::of(
         &stored,
         &stored.lines(&fold),
         cards,
-        caps.clock.now(),
-        caps.render,
+        caps.secretary.clock.now(),
+        caps.secretary.render,
     );
-    let memory = memory(caps.memories).ok();
+    let memory = memory(caps.secretary.memories).ok();
     let proposals = indices
         .iter()
         .map(|&index| {
@@ -476,7 +482,7 @@ pub fn say(
 ) -> Answered<wire::SayPayload> {
     let turn = question(said, references, attachments)?;
     // Read first, so an unknown name is a 404 before anything is written.
-    let before = super::read(caps.conversations, id)?;
+    let before = super::read(caps.secretary.conversations, id)?;
     if after.is_some_and(|after| asked(&before, after, &turn, &by)) {
         return Ok(wire::SayPayload {
             conversation: payload(&before, caps, cards)?,
@@ -491,15 +497,15 @@ pub fn say(
     }
     // Disambiguated, because `C` carries both `Log::push` and `Prodrome::append`.
     transcript::push(
-        caps.conversations,
+        caps.secretary.conversations,
         id,
         &Entry::Said {
-            at: caps.clock.now(),
+            at: caps.secretary.clock.now(),
             turn,
             by: Some(by),
         },
     )?;
-    let stored = super::read(caps.conversations, id)?;
+    let stored = super::read(caps.secretary.conversations, id)?;
     Ok(wire::SayPayload {
         conversation: payload(&stored, caps, cards)?,
     })
@@ -548,7 +554,7 @@ pub fn regenerate(
     id: &ConversationId,
     by: &prodrome_core::event::Actor,
 ) -> Answered<wire::ConversationPayload> {
-    let stored = super::regenerate(caps.conversations, caps.clock, by, id)?;
+    let stored = super::regenerate(caps.secretary.conversations, caps.secretary.clock, by, id)?;
     payload(&stored, caps, cards)
 }
 
@@ -572,7 +578,14 @@ pub fn edit(
     stamped: crate::secretary::stamp::Stamp,
 ) -> Answered<wire::ConversationPayload> {
     let turn = question(said, references, attachments)?;
-    let stored = super::edit(caps.conversations, caps.clock, by, stamped, id, turn)?;
+    let stored = super::edit(
+        caps.secretary.conversations,
+        caps.secretary.clock,
+        by,
+        stamped,
+        id,
+        turn,
+    )?;
     payload(&stored, caps, cards)
 }
 
@@ -967,9 +980,9 @@ pub fn tap(
     answer: &TapAnswer,
 ) -> Answered<wire::ConversationPayload> {
     let (id, index) = (&card.conversation, card.index);
-    let stored = super::read(caps.conversations, id)?;
-    let standing = stored.standing(index, &inbox::fold(caps.inbox)?)?;
-    let hold = || caps.memories.hold();
+    let stored = super::read(caps.secretary.conversations, id)?;
+    let standing = stored.standing(index, &inbox::fold(caps.secretary.inbox)?)?;
+    let hold = || caps.secretary.memories.hold();
     let prepared = Prepared::of(
         &standing.object.asked.proposal,
         answer,
@@ -982,10 +995,10 @@ pub fn tap(
     )?;
     let mut then = None;
     let response = crate::secretary::tapped::Tapped {
-        now: caps.clock.now(),
+        now: caps.secretary.clock.now(),
     }
     // The proposal read under the hold is the one prepared: its id names its content.
-    .fire(caps.inbox, &standing.object.id, tap, |_| {
+    .fire(caps.secretary.inbox, &standing.object.id, tap, |_| {
         performed(
             &Performing {
                 caps,
@@ -1002,10 +1015,10 @@ pub fn tap(
     summaries_after(caps, &standing.object.asked.proposal);
     if matches!(response, Response::Ran(_)) {
         crate::secretary::acts::note_act(
-            caps.conversations,
+            caps.secretary.conversations,
             id,
             &ActLine {
-                at: caps.clock.now(),
+                at: caps.secretary.clock.now(),
                 actor: tap.who().as_str().to_owned(),
                 verb: "tapped",
                 reference: card.clone().into(),
@@ -1015,7 +1028,7 @@ pub fn tap(
             crate::secretary::stamp::Stamp::Actor(tap.who().as_str().to_owned()),
         )?;
     }
-    payload(&super::read(caps.conversations, id)?, caps, cards)
+    payload(&super::read(caps.secretary.conversations, id)?, caps, cards)
 }
 
 /// What performing a prepared card reaches.
@@ -1058,7 +1071,7 @@ fn performed(
         }
         Prepared::Grant { plugin, origin } => granted(effectors.edits, plugin, origin),
         Prepared::Configure(change) => configured(effectors.edits, change, &object.id, then),
-        Prepared::UnlockStore => store_answers(caps.secrets, cards.settables),
+        Prepared::UnlockStore => store_answers(caps.secretary.secrets, cards.settables),
         Prepared::Erase(keys) => erased(caps, id, keys, tap)?,
         Prepared::Device {
             enrolling,
@@ -1081,17 +1094,19 @@ fn performed(
             )
         }
         Prepared::Remember { held, text, kind } => {
-            remembered(&held, caps.clock, id, index, text, kind)
+            remembered(&held, caps.secretary.clock, id, index, text, kind)
         }
         Prepared::Decide(draft) => decide::performed(caps, draft, tap.who()),
         Prepared::GoogleClient { redirect, file } => {
             google_client(effectors.secrets, cards.settables, redirect, file)?
         }
-        Prepared::GoogleSignIn { account, scopes } => {
-            effectors
-                .consents
-                .begin(&object.id, account, scopes, tap.who(), caps.clock.now())
-        }
+        Prepared::GoogleSignIn { account, scopes } => effectors.consents.begin(
+            &object.id,
+            account,
+            scopes,
+            tap.who(),
+            caps.secretary.clock.now(),
+        ),
         Prepared::CalendarEvent { act, account } => {
             match google_account(effectors.edits, account) {
                 Ok(()) => effectors.performer.begin(
@@ -1113,7 +1128,7 @@ fn performed(
 /// writer orders the two.
 fn summaries_after(caps: &Server<'_>, proposal: &Proposal) {
     if matches!(proposal, Proposal::Act(Act::Erase { .. })) {
-        caps.memories.sweep_after_write();
+        caps.secretary.memories.sweep_after_write();
     }
 }
 
@@ -1146,18 +1161,18 @@ fn afterwards(
     match then {
         None => Ok(()),
         Some(Then::End(began, ended)) => inbox::end(
-            caps.inbox,
+            caps.secretary.inbox,
             &began,
             &super::writes_as(),
-            caps.clock.now(),
+            caps.secretary.clock.now(),
             ended,
         )
         .map(|_| ()),
         Some(Then::Withdraw(card, why)) => inbox::withdraw(
-            caps.inbox,
+            caps.secretary.inbox,
             &card,
             &super::writes_as(),
-            caps.clock.now(),
+            caps.secretary.clock.now(),
             Withdrawal::NoLongerNeeded { why },
         )
         .map(|_| ()),
@@ -1171,10 +1186,10 @@ fn afterwards(
         Some(Then::Forget(account, removal)) => {
             let said = effectors.forget.forget(&account, removal).sentence();
             super::append(
-                caps.conversations,
+                caps.secretary.conversations,
                 &card.conversation,
                 &Entry::noted(
-                    caps.clock.now(),
+                    caps.secretary.clock.now(),
                     format!("Removing {}: {said}.", account.email),
                     vec![card.clone().into()],
                 ),
@@ -1471,17 +1486,17 @@ pub fn ask_trust(
     actor: &prodrome_core::event::Actor,
     key: &prodrome_core::sign::PublicKey,
 ) -> Answered<usize> {
-    let secretary = caps.secretary();
+    let secretary = caps.secretary;
     let stored = super::read_or_open_default(
-        caps.conversations,
-        caps.model,
+        caps.secretary.conversations,
+        caps.secretary.model,
         &super::store::DEFAULT,
-        caps.clock.now(),
+        caps.secretary.clock.now(),
     )?;
     // A key nobody trusts can ask, so asking is bounded: past a few waiting device cards the
     // owner answers those first, and a stray key cannot flood the Inbox.
     // An unplaced line holds no act this box can read, so it is no device this box could trust.
-    let lines = stored.lines(&inbox::fold(caps.inbox)?);
+    let lines = stored.lines(&inbox::fold(caps.secretary.inbox)?);
     let waiting: Vec<&crate::signatures::Enrolment> = lines
         .standings()
         .filter(|standing| standing.object.reading.open())
@@ -1665,7 +1680,7 @@ fn mailed(
     };
     let read = match written.held().next() {
         None => crate::secretary::read_mail::ReadMail::default(),
-        Some(_) => match super::read(caps.conversations, id) {
+        Some(_) => match super::read(caps.secretary.conversations, id) {
             Ok(stored) => crate::secretary::read_mail::ReadMail::of(&stored),
             Err(refused) => return not_sent(refused.message().to_owned()),
         },
@@ -1695,11 +1710,13 @@ fn mailed(
 fn fetch(caps: &Server<'_>, one: &attached::Attached) -> Result<Vec<u8>, String> {
     match &one.source {
         AttachmentSource::Mail { message, name } => caps
+            .secretary
             .mail
             .attachment(message, name)
             .map(|file| file.content)
             .map_err(|failed| failed.to_string()),
         AttachmentSource::Drive { path } => caps
+            .secretary
             .drive
             .fenced()
             .fetch(path)
@@ -1708,6 +1725,7 @@ fn fetch(caps: &Server<'_>, one: &attached::Attached) -> Result<Vec<u8>, String>
         AttachmentSource::Repo { .. } => kept(caps, &one.sha256),
         AttachmentSource::Upload { id } => {
             match caps
+                .secretary
                 .uploads
                 .get(id)
                 .map_err(|failed| failed.to_string())?
@@ -1715,6 +1733,7 @@ fn fetch(caps: &Server<'_>, one: &attached::Attached) -> Result<Vec<u8>, String>
             {
                 crate::upload::Upload::Here { bytes, .. } => Ok(bytes),
                 crate::upload::Upload::Private { copy, .. } => caps
+                    .secretary
                     .drive
                     .port()
                     .fetch(&copy.path)
@@ -1737,7 +1756,7 @@ fn forwarded(
     use crate::secretary::store::Style;
     let not_sent = |reason: String| Performed::Tried(Tried::NotSent { reason });
     let file = &forward.message.file;
-    match super::read(caps.conversations, id) {
+    match super::read(caps.secretary.conversations, id) {
         Ok(stored) if crate::secretary::read_mail::ReadMail::of(&stored).reads(&file.id) => {}
         Ok(_) => {
             return not_sent(
@@ -1778,7 +1797,8 @@ fn forwarded(
 
 /// A file the box kept, by its digest.
 fn kept(caps: &Server<'_>, id: &crate::attachment::AttachmentId) -> Result<Vec<u8>, String> {
-    caps.kept
+    caps.secretary
+        .kept
         .get(id)
         .map_err(|failed| failed.to_string())?
         .ok_or_else(|| format!("no file {id} in the store"))
@@ -1860,13 +1880,13 @@ fn erased(
     tap: &Tap,
 ) -> Result<Performed, Refusal> {
     crate::secretary::transcript::erase(
-        caps.conversations,
+        caps.secretary.conversations,
         id,
         keys.clone(),
         crate::secretary::erasure::Erasure::Asked {
             by: tap.who().clone(),
         },
-        caps.clock.now(),
+        caps.secretary.clock.now(),
     )?;
     Ok(Done::Acted {
         what: format!(
@@ -2069,9 +2089,9 @@ pub fn dismiss(
     reason: &str,
 ) -> Answered<wire::ConversationPayload> {
     let after = super::dismiss(
-        caps.conversations,
-        caps.memories,
-        caps.clock,
+        caps.secretary.conversations,
+        caps.secretary.memories,
+        caps.secretary.clock,
         by.who(),
         card,
         reason,
@@ -2089,7 +2109,13 @@ pub fn acknowledge(
     cards: &Cards<'_>,
     card: &ProposalRef,
 ) -> Answered<wire::ConversationPayload> {
-    let after = super::acknowledge(caps.conversations, caps.inbox, caps.clock, by.who(), card)?;
+    let after = super::acknowledge(
+        caps.secretary.conversations,
+        caps.secretary.inbox,
+        caps.secretary.clock,
+        by.who(),
+        card,
+    )?;
     payload(&after, caps, cards)
 }
 
@@ -2110,7 +2136,7 @@ pub fn hand(
         Refusal::conflict("this deployment declares no [coding], so nothing can be handed over")
     })?;
     let (session, branch, report) =
-        match crate::secretary::coding::started(caps.conversations, id, index)? {
+        match crate::secretary::coding::started(caps.secretary.conversations, id, index)? {
             crate::coding::Session::Reported {
                 id: session,
                 branch,
@@ -2160,10 +2186,10 @@ pub fn hand(
         return Err(Refusal::conflict(reason));
     }
     crate::secretary::acts::note_act(
-        caps.conversations,
+        caps.secretary.conversations,
         id,
         &ActLine {
-            at: caps.clock.now(),
+            at: caps.secretary.clock.now(),
             actor: by.who().as_str().to_owned(),
             verb: "handed",
             reference: Reference::Todo(TodoRef {
@@ -2178,7 +2204,7 @@ pub fn hand(
         // by mail or a model.
         crate::secretary::stamp::Stamp::Actor(by.who().as_str().to_owned()),
     )?;
-    payload(&super::read(caps.conversations, id)?, caps, cards)
+    payload(&super::read(caps.secretary.conversations, id)?, caps, cards)
 }
 
 /// `POST …/proposals/<n>/drop`: let a session go, with a reason.
@@ -2194,14 +2220,14 @@ pub fn drop_session(
 ) -> Answered<wire::ConversationPayload> {
     let (id, index) = (&card.conversation, card.index);
     crate::secretary::coding::dropped(
-        caps.conversations,
+        caps.secretary.conversations,
         id,
         index,
         by.who(),
         reason,
-        caps.clock.now(),
+        caps.secretary.clock.now(),
     )?;
-    payload(&super::read(caps.conversations, id)?, caps, cards)
+    payload(&super::read(caps.secretary.conversations, id)?, caps, cards)
 }
 
 /// The newest window, full-size, which always holds the round that just happened, dressed with
@@ -2211,16 +2237,16 @@ fn payload(
     caps: &Server<'_>,
     cards: &Cards<'_>,
 ) -> Answered<wire::ConversationPayload> {
-    let fold = inbox::fold(caps.inbox)?;
+    let fold = inbox::fold(caps.secretary.inbox)?;
     let drawn = Drawn::of(
         stored,
         &stored.lines(&fold),
         cards,
-        caps.clock.now(),
-        caps.render,
+        caps.secretary.clock.now(),
+        caps.secretary.render,
     );
     // A memory that will not read draws every receipt and every card's words as unread.
-    let memory = memory(caps.memories).ok();
+    let memory = memory(caps.secretary.memories).ok();
     Ok(readings::conversation(
         stored,
         &fold,

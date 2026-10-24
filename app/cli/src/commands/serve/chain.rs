@@ -47,7 +47,7 @@ pub struct Literals(pub(super) Vec<String>);
 const MAX_OBJECTS_BYTES: usize = 4_194_304;
 
 fn moment(asked: &Asked, chain: &Chained) -> Result<Datetime, Refusal> {
-    query::moment("t", asked.query("t"), chain.caps.clock.now())
+    query::moment("t", asked.query("t"), chain.caps.secretary.clock.now())
 }
 
 impl Params for Folding {
@@ -111,7 +111,7 @@ impl Body for wire::Authoring {
 
 /// `GET …/chain`: every object, with the policy it is read under.
 pub fn chain(call: &Call<Reader, (), ()>) -> Result<Json<wire::ChainPayload>, Refusal> {
-    routes::chain(call.chain.caps.chain, &call.chain.policy).map(Json)
+    routes::chain(call.chain.caps.secretary.chain, &call.chain.policy).map(Json)
 }
 
 /// `GET …/content?hashes=<hashes>`: the literals of those objects of the chain, kept for good
@@ -119,19 +119,20 @@ pub fn chain(call: &Call<Reader, (), ()>) -> Result<Json<wire::ChainPayload>, Re
 pub fn content(
     call: &Call<Reader, Wanted, ()>,
 ) -> Result<Immutable<Json<wire::ContentPayload>>, Refusal> {
-    routes::content(call.chain.caps.chain, &call.params.0).map(|answer| Immutable(Json(answer)))
+    routes::content(call.chain.caps.secretary.chain, &call.params.0)
+        .map(|answer| Immutable(Json(answer)))
 }
 
 /// `GET …/tip`: the heads a replica compares against.
 pub fn tip(call: &Call<Reader, (), ()>) -> Result<Json<wire::TipPayload>, Refusal> {
-    routes::tip(call.chain.caps.chain).map(Json)
+    routes::tip(call.chain.caps.secretary.chain).map(Json)
 }
 
 /// `GET …/fold`: every todo as the folds see it at `?t=`.
 pub fn fold(call: &Call<Reader, Folding, ()>) -> Result<Json<wire::FoldPayload>, Refusal> {
     let caps = call.chain.caps;
     routes::fold(
-        caps.render,
+        caps.secretary.render,
         &call.chain.policy.name,
         &call.chain.policy.untrusted,
         &call.state.chains_read().set(call.params.at),
@@ -144,7 +145,7 @@ pub fn fold(call: &Call<Reader, Folding, ()>) -> Result<Json<wire::FoldPayload>,
 pub fn todo(call: &Call<Reader, TodoAt, ()>) -> Result<Json<wire::TodoPayload>, Refusal> {
     let caps = call.chain.caps;
     routes::todo(
-        caps.render,
+        caps.secretary.render,
         &call.chain.policy,
         call.state.deployment.zone,
         &call.state.chains_read().set(call.params.at),
@@ -175,11 +176,11 @@ pub fn me(call: &Call<Reader, (), ()>) -> Json<wire::MePayload> {
 /// `GET …/objects?since=<heads>`: what this replica does not hold.
 pub fn objects(call: &Call<Reader, Since, ()>) -> Result<Json<wire::ObjectsPayload>, Refusal> {
     routes::objects_since(
-        call.chain.caps.chain,
+        call.chain.caps.secretary.chain,
         &call.chain.policy,
         &call.params.0,
         call.state.epochs.as_ref(),
-        call.state.first.caps.clock.now(),
+        call.state.first.caps.secretary.clock.now(),
     )
     .map(Json)
 }
@@ -190,15 +191,19 @@ pub fn take_objects(
 ) -> Result<Json<wire::ReceiptPayload>, Refusal> {
     let caps = call.chain.caps;
     let (receipt, heard) = routes::receive_objects(
-        caps.chain,
-        caps.render,
+        caps.secretary.chain,
+        caps.secretary.render,
         &call.chain.policy,
         &call.body.0,
         &call.guard.0,
     )?;
     // Adoption is the one moment a sealed lifecycle event's note is known here.
     if !heard.is_empty() {
-        noted(&call.state, &heard, call.state.first.caps.clock.now());
+        noted(
+            &call.state,
+            &heard,
+            call.state.first.caps.secretary.clock.now(),
+        );
     }
     Ok(Json(receipt))
 }
@@ -231,7 +236,7 @@ pub fn author(
                 chain: call.chain.policy.name.clone(),
                 id,
             });
-        let now = call.state.first.caps.clock.now();
+        let now = call.state.first.caps.secretary.clock.now();
         let line = ActLine {
             at: now,
             actor: call.guard.as_str().to_owned(),
@@ -250,8 +255,8 @@ pub fn author(
 fn noted(state: &State, lines: &[ActLine], now: Datetime) {
     let first = state.first.caps;
     let noting = suzatary_core::secretary::read_or_open_default(
-        first.conversations,
-        first.model,
+        first.secretary.conversations,
+        first.secretary.model,
         &DEFAULT,
         now,
     )
@@ -264,7 +269,7 @@ fn noted(state: &State, lines: &[ActLine], now: Datetime) {
                 std::slice::from_ref(&line.reference),
                 &set,
             );
-            acts::note_act(first.conversations, &DEFAULT, line, by)
+            acts::note_act(first.secretary.conversations, &DEFAULT, line, by)
         })
     });
     if let Err(failed) = noting {

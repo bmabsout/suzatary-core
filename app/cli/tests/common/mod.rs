@@ -2281,7 +2281,7 @@ impl Fakes {
             manuals: FakeManuals,
             model: FakeModel::default(),
             web: FakeWeb::default(),
-            inbox: suzatary_io::objects::Objects::inbox(root.join("inbox")),
+            inbox: suzatary_io::objects::Objects::open(root.join("inbox")),
             repos: Arc::new(suzatary_io::repos::Mirrors::new(
                 root.join("mirrors"),
                 suzatary_io::repos::Source::Local {
@@ -2303,8 +2303,8 @@ impl Fakes {
                 Arc::clone(&forgot) as _,
             ),
             forgot,
-            memory: suzatary_io::objects::Objects::memory(root.join("memory")),
-            decisions: suzatary_io::objects::Objects::decisions(root.join("decisions")),
+            memory: suzatary_io::objects::Objects::open(root.join("memory")),
+            decisions: suzatary_io::objects::Objects::open(root.join("decisions")),
             memory_texts: suzatary_io::texts::Texts::open(root.join("secretary-memory-texts")),
             digests: suzatary_io::objects::Objects::digests(
                 root.join("digests"),
@@ -2461,8 +2461,10 @@ impl Fakes {
         }
     }
 
-    pub fn server(&self) -> suzatary_core::capability::Server<'_> {
-        suzatary_core::capability::Server {
+    /// The secretary's record over these fakes.
+    #[must_use]
+    pub fn secretary(&self) -> suzatary_core::capability::Secretary<'_> {
+        suzatary_core::capability::Secretary {
             chain: &self.chain,
             corpus: &self.corpus,
             mail: &self.mailbox,
@@ -2494,6 +2496,12 @@ impl Fakes {
             kept: &self.files,
             configuration: self.configuration.as_ref(),
             watches: &self.watches,
+        }
+    }
+
+    pub fn server(&self) -> suzatary_core::capability::Server<'_> {
+        suzatary_core::capability::Server {
+            secretary: self.secretary(),
             whois: &self.whois,
             notify: &self.notify,
             answers: &self.answers,
@@ -2501,12 +2509,6 @@ impl Fakes {
             usage: &suzatary_core::capability::Nothing,
             sessions: &self.model,
         }
-    }
-
-    /// The secretary's record over these fakes.
-    #[must_use]
-    pub fn secretary(&self) -> suzatary_core::capability::Secretary<'_> {
-        self.server().secretary()
     }
 }
 

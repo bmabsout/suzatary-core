@@ -37,6 +37,7 @@ use suzatary_core::deployment::Deployment;
 use suzatary_core::models::{Job, ModelEntry, Models};
 use suzatary_core::nonempty::NonEmpty;
 use suzatary_core::settings::{DeclaredProvider, Settables};
+use suzatary_core::store::Kind;
 
 /// The environment variable that names an instance file.
 pub const ENV: &str = "SUZATARY_INSTANCE";
@@ -306,6 +307,51 @@ impl Instance {
         self.roots.data.under(Path::new("decisions"))
     }
 
+    /// Where each store of `kind` lives, beside the name the fsck reports it by: a chain and
+    /// its replica once per chain, a plugin's store once per plugin, every other store once.
+    #[must_use]
+    pub fn directories(&self, kind: Kind) -> Vec<(String, PathBuf)> {
+        let once = |path: PathBuf| vec![(kind.name().to_owned(), path)];
+        let chains = |path: fn(&ChainDir) -> &PathBuf| {
+            self.chains
+                .iter()
+                .map(|chain| {
+                    let name = format!("{} {}", chain.policy.name, kind.name());
+                    (name, path(chain).clone())
+                })
+                .collect()
+        };
+        let secretary = &self.secretary;
+        match kind {
+            Kind::Chain => chains(|chain| &chain.events),
+            Kind::Proposals => chains(|chain| &chain.proposals),
+            Kind::Inbox => once(secretary.inbox.clone()),
+            Kind::Lines => once(secretary.line_store()),
+            Kind::LineKeys => once(secretary.line_keys()),
+            Kind::Memory => once(secretary.memory.clone()),
+            Kind::MemoryTexts => once(secretary.memory_texts()),
+            Kind::Digests => once(secretary.digests.clone()),
+            Kind::DigestTexts => once(secretary.digest_texts()),
+            Kind::Decisions => once(self.decisions()),
+            Kind::Topics => once(secretary.topics.memberships.clone()),
+            Kind::TopicAliases => once(secretary.topics.aliases.clone()),
+            Kind::Plugin => self
+                .plugins
+                .manifests
+                .iter()
+                .map(|manifest| {
+                    let name = format!("{} {}", kind.name(), manifest.name());
+                    (name, self.plugins.store(manifest.name()))
+                })
+                .collect(),
+            Kind::Triage => once(self.mail.state.clone()),
+            Kind::Local => once(self.local.path().to_path_buf()),
+            Kind::Uploads => once(secretary.uploads()),
+            Kind::Kept => once(secretary.kept()),
+            Kind::Requests => once(self.requests()),
+        }
+    }
+
     /// The root this deployment declares, `[signatures] root`.
     #[must_use]
     pub fn root(&self) -> &PublicKey {
@@ -468,7 +514,7 @@ impl Instance {
     pub fn inbox_store(
         &self,
     ) -> suzatary_io::objects::Objects<suzatary_core::secretary::inbox_event::InboxEvent> {
-        suzatary_io::objects::Objects::inbox(self.secretary.inbox.clone())
+        suzatary_io::objects::Objects::open(self.secretary.inbox.clone())
     }
 
     /// The memory's history, the one opener of it, as [`Instance::inbox_store`] is.
@@ -476,7 +522,7 @@ impl Instance {
     pub fn memory_store(
         &self,
     ) -> suzatary_io::objects::Objects<suzatary_core::secretary::memory_event::MemoryEvent> {
-        suzatary_io::objects::Objects::memory(self.secretary.memory.clone())
+        suzatary_io::objects::Objects::open(self.secretary.memory.clone())
     }
 
     /// The digest's history, the one opener of it, as [`Instance::inbox_store`] is.

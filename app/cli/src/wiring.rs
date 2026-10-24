@@ -129,7 +129,7 @@ impl Opened {
                 .conversation_stores(Arc::clone(&answers) as _),
             answers,
             memory: instance.memory_store(),
-            decisions: Objects::decisions(instance.decisions()),
+            decisions: Objects::open(instance.decisions()),
             topics: instance.secretary.topics.open(),
             memory_texts: Texts::open(instance.secretary.memory_texts()),
             digests: instance.digest_store(),

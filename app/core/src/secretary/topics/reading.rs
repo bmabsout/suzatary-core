@@ -10,11 +10,9 @@ use prodrome_core::policy::Everything;
 use prodrome_core::registers::{Node, Stamp, fold};
 
 use crate::secretary::topics::alias_event::{Alias, AliasEvent};
-use crate::secretary::topics::alias_registers::AliasRegisters;
 use crate::secretary::topics::dispute::Dispute;
 use crate::secretary::topics::membership::Presence;
 use crate::secretary::topics::membership_event::MembershipEvent;
-use crate::secretary::topics::membership_registers::MembershipRegisters;
 use crate::secretary::topics::target::Target;
 use crate::secretary::topics::topic::Topic;
 
@@ -37,7 +35,7 @@ impl Reading {
     pub fn of(memberships: &[Node<MembershipEvent>], aliases: &[Node<AliasEvent>]) -> Self {
         let mut on: BTreeMap<Target, BTreeSet<Topic>> = BTreeMap::new();
         for (membership, stream) in fold(memberships).entities() {
-            let registers: MembershipRegisters<'_> =
+            let registers: crate::sole::One<'_, MembershipEvent> =
                 prodrome_core::fold::read(stream, None, &Everything);
             if registers.presence() == Presence::On {
                 on.entry(membership.target.clone())
@@ -48,7 +46,7 @@ impl Reading {
         let folded = fold(aliases);
         let mut written: BTreeMap<&Topic, Vec<&Stamp<AliasEvent>>> = BTreeMap::new();
         for (topic, stream) in folded.entities() {
-            let registers: AliasRegisters<'_> =
+            let registers: crate::sole::One<'_, AliasEvent> =
                 prodrome_core::fold::read(stream, None, &Everything);
             written
                 .entry(topic)
@@ -61,8 +59,8 @@ impl Reading {
                 stamps.sort_by(|one, two| one.name.cmp(&two.name));
                 let mut values: Vec<Alias> = Vec::with_capacity(stamps.len());
                 for stamp in stamps {
-                    if !values.contains(stamp.event.alias()) {
-                        values.push(stamp.event.alias().clone());
+                    if !values.contains(stamp.event.said()) {
+                        values.push(stamp.event.said().clone());
                     }
                 }
                 let mut values = values.into_iter();

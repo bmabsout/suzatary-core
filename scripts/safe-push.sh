@@ -125,8 +125,12 @@ cd "$DATA"
 # and the chain objects it wrote; never a body or an answer, which stay on
 # the box): written once and walked like an object store. Its own
 # `.gitignore` keeps a record's write in progress out.
-ALLOWED_PATTERN='^(state\.json|events(-suzatary|-triage|-triage-suzatary)?/(objects/[0-9a-f]{64}\.py|\.lock|\.gitattributes)|(secretary-lines|inbox|memory|digests|decisions)/(objects/[0-9a-f]{64}\.py|\.gitattributes)|requests/([0-9a-f]{64}\.json|\.gitignore))$'
-ADD_PATHS='state.json events/ events-suzatary/ events-triage/ events-triage-suzatary/ inbox/ secretary-lines/ memory/ digests/ decisions/ requests/'
+# The three lists are the stores' rows (`suzatary_core::store::Kind`) for this
+# deployment, spelled out so a quiet pass runs no program but git; the guard
+# `app/cli/tests/guards/lists.rs` holds each equal to its derivation.
+ALLOWED_PATTERN='^(events/(objects/[0-9a-f]{64}\.py|\.lock|\.gitattributes)|events-suzatary/(objects/[0-9a-f]{64}\.py|\.lock|\.gitattributes)|events-triage/(objects/[0-9a-f]{64}\.py|\.lock|\.gitattributes)|events-triage-suzatary/(objects/[0-9a-f]{64}\.py|\.lock|\.gitattributes)|inbox/(objects/[0-9a-f]{64}\.py|\.gitattributes)|secretary-lines/(objects/[0-9a-f]{64}\.py|\.gitattributes)|memory/(objects/[0-9a-f]{64}\.py|\.gitattributes)|digests/(objects/[0-9a-f]{64}\.py|\.gitattributes)|decisions/(objects/[0-9a-f]{64}\.py|\.gitattributes)|state\.json|requests/([0-9a-f]{64}\.json|\.gitignore))$'
+ADD_PATHS='events/ events-suzatary/ events-triage/ events-triage-suzatary/ inbox/ secretary-lines/ memory/ digests/ decisions/ state.json requests/'
+WALKED='events/objects/ events-suzatary/objects/ inbox/objects/ secretary-lines/objects/ memory/objects/ digests/objects/ decisions/objects/ requests/'
 # ONCE THE DATA IS A TREE OF ITS OWN, the human-edited data files ride with
 # the agent's commit too — the data repository is one tree and its history
 # is machine-written — but never while the data tree is still this
@@ -191,7 +195,8 @@ fi
 # append-only violation — which is the check being wrong about what it is FOR,
 # not the rejection being wrong. The chains themselves are as protected as they
 # ever were, which is the property this gate exists for.
-REWRITES=$(git status --porcelain -- events/objects/ events-suzatary/objects/ inbox/objects/ secretary-lines/objects/ memory/objects/ digests/objects/ decisions/objects/ requests/ | grep -vE '^(\?\?|A )' || true)
+# shellcheck disable=SC2086
+REWRITES=$(git status --porcelain -- $WALKED | grep -vE '^(\?\?|A )' || true)
 if [ -n "$REWRITES" ]; then
   echo "safe-push: APPEND-ONLY VIOLATION under an events objects/ — a modification or" >&2
   echo "  deletion of a chain object is a history rewrite and will not be pushed:" >&2

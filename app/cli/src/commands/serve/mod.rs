@@ -521,8 +521,8 @@ impl State {
     /// from now on; a reading that fails keeps none, which holds the quiet calendars' cards.
     pub fn hear(&self) {
         let caps = self.first.caps;
-        let now = prodrome_core::fpl::instant_of(caps.clock.now());
-        let heard = heard(caps.calendar, now);
+        let now = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
+        let heard = heard(caps.secretary.calendar, now);
         *locks::held(&self.noticing) = heard;
     }
 
@@ -531,9 +531,12 @@ impl State {
     /// again.
     pub fn probe_drive(&self) {
         let caps = self.first.caps;
-        let at = prodrome_core::fpl::instant_of(caps.clock.now());
-        let probed =
-            suzatary_core::drive::probe(caps.drive.port(), &caps.drive.allowed_folders(), at);
+        let at = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
+        let probed = suzatary_core::drive::probe(
+            caps.secretary.drive.port(),
+            &caps.secretary.drive.allowed_folders(),
+            at,
+        );
         if let Err(failed) = suzatary_core::mail::health::join_into(self.probes.as_ref(), &probed) {
             tracing::warn!("the Drive's probe: {failed}");
         }
@@ -599,12 +602,12 @@ impl State {
     pub fn chain_stores(
         &self,
     ) -> Vec<&'static dyn suzatary_core::store::Prodrome<suzatary_core::record::TodoEvent>> {
-        std::iter::once(self.first.caps.chain)
+        std::iter::once(self.first.caps.secretary.chain)
             .chain(
                 self.chains
                     .values()
                     .filter(|chained| chained.policy.name != self.first.policy.name)
-                    .map(|chained| chained.caps.chain),
+                    .map(|chained| chained.caps.secretary.chain),
             )
             .collect()
     }
@@ -803,15 +806,16 @@ impl State {
             .inspect_err(|failed| tracing::warn!("noticed: the instance file: {failed}"))
             .ok();
         let mail = caps
+            .secretary
             .sync
             .health()
             .inspect_err(|failed| tracing::warn!("noticed: the mail health: {failed}"))
             .ok();
         let links = self.links();
-        let now = prodrome_core::fpl::instant_of(caps.clock.now());
+        let now = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
         let seen = suzatary_core::secretary::noticed::Seen {
             settables: &settables,
-            secrets: caps.secrets,
+            secrets: caps.secretary.secrets,
             models: &models,
             fallback: &self.fallback,
             answered: &answered,
@@ -827,9 +831,9 @@ impl State {
         };
         match suzatary_core::secretary::noticed::notice(
             &seen,
-            caps.conversations,
-            caps.inbox,
-            caps.clock.now(),
+            caps.secretary.conversations,
+            caps.secretary.inbox,
+            caps.secretary.clock.now(),
         ) {
             Ok(filed) if !filed.withdrawn.is_empty() => tracing::info!(
                 owed = filed.owed.len(),
@@ -842,10 +846,10 @@ impl State {
         // A key trusted while no server ran, or before cards were withdrawn, leaves its card.
         if let Some(keys) = &self.keys {
             match suzatary_core::secretary::routes::withdraw_trusted(
-                caps.inbox,
-                caps.chain,
+                caps.secretary.inbox,
+                caps.secretary.chain,
                 &keys.root().public(),
-                caps.clock.now(),
+                caps.secretary.clock.now(),
             ) {
                 Ok(withdrawn) if !withdrawn.is_empty() => {
                     tracing::info!(
@@ -891,7 +895,7 @@ impl State {
             .iter()
             .map(|(name, chained)| suzatary_core::secretary::Bound {
                 name,
-                caps: chained.caps.secretary(),
+                caps: chained.caps.secretary,
                 policy: &chained.policy,
             })
             .collect()
@@ -934,7 +938,7 @@ impl State {
         let now = last.moved(
             self.chains
                 .values()
-                .map(|chained| (chained.policy.as_ref(), chained.caps.chain)),
+                .map(|chained| (chained.policy.as_ref(), chained.caps.secretary.chain)),
         );
         *lock() = now.clone();
         now
@@ -1684,11 +1688,11 @@ fn warm_usage(first: &Chained) {
 /// read writes; a failure is logged, and the next act noted there opens it instead.
 async fn open_default(chain: &Chained) {
     let caps = chain.caps;
-    let now = caps.clock.now();
+    let now = caps.secretary.clock.now();
     match tokio::task::spawn_blocking(move || {
         suzatary_core::secretary::read_or_open_default(
-            caps.conversations,
-            caps.model,
+            caps.secretary.conversations,
+            caps.secretary.model,
             &suzatary_core::secretary::store::DEFAULT,
             now,
         )
@@ -1826,9 +1830,13 @@ pub async fn instance_watched(state: State, path: PathBuf) {
 /// restart can try again.
 async fn reconcile_orphaned_acts(chain: &Chained) {
     let caps = chain.caps;
-    let now = caps.clock.now();
+    let now = caps.secretary.clock.now();
     match tokio::task::spawn_blocking(move || {
-        suzatary_core::secretary::acts::reconcile(caps.conversations, caps.inbox, now)
+        suzatary_core::secretary::acts::reconcile(
+            caps.secretary.conversations,
+            caps.secretary.inbox,
+            now,
+        )
     })
     .await
     {
@@ -1872,12 +1880,18 @@ async fn erase_at_startup(chain: &Chained) {
     let done = tokio::task::spawn_blocking(move || {
         // Each step runs whatever the one before it did, so a key the lines' sweep kept never
         // keeps a summary that read its words, and each failure is said on its own.
-        let erased = caps.memories.hold().and_then(|held| held.erase_forgotten());
-        let lines = suzatary_core::secretary::transcript::sweep(caps.conversations)
+        let erased = caps
+            .secretary
+            .memories
+            .hold()
+            .and_then(|held| held.erase_forgotten());
+        let lines = suzatary_core::secretary::transcript::sweep(caps.secretary.conversations)
             .map_err(suzatary_core::refusal::Refusal::from);
-        let texts = caps.memories.sweep();
-        let indexed =
-            suzatary_core::secretary::file_search::reindex(caps.conversations, caps.upload_index);
+        let texts = caps.secretary.memories.sweep();
+        let indexed = suzatary_core::secretary::file_search::reindex(
+            caps.secretary.conversations,
+            caps.secretary.upload_index,
+        );
         [
             ("erased by forgetting", erased),
             ("keys destroyed", lines),

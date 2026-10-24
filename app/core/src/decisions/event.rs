@@ -1,23 +1,17 @@
 use std::collections::BTreeSet;
 
 use prodrome_core::event::Actor;
-use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary};
-use prodrome_core::schema::Schema;
+use prodrome_core::literal::{Datetime, ProdromeError, Value};
 
 use super::registers::{DecisionRegister, DecisionRegisters};
 use super::{DecisionId, NotADecision, Statement};
-use crate::literal::{Fields, Literal, Signature, record};
+use crate::envelope::{Event, Says, Vocab};
+use crate::literal::{Fields, Literal, Signature};
 use crate::record::MarkupSource;
 
 /// One event about one decision: which, when its writer recorded it (data, never an order), who,
 /// and what was said of it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DecisionEvent {
-    decision: DecisionId,
-    at: Datetime,
-    actor: Actor,
-    said: Said,
-}
+pub type DecisionEvent = Event<Said>;
 
 /// What an event says of its decision.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,14 +89,8 @@ impl DecisionEvent {
         if reason.is_empty() || reason != reason.trim() {
             return Err(NotADecision::Empty("reason"));
         }
-        Ok(Self {
-            decision,
-            at,
-            actor,
-            said: Said::Withdrawn {
-                reason: reason.to_owned(),
-            },
-        })
+        let reason = reason.to_owned();
+        Ok(Self::of(decision, at, actor, Said::Withdrawn { reason }))
     }
 
     fn stated(
@@ -115,30 +103,13 @@ impl DecisionEvent {
         if supersedes.contains(&decision) {
             return Err(NotADecision::Itself(decision.to_string()));
         }
-        Ok(Self {
-            decision,
-            at,
-            actor,
-            said: said(supersedes),
-        })
-    }
-
-    /// The decision.
-    #[must_use]
-    pub fn decision(&self) -> &DecisionId {
-        &self.decision
-    }
-
-    /// What was said of it.
-    #[must_use]
-    pub fn said(&self) -> &Said {
-        &self.said
+        Ok(Self::of(decision, at, actor, said(supersedes)))
     }
 
     /// The statement a `Decided` or `Revised` makes.
     #[must_use]
     pub fn statement(&self) -> Option<&Statement> {
-        match &self.said {
+        match self.said() {
             Said::Decided { statement, .. } | Said::Revised { statement, .. } => Some(statement),
             Said::Withdrawn { .. } => None,
         }
@@ -147,7 +118,7 @@ impl DecisionEvent {
     /// The links a `Decided` or `Revised` makes; none for a withdrawal.
     #[must_use]
     pub fn supersedes(&self) -> Option<&BTreeSet<DecisionId>> {
-        match &self.said {
+        match self.said() {
             Said::Decided { supersedes, .. } | Said::Revised { supersedes, .. } => Some(supersedes),
             Said::Withdrawn { .. } => None,
         }
@@ -186,14 +157,7 @@ const WITHDRAWN: Signature = ("Withdrawn", &["decision", "at", "actor", "reason"
 const SIGNATURES: &[Signature] = &[DECIDED, REVISED, WITHDRAWN];
 
 /// The decisions' whitelist: three constructors and nothing else, since no event nests a term.
-#[derive(Debug, Clone, Default)]
-pub struct DecisionVocabulary;
-
-impl Vocabulary for DecisionVocabulary {
-    fn signature(&self, name: &str) -> Option<prodrome_core::literal::Signature<'_>> {
-        Table(SIGNATURES).find(name)
-    }
-}
+pub type DecisionVocabulary = Vocab<Said>;
 
 /// A decision's literal is its id.
 impl Literal for DecisionId {
@@ -220,24 +184,28 @@ fn stated(statement: &Statement, supersedes: &BTreeSet<DecisionId>) -> Vec<Value
     ]
 }
 
-impl Schema for DecisionEvent {
-    type Vocabulary = DecisionVocabulary;
+impl Says for Said {
     type Key = DecisionId;
     type Register = DecisionRegister;
+    type Registers<'a> = DecisionRegisters<'a>;
 
-    fn registers(_: &DecisionVocabulary) -> Vec<DecisionRegister> {
+    const EVENTS: &'static [Signature] = SIGNATURES;
+
+    fn registers() -> Vec<DecisionRegister> {
         vec![DecisionRegister::Content, DecisionRegister::Life]
     }
 
-    type Registers<'a> = DecisionRegisters<'a>;
+    /// A statement supersedes in both registers, so a restatement of a withdrawn decision is
+    /// refused by the life's order; a withdrawal only in the life. The links accumulate and
+    /// supersede nothing.
+    fn writes(event: &DecisionEvent) -> impl Iterator<Item = DecisionRegister> {
+        let statement = matches!(event.said(), Said::Decided { .. } | Said::Revised { .. })
+            .then_some(DecisionRegister::Content);
+        statement.into_iter().chain([DecisionRegister::Life])
+    }
 
-    fn to_value(&self) -> Value {
-        let head = [
-            self.decision.to_value(),
-            self.at.to_value(),
-            self.actor.to_value(),
-        ];
-        let (signature, own) = match &self.said {
+    fn body(&self) -> (Signature, Vec<Value>) {
+        match self {
             Said::Decided {
                 statement,
                 supersedes,
@@ -247,12 +215,10 @@ impl Schema for DecisionEvent {
                 supersedes,
             } => (REVISED, stated(statement, supersedes)),
             Said::Withdrawn { reason } => (WITHDRAWN, vec![reason.to_value()]),
-        };
-        record(signature, head.into_iter().chain(own).collect())
+        }
     }
 
-    fn from_value(_: &DecisionVocabulary, value: &Value) -> Result<Self, ProdromeError> {
-        let fields = Fields::among(value, SIGNATURES)?;
+    fn parse(fields: &Fields<'_>) -> Result<DecisionEvent, ProdromeError> {
         let (decision, at, actor) = (
             fields.get("decision")?,
             fields.get("at")?,
@@ -279,27 +245,6 @@ impl Schema for DecisionEvent {
             other => return Err(crate::literal::no_arm("a decision event", other)),
         }
         .map_err(invalid)
-    }
-
-    fn key(&self) -> &DecisionId {
-        &self.decision
-    }
-
-    fn at(&self) -> Datetime {
-        self.at
-    }
-
-    fn actor(&self) -> &Actor {
-        &self.actor
-    }
-
-    /// A statement supersedes in both registers, so a restatement of a withdrawn decision is
-    /// refused by the life's order; a withdrawal only in the life. The links accumulate and
-    /// supersede nothing.
-    fn writes(&self) -> impl Iterator<Item = DecisionRegister> {
-        let statement = matches!(self.said, Said::Decided { .. } | Said::Revised { .. })
-            .then_some(DecisionRegister::Content);
-        statement.into_iter().chain([DecisionRegister::Life])
     }
 }
 
@@ -329,11 +274,14 @@ mod tests {
         )
         .expect("an event");
         let print = canonical(&event);
-        assert_eq!(parse_event(&DecisionVocabulary, &print), Ok(event));
+        assert_eq!(
+            parse_event(&DecisionVocabulary::default(), &print),
+            Ok(event)
+        );
         for other in ["('bbb', 'aaa')", "('aaa', 'aaa', 'bbb')"] {
             let moved = print.replace("('aaa', 'bbb')", other);
             assert_ne!(moved, print);
-            assert!(parse_event::<DecisionEvent>(&DecisionVocabulary, &moved).is_err());
+            assert!(parse_event::<DecisionEvent>(&DecisionVocabulary::default(), &moved).is_err());
         }
     }
 

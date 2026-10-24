@@ -39,10 +39,12 @@ pub fn on_wire(draft: &Draft) -> wire::ProposedAct {
 /// Record a tapped decision as `by`, the gate's actor and never a request field.
 #[must_use]
 pub fn performed(caps: &Server<'_>, draft: &Draft, by: &Actor) -> Performed {
-    match caps
-        .decisions
-        .decide(draft, caps.clock.now(), by, caps.render)
-    {
+    match caps.secretary.decisions.decide(
+        draft,
+        caps.secretary.clock.now(),
+        by,
+        caps.secretary.render,
+    ) {
         Ok(name) => Performed::Done(Done::Acted {
             what: format!("recorded the decision {} as {}", draft.id(), name.as_str()),
         }),

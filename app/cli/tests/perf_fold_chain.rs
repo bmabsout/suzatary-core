@@ -21,7 +21,7 @@ use prodrome_core::event::Actor;
 use prodrome_core::policy::Untrusted;
 use prodrome_core::{fpl, view as folds};
 use sha2::{Digest, Sha256};
-use suzatary_core::capability::{Datetime, Server};
+use suzatary_core::capability::{Datetime, Secretary, Server};
 use suzatary_core::record::EventStore;
 use suzatary_core::routes;
 use suzatary_core::store::Prodrome;
@@ -285,7 +285,13 @@ fn http_round_trip_with_and_without_compression() {
     let render: &'static Typst = Box::leak(Box::new(render));
     let deployment = common::deployment([], []);
     let base = common::Server::new(Arc::new(fakes), deployment, common::loopback_is_this_box())
-        .effects(move |fakes| Server { render, ..fakes })
+        .effects(move |fakes| Server {
+            secretary: Secretary {
+                render,
+                ..fakes.secretary
+            },
+            ..fakes
+        })
         .start()
         .base;
 

@@ -1,0 +1,1 @@
+Genesis(label='decisions', nonce='00000000000000000000000000000000')

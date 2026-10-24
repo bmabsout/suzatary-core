@@ -276,7 +276,7 @@ proptest! {
     fn every_event_prints_and_parses_back(script in steps()) {
         for event in history(&script, 0) {
             let print = canonical(&event);
-            prop_assert_eq!(parse_event::<DecisionEvent>(&DecisionVocabulary, &print).expect("parses"), event);
+            prop_assert_eq!(parse_event::<DecisionEvent>(&DecisionVocabulary::default(), &print).expect("parses"), event);
         }
     }
 }
@@ -416,7 +416,7 @@ fn rename(event: &DecisionEvent, offset: usize) -> DecisionEvent {
         let n: usize = of.as_str()["decision".len()..].parse().expect("a number");
         id(n + offset)
     };
-    let decision = moved(event.decision());
+    let decision = moved(event.key());
     let when = prodrome_core::schema::Schema::at(event);
     match event.said() {
         suzatary_core::decisions::Said::Decided {

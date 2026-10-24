@@ -1,29 +1,26 @@
 //! The memory's schema: a fact remembered, naming its words by their [`TextName`], and a fact
 //! forgotten, naming only its id, each about one [`FactId`].
 //!
-//! Every event writes the fact's one register, its life
-//! ([`crate::secretary::memory_registers`]), declared inflationary: the store refuses a
+//! Every event writes the fact's one register, its life ([`LifeRegister`]), declared
+//! inflationary: the store refuses a
 //! `Remembered` on a fact already forgotten, so once forgotten, always forgotten. The words are
 //! never an object: they live in the memory's text store, which forgetting deletes from.
 
 use prodrome_core::event::Actor;
-use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary};
-use prodrome_core::schema::Schema;
+use prodrome_core::fold::{Discrete, Frontier, RegisterType};
+use prodrome_core::literal::{Datetime, ProdromeError, Value};
+use prodrome_core::registers::Stamp;
 
-use crate::literal::{Fields, Literal as _, Signature, record};
+use crate::envelope::{Event, Says, Vocab};
+use crate::literal::{Fields, Literal as _, Signature};
+use crate::sole::{One, Only, Sole};
 
+use crate::secretary::fact_life::Life;
 use crate::secretary::memory::{FactId, Kind, Origin, TAPPED, TURN};
-use crate::secretary::memory_registers::{FactRegister, FactRegisters};
 use crate::secretary::salted_text::TextName;
 
 /// One event about one fact: which, when, who wrote it, and what became of it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MemoryEvent {
-    fact: FactId,
-    at: Datetime,
-    actor: Actor,
-    said: Said,
-}
+pub type MemoryEvent = Event<Said>;
 
 /// What an event says of its fact.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,12 +65,7 @@ impl MemoryEvent {
         kind: Kind,
         origin: Origin,
     ) -> Self {
-        Self {
-            fact,
-            at,
-            actor,
-            said: Said::Remembered { text, kind, origin },
-        }
+        Self::of(fact, at, actor, Said::Remembered { text, kind, origin })
     }
 
     /// Fact `fact` forgotten by `actor`, making memory version `version`.
@@ -89,31 +81,14 @@ impl MemoryEvent {
         if version <= fact.0 {
             return Err(NotAMemoryEvent::Before { fact, version });
         }
-        Ok(Self {
-            fact,
-            at,
-            actor,
-            said: Said::Forgotten { version },
-        })
-    }
-
-    /// The fact.
-    #[must_use]
-    pub fn fact(&self) -> FactId {
-        self.fact
-    }
-
-    /// What became of it.
-    #[must_use]
-    pub fn said(&self) -> &Said {
-        &self.said
+        Ok(Self::of(fact, at, actor, Said::Forgotten { version }))
     }
 
     /// The memory's version this event made: a remembered fact's number, or a forgetting's.
     #[must_use]
     pub fn version(&self) -> u64 {
-        match self.said {
-            Said::Remembered { .. } => self.fact.0,
+        match *self.said() {
+            Said::Remembered { .. } => self.key().0,
             Said::Forgotten { version } => version,
         }
     }
@@ -126,53 +101,37 @@ const REMEMBERED: Signature = (
 );
 /// `Forgotten(fact, at, actor, version)`.
 const FORGOTTEN: Signature = ("Forgotten", &["fact", "at", "actor", "version"]);
-/// The constructors, in print order: the two events, then an origin's.
-const SIGNATURES: &[Signature] = &[REMEMBERED, FORGOTTEN, TURN, TAPPED];
-
 /// The memory's whitelist: its two events and an origin's two arms, nothing else, since no
 /// event nests a term.
-#[derive(Debug, Clone, Default)]
-pub struct MemoryVocabulary;
+pub type MemoryVocabulary = Vocab<Said>;
 
-impl Vocabulary for MemoryVocabulary {
-    fn signature(&self, name: &str) -> Option<prodrome_core::literal::Signature<'_>> {
-        Table(SIGNATURES).find(name)
-    }
-}
-
-impl Schema for MemoryEvent {
-    type Vocabulary = MemoryVocabulary;
+impl Says for Said {
     type Key = FactId;
-    type Register = FactRegister;
+    type Register = Only;
+    type Registers<'a> = One<'a, MemoryEvent>;
 
-    fn registers(_: &MemoryVocabulary) -> Vec<FactRegister> {
-        vec![FactRegister]
+    const EVENTS: &'static [Signature] = &[REMEMBERED, FORGOTTEN];
+    const NESTED: &'static [Signature] = &[TURN, TAPPED];
+
+    fn registers() -> Vec<Only> {
+        vec![Only]
     }
 
-    type Registers<'a> = FactRegisters<'a>;
+    fn writes(_: &MemoryEvent) -> impl Iterator<Item = Only> {
+        std::iter::once(Only)
+    }
 
-    fn to_value(&self) -> Value {
-        let head = [
-            self.fact.to_value(),
-            self.at.to_value(),
-            self.actor.to_value(),
-        ];
-        match &self.said {
-            Said::Remembered { text, kind, origin } => record(
+    fn body(&self) -> (Signature, Vec<Value>) {
+        match self {
+            Said::Remembered { text, kind, origin } => (
                 REMEMBERED,
-                head.into_iter()
-                    .chain([text.to_value(), kind.to_value(), origin.to_value()])
-                    .collect(),
+                vec![text.to_value(), kind.to_value(), origin.to_value()],
             ),
-            Said::Forgotten { version } => record(
-                FORGOTTEN,
-                head.into_iter().chain([version.to_value()]).collect(),
-            ),
+            Said::Forgotten { version } => (FORGOTTEN, vec![version.to_value()]),
         }
     }
 
-    fn from_value(_: &MemoryVocabulary, value: &Value) -> Result<Self, ProdromeError> {
-        let fields = Fields::among(value, &[REMEMBERED, FORGOTTEN])?;
+    fn parse(fields: &Fields<'_>) -> Result<MemoryEvent, ProdromeError> {
         let (fact, at, actor) = (fields.get("fact")?, fields.get("at")?, fields.get("actor")?);
         match fields.name() {
             "Remembered" => Ok(MemoryEvent::remembered(
@@ -188,21 +147,30 @@ impl Schema for MemoryEvent {
             other => Err(crate::literal::no_arm("a memory event", other)),
         }
     }
+}
 
-    fn key(&self) -> &FactId {
-        &self.fact
+/// The register's type: a [`Life`].
+#[derive(Debug)]
+pub struct LifeRegister;
+
+impl RegisterType<MemoryEvent> for LifeRegister {
+    type Value<'e> = Life<'e>;
+
+    fn value(event: &MemoryEvent) -> Option<Life<'_>> {
+        Some(match event.said() {
+            Said::Remembered { .. } => Life::Remembered(Discrete(event)),
+            Said::Forgotten { .. } => Life::Forgotten,
+        })
+    }
+}
+
+impl Sole for MemoryEvent {
+    fn reading<'a>(frontier: &Frontier<'a, Self>) -> Vec<&'a Stamp<Self>> {
+        frontier.reading::<LifeRegister>()
     }
 
-    fn at(&self) -> Datetime {
-        self.at
-    }
-
-    fn actor(&self) -> &Actor {
-        &self.actor
-    }
-
-    fn writes(&self) -> impl Iterator<Item = FactRegister> {
-        std::iter::once(FactRegister)
+    fn grows(frontier: &Frontier<'_, Self>, event: &Self) -> Result<(), ProdromeError> {
+        frontier.grows::<LifeRegister>(event)
     }
 }
 
@@ -212,7 +180,7 @@ mod tests {
 
     #[test]
     fn no_constructor_is_a_term_or_an_envelope() {
-        crate::literal::assert_own(SIGNATURES);
+        crate::literal::assert_own(&[REMEMBERED, FORGOTTEN, TURN, TAPPED]);
     }
 
     /// Every count prints as itself and reads back, at the widest it holds.
@@ -238,7 +206,11 @@ mod tests {
             MemoryEvent::forgotten(fact, at, ada, u64::MAX).expect("after its fact"),
         ] {
             let print = canonical(&event);
-            assert_eq!(parse_event(&MemoryVocabulary, &print), Ok(event), "{print}");
+            assert_eq!(
+                parse_event(&MemoryVocabulary::default(), &print),
+                Ok(event),
+                "{print}"
+            );
         }
     }
 

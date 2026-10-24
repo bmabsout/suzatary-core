@@ -362,6 +362,20 @@ impl Secretary {
         self.beside("-digest-texts")
     }
 
+    /// The owner's uploads: `attachments/` inside the conversations directory, box-local and
+    /// git-ignored with them.
+    #[must_use]
+    pub fn uploads(&self) -> PathBuf {
+        self.conversations.join("attachments")
+    }
+
+    /// The files verbs hand the model: `files/` inside the conversations directory, beside the
+    /// uploads and git-ignored with them.
+    #[must_use]
+    pub fn kept(&self) -> PathBuf {
+        self.conversations.join("files")
+    }
+
     /// The secretary's directory with `suffix` on its name, beside it.
     fn beside(&self, suffix: &str) -> PathBuf {
         let mut name = self

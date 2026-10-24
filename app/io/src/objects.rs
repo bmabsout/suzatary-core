@@ -19,15 +19,11 @@ use prodrome_core::policy::Untrusted;
 use prodrome_core::registers::Node;
 use prodrome_core::schema::Schema;
 use prodrome_core::store::{EventStore, Replica};
-use suzatary_core::decisions::DecisionEvent;
 use suzatary_core::record::Record;
 use suzatary_core::secretary::digest_event::DigestEvent;
-use suzatary_core::secretary::inbox_event::InboxEvent;
-use suzatary_core::secretary::line_event::LineEvent;
-use suzatary_core::secretary::memory_event::MemoryEvent;
-use suzatary_core::secretary::topics::alias_event::AliasEvent;
-use suzatary_core::secretary::topics::membership_event::MembershipEvent;
-use suzatary_core::store::{Prodrome, Reentrant, StoreError, WriteLock, append_to};
+use suzatary_core::store::{
+    Hold, Kind, Prodrome, Reentrant, Store, StoreError, WriteLock, append_to,
+};
 
 use crate::durable;
 
@@ -44,122 +40,6 @@ pub struct Objects<E: Schema> {
 /// A store's admission rule: `Err` names why an event may not be stored.
 type Door<E> = Box<dyn Fn(&E) -> Result<(), String> + Send + Sync>;
 
-/// Which store this is: its name in errors, its `Genesis` label and its hold follow from it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Kind {
-    /// A todo chain, or the agent's replica of one.
-    Chain,
-    /// The secretary's proposals.
-    Inbox,
-    /// The secretary's conversations, their words locked.
-    Lines,
-    /// The memory's history.
-    Memory,
-    /// The digest's history.
-    Digests,
-    /// The recorded decisions.
-    Decisions,
-    /// The topics on the secretary's rounds and notes, box-local.
-    Topics,
-    /// The topics' aliases, box-local.
-    TopicAliases,
-    /// A plugin's cache-tier store.
-    Plugin,
-}
-
-impl Kind {
-    /// Its name in errors.
-    fn name(self) -> &'static str {
-        match self {
-            Kind::Chain => "chain",
-            Kind::Inbox => "inbox",
-            Kind::Lines => "lines",
-            Kind::Memory => "memory",
-            Kind::Digests => "digests",
-            Kind::Decisions => "decisions",
-            Kind::Topics => "topics",
-            Kind::TopicAliases => "topic-aliases",
-            Kind::Plugin => "plugin",
-        }
-    }
-
-    /// The label of the `Genesis` an empty store's first write begins it with.
-    fn label(self) -> &'static str {
-        match self {
-            Kind::Chain => suzatary_core::record::GENESIS,
-            other => other.name(),
-        }
-    }
-
-    /// What serialises its writers above the database's own lock.
-    fn hold(self) -> Hold {
-        match self {
-            Kind::Chain => Hold::Reentrant,
-            Kind::Inbox => Hold::File("submit.lock"),
-            Kind::Lines => Hold::File("lines.lock"),
-            Kind::Memory => Hold::File("memory.lock"),
-            Kind::Digests => Hold::File("digests.lock"),
-            Kind::Decisions => Hold::File("decisions.lock"),
-            Kind::Topics => Hold::File("topics.lock"),
-            Kind::TopicAliases => Hold::File("topic-aliases.lock"),
-            Kind::Plugin => Hold::File("store.lock"),
-        }
-    }
-}
-
-/// A schema kept as one of this application's stores: the schema decides which.
-pub trait Kept: Schema {
-    /// The store its objects are kept in.
-    const KIND: Kind;
-}
-
-impl Kept for TodoEvent<Record> {
-    const KIND: Kind = Kind::Chain;
-}
-
-impl Kept for InboxEvent {
-    const KIND: Kind = Kind::Inbox;
-}
-
-impl Kept for LineEvent {
-    const KIND: Kind = Kind::Lines;
-}
-
-impl Kept for MemoryEvent {
-    const KIND: Kind = Kind::Memory;
-}
-
-impl Kept for DigestEvent {
-    const KIND: Kind = Kind::Digests;
-}
-
-impl Kept for DecisionEvent {
-    const KIND: Kind = Kind::Decisions;
-}
-
-impl Kept for MembershipEvent {
-    const KIND: Kind = Kind::Topics;
-}
-
-impl Kept for AliasEvent {
-    const KIND: Kind = Kind::TopicAliases;
-}
-
-impl Kept for Declared {
-    const KIND: Kind = Kind::Plugin;
-}
-
-/// What serialises a store's writers above the database's own lock.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Hold {
-    /// This process's threads, reentrant, since a batch holds it while each write inside takes
-    /// its own.
-    Reentrant,
-    /// An `flock` on this file beside the objects, opened afresh for each hold, so threads wait
-    /// on each other as processes do; never taken twice by one thread.
-    File(&'static str),
-}
-
 /// What one head set's read produced.
 struct Remembered<E> {
     heads: Vec<Hash>,
@@ -171,7 +51,7 @@ struct Remembered<E> {
     verified: Option<Vec<String>>,
 }
 
-impl<E: Kept> std::fmt::Debug for Objects<E> {
+impl<E: Store> std::fmt::Debug for Objects<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Objects")
             .field("kind", &E::KIND)
@@ -189,33 +69,11 @@ impl Objects<TodoEvent<Record>> {
     }
 }
 
-impl Objects<InboxEvent> {
-    /// The inbox at `root`, held by `submit.lock` across processes: a `Genesis` labelled `inbox`,
-    /// then one `Change` per event.
+impl<E: Store<Vocabulary: Default>> Objects<E> {
+    /// The store at `root`, every writer believed, held by its declared hold: a `Genesis`
+    /// labelled with its name, then one `Change` per event.
     #[must_use]
-    pub fn inbox(root: impl Into<std::path::PathBuf>) -> Self {
-        Self::new(EventStore::new(root, Untrusted::none()))
-    }
-}
-
-/// The conversations' lines, one prodrome keyed by conversation, every word locked.
-pub type Conversations = Objects<LineEvent>;
-
-impl Objects<LineEvent> {
-    /// The lines at `root`, held by `lines.lock` across processes, since the server and
-    /// `secretary review` both write: a `Genesis` labelled `lines`, then one `Change` per line.
-    #[must_use]
-    pub fn lines(root: impl Into<std::path::PathBuf>) -> Self {
-        Self::new(EventStore::new(root, Untrusted::none()))
-    }
-}
-
-impl Objects<MemoryEvent> {
-    /// The memory's history at `root`, held by `memory.lock` across processes, since the server
-    /// and the CLI both write: a `Genesis` labelled `memory`, then one `Change` per event. Its
-    /// texts are a store of their own beside it, [`crate::texts::Texts`].
-    #[must_use]
-    pub fn memory(root: impl Into<std::path::PathBuf>) -> Self {
+    pub fn open(root: impl Into<std::path::PathBuf>) -> Self {
         Self::new(EventStore::new(root, Untrusted::none()))
     }
 }
@@ -252,34 +110,6 @@ impl Objects<Declared> {
     }
 }
 
-impl Objects<DecisionEvent> {
-    /// The recorded decisions at `root`, held by `decisions.lock` across processes, since the
-    /// server's tap and the CLI both write: a `Genesis` labelled `decisions`, then one `Change`
-    /// per event. Pushed with the data, like the chains.
-    #[must_use]
-    pub fn decisions(root: impl Into<std::path::PathBuf>) -> Self {
-        Self::new(EventStore::new(root, Untrusted::none()))
-    }
-}
-
-impl Objects<MembershipEvent> {
-    /// The topics at `root`, held by `topics.lock` across processes, since the server and the carry
-    /// verb both write: a `Genesis` labelled `topics`, then one `Change` per membership written.
-    #[must_use]
-    pub fn topics(root: impl Into<std::path::PathBuf>) -> Self {
-        Self::new(EventStore::new(root, Untrusted::none()))
-    }
-}
-
-impl Objects<AliasEvent> {
-    /// The topics' aliases at `root`, held by `topic-aliases.lock` across processes: a `Genesis`
-    /// labelled `topic-aliases`, then one `Change` per alias written.
-    #[must_use]
-    pub fn topic_aliases(root: impl Into<std::path::PathBuf>) -> Self {
-        Self::new(EventStore::new(root, Untrusted::none()))
-    }
-}
-
 impl<E: Schema> Objects<E> {
     /// Open a store of its schema's kind. Nothing is read until something asks.
     fn new(events: EventStore<E, Untrusted>) -> Self {
@@ -298,7 +128,7 @@ impl<E: Schema> Objects<E> {
     }
 }
 
-impl<E: Kept> Objects<E> {
+impl<E: Store> Objects<E> {
     /// Its `Genesis` written when it holds nothing, so a replica's first change has a prodrome to
     /// rest on: a replica may not begin one. A begun store stays as it is.
     ///
@@ -308,7 +138,7 @@ impl<E: Kept> Objects<E> {
         let _held = self.locked()?;
         if self.tips()?.is_empty() {
             self.events
-                .init(E::KIND.label())
+                .init(E::LABEL)
                 .map_err(|e| Self::not_appended(e))?;
         }
         Ok(())
@@ -364,7 +194,7 @@ impl<E: Kept> Objects<E> {
 
 impl WriteLock for durable::Held {}
 
-impl<E: Kept> Prodrome<E> for Objects<E> {
+impl<E: Store> Prodrome<E> for Objects<E> {
     fn objects(&self) -> Result<Vec<(Hash, Envelope<E>)>, StoreError> {
         self.with(|held| held.objects.clone())
     }
@@ -418,8 +248,7 @@ impl<E: Kept> Prodrome<E> for Objects<E> {
         if let Some(door) = &self.door {
             door(&event).map_err(|refused| Self::not_appended(refused))?;
         }
-        let name =
-            append_to(&self.events, E::KIND.label(), event).map_err(|e| Self::not_appended(e))?;
+        let name = append_to(&self.events, E::LABEL, event).map_err(|e| Self::not_appended(e))?;
         Self::wrote(std::slice::from_ref(&name));
         Ok(name)
     }
@@ -452,7 +281,7 @@ impl<E: Kept> Prodrome<E> for Objects<E> {
     }
 
     fn locked(&self) -> Result<Box<dyn WriteLock + '_>, StoreError> {
-        match E::KIND.hold() {
+        match E::HOLD {
             Hold::Reentrant => Ok(self.reentrant.hold()),
             Hold::File(name) => self.file(name),
         }
@@ -497,7 +326,7 @@ mod tests {
         let node = "a".repeat(64);
         let event = |actor: &str| {
             parse_event::<DigestEvent>(
-                &DigestVocabulary,
+                &DigestVocabulary::default(),
                 &format!(
                     "Retracted(node='{node}', at=datetime(2026, 10, 6, 12, 0, 0), actor='{actor}')"
                 ),
@@ -641,7 +470,9 @@ mod tests {
             .expect("pushes");
         }
         let objects = store.lines.objects().expect("reads");
-        let genesis = |o: &Envelope<LineEvent>| matches!(o, Envelope::Genesis(_));
+        let genesis = |o: &Envelope<suzatary_core::secretary::line_event::LineEvent>| {
+            matches!(o, Envelope::Genesis(_))
+        };
         assert_eq!(objects.iter().filter(|(_, o)| genesis(o)).count(), 1);
         assert!(
             objects
@@ -680,9 +511,9 @@ mod tests {
         use suzatary_core::secretary::store::ConversationId;
 
         let dir = tempfile::tempdir().expect("a scratch dir");
-        let history = Objects::memory(dir.path().join("memory"));
+        let history = Objects::open(dir.path().join("memory"));
         let texts = crate::texts::Texts::open(dir.path().join("memory-texts"));
-        let cards = Objects::inbox(dir.path().join("inbox"));
+        let cards = Objects::open(dir.path().join("inbox"));
         let (lines, digests) = (
             lines_at(dir.path().join("lines")),
             Objects::digests(dir.path().join("digests"), owners()),
@@ -735,9 +566,9 @@ mod tests {
         use suzatary_core::secretary::store::ConversationId;
 
         let dir = tempfile::tempdir().expect("a scratch dir");
-        let history = Objects::memory(dir.path().join("memory"));
+        let history = Objects::open(dir.path().join("memory"));
         let texts = crate::texts::Texts::open(dir.path().join("memory-texts"));
-        let cards = Objects::inbox(dir.path().join("inbox"));
+        let cards = Objects::open(dir.path().join("inbox"));
         let (lines, digests) = (
             lines_at(dir.path().join("conversations")),
             Objects::digests(dir.path().join("digests"), owners()),
@@ -887,8 +718,8 @@ mod tests {
         let dir = tempfile::tempdir().expect("a scratch dir");
         let lines = spoken(dir.path());
         let (history, cards, summaries) = (
-            Objects::memory(dir.path().join("memory")),
-            Objects::inbox(dir.path().join("inbox")),
+            Objects::open(dir.path().join("memory")),
+            Objects::open(dir.path().join("inbox")),
             Objects::digests(dir.path().join("digests"), owners()),
         );
         let (texts, digest_texts) = (
@@ -1002,7 +833,7 @@ mod tests {
             .expect("a line");
         let summaries = Objects::digests(dir.path().join("digests"), owners());
         let retraction = parse_event::<DigestEvent>(
-            &DigestVocabulary,
+            &DigestVocabulary::default(),
             &format!(
                 "Retracted(node='{}', at=datetime(2026, 10, 6, 10, 0, 0), actor='ada')",
                 line.as_str()
@@ -1013,8 +844,8 @@ mod tests {
         std::fs::write(object_file(dir.path(), "digests", &retracted), "Retracted(")
             .expect("damaged");
         let (history, cards, damaged) = (
-            Objects::memory(dir.path().join("memory")),
-            Objects::inbox(dir.path().join("inbox")),
+            Objects::open(dir.path().join("memory")),
+            Objects::open(dir.path().join("inbox")),
             Objects::digests(dir.path().join("digests"), owners()),
         );
         let (texts, digest_texts) = (
@@ -1054,7 +885,7 @@ mod tests {
     fn two_threads_on_the_store_send_once() {
         let dir = std::env::temp_dir().join(format!("suzatary-inbox-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let caps = Objects::inbox(&dir);
+        let caps = Objects::open(&dir);
         let asked = inbox::Asked {
             proposer: suzatary_core::secretary::proposer::Proposer::Secretary,
             proposal: Proposal::Email(Draft {

@@ -17,18 +17,18 @@ const CAP: std::time::Duration = std::time::Duration::from_mins(10);
 pub fn warm_now(caps: &'static Server<'static>, chain: &ChainPolicy) {
     let untrusted = chain.untrusted.clone();
     tokio::task::spawn_blocking(move || {
-        let now = caps.clock.now();
-        match routes::warmable(caps.chain, &untrusted, now) {
+        let now = caps.secretary.clock.now();
+        match routes::warmable(caps.secretary.chain, &untrusted, now) {
             Err(refusal) => tracing::warn!("warm: the chain could not be read: {refusal}"),
             Ok(sources) => {
                 let began = std::time::Instant::now();
-                let rendered = caps.render.warm(&sources);
+                let rendered = caps.secretary.render.warm(&sources);
                 tracing::info!(
                     "warmed {rendered}/{} markup fragments in {:.2}s",
                     sources.len(),
                     began.elapsed().as_secs_f64()
                 );
-                for finding in caps.render.findings() {
+                for finding in caps.secretary.render.findings() {
                     tracing::warn!(
                         "the rendered table holds two values for {} at {}: never chosen, compiled again",
                         finding.key.function.as_str(),
@@ -80,12 +80,12 @@ pub async fn watcher(
         read("the chain's heads", heads(caps)),
         read("the chain", events(caps)).map(|events| events.len()),
         // A proposal moves the inbox, not the chain.
-        read("the inbox", caps.inbox.events()).map(|inbox| inbox.len()),
+        read("the inbox", caps.secretary.inbox.events()).map(|inbox| inbox.len()),
     );
 
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(notify::POLL_SECONDS)).await;
-        let inbox = read("the inbox", caps.inbox.events());
+        let inbox = read("the inbox", caps.secretary.inbox.events());
         let now = std::time::Instant::now();
         if watched.polled(
             read("the chain's heads", heads(caps)),
@@ -101,7 +101,7 @@ pub async fn watcher(
             continue;
         };
         let fresh = watched.announce(&events, inbox.as_deref());
-        let agent_work = notify::decide(&fresh.events, &own, caps.clock.now());
+        let agent_work = notify::decide(&fresh.events, &own, caps.secretary.clock.now());
         // An open page draws its own popup, so the phone rings only when nobody is looking.
         let needs_you =
             notify::needs_you(&fresh.events, &fresh.inbox).filter(|_| !presence.anyone());
@@ -131,12 +131,13 @@ fn send(caps: &'static Server<'static>, push: suzatary_core::capability::Push) {
 fn events(
     caps: &'static Server<'static>,
 ) -> Result<Vec<suzatary_core::record::TodoEvent>, suzatary_core::store::StoreError> {
-    Ok(view::events_of(&caps.chain.nodes()?))
+    Ok(view::events_of(&caps.secretary.chain.nodes()?))
 }
 
 /// The head set.
 fn heads(caps: &'static Server<'static>) -> Result<Vec<String>, suzatary_core::store::StoreError> {
     Ok(caps
+        .secretary
         .chain
         .tips()?
         .iter()

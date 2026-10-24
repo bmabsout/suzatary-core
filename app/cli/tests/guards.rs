@@ -37,6 +37,8 @@ mod gate_yml;
 mod guide;
 #[path = "guards/leak.rs"]
 mod leak;
+#[path = "guards/lists.rs"]
+mod lists;
 #[path = "guards/merge_gate.rs"]
 mod merge_gate;
 #[path = "guards/publication.rs"]
@@ -1488,31 +1490,6 @@ fn safe_push_the_agent_can_never_stage_source() {
     }
 }
 
-/// Every store the agent or the server writes (both chains, the inbox, the conversations, the
-/// memory's and the digest's histories, the recorded decisions and the performed requests) is
-/// staged, or its objects live only on this box.
-#[test]
-fn safe_push_the_agent_stages_exactly_its_writable_set() {
-    let mut add_paths = agent_add_paths();
-    add_paths.sort();
-    assert_eq!(
-        add_paths,
-        vec![
-            "decisions/".to_owned(),
-            "digests/".to_owned(),
-            "events-suzatary/".to_owned(),
-            "events-triage-suzatary/".to_owned(),
-            "events-triage/".to_owned(),
-            "events/".to_owned(),
-            "inbox/".to_owned(),
-            "memory/".to_owned(),
-            "requests/".to_owned(),
-            "secretary-lines/".to_owned(),
-            "state.json".to_owned()
-        ]
-    );
-}
-
 /// Every file the agent's push would stage is one its pattern accepts: an untracked file beside a
 /// store's objects (its lock, on 2026-10-01) would refuse the next push. Run against the data
 /// tree where there is one; `--untracked-files=all` lists what `git add -A` would stage.
@@ -1545,39 +1522,6 @@ fn safe_push_every_file_it_would_stage_is_one_it_accepts() {
         "the agent's push would stage files its pattern refuses; track or ignore them in the \
          data repository: {refused:?}"
     );
-}
-
-/// The append-only walk covers the chains and not the replicas: a rejection deletes from a
-/// proposal store on purpose, and nothing anyone holds rests on those objects. Pinned in both
-/// directions.
-#[test]
-fn safe_push_guards_the_chains_against_rewrites_and_lets_a_rejection_through() {
-    let script = safe_push_script();
-    let walk = script
-        .lines()
-        .find(|line| line.starts_with("REWRITES="))
-        .expect("safe-push.sh walks the objects for rewrites");
-    for chain in [
-        "events/objects/",
-        "events-suzatary/objects/",
-        "inbox/objects/",
-        "secretary-lines/objects/",
-        "memory/objects/",
-        "digests/objects/",
-        "decisions/objects/",
-        "requests/",
-    ] {
-        assert!(
-            walk.contains(chain),
-            "the append-only check must walk {chain}: {walk}"
-        );
-    }
-    for replica in ["events-triage/objects/", "events-triage-suzatary/objects/"] {
-        assert!(
-            !walk.contains(replica),
-            "the append-only check must NOT walk {replica} — rejecting is deletion: {walk}"
-        );
-    }
 }
 
 /// A performed request's record rides with the data, and so does its store's `.gitignore`; a
@@ -1777,27 +1721,6 @@ fn safe_push_never_carries_the_cache_tier() {
                 "the data pattern admits {refused}"
             );
         }
-    }
-}
-
-/// Staging more than the check verifies is how an unlisted file rides along;
-/// the script says so in a comment, so pin it.
-#[test]
-fn safe_push_add_paths_and_allowlist_stay_in_step() {
-    let add_paths = agent_add_paths();
-    let pattern = agent_pattern();
-    for path in add_paths {
-        // A directory is staged and a file is matched, so each store's probe is an object
-        // under it: a record for the requests, which keep JSON by name.
-        let probe = match path.strip_suffix('/') {
-            Some("requests") => format!("requests/{}.json", "a".repeat(64)),
-            Some(store) => format!("{store}/objects/{}.py", "a".repeat(64)),
-            None => path.clone(),
-        };
-        assert!(
-            matches_allowed_pattern(&pattern, &probe),
-            "{probe:?} does not match ALLOWED_PATTERN {pattern:?}"
-        );
     }
 }
 

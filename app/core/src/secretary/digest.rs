@@ -37,7 +37,6 @@ use crate::secretary::digest_event::{DigestEvent, Said};
 use crate::secretary::digest_label::Label;
 use crate::secretary::digest_line::Line;
 use crate::secretary::digest_policy::Owners;
-use crate::secretary::digest_registers::NodeRegisters;
 use crate::secretary::digest_spent::Spent;
 use crate::secretary::line_event::LineEvent;
 use crate::secretary::salted_text::TextName;
@@ -144,7 +143,8 @@ pub fn digest(
     let tree = digest::tree(leaves)?;
     let mut said: BTreeMap<Hash, Vec<Candidate>> = BTreeMap::new();
     for (node, stream) in fold(history).entities() {
-        let registers: NodeRegisters<'_> = prodrome_core::fold::read(stream, None, &policy);
+        let registers: crate::sole::One<'_, DigestEvent> =
+            prodrome_core::fold::read(stream, None, &policy);
         said.entry(node.clone())
             .or_default()
             .extend(registers.reading().into_iter().filter_map(|stamp| {

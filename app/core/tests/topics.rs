@@ -416,13 +416,13 @@ proptest! {
         for envelope in device.memberships.held().expect("held").dag.objects().values() {
             if let Some(event) = envelope.event() {
                 let print = canonical(event);
-                prop_assert_eq!(&parse_event::<MembershipEvent>(&MembershipVocabulary, &print).expect("parses"), event);
+                prop_assert_eq!(&parse_event::<MembershipEvent>(&MembershipVocabulary::default(), &print).expect("parses"), event);
             }
         }
         for envelope in device.aliases.held().expect("held").dag.objects().values() {
             if let Some(event) = envelope.event() {
                 let print = canonical(event);
-                prop_assert_eq!(&parse_event::<AliasEvent>(&AliasVocabulary, &print).expect("parses"), event);
+                prop_assert_eq!(&parse_event::<AliasEvent>(&AliasVocabulary::default(), &print).expect("parses"), event);
             }
         }
     }

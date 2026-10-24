@@ -42,7 +42,8 @@ pub fn overview(call: &Call<Reader, (), ()>) -> Result<Json<wire::Overview>, Ref
         plugins,
     } = state.live();
     let mail = timed.part("mail", || {
-        caps.sync
+        caps.secretary
+            .sync
             .health()
             .map_err(|failed| Refusal::internal(format!("the mail health register: {failed}")))
     })?;
@@ -54,7 +55,7 @@ pub fn overview(call: &Call<Reader, (), ()>) -> Result<Json<wire::Overview>, Ref
                 .map_err(|failed| Refusal::internal(format!("the model health register: {failed}")))
         })?
         .unwrap_or_default();
-    let drive = timed.part("drive", || caps.drive.allowed_folders());
+    let drive = timed.part("drive", || caps.secretary.drive.allowed_folders());
     let probed = timed
         .part("probes", || {
             state.probes.get(&()).map_err(|failed| {
@@ -65,14 +66,14 @@ pub fn overview(call: &Call<Reader, (), ()>) -> Result<Json<wire::Overview>, Ref
     let build = timed.part("about", || {
         state
             .stamp
-            .about(&state.chains_read().set(caps.clock.now()))
+            .about(&state.chains_read().set(caps.secretary.clock.now()))
     })?;
     let storage = timed.part("storage", || storage(state));
     let asking = timed.part("inbox", || {
         suzatary_core::store::memoised(
             &state.asking,
             b"settings::overview::Asking::open of the inbox's fold",
-            caps.inbox,
+            caps.secretary.inbox,
             |inbox| {
                 Ok(Asking::open(&suzatary_core::secretary::inbox::Fold::of(
                     &inbox.nodes()?,
@@ -96,7 +97,7 @@ pub fn overview(call: &Call<Reader, (), ()>) -> Result<Json<wire::Overview>, Ref
         build: &build,
         reach: &state.reach,
     };
-    let secrets = Stopwatch::over(caps.secrets);
+    let secrets = Stopwatch::over(caps.secretary.secrets);
     let at = std::time::Instant::now();
     let overview = routes::overview(
         &declared,

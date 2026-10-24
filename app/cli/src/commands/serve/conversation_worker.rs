@@ -271,7 +271,7 @@ impl Workers {
     ) -> Result<(), Refusal> {
         let halts = super::locks::held(&self.halts);
         let Some(halt) = halts.get(id) else {
-            secretary::stop_waiting(caps.conversations, caps.clock, id, &by)?;
+            secretary::stop_waiting(caps.secretary.conversations, caps.secretary.clock, id, &by)?;
             drop(halts);
             self.announce(id);
             return Ok(());
@@ -357,7 +357,7 @@ async fn due(id: &ConversationId, state: &Arc<State>) -> Option<(Conversational,
     let caps = state.first.caps;
     let read = id.clone();
     let reading = match tokio::task::spawn_blocking(move || {
-        transcript::read(caps.conversations, &read)
+        transcript::read(caps.secretary.conversations, &read)
     })
     .await
     {
@@ -396,7 +396,7 @@ async fn perform(rule: Conversational, firing: &Firing, id: &ConversationId, sta
 async fn round(id: &ConversationId, state: &Arc<State>) {
     let caps = state.first.caps;
     let held = Arc::clone(state);
-    let system = crate::commands::secretary::system_prompt(caps.manuals);
+    let system = crate::commands::secretary::system_prompt(caps.secretary.manuals);
     let asked = id.clone();
     let logged = id.clone();
     let stream = state.workers.stream(id);
@@ -419,7 +419,7 @@ async fn round(id: &ConversationId, state: &Arc<State>) {
             halt: &halt,
         };
         secretary::answer(
-            &caps.secretary(),
+            &caps.secretary,
             || caps.sessions.pick(),
             &held.deployment,
             &settables,
@@ -475,7 +475,12 @@ async fn titled(id: &ConversationId, state: &Arc<State>) -> bool {
         let pick = titler
             .as_deref()
             .map_or_else(|| caps.sessions.pick(), Sessions::pick);
-        secretary::title::run(caps.conversations, caps.clock, pick.model(), &asked)
+        secretary::title::run(
+            caps.secretary.conversations,
+            caps.secretary.clock,
+            pick.model(),
+            &asked,
+        )
     })
     .await;
     match ran {
@@ -525,7 +530,7 @@ async fn current_state(id: &ConversationId, state: &Arc<State>) -> ConversationS
     let caps = state.first.caps;
     let id = id.clone();
     tokio::task::spawn_blocking(move || {
-        secretary::read(caps.conversations, &id)
+        secretary::read(caps.secretary.conversations, &id)
             .map_or(ConversationState::Idle, |stored| secretary::state(&stored))
     })
     .await

@@ -580,6 +580,18 @@ impl StoreName {
         StoreName::Topics,
         StoreName::TopicAliases,
     ];
+
+    /// Its row, whose name is its path segment.
+    #[must_use]
+    pub const fn kind(self) -> crate::store::Kind {
+        use crate::store::Kind;
+        match self {
+            StoreName::Inbox => Kind::Inbox,
+            StoreName::Lines => Kind::Lines,
+            StoreName::Topics => Kind::Topics,
+            StoreName::TopicAliases => Kind::TopicAliases,
+        }
+    }
 }
 
 /// One frame of `GET /api/stores/events`: one store's heads, each time they move.

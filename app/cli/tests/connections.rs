@@ -114,7 +114,10 @@ fn serving_answering(
     let base = with(
         common::Server::new(Arc::clone(&fakes), deployment, Vec::new())
             .effects(|effects| suzatary_core::capability::Server {
-                secrets: &GitHubHeld,
+                secretary: suzatary_core::capability::Secretary {
+                    secrets: &GitHubHeld,
+                    ..effects.secretary
+                },
                 ..effects
             })
             .settings(SettingsFixture {

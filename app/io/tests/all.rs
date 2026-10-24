@@ -18,5 +18,7 @@ mod legacy_stores;
 mod model_port;
 #[path = "puller_port.rs"]
 mod puller_port;
+#[path = "store_laws.rs"]
+mod store_laws;
 #[path = "stores.rs"]
 mod stores;

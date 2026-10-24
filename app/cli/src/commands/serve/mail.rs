@@ -87,14 +87,20 @@ pub fn inbox(call: &Call<Reader, Page, ()>) -> Result<Json<wire::InboxPayload>, 
         limit,
         before,
     } = &call.params;
-    routes::inbox(call.chain.caps.mail, account.as_deref(), *limit, *before).map(Json)
+    routes::inbox(
+        call.chain.caps.secretary.mail,
+        account.as_deref(),
+        *limit,
+        *before,
+    )
+    .map(Json)
 }
 
 /// `GET /api/mail/search?q=`: a notmuch query, verbatim.
 pub fn search(call: &Call<Reader, Search, ()>) -> Result<Json<wire::MailSearchPayload>, Refusal> {
     let Search { q, page } = &call.params;
     routes::search(
-        call.chain.caps.mail,
+        call.chain.caps.secretary.mail,
         q,
         page.account.as_deref(),
         page.limit,
@@ -107,10 +113,10 @@ pub fn search(call: &Call<Reader, Search, ()>) -> Result<Json<wire::MailSearchPa
 pub fn message(call: &Call<Reader, Message, ()>) -> Result<Json<wire::MailPage>, Refusal> {
     let caps = call.chain.caps;
     routes::message(
-        caps.mail,
-        caps.render,
+        caps.secretary.mail,
+        caps.secretary.render,
         &call.chain.policy,
-        &call.state.chains_read().set(caps.clock.now()),
+        &call.state.chains_read().set(caps.secretary.clock.now()),
         &call.params.0,
     )
     .map(Json)
@@ -120,10 +126,10 @@ pub fn message(call: &Call<Reader, Message, ()>) -> Result<Json<wire::MailPage>,
 pub fn thread(call: &Call<Reader, Thread, ()>) -> Result<Json<wire::ThreadPayload>, Refusal> {
     let caps = call.chain.caps;
     routes::thread(
-        caps.mail,
-        caps.render,
+        caps.secretary.mail,
+        caps.secretary.render,
         &call.chain.policy,
-        &call.state.chains_read().set(caps.clock.now()),
+        &call.state.chains_read().set(caps.secretary.clock.now()),
         &call.params.id,
         call.params.limit,
     )
@@ -133,15 +139,15 @@ pub fn thread(call: &Call<Reader, Thread, ()>) -> Result<Json<wire::ThreadPayloa
 /// `GET /api/mail/watches`: every watch on expected mail that waits.
 pub fn watches(call: &Call<Reader, (), ()>) -> Result<Json<wire::WatchesPayload>, Refusal> {
     let caps = call.chain.caps;
-    let now = prodrome_core::fpl::instant_of(caps.clock.now());
-    Ok(Json(watch::listed(caps.watches, now)?))
+    let now = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
+    Ok(Json(watch::listed(caps.secretary.watches, now)?))
 }
 
 /// `POST /api/mail/watches/<id>/cancel`: the owner's tap closes a watch before it rings, and
 /// the answer is the watches that still wait.
 pub fn cancel_watch(call: &Call<Tap, Watched, ()>) -> Result<Json<wire::WatchesPayload>, Refusal> {
     let caps = call.chain.caps;
-    let now = prodrome_core::fpl::instant_of(caps.clock.now());
-    watch::cancel(caps.watches, &call.params.0, now)?;
-    Ok(Json(watch::listed(caps.watches, now)?))
+    let now = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
+    watch::cancel(caps.secretary.watches, &call.params.0, now)?;
+    Ok(Json(watch::listed(caps.secretary.watches, now)?))
 }

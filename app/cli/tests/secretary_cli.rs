@@ -126,7 +126,7 @@ fn the_cli_dismiss_cancels_the_proposal_the_route_would() {
     let instance = fresh_instance("dismiss");
     let id = proposed(&instance);
     let conversations = instance.conversation_stores();
-    let inbox = suzatary_io::objects::Objects::inbox(instance.secretary.inbox.clone());
+    let inbox = suzatary_io::objects::Objects::open(instance.secretary.inbox.clone());
     let dismiss = || {
         suzatary_cli::commands::secretary::dismiss(
             &instance,
@@ -185,10 +185,10 @@ fn verify(instance: &Instance) -> std::process::Output {
 }
 
 /// `suzatary verify` walks every store: one OK line per chain, per proposals
-/// replica, for the inbox, the conversations, the memory and the decisions, and a damaged
+/// replica, and for every other prodrome but the cache tier's, and a damaged
 /// conversation object is a finding and a failure, never silence.
 #[test]
-fn verify_walks_every_chain_replica_the_inbox_the_conversations_and_the_memory() {
+fn verify_walks_every_store() {
     let instance = fresh_instance("verify");
     proposed(&instance);
 
@@ -215,7 +215,7 @@ fn verify_walks_every_chain_replica_the_inbox_the_conversations_and_the_memory()
         .collect();
     wanted.push(format!("inbox OK — {}", instance.secretary.inbox.display()));
     wanted.push(format!(
-        "conversations OK — {}",
+        "lines OK — {}",
         instance.secretary.line_store().display()
     ));
     wanted.push(format!(
@@ -227,6 +227,14 @@ fn verify_walks_every_chain_replica_the_inbox_the_conversations_and_the_memory()
         instance.secretary.digests.display()
     ));
     wanted.push(format!("decisions OK — {}", instance.decisions().display()));
+    wanted.push(format!(
+        "topics OK — {}",
+        instance.secretary.topics.memberships.display()
+    ));
+    wanted.push(format!(
+        "topic-aliases OK — {}",
+        instance.secretary.topics.aliases.display()
+    ));
     wanted.push(format!("requests OK — {}", instance.requests().display()));
     assert_eq!(said.lines().collect::<Vec<_>>(), wanted);
 
@@ -246,12 +254,10 @@ fn verify_walks_every_chain_replica_the_inbox_the_conversations_and_the_memory()
         "a damaged conversation fails verify"
     );
     let said = String::from_utf8_lossy(&damaged.stdout);
-    assert!(!said.contains("conversations OK"), "{said}");
+    assert!(!said.contains("lines OK"), "{said}");
     let complained = String::from_utf8_lossy(&damaged.stderr);
     assert!(
-        complained
-            .lines()
-            .any(|line| line.starts_with("conversations: ")),
+        complained.lines().any(|line| line.starts_with("lines: ")),
         "{complained}"
     );
 }
@@ -292,9 +298,7 @@ fn show_and_verify_name_a_proposal_line_the_inbox_does_not_hold() {
     let complained = String::from_utf8_lossy(&verified.stderr);
     assert!(
         complained.lines().any(|line| line
-            == format!(
-                "conversations: proposal:{id}/0 has no card: the inbox holds no record of it"
-            )),
+            == format!("lines: proposal:{id}/0 has no card: the inbox holds no record of it")),
         "{complained}"
     );
 }

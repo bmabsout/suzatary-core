@@ -79,6 +79,7 @@ pub async fn store_events(AxumState(state): AxumState<State>) -> Response {
 
 fn head_set(caps: &Server<'_>) -> Result<Vec<String>, StoreError> {
     Ok(caps
+        .secretary
         .chain
         .tips()?
         .iter()
@@ -134,7 +135,7 @@ async fn transcript_state(state: &State, id: ConversationId) -> ConversationStat
     let caps = state.first.caps;
     blocking(move || {
         Ok::<_, Refusal>(suzatary_core::secretary::state(
-            &suzatary_core::secretary::read(caps.conversations, &id)?,
+            &suzatary_core::secretary::read(caps.secretary.conversations, &id)?,
         ))
     })
     .await

@@ -14,6 +14,7 @@ mod in_memory_doc;
 mod in_memory_keys;
 #[cfg(any(test, feature = "nothing"))]
 mod in_memory_log;
+mod kind;
 mod log;
 mod memoised;
 mod prodrome;
@@ -32,6 +33,7 @@ pub use in_memory_doc::InMemoryDoc;
 pub use in_memory_keys::InMemoryKeys;
 #[cfg(any(test, feature = "nothing"))]
 pub use in_memory_log::InMemoryLog;
+pub use kind::{Files, Hold, Kind, Store, Tier};
 pub use log::{Decide, Edit, Log};
 pub use memoised::memoised;
 pub use prodrome::{Prodrome, Replica, WriteLock, append_to, left_out, linearised};

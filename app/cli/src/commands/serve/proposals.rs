@@ -147,10 +147,10 @@ impl Body for wire::Reasoning {
 pub fn batches(call: &Call<Reader, (), ()>) -> Result<Json<wire::ProposalsPayload>, Refusal> {
     let caps = call.chain.caps;
     proposal_routes::list(
-        caps.chain,
-        caps.proposals,
-        caps.conversations,
-        caps.clock,
+        caps.secretary.chain,
+        caps.secretary.proposals,
+        caps.secretary.conversations,
+        caps.secretary.clock,
         call.state.deployment.zone,
         &call.chain.policy,
     )
@@ -162,10 +162,10 @@ pub fn batches(call: &Call<Reader, (), ()>) -> Result<Json<wire::ProposalsPayloa
 pub fn accept(call: &Call<Actor, (), Picked>) -> Result<Json<wire::AcceptedPayload>, Refusal> {
     let caps = call.chain.caps;
     proposal_routes::accept(
-        caps.chain,
-        caps.proposals,
-        caps.render,
-        caps.clock,
+        caps.secretary.chain,
+        caps.secretary.proposals,
+        caps.secretary.render,
+        caps.secretary.clock,
         &call.chain.policy,
         &call.body.0,
         call.guard.as_str(),
@@ -178,9 +178,9 @@ pub fn accept(call: &Call<Actor, (), Picked>) -> Result<Json<wire::AcceptedPaylo
 pub fn reject(call: &Call<Actor, (), Picked>) -> Result<Json<wire::RejectedPayload>, Refusal> {
     let caps = call.chain.caps;
     proposal_routes::reject(
-        caps.chain,
-        caps.proposals,
-        caps.clock,
+        caps.secretary.chain,
+        caps.secretary.proposals,
+        caps.secretary.clock,
         &call.chain.policy,
         &call.body.0,
         call.guard.as_str(),

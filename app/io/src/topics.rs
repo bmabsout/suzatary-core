@@ -24,8 +24,8 @@ impl Topics {
         aliases: impl Into<std::path::PathBuf>,
     ) -> Self {
         Self {
-            memberships: Objects::topics(memberships),
-            aliases: Objects::topic_aliases(aliases),
+            memberships: Objects::open(memberships),
+            aliases: Objects::open(aliases),
         }
     }
 

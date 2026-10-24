@@ -92,7 +92,7 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
         Some(root) => root.clone(),
         None => Instance::open(path)?.decisions(),
     };
-    let store = Objects::decisions(root);
+    let store = Objects::open(root);
     let decisions = Decisions { store: &store };
     let typeset = suzatary_io::typeset::Closed::this_binary();
     match &args.action {

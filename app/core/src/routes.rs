@@ -572,7 +572,7 @@ impl Cut {
     pub const PIECE: Cut = Cut::Bytes(1 << 20);
 }
 
-/// `GET /api/stores/<store>/objects?since=<heads>`: what a replica of the store `named` lacks,
+/// `GET /api/stores/<store>/objects?since=<heads>`: what a replica of `store` lacks,
 /// cut as `cut` says: the objects outside the ancestry of every held head the caller names,
 /// parents first, every head, and how many objects are left after these. No replica writes to
 /// the store and no policy reads it, so its untrusted set is empty, and it locks no words, so it
@@ -584,9 +584,8 @@ impl Cut {
 ///
 /// # Errors
 /// The store's own.
-pub fn store_objects_since<E: prodrome_core::schema::Schema>(
+pub fn store_objects_since<E: crate::store::Store>(
     store: &dyn Prodrome<E>,
-    named: &str,
     since: &[prodrome_core::event::Hash],
     epochs: &crate::epoch::Epochs,
     now: Datetime,
@@ -594,7 +593,7 @@ pub fn store_objects_since<E: prodrome_core::schema::Schema>(
 ) -> Answered<wire::StorePayload> {
     let (snapshot, piece) = answered(
         store,
-        &format!("store/{named}"),
+        &format!("store/{}", E::KIND.name()),
         epochs,
         now,
         cut,
@@ -825,7 +824,7 @@ pub fn lines_since(
     now: Datetime,
     cut: Cut,
 ) -> Answered<wire::StorePayload> {
-    let payload = store_objects_since(conversations.lines, "lines", since, epochs, now, cut)?;
+    let payload = store_objects_since(conversations.lines, since, epochs, now, cut)?;
     let (keys, erased) = words(
         conversations,
         payload
@@ -1400,9 +1399,9 @@ pub fn author(
     request: &wire::Authoring,
     actor: &prodrome_core::event::Actor,
 ) -> Answered<wire::AuthoredPayload> {
-    let nodes = caps.chain.nodes()?;
-    let at = caps.clock.now();
-    let typeset = caps.render;
+    let nodes = caps.secretary.chain.nodes()?;
+    let at = caps.secretary.clock.now();
+    let typeset = caps.secretary.render;
     let (todo, event) = match request {
         wire::Authoring::Add(new) => {
             let (todo, event, revision) = add(deployment, chain, &nodes, new, at, actor, typeset)?;

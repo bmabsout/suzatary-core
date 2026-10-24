@@ -101,7 +101,7 @@ fn pin(fold: &Fold, object: &Object, set: &ChainSet<'_>) -> String {
 #[test]
 fn the_frozen_proposal_store_reads_as_pinned() {
     let dir = store();
-    let store = Objects::inbox(&dir);
+    let store = Objects::open(&dir);
     let fold = suzatary_core::secretary::inbox::fold(&store).expect("the proposal store folds");
     let pinned = std::fs::read_to_string(dir.join("readings.txt")).expect("the pinned readings");
     assert_eq!(printed(&fold), pinned);

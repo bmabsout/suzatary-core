@@ -219,7 +219,7 @@ proptest! {
     fn every_event_prints_and_parses_back(script in steps()) {
         for event in history(&script) {
             let print = canonical(&event);
-            prop_assert_eq!(parse_event::<MemoryEvent>(&MemoryVocabulary, &print).expect("parses"), event);
+            prop_assert_eq!(parse_event::<MemoryEvent>(&MemoryVocabulary::default(), &print).expect("parses"), event);
         }
     }
 }

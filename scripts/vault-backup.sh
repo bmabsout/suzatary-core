@@ -84,6 +84,10 @@ snapshots() {
 # week-old count brought back would answer tabs with epochs below the ones they
 # hold, and their replicas would keep the later words.
 #
+# The box-local stores, as their rows (`suzatary_core::store::Kind`) place them
+# for this deployment; the guard `app/cli/tests/guards/lists.rs` holds the list
+# equal to that derivation.
+VAULTED='secretary-lines-keys secretary-memory-texts secretary-digest-texts secretary-topics secretary-topic-aliases local secretary/attachments secretary/files'
 # Claude Code names a project's directory by its path with every `/` a `-`.
 tar czf "$WORK/state.tar.gz" --exclude="*.lock" -C "$HOME" \
   .password-store \
@@ -93,7 +97,7 @@ tar czf "$WORK/state.tar.gz" --exclude="*.lock" -C "$HOME" \
   $(cd "$HOME" && ls -d .local/state/suzatary/oauth 2>/dev/null) \
   $(cd "$HOME" && ls .ms-oauth-*.json 2>/dev/null) \
   $(cd "$HOME" && ls Mail/*/.credentials.gmailieer.json 2>/dev/null) \
-  -C "$DATA" $(cd "$DATA" && ls -d secretary-memory-texts secretary-digest-texts secretary-lines-keys secretary-topics secretary-topic-aliases secretary/attachments secretary/files local 2>/dev/null)
+  -C "$DATA" $(cd "$DATA" && ls -d $VAULTED 2>/dev/null)
 
 gpg --batch --yes --trust-model always -r "$RECIPIENT" \
   -o "$OUT" --encrypt "$WORK/state.tar.gz"

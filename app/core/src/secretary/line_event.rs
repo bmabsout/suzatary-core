@@ -14,7 +14,9 @@ use std::collections::BTreeSet;
 
 use base64::Engine as _;
 use prodrome_core::event::Actor;
+use prodrome_core::fold::Frontier;
 use prodrome_core::literal::{Datetime, ProdromeError, Table, Value, Vocabulary, print_literal};
+use prodrome_core::registers::Stamp;
 use prodrome_core::schema::Schema;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -28,7 +30,7 @@ use crate::secretary::line_words::LineWords;
 use crate::secretary::locked_text::{FreshKey, KeyName, Locked, Shape, TextKey};
 use crate::secretary::slots::Slots;
 use crate::secretary::store::{ConversationId, Entry};
-use crate::secretary::transcript_registers::{TranscriptRegister, TranscriptRegisters};
+use crate::sole::{One, Only, Sole};
 
 /// One line: which conversation, when, who wrote it, how many lines its writer held, where it
 /// came from, its shape, and its words locked.
@@ -615,13 +617,13 @@ impl Vocabulary for LineVocabulary {
 impl Schema for LineEvent {
     type Vocabulary = LineVocabulary;
     type Key = ConversationId;
-    type Register = TranscriptRegister;
+    type Register = Only;
 
-    fn registers(_: &LineVocabulary) -> Vec<TranscriptRegister> {
-        vec![TranscriptRegister]
+    fn registers(_: &LineVocabulary) -> Vec<Only> {
+        vec![Only]
     }
 
-    type Registers<'a> = TranscriptRegisters<'a, Self>;
+    type Registers<'a> = One<'a, Self>;
 
     fn to_value(&self) -> Value {
         let (signature, mut values) = self.bare();
@@ -670,8 +672,27 @@ impl Schema for LineEvent {
         &self.actor
     }
 
-    fn writes(&self) -> impl Iterator<Item = TranscriptRegister> {
-        std::iter::once(TranscriptRegister)
+    fn writes(&self) -> impl Iterator<Item = Only> {
+        std::iter::once(Only)
+    }
+}
+
+/// A conversation's one register, its transcript: every line, a grow-only set under inclusion.
+///
+/// A line's value is the set of lines it rests on and itself, its down-set in the causal order,
+/// and the register's join is union. The register holds its frontier, the lines no later line
+/// rests on: a new line supersedes exactly those, so the lines are causally ordered, and its
+/// down-set contains every superseded line's, so the register only grows.
+impl Sole for LineEvent {
+    /// Every head: under inclusion no head's down-set holds another's, so each is maximal, and
+    /// the transcript is their union.
+    fn reading<'a>(frontier: &Frontier<'a, Self>) -> Vec<&'a Stamp<Self>> {
+        frontier.writes().to_vec()
+    }
+
+    /// Union joins two heads, so none is a conflict to settle; the next line rests on both.
+    fn conflict(_: &Frontier<'_, Self>) -> bool {
+        false
     }
 }
 

@@ -130,9 +130,10 @@ async fn run(
         let mut wait = None;
         if !idle.is_empty() {
             let (asked, count) = (Arc::clone(&paced), idle.len());
-            let round =
-                tokio::task::spawn_blocking(move || asked.take(&caps.memories, count, caps.clock))
-                    .await;
+            let round = tokio::task::spawn_blocking(move || {
+                asked.take(&caps.secretary.memories, count, caps.secretary.clock)
+            })
+            .await;
             match round {
                 Ok(Ok(Round::Taken(claims))) => {
                     said = None;
@@ -149,7 +150,7 @@ async fn run(
                         tracing::info!("compactor: {hold}");
                         said = Some(hold);
                     }
-                    let now = prodrome_core::fpl::instant_of(caps.clock.now());
+                    let now = prodrome_core::fpl::instant_of(caps.secretary.clock.now());
                     wait = Some((hold.until() - now).to_std().unwrap_or_default());
                 }
                 Ok(Ok(Round::Idle)) => {}
@@ -202,7 +203,11 @@ async fn work(
     while let Some(claim) = handed.recv().await {
         let asked = Arc::clone(&compact);
         let performed = tokio::task::spawn_blocking(move || {
-            claim.perform(&caps.memories, asked.as_ref(), caps.clock)
+            claim.perform(
+                &caps.secretary.memories,
+                asked.as_ref(),
+                caps.secretary.clock,
+            )
         })
         .await;
         match performed {

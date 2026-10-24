@@ -1,6 +1,6 @@
 //! The interpreters `suzatary serve` holds, and the one place they become records.
 
-use suzatary_core::capability::{Secretary, Server, Usage, UsageError};
+use suzatary_core::capability::{Server, Usage, UsageError};
 use suzatary_io::devices::Devices;
 use suzatary_io::notify::Configured;
 
@@ -84,67 +84,8 @@ impl World {
     /// holds beside it.
     #[must_use]
     pub fn server<'a>(&'a self, stores: &'a Stores) -> Server<'a> {
-        let Secretary {
-            chain,
-            corpus,
-            mail,
-            repository,
-            manuals,
-            render,
-            clock,
-            model,
-            conversations,
-            inbox,
-            memories,
-            decisions,
-            topics,
-            briefings,
-            weather,
-            calendar,
-            proposals,
-            secrets,
-            web,
-            repositories,
-            drive,
-            junk,
-            sync,
-            older,
-            uploads,
-            upload_index,
-            kept,
-            configuration,
-            watches,
-        } = self.opened.secretary(stores, &self.brain);
         Server {
-            chain,
-            corpus,
-            mail,
-            repository,
-            manuals,
-            render,
-            clock,
-            model,
-            conversations,
-            inbox,
-            memories,
-            decisions,
-            topics,
-            briefings,
-            weather,
-            calendar,
-            proposals,
-            secrets,
-            web,
-            repositories,
-            drive,
-            junk,
-            sync,
-            older,
-            uploads,
-            upload_index,
-            kept,
-            configuration,
-            watches,
+            secretary: self.opened.secretary(stores, &self.brain),
             whois: &self.peers,
             notify: &self.push,
             answers: &*self.opened.answers,

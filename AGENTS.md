@@ -176,8 +176,11 @@ monoid with an identity, or as a semilattice with a join. Then every caller uses
 `combine` or `join`.
 
 - Rust: `store::Database` uses three generic store shapes: `Prodrome<E>` for objects of a
-  schema `E`, `Log<E>` for lines, and `Doc<K, V>` for values. A new store is a new field of
-  `Database`, not a new trait.
+  schema `E`, `Log<E>` for lines, and `Doc<K, V>` for values. A new store is one row of the
+  `stores!` list (`app/core/src/store/kind.rs`), its schema and a field of `Database`, not a
+  new trait. The row gives its name, tier, files and hold to every layer.
+- Rust: `sole::One` is the register product of every schema with one register. A schema
+  implements `Sole` to say how the register reads and climbs.
 - Rust: `laws::partial_order<V: Order>` (`app/core/tests/laws.rs`) states the partial-order
   laws once. Each schema's tests call it.
 - TypeScript: `lo.combine` is a monoid whose identity is `val([])`. `lo.map`, `lo.bind` and
