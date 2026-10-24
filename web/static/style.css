@@ -2993,6 +2993,27 @@ h1[tabindex="-1"]:focus {
   opacity: 0.6;
 }
 
+/* A store's sync in bytes (web/src/shell/syncing.ts): a quiet line under the
+   header, one per store syncing, gone once each is done. */
+.syncbar {
+  margin: var(--s-1) auto;
+  padding: var(--s-1) var(--s-3);
+  color: var(--ink-muted);
+  font-size: var(--t-small);
+}
+
+.syncline {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.syncline progress {
+  flex: 1 1 auto;
+  max-width: 16rem;
+  accent-color: var(--primary);
+}
+
 /* What this device's readings left out (web/src/shell/leftout.ts): the stale
    bar's weight, not sticky, since the page under it drew what could be read. */
 .excludedbar {
@@ -6391,6 +6412,7 @@ body:has(> .secretarypanel) .askrow {
   footer,
   .toast,
   .stalebar,
+  .syncbar,
   .excludedbar,
   .needsyouhost {
     max-width: none;

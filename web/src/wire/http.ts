@@ -23,9 +23,10 @@ export namespace http {
 
   // The write contract this build keeps, which the box's `gate::CLIENT_MIN` must not pass: 2 stamps every instant in UTC,
   // 3 signs every write with this device's key, 4 reads the conversations from the lines and forgets what is erased, 5
-  // reads the box's turns, card answers, proposed objects, reviews and stored objects as tagged sums.
+  // reads the box's turns, card answers, proposed objects, reviews and stored objects as tagged sums, 6 keeps the
+  // lines as a skeleton and their content by hash, in a device database a page of contract 5 cannot open.
   export const CLIENT_HEADER = "X-Suzatary-Client"
-  export const CLIENT = 5
+  export const CLIENT = 6
   // A box that has moved past this build's contract: it performed nothing, and the page offers the new build (`newbuild`).
   export const OUTDATED = 426
   export const NOT_SENT = "Not sent: this version of the app is older than the box's. Reload to the new version, then send it again."
@@ -69,6 +70,17 @@ export namespace http {
     for (const old of kept.keys()) if (kept.size > KEPT) kept.delete(old)
   }
   export const held = (path: string): string | null => kept.get(path)?.tag ?? null
+
+  // The protocol the box last answered an API read over ("h2", "http/1.1"), or "" where the browser has not said. The
+  // page's own load may come from the worker's cache, which names none, so the API's answers are what is read.
+  export const protocol = (): string => {
+    const entries = typeof performance === "undefined" ? [] : performance.getEntriesByType("resource")
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const e = entries[i]
+      if (e !== undefined && e.name.includes("/api/") && "nextHopProtocol" in e && typeof e.nextHopProtocol === "string" && e.nextHopProtocol !== "") return e.nextHopProtocol
+    }
+    return ""
+  }
   export const NOT_MODIFIED = 304
 
   // How a read is bounded: its whole answer within `wait.MS` (`Wall`), or no silence of `ms` between two pieces of its

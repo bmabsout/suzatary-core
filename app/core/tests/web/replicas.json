@@ -190,6 +190,368 @@
       "text": "Change(genesis='7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38', deps=('dc77d114da90a434246ff9b22f944d041c1a19bf6dba53ca8ab059b890b009d0',), event=Said(conversation='trains', at=datetime(2026, 9, 2, 12, 6, 40), actor='assistant', held=8, carried=None, turn='{\"who\":\"act\",\"references\":[\"proposal:trains/2\"]}', by='ada', words=(Locked(key='6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf', box='9MjP9xNsPw/QewXhUsRGygUeVL/F4pBl7eKdgHmB3rUUeldXMpcujP6IG1PmwlCnzx88xR203e0NkFbcNPUvVTp4Lz5k+eWUP5jY5kQ7Xc6yZgCuks6P2gTkmX5I5Tu2I+TcyKuZIvChOFZx9goQphLrgaPf2QLVZ0VUy7LwSC4JTRECiNHpp+hBUgraMKDs6CpNr522it5uV0QDfMdqgZxZy6rw2uwqbNRREQhXBuPN+wy9bd7XkZLhRBf+POWFyZbs0IlRRULGtnQmbjbCcKIXlJeV4CkUHqPZ6MBJzzD6mLedx60/zcb41/taNjf+1+LS+pLRUlMoPIJ80fC3uWac7lQoV7Ueu5i6JU68t7w='),)))"
     }
   ],
+  "skeleton": {
+    "heads": [
+      "51804f5be0f062c1d0b716766ce81d5ddd65aafb98c03f6a01c108c40fd1450c",
+      "53e5e81cebc75f1688ab96aa6af56186894b34d86e2ca98ac4aa2e46973004bb",
+      "e3aa3e7e2a766c870fb5b4afea2a8a91f695758714ac98fdb6e60682e8cb24b3"
+    ],
+    "geneses": [
+      "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+    ],
+    "epoch": 1788350800,
+    "nodes": [
+      {
+        "hash": "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+        "parents": [],
+        "size": 65,
+        "header": {
+          "node": "structure",
+          "kind": "Genesis"
+        }
+      },
+      {
+        "hash": "8e99d63c408b260a06036d93b6857122f83b11dcfc38d61e5438a98708ef9f48",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 712,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:00:00",
+          "kind": "Opened",
+          "keys": [
+            "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd"
+          ]
+        }
+      },
+      {
+        "hash": "b401a367f3637b095defc64c68706a7e961c3c70042d102eef7ec47ffa8b0f19",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 705,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:20",
+          "kind": "Opened",
+          "keys": [
+            "1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0"
+          ]
+        }
+      },
+      {
+        "hash": "8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "b401a367f3637b095defc64c68706a7e961c3c70042d102eef7ec47ffa8b0f19"
+        ],
+        "size": 798,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:21",
+          "kind": "Said",
+          "keys": [
+            "c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60"
+          ]
+        }
+      },
+      {
+        "hash": "baaef16eaf654b8077ed5ca6b09004d384c7aec869eac217cfc6f7db8c7e6267",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 705,
+        "header": {
+          "node": "line",
+          "conversation": "lagging",
+          "at": "2026-09-02T12:00:00",
+          "kind": "Opened",
+          "keys": [
+            "2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a"
+          ]
+        }
+      },
+      {
+        "hash": "1bd1f224c39e413b172e9fe5c3c5671573484d9cca16876c3431aa6aff566b59",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "baaef16eaf654b8077ed5ca6b09004d384c7aec869eac217cfc6f7db8c7e6267"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "lagging",
+          "at": "2026-09-02T12:00:00",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "781da3042d6831a3fdb17407c322ca292e03fead27d52f31831ed8230e141245",
+        "parents": [
+          "1bd1f224c39e413b172e9fe5c3c5671573484d9cca16876c3431aa6aff566b59",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "lagging",
+          "at": "2026-09-02T12:00:00",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "53e5e81cebc75f1688ab96aa6af56186894b34d86e2ca98ac4aa2e46973004bb",
+        "parents": [
+          "781da3042d6831a3fdb17407c322ca292e03fead27d52f31831ed8230e141245",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "lagging",
+          "at": "2026-09-02T12:00:00",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "d76bf104a1a34e985d97d784753d2554429d62ebbed7d1fa39d4e4c31592bb3a",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "8bb1662e1b151af950a90aa5212857a29b635f482ebdc63649eeb9d990dbeac2"
+        ],
+        "size": 831,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:22",
+          "kind": "Said",
+          "keys": [
+            "ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1"
+          ]
+        }
+      },
+      {
+        "hash": "8070370ff93e0171b33d203aea9bd3aa8e8ba94fbf17047eae2c76d4359df1be",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "d76bf104a1a34e985d97d784753d2554429d62ebbed7d1fa39d4e4c31592bb3a"
+        ],
+        "size": 775,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:23",
+          "kind": "Said",
+          "keys": [
+            "9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c"
+          ]
+        }
+      },
+      {
+        "hash": "0694762dc9a27ee57d92612b90697b775bc0d650f82e52480b4c2ac6563157a2",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "8070370ff93e0171b33d203aea9bd3aa8e8ba94fbf17047eae2c76d4359df1be"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:24",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "298c746b260694893137a78e300c7c0e3db53c6932a0ddb4b4c55a9217fa07b2",
+        "parents": [
+          "0694762dc9a27ee57d92612b90697b775bc0d650f82e52480b4c2ac6563157a2",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:25",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "07a6dc381447217d11bc2d89c48847aa16df36804c57e08c5535becba2e5600c",
+        "parents": [
+          "298c746b260694893137a78e300c7c0e3db53c6932a0ddb4b4c55a9217fa07b2",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 332,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:03:26",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "d8f99fcbd523d0a95a5247b2c0942ef096ff252c081b9114156e95203ffbbc75",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "8e99d63c408b260a06036d93b6857122f83b11dcfc38d61e5438a98708ef9f48"
+        ],
+        "size": 829,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:00:01",
+          "kind": "Said",
+          "keys": [
+            "86f5d9bdc5ce5e4ff81af4dc4a8c2e724e448cb5ec16685b5591b4e56d5a1b3e"
+          ]
+        }
+      },
+      {
+        "hash": "63b8a9603088d99511e5de1ef3f41dcc9a0aa3da2f5eb25ed1aa7c798bbc71e6",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "d8f99fcbd523d0a95a5247b2c0942ef096ff252c081b9114156e95203ffbbc75"
+        ],
+        "size": 783,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:00:20",
+          "kind": "Said",
+          "keys": [
+            "6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890"
+          ]
+        }
+      },
+      {
+        "hash": "1cf7ec1e28d2b5ffec12b496dd184f8203ce8ab5ac8d7f82caafa5c80ca60133",
+        "parents": [
+          "63b8a9603088d99511e5de1ef3f41dcc9a0aa3da2f5eb25ed1aa7c798bbc71e6",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 340,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:00:21",
+          "kind": "Proposed",
+          "keys": []
+        }
+      },
+      {
+        "hash": "4f71d6d8900f0b050d25b78ced6064e1b02016d70a286d47eda6c1f4d337719f",
+        "parents": [
+          "1cf7ec1e28d2b5ffec12b496dd184f8203ce8ab5ac8d7f82caafa5c80ca60133",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 806,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:01:30",
+          "kind": "Said",
+          "keys": [
+            "34cdfa29c001301f4ab4ae37b4e766f867cd4eb3a89d7f02e2fc3ca2f8493bf9"
+          ]
+        }
+      },
+      {
+        "hash": "724acf9747475582d7802aff7fbf0dadf1c0cf98b1cfd4fbaf9bbba81c72471d",
+        "parents": [
+          "4f71d6d8900f0b050d25b78ced6064e1b02016d70a286d47eda6c1f4d337719f",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 783,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:01:35",
+          "kind": "Said",
+          "keys": [
+            "f8517142a72094a6bbf487f5347b1a5c041aef1d861d319beab28719a157aaa9"
+          ]
+        }
+      },
+      {
+        "hash": "51804f5be0f062c1d0b716766ce81d5ddd65aafb98c03f6a01c108c40fd1450c",
+        "parents": [
+          "724acf9747475582d7802aff7fbf0dadf1c0cf98b1cfd4fbaf9bbba81c72471d",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 397,
+        "header": {
+          "node": "line",
+          "conversation": "about-the-deed",
+          "at": "2026-09-02T12:05:00",
+          "kind": "Erased",
+          "keys": []
+        }
+      },
+      {
+        "hash": "dc77d114da90a434246ff9b22f944d041c1a19bf6dba53ca8ab059b890b009d0",
+        "parents": [
+          "07a6dc381447217d11bc2d89c48847aa16df36804c57e08c5535becba2e5600c",
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38"
+        ],
+        "size": 798,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:06:40",
+          "kind": "Said",
+          "keys": [
+            "762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973"
+          ]
+        }
+      },
+      {
+        "hash": "e3aa3e7e2a766c870fb5b4afea2a8a91f695758714ac98fdb6e60682e8cb24b3",
+        "parents": [
+          "7b818ef0fdd17acb5a6c38b43fa0281f189cc0854dab58dcff68c681ce13ad38",
+          "dc77d114da90a434246ff9b22f944d041c1a19bf6dba53ca8ab059b890b009d0"
+        ],
+        "size": 798,
+        "header": {
+          "node": "line",
+          "conversation": "trains",
+          "at": "2026-09-02T12:06:40",
+          "kind": "Said",
+          "keys": [
+            "6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf"
+          ]
+        }
+      }
+    ],
+    "keys": {
+      "1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0": "000102030405060208090a0b0c0d0e0a101112131415161218191a1b1c1d1e1a",
+      "2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a": "000102030405060e08090a0b0c0d0e06101112131415161e18191a1b1c1d1e16",
+      "34cdfa29c001301f4ab4ae37b4e766f867cd4eb3a89d7f02e2fc3ca2f8493bf9": "000102030405060408090a0b0c0d0e0c101112131415161418191a1b1c1d1e1c",
+      "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "6c28e9451b043cee34d7313c32984a90d25077a93ff466a4404454a84acccbaf": "000102030405060c08090a0b0c0d0e04101112131415161c18191a1b1c1d1e14",
+      "762df64490269f8ee748841c79f481102a6bb7d3211e7bd874ffeec4decbe973": "000102030405060d08090a0b0c0d0e05101112131415161d18191a1b1c1d1e15",
+      "86f5d9bdc5ce5e4ff81af4dc4a8c2e724e448cb5ec16685b5591b4e56d5a1b3e": "000102030405060608090a0b0c0d0e0e101112131415161618191a1b1c1d1e1e",
+      "9b8cf3f80aea12988b50633cd0f8a1daf57dc1f6315dc614a256ea6078e8800c": "000102030405060f08090a0b0c0d0e07101112131415161f18191a1b1c1d1e17",
+      "c7dc3c32b1609e1ed9dfc266b6aded61940bff08a0a61f160225273fc322df60": "000102030405060108090a0b0c0d0e09101112131415161118191a1b1c1d1e19",
+      "f8517142a72094a6bbf487f5347b1a5c041aef1d861d319beab28719a157aaa9": "000102030405060308090a0b0c0d0e0b101112131415161318191a1b1c1d1e1b",
+      "ff234b439627f020679367b7f4bd920e93f0e5b9a379eb9877c465dbaa96b9c1": "000102030405060008090a0b0c0d0e08101112131415161018191a1b1c1d1e18"
+    },
+    "rest": 0,
+    "size": 7326,
+    "weight": 7326,
+    "erased": [
+      "6cf6abc29c87ca5fa1dc5399205a10bed451b2ff0cbef2a2739c5ac845963890"
+    ]
+  },
   "keys": {
     "1b2e08206305d4481c96d6d008d19a08e2696ec060534ed4c6c8d54e702ceec0": "000102030405060208090a0b0c0d0e0a101112131415161218191a1b1c1d1e1a",
     "2791831bfc6e6e3c03455addf475f278e8df6d907ef1e396c02a1fd088d4e25a": "000102030405060e08090a0b0c0d0e06101112131415161e18191a1b1c1d1e16",

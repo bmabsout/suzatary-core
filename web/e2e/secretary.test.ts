@@ -767,7 +767,6 @@ app.scene("content drawn above a held question keeps it held, and the reader's s
   const held = `document.querySelector(".answerroom").hidden === false`;
   assert.equal(await app.page.evaluate<boolean>(held), true, "the question just sent has room beneath it");
   await app.page.scrollSettled();
-  const scroller = `(document.scrollingElement ?? document.documentElement)`;
   await app.page.evaluate<void>(`void document.querySelector(".turns").prepend(Object.assign(document.createElement("div"), { style: "height: 2000px" }))`);
   await app.page.scrollSettled();
   assert.equal(await app.page.evaluate<boolean>(held), true, "content drawn above keeps the question held");
@@ -776,13 +775,18 @@ app.scene("content drawn above a held question keeps it held, and the reader's s
   await app.page.evaluate<void>(`void document.querySelector(".turns").prepend(Object.assign(document.createElement("div"), { style: "height: 50px" }))`);
   await app.page.waitFor(`document.querySelector(".answerroom").hidden === true`, { timeout: 8000 });
   await app.page.scrollSettled();
-  const before = await app.page.evaluate<number>(`${scroller}.scrollTop`);
+  // Where the held question's round stands on the screen, which moves as everything the reader sees moves. Not the
+  // scroll offset: a bar above that comes or goes moves the offset, and the browser's anchoring keeps the view still.
+  const shown = `document.querySelectorAll(".round")[2].getBoundingClientRect().top`;
+  const before = await app.page.evaluate<number>(shown);
   await app.page.evaluate<string>(
     `${SIGNED_POST}("/api/secretary/conversations/${id}/say", JSON.stringify({say: "give me a rendered answer"})).then((r) => String(r.status))`,
   );
   await app.page.waitFor(`document.querySelectorAll(".turnanswer").length === 4`, { timeout: 20000 });
   await app.page.waitFor(`document.querySelector(".newanswerpill").hidden === false`, { timeout: 8000 });
-  assert.equal(await app.page.evaluate<number>(`${scroller}.scrollTop`), before, "the reader stays where they went");
+  // Within a pixel: the scroll offset is whole pixels, the layout is not.
+  const after = await app.page.evaluate<number>(shown);
+  assert.ok(Math.abs(after - before) <= 1, `the reader stays where they went: ${before} then ${after}`);
 });
 
 /**

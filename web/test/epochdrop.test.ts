@@ -68,7 +68,7 @@ const since = (objects: readonly StoredObject[], heads: readonly string[]): Stor
 // drops the row and the pieces, and the store is asked for again from nothing; the first `cut` objects of the answer
 // are kept as a piece, and a pull that took the rest lands them in the row.
 const pull = (d: Device, at: number, cut: number | null): Device => {
-  const asked = stores.overtaken([d.row.replica, d.pending.replica], { objects: [], heads: [], untrusted: [], root: null, geneses: [], epoch: LATER })
+  const asked = stores.overtaken([d.row.replica, d.pending.replica], { epoch: LATER })
     ? { row: locked.reset(d.row), pending: locked.NONE }
     : d
   const from = locked.join(asked.row, asked.pending).replica

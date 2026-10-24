@@ -9,6 +9,7 @@ import http from "../wire/http"
 import sources from "../algebra/source"
 import beacon from "../app/beacon"
 import lo from "../algebra/lo"
+import type { ConversationPayload } from "../wire/generated/wire"
 
 export namespace intentsync {
   export type T = intents.T<asks.Ask>
@@ -40,11 +41,10 @@ export namespace intentsync {
   export const settle = async (): Promise<void> => {
     const ids = [...new Set(intents.pending(source.state()).map(asks.conversation).filter((c): c is string => c !== null))]
     if (ids.length === 0) return
-    // A conversation not yet held is absent from the list, never a caught refusal.
-    const read = await storesync.reading(s => {
-      const held = new Set(s.list().conversations.map(c => c.id))
-      return new Map(ids.filter(id => held.has(id)).map(id => [id, s.conversation(id, {}, null)]))
-    })
+    // A conversation not yet held is absent from the store, never a caught refusal.
+    const read = new Map(
+      await Promise.all(ids.map(id => storesync.conversation(id, (one): readonly [string, ConversationPayload | null] => [id, one.type === "Held" ? one.read({}, null) : null]))),
+    )
     retract(asks.holds(id => read.get(id) ?? null))
   }
 

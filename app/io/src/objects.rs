@@ -373,6 +373,20 @@ impl<E: Kept> Prodrome<E> for Objects<E> {
         self.with(|held| held.nodes.clone())
     }
 
+    /// Each from its own file, its bytes checked against its name: a file that is missing or
+    /// does not hash to its name is an object this store does not hold.
+    fn literals(&self, names: &[Hash]) -> Result<Vec<Option<String>>, StoreError> {
+        Ok(names
+            .iter()
+            .map(|name| {
+                self.events
+                    .load(name)
+                    .ok()
+                    .map(|object| prodrome_core::event::canonical_envelope(&object))
+            })
+            .collect())
+    }
+
     fn excluded(&self) -> Result<std::collections::BTreeSet<Hash>, StoreError> {
         self.with(|held| held.excluded.clone())
     }

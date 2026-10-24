@@ -5,20 +5,21 @@
 import lo from "../algebra/lo"
 import locked from "./locked"
 import purge from "./purge"
+import type { Obj } from "./replica"
 
 export namespace take {
-  export type Event = { readonly type: "Held"; readonly row: locked.Row } | { readonly type: "Forgot"; readonly keys: readonly string[] }
+  export type Event<O extends Obj> = { readonly type: "Held"; readonly row: locked.Row<O> } | { readonly type: "Forgot"; readonly keys: readonly string[] }
 
-  export type Effects = {
-    readonly held: () => locked.Row
-    readonly dispatch: (e: Event) => void
-    readonly purge: purge.Effects
-    readonly dead: locked.Dead
+  export type Effects<O extends Obj> = {
+    readonly held: () => locked.Row<O>
+    readonly dispatch: (e: Event<O>) => void
+    readonly purge: purge.Effects<O>
+    readonly dead: locked.Dead<O>
     readonly alter: (gone: readonly string[]) => Promise<lo.Settled<null>>
     readonly owing: (failed: string | null) => void
   }
 
-  export const into = async (fx: Effects, incoming: locked.Row): Promise<void> => {
+  export const into = async <O extends Obj>(fx: Effects<O>, incoming: locked.Row<O>): Promise<void> => {
     const gone = await purge.forgotten(fx.purge, fx.dead, locked.join(fx.held(), incoming))
     fx.dispatch({ type: "Held", row: incoming })
     if (gone.type === "Error") return fx.owing(gone.e)

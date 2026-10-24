@@ -5,6 +5,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import lo from "../src/algebra/lo"
+import type { StoredObject } from "../src/wire/generated/wire"
 import locked from "../src/prodrome/locked"
 import take from "../src/prodrome/take"
 import { NOTHING } from "../src/prodrome/replica"
@@ -17,14 +18,14 @@ type Said = readonly [string, unknown]
 const effects = (forget: lo.Settled<null>, alter: lo.Settled<null> = lo.val(null)) => {
   const said: Said[] = []
   let row = locked.NONE
-  const fx: take.Effects = {
+  const fx: take.Effects<StoredObject> = {
     held: () => row,
     dispatch: e => {
       said.push([e.type, e.type === "Held" ? locked.names(e.row.keys) : e.keys])
       row = e.type === "Held" ? locked.join(row, e.row) : locked.without(row, e.keys)
     },
     purge: {
-      erased: r => (said.push(["erased", locked.names(r.keys)]), { [DEAD]: ["block"] }),
+      erased: async r => (said.push(["erased", locked.names(r.keys)]), { [DEAD]: ["block"] }),
       forget: blocks => (said.push(["forget", blocks]), Promise.resolve(forget)),
     },
     dead: () => new Set([DEAD]),

@@ -8,11 +8,13 @@ import d from "../wire/decoder";
 import lo from "../algebra/lo";
 import idb from "../app/idb";
 import payload from "../wire/generated/payload";
-import type { Held, Replica, Word } from "./replica";
+import type { Held, Obj, Replica, Word } from "./replica";
+import type { StoredObject } from "../wire/generated/wire";
 import { NOTHING, canonical, join, losses, replicaOf, reset } from "./replica";
 
 export const DB_NAME = "suzatary";
 const STORE_NAME = "chain";
+const CONTENT_NAME = "content";
 
 /**
  * One row per chain, which only climbs: every tab of this origin joins into it, so none erases what another sealed.
@@ -32,13 +34,17 @@ const Spoken = d.obj<Word>({
   geneses: d.arr(d.str),
 });
 
-export const Stored = d.obj<Held>({
-  generation: d.num,
-  objects: d.arr(payload.StoredObject),
-  synced: d.arr(d.str),
-  refused: d.arr(payload.RefusedObject),
-  words: d.arr(Spoken),
-});
+/** A replica's row, its objects read by `objects`. */
+export const replicaRow = <O extends Obj>(objects: d.Decoder<O>): d.Decoder<Held<O>> =>
+  d.obj<Held<O>>({
+    generation: d.num,
+    objects: d.arr(objects),
+    synced: d.arr(d.str),
+    refused: d.arr(payload.RefusedObject),
+    words: d.arr(Spoken),
+  });
+
+export const Stored = replicaRow(payload.StoredObject);
 
 /** A row holding no objects is a value too: a reset's, which is what tells another tab of it. */
 export const parseReplica = (raw: unknown): lo.Settled<Replica> => lo.map(Stored(raw), (held) => replicaOf(canonical(held)));
@@ -49,21 +55,39 @@ export const parseReplica = (raw: unknown): lo.Settled<Replica> => lo.map(Stored
  * A row this build does not read is never read as one it does: a device holding rows from before version 3 drops them
  * all, and pulls each chain and store again from the box. What a dropped row held that the box had not taken is lost.
  * Version 3's rows are carried: a word of the box that kept `null` for "did not say" is dropped, so the replica reads
- * as unheard until its next pull, and every object it held stays.
+ * as unheard until its next pull, and every object it held stays. Version 5 keeps the lines as a skeleton beside a
+ * store of content by name, so the lines' row and its pieces from before it are dropped: the box alone writes the
+ * lines, so nothing in them is this device's own; the blocks rendered from them are cleared too.
  */
 const DB: idb.Db = {
   name: DB_NAME,
-  version: 4,
+  version: 5,
   store: STORE_NAME,
   upgrade: (db, tx, from) => {
-    if (from === 3) {
-      carry(tx.objectStore(STORE_NAME));
-      return;
+    if (from === 3 || from === 4) {
+      const rows = tx.objectStore(STORE_NAME);
+      rows.delete(under(LINES));
+      rows.put(true, keyFor(RENDERED_OWED));
+      if (from === 3) carry(rows);
+    } else {
+      if (db.objectStoreNames.contains(STORE_NAME)) db.deleteObjectStore(STORE_NAME);
+      db.createObjectStore(STORE_NAME);
     }
-    if (db.objectStoreNames.contains(STORE_NAME)) db.deleteObjectStore(STORE_NAME);
-    db.createObjectStore(STORE_NAME);
+    if (!db.objectStoreNames.contains(CONTENT_NAME)) db.createObjectStore(CONTENT_NAME);
   },
 };
+
+/** The lines' row and its pieces' rows, by the prefix of their names. */
+const LINES = "store/lines";
+
+/**
+ * A mark the upgrade leaves for the tab: the blocks rendered from the dropped lines are still in the rendered store,
+ * another database, so the tab clears them once (`storesync`).
+ */
+export const RENDERED_OWED = "store/rendered-owed";
+
+/** The device's content by name: one literal per object name, written once and never rewritten. */
+export const CONTENT: idb.Db = { ...DB, store: CONTENT_NAME };
 
 /** Every version 3 row rewritten in version 4's form, in the upgrade's own transaction. */
 function carry(store: IDBObjectStore): void {
@@ -92,7 +116,9 @@ export function carried(row: unknown): unknown {
 export interface Rows<A> {
   readonly parse: (raw: unknown) => lo.Settled<A>;
   readonly print: (a: A) => unknown;
-  readonly replica: (a: A) => Replica;
+  readonly generation: (a: A) => number;
+  /** What the row holds that the box has not taken: what a reset would lose. */
+  readonly unsent: (a: A) => readonly StoredObject[];
   readonly join: (a: A, b: A) => A;
   /** The empty row of the generation after `generation`. */
   readonly after: (generation: number) => A;
@@ -102,7 +128,8 @@ export interface Rows<A> {
 export const CHAIN: Rows<Replica> = {
   parse: parseReplica,
   print: (r) => r.held,
-  replica: (r) => r,
+  generation: (r) => r.generation,
+  unsent: losses,
   join,
   after: (generation) => reset(replicaOf({ ...NOTHING.held, generation })),
   nothing: NOTHING,
@@ -191,11 +218,11 @@ function written<A>(rows: Rows<A>, row: lo.Settled<A>, raw: unknown, write: Writ
     return row.type === "Val" ? lo.val(rows.join(row.v, write.replica)) : lo.error(`the replica kept on this device does not read (${unread}), so nothing was written over it`);
   }
   if (row.type !== "Val" && write.over === "Read") return lo.error(`the replica kept on this device does not read (${unread}), so nothing was written over it`);
-  const unshown = row.type === "Val" ? losses(rows.replica(row.v)).filter((object) => !write.shown.has(object.hash)).length : 0;
+  const unshown = row.type === "Val" ? rows.unsent(row.v).filter((object) => !write.shown.has(object.hash)).length : 0;
   if (unshown > 0) {
     return lo.error(`this browser kept ${unshown} more unsent ${unshown === 1 ? "act" : "acts"} since the reset was offered, so nothing was reset: look again at what it loses`);
   }
-  const was = row.type === "Val" ? rows.replica(row.v).generation : generationOf(raw);
+  const was = row.type === "Val" ? rows.generation(row.v) : generationOf(raw);
   return lo.val(rows.after(Math.max(was, write.floor)));
 }
 

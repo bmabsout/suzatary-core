@@ -48,7 +48,7 @@ const answer = (budget: number) => (since: readonly string[]): StorePayload => {
     if (bytes > budget && objects.length > 0) break
     objects.push(o)
   }
-  return { objects, heads: headsOf(all), untrusted: [], root: null, geneses: prodromes(all), epoch: 1, keys: {}, rest: missing.length - objects.length, erased: [] }
+  return { objects, heads: headsOf(all), untrusted: [], root: null, geneses: prodromes(all), epoch: 1, keys: {}, rest: missing.length - objects.length, size: missing.reduce((n, o) => n + o.literal.length, 0), weight: objects.reduce((n, o) => n + o.literal.length, 0), erased: [] }
 }
 
 // A tab's lines as `storesync` holds them: the row pages read, and beside it the pieces of a pull not yet landed. It
@@ -59,10 +59,10 @@ const tab = (ask: (since: readonly string[]) => Promise<StorePayload>) => {
   const asked: string[][] = []
   const counts = { lands: 0, shown: 0, written: 0 }
   const of = new WeakMap<StorePayload, Replica>()
-  const holding = (): Replica => join(t.lines.replica, pending.replica)
+  const holding = (): Replica => join(t.inbox.replica, pending.replica)
   const show = (row: locked.Row): void => {
     const was = t
-    t = stores.step(t, { type: "Held", name: "lines", row })
+    t = stores.step(t, { type: "Held", name: "inbox", row })
     if (t !== was) counts.shown += 1
   }
   const fx: pieces.Effects<StorePayload> = {
@@ -82,7 +82,7 @@ const tab = (ask: (since: readonly string[]) => Promise<StorePayload>) => {
       show(pending)
       pending = locked.NONE
     },
-    held: () => [t.lines, pending],
+    held: () => [t.inbox, pending],
   }
   return {
     fx,
@@ -91,11 +91,11 @@ const tab = (ask: (since: readonly string[]) => Promise<StorePayload>) => {
     // What another tab kept of its pull comes back with the device's rows, joined beside this one's.
     join: (row: locked.Row): void => void (pending = locked.join(pending, row)),
     // Another tab's reset of the row pages read.
-    reset: (): void => show(locked.of(reset(t.lines.replica))),
+    reset: (): void => show(locked.of(reset(t.inbox.replica))),
     pending: () => pending,
-    row: () => t.lines,
+    row: () => t.inbox,
     held: () => holding().objects.map(o => o.hash),
-    shown: () => t.lines.replica.objects.map(o => o.hash),
+    shown: () => t.inbox.replica.objects.map(o => o.hash),
   }
 }
 

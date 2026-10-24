@@ -72,8 +72,8 @@ const row = (r: Rng): locked.Row => {
 const same = (a: locked.Row, b: locked.Row): boolean =>
   a.replica.objects.length === b.replica.objects.length && locked.sameKeys(a.keys, b.keys)
 
-const effects = (store: rendered.Store): purge.Effects => ({
-  erased: r => over(r.replica, lines => erasedOf(lines, r.keys, [])),
+const effects = (store: rendered.Store): purge.Effects<StoredObject> => ({
+  erased: async r => over(r.replica, lines => erasedOf(lines, r.keys, [])),
   forget: store.forget,
 })
 
@@ -138,7 +138,7 @@ test("a key the box's pull says is erased is forgotten with its blocks from the 
   const held = locked.of(replicaOf(before), box.stale)
   assert.ok(opens(held).includes(WORDS), "without the erasure's line, the key held from before it opens the words")
   const gone = await purge.forgotten(
-    { erased: r => over(r.replica, lines => erasedOf(lines, r.keys, told)), forget: store.forget },
+    { erased: async r => over(r.replica, lines => erasedOf(lines, r.keys, told)), forget: store.forget },
     r => new Set([...dead(r), ...told]),
     held,
   )
@@ -163,8 +163,8 @@ test("law: blocks one build rendered are gone after another build's purge, and n
     const rows = table.of<string>(table.keep())
     await rendered.memory(rendering.own, rows).join([...fed.map((k): rendered.Pair => [under(rendering, k), `<p>${WORDS}</p>`]), [under(rendering, KEPT), "<p>Nothing else today.</p>"]])
     const store = rendered.memory(erasing.own, rows)
-    const fx: purge.Effects = {
-      erased: x => Object.fromEntries(Object.entries(over(x.replica, lines => erasedOf(lines, x.keys, []))).map(([n, ks]) => [n, ks.map(k => under(erasing, k))])),
+    const fx: purge.Effects<StoredObject> = {
+      erased: async x => Object.fromEntries(Object.entries(over(x.replica, lines => erasedOf(lines, x.keys, []))).map(([n, ks]) => [n, ks.map(k => under(erasing, k))])),
       forget: store.forget,
     }
     const gone = await purge.forgotten(fx, dead, locked.join(locked.of(replicaOf(before), box.stale), locked.of(replicaOf(all), box.keys)))
@@ -188,7 +188,7 @@ test("a key a tab that never purged left on the device is forgotten, its blocks 
 })
 
 test("a purge that cannot forget a block keeps the key that finds it and says why, and the words still read as erased", async () => {
-  const fx: purge.Effects = { ...effects(rendered.memory(own)), forget: () => Promise.resolve(lo.error("the cache did not open")) }
+  const fx: purge.Effects<StoredObject> = { ...effects(rendered.memory(own)), forget: () => Promise.resolve(lo.error("the cache did not open")) }
   const joined = locked.join(locked.of(replicaOf(before), box.stale), locked.of(replicaOf(all), box.keys))
   const gone = await purge.forgotten(fx, dead, joined)
   assert.ok(gone.type === "Error" && gone.e.includes("did not open"))
@@ -196,8 +196,18 @@ test("a purge that cannot forget a block keeps the key that finds it and says wh
   assert.ok(!opens(joined).includes(WORDS), "and opens nothing meanwhile")
 })
 
+test("a purge that cannot find the blocks, its lines' content not fetched, keeps the keys owed and forgets nothing", async () => {
+  const store = await device()
+  const fx: purge.Effects<StoredObject> = { erased: () => Promise.reject(new Error("the box did not answer")), forget: store.forget }
+  const joined = locked.join(locked.of(replicaOf(before), box.stale), locked.of(replicaOf(all), box.keys))
+  const gone = await purge.forgotten(fx, dead, joined)
+  assert.ok(gone.type === "Error" && gone.e.includes("did not answer"))
+  assert.deepEqual(await store.get(fed), fed.map(() => `<p>${WORDS}</p>`), "nothing is forgotten blind")
+  assert.deepEqual(locked.owed(dead, joined).sort(), Object.keys(box.erased).sort(), "the keys stay, to be asked again")
+})
+
 test("a row whose objects erase nothing asks the core for nothing", async () => {
-  const fx: purge.Effects = { erased: () => assert.fail("asked"), forget: () => assert.fail("asked") }
+  const fx: purge.Effects<StoredObject> = { erased: () => assert.fail("asked"), forget: () => assert.fail("asked") }
   const gone = await purge.forgotten(fx, () => new Set(), locked.of(replicaOf(before), box.keys))
   assert.deepEqual(gone, lo.val([]))
 })

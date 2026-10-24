@@ -1476,6 +1476,8 @@ struct Replicas {
     chains: Vec<ShippedChain>,
     inbox: Vec<Shipped>,
     conversations: Vec<Shipped>,
+    /// The conversations' skeleton, whole, as its route answers a replica holding nothing.
+    skeleton: wire::SkeletonPayload,
     /// The key of every slot of the conversations' words, as the pull carries them.
     keys: BTreeMap<String, String>,
     /// The keys a tab held before one of the deed's turns was erased.
@@ -1731,6 +1733,7 @@ fn the_replicas_vector_is_what_the_box_answers() {
         chains: vec![chain],
         inbox: shipped(&bundle.inbox),
         conversations: shipped(&bundle.conversations.lines),
+        skeleton: skeleton_of(&bundle),
         keys: keys_of(&bundle.conversations),
         erased: forgotten(&bundle.conversations, &stale),
         stale,
@@ -1748,6 +1751,18 @@ fn the_replicas_vector_is_what_the_box_answers() {
         searches,
     };
     write_or_check(&replicas, "replicas.json");
+}
+
+/// The lines' whole skeleton, as its route answers a replica holding nothing.
+fn skeleton_of(bundle: &Bundle) -> wire::SkeletonPayload {
+    suzatary_core::routes::lines_skeleton(
+        bundle.conversations.conversations(),
+        &[],
+        &suzatary_core::epoch::Epochs::remembered(),
+        bundle.at,
+        suzatary_core::routes::Cut::Whole,
+    )
+    .expect("the skeleton reads")
 }
 
 /// The memory as its route answers it, for the receipt's words, with the words its text store

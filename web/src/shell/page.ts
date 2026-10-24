@@ -25,6 +25,8 @@ export namespace page {
     // The first thing Tab reaches: nine pages of navigation before the content is a page nobody reaches with a keyboard.
     el("a", { class: "skip", href: "#view" }, "Skip to the page"),
     header(),
+    // How far each store's sync has come, in bytes (`shell/syncing.ts`).
+    bar("syncing", "syncbar"),
     // A refusal and a chain move are announced, not merely drawn: the only place the app says a write was refused.
     bar("toast", "toast"),
     el("div", { id: "needsyou", class: "needsyouhost", "aria-live": "assertive" }),

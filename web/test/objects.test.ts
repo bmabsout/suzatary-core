@@ -22,6 +22,9 @@ type Req = {
   onupgradeneeded?: ((e: { oldVersion: number }) => void) | null
 }
 const later = (f: () => void): void => void setTimeout(f, 0)
+// The one key range the rows' store is asked for: every name from one bound to the other.
+type Range = { readonly includes: (k: string) => boolean }
+Object.assign(globalThis, { IDBKeyRange: { bound: (lower: string, upper: string): Range => ({ includes: k => lower <= k && k <= upper }) } })
 // A device at `version`, holding `rows` in its one store; an upgrade runs before the open answers, as IndexedDB's does.
 const fakeIndexedDB = (at = 0, rows: Readonly<Record<string, unknown>> = {}) => {
   const stores = new Map<string, Map<string, unknown>>(at === 0 ? [] : [["chain", new Map(Object.entries(rows))]])
@@ -71,7 +74,7 @@ const fakeIndexedDB = (at = 0, rows: Readonly<Record<string, unknown>> = {}) => 
           return {
             get: (k: string) => ask(() => structuredClone(rows.get(k))),
             put: (v: unknown, k: string) => ask(() => void (aborted || rows.set(k, structuredClone(v)))),
-            delete: (k: string) => ask(() => void rows.delete(k)),
+            delete: (k: string | Range) => ask(() => (typeof k === "string" ? void rows.delete(k) : [...rows.keys()].filter(x => k.includes(x)).forEach(x => rows.delete(x)))),
             openCursor,
           }
         },
@@ -264,6 +267,34 @@ test("a row version 3 kept is carried: its objects stay, and a word of the box t
     r.onsuccess = () => done(r.result)
   })
   assert.deepEqual(raw, { replica: { ...kept, words: [] }, keys: {} }, "a store's row is carried the same way")
+})
+
+// What the device's rows' store holds under `key`, as it was written.
+const rawOf = (key: string): Promise<unknown> =>
+  new Promise<unknown>(done => {
+    const db = (globalThis as unknown as { indexedDB: { open: (n: string) => { result: { transaction: (n: string) => { objectStore: () => { get: (k: string) => { result: unknown; onsuccess: (() => void) | null } } } } } } }).indexedDB.open("suzatary").result
+    const r = db.transaction("chain").objectStore().get(key)
+    r.onsuccess = () => done(r.result)
+  })
+
+test("version 5 drops the lines' row and its pieces, kept as literals, marks their blocks owed, and keeps every other row, from version 3 or 4", async () => {
+  const kept = { generation: 0, objects: [BOX], synced: [BOX.hash], refused: [], words: [] }
+  const lines = { replica: kept, keys: { [name("k")]: "00" } }
+  for (const from of [3, 4]) {
+    Object.assign(globalThis, {
+      indexedDB: fakeIndexedDB(from, {
+        "objects:life": kept,
+        "objects:store/inbox": { replica: kept, keys: {} },
+        "objects:store/lines": lines,
+        "objects:store/lines/piece/000000000001": lines,
+      }),
+    })
+    assert.ok((await row()) !== null, "a chain's row reads")
+    assert.equal(await rawOf("objects:store/lines"), undefined, `from ${from}`)
+    assert.equal(await rawOf("objects:store/lines/piece/000000000001"), undefined, "and its pieces with it")
+    assert.deepEqual(await rawOf("objects:store/inbox"), { replica: kept, keys: {} }, "the inbox's row stays")
+    assert.equal(await rawOf("objects:store/rendered-owed"), true, "and the tab is told to clear the blocks the lines fed")
+  }
 })
 
 test("a row version 1 kept is dropped, never read as a replica sealing onto heads it did not compute", async () => {

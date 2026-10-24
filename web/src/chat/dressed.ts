@@ -82,14 +82,16 @@ export namespace dressed {
   // What a proposal's card needs and nothing more: every proposal, drawn, beside the newest turn, a remember card with
   // the words `memory` keeps for it.
   export const cards = async (id: string, memory: MemoryPayload | null): Promise<ConversationPayload> => {
-    const read = await storesync.reading(s => s.conversation(id, { limit: 1 }, memory))
+    const read = await storesync.conversation(id, one => (one.type === "Held" ? one.read({ limit: 1 }, memory) : storesync.absent(id)))
     return { ...read, proposals: await proposalsOf(id, read.proposals) }
   }
 
   export const window = async (id: string, w: Window): Promise<ConversationPayload> => {
-    const bare = await storesync.reading(s => s.conversation(id, w, null))
+    const at = (m: MemoryPayload | null): Promise<ConversationPayload> =>
+      storesync.conversation(id, one => (one.type === "Held" ? one.read(w, m) : storesync.absent(id)))
+    const bare = await at(null)
     const m = await memory(bare)
-    const read = m === null ? bare : await storesync.reading(s => s.conversation(id, w, m))
+    const read = m === null ? bare : await at(m)
     const [turns, proposals] = await Promise.all([
       Promise.all(read.turns.map(t => turnOf(id, t))),
       proposalsOf(id, read.proposals),

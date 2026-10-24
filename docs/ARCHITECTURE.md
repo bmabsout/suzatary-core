@@ -1528,10 +1528,15 @@ rules and points here for the modules. The web contract is `docs/WEB-SPEC.md`.
   frame naming its store and its heads, so a store the box adds costs a tab
   no connection (2026-10-21: every store's
   objects are also served by hash, `…/content?hashes=`, kept for good, and
-  the lines' skeleton at `GET /api/stores/lines/skeleton?since=`, which no
-  page reads yet; `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core once per
+  the lines' skeleton at `GET /api/stores/lines/skeleton?since=`;
+  `docs/LAZYSYNC-PLAN-2026-10-21.md`), and read by the core once per
   change of what is held (`secretaryOf`: one `Proposals` and one
-  `Conversations`, kept until the next change). The todo chains are not held
+  `Conversations`, kept until the next change). Since stage 2 of that plan
+  the tab pulls the lines' skeleton in place of their objects and keeps each
+  literal by its name in the `content` store, fetched when a reading needs
+  it: a conversation reads its own lines and what they rest on, the list and
+  a search every line, and no reading is made until every line it reads is
+  held (`lines.need`). The todo chains are not held
   here: the Inbox prices through the replicas the chain pages read
   (`sync.heldChains`, 2026-10-04: the open chain from memory, unsent acts
   included, every other served chain from its row on this device joined with

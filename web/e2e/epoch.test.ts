@@ -20,9 +20,6 @@ const required = (name: string): string => {
 const EPOCH_BASE = required("E2E_BASE_EPOCH")
 const EPOCH_INSTANCE = required("E2E_EPOCH_INSTANCE")
 
-/** The key a line's words are locked under, as its literal prints it. */
-const LOCKED = /Locked\(key='[0-9a-f]{64}'/
-
 /** Every row of every store of the database `name`, as one string: what the device holds of it. */
 const held = (name: string): string => `new Promise((ok, no) => {
   const r = indexedDB.open(${JSON.stringify(name)})
@@ -86,15 +83,14 @@ app.scene("a device holding a line the box rewrote drops its copy at the later e
   const id = await converse("give me a rendered answer")
   await app.page.waitFor(`document.querySelector(".turn-person") !== null`, { timeout: 20000 })
   await app.page.waitFor(`${linesRow}.then((row) => row !== null && Object.keys(row.keys).length > 0)`, { timeout: 15000 })
-  type Row = { replica: { generation: number; objects: { hash: string; literal: string }[]; synced: string[]; words: { epoch: number }[] }; keys: Record<string, string> }
+  type Node = { hash: string; parents: string[]; size: number; header: { node: string; keys?: string[] } }
+  type Row = { replica: { generation: number; objects: Node[]; synced: string[]; words: { epoch: number }[] }; keys: Record<string, string> }
   const row = await app.page.evaluate<Row>(linesRow)
   // What a device that heard the box before a migration holds: the line the box rewrote, a head beside its image as the
   // box now holds it, and words of the epoch before.
-  // The line rewritten is one holding words: a line of the round with none, which the box writes too, is the same
-  // literal once the key is replaced, so it would name an object the box still holds.
-  const tip = [...row.replica.objects].reverse().find((o) => o.literal.startsWith("Change(") && LOCKED.test(o.literal))!
-  const literal = tip.literal.replace(LOCKED, `Locked(key='${"e".repeat(64)}'`)
-  const old = { hash: createHash("sha256").update(literal, "utf8").digest("hex"), literal }
+  // The line rewritten is one holding words, its node named as the literal with another key would be.
+  const tip = [...row.replica.objects].reverse().find((o) => o.header.node === "line" && (o.header.keys ?? []).length > 0)!
+  const old = { ...tip, hash: createHash("sha256").update(`${tip.hash} rewritten`, "utf8").digest("hex") }
   assert.ok(!row.replica.objects.some((o) => o.hash === old.hash), "the rewritten line is no object the box holds")
   const before = {
     ...row,
@@ -131,9 +127,9 @@ app.scene("a device holding a line the box rewrote drops its copy at the later e
       throw new Error(`${String(e)}; the device holds ${said}`)
     })
   const after = await app.page.evaluate<Row>(linesRow)
-  const box = await app.page.evaluate<{ rest: number; objects: { hash: string }[] }>(`fetch("/api/stores/lines/objects").then((r) => r.json())`)
-  assert.equal(box.rest, 0, "the fixture's lines are one piece")
-  assert.deepEqual(new Set(after.replica.objects.map((o) => o.hash)), new Set(box.objects.map((o) => o.hash)), "the device holds the box's lines and nothing else")
+  const box = await app.page.evaluate<{ rest: number; nodes: { hash: string }[] }>(`fetch("/api/stores/lines/skeleton").then((r) => r.json())`)
+  assert.equal(box.rest, 0, "the fixture's skeleton is one piece")
+  assert.deepEqual(new Set(after.replica.objects.map((o) => o.hash)), new Set(box.nodes.map((o) => o.hash)), "the device holds the box's lines and nothing else")
   assert.ok(after.replica.words.every((w) => w.epoch > 1), "it heard the later epoch")
   assert.ok(Object.keys(after.keys).length > 0, "the keys taken again with the lines")
   const left = await app.page.evaluate<[string, unknown][]>(rowsOf("suzatary", "chain"))

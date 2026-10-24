@@ -4978,7 +4978,9 @@
             "size": 704
           }
         ],
-        "rest": 0
+        "rest": 0,
+        "size": 492,
+        "weight": 492
       },
       "maps": [
         [
@@ -5031,7 +5033,9 @@
         ],
         "rest": 0,
         "root": null,
-        "untrusted": []
+        "size": 769,
+        "untrusted": [],
+        "weight": 769
       },
       "maps": [
         [

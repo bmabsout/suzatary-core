@@ -88,6 +88,10 @@ impl<E: Schema, S: Prodrome<E>> Prodrome<E> for Signing<S> {
         self.store.nodes()
     }
 
+    fn literals(&self, names: &[Hash]) -> Result<Vec<Option<String>>, StoreError> {
+        self.store.literals(names)
+    }
+
     fn excluded(&self) -> Result<BTreeSet<Hash>, StoreError> {
         self.store.excluded()
     }

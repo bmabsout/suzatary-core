@@ -546,12 +546,12 @@ pub fn objects_since(
             let held = crate::sync::Objects::of(objects);
             crate::sync::missing(&held, since).into_iter().collect()
         },
-        stored,
+        &Literals,
     )
-    .map(|(snapshot, objects, _)| wire::ObjectsPayload {
+    .map(|(snapshot, piece)| wire::ObjectsPayload {
         untrusted: chain.untrusted_names(),
         root: Some(chain.root.as_str().to_owned()),
-        ..snapshot.payload(objects)
+        ..snapshot.payload(piece.sent)
     })
 }
 
@@ -592,19 +592,21 @@ pub fn store_objects_since<E: prodrome_core::schema::Schema>(
     now: Datetime,
     cut: Cut,
 ) -> Answered<wire::StorePayload> {
-    let (snapshot, objects, rest) = answered(
+    let (snapshot, piece) = answered(
         store,
         &format!("store/{named}"),
         epochs,
         now,
         cut,
         |objects| lacking(objects, since),
-        stored,
+        &Literals,
     )?;
     Ok(wire::StorePayload {
-        objects: snapshot.payload(objects),
+        objects: snapshot.payload(piece.sent),
         keys: BTreeMap::new(),
-        rest,
+        rest: piece.rest,
+        size: piece.size,
+        weight: piece.weight,
         erased: Vec::new(),
     })
 }
@@ -663,11 +665,87 @@ impl Snapshot {
     }
 }
 
+/// What one answer of a pull sends: the items in linearisation order, how many it names are left
+/// out, the weight of those sent, and the weight of all it names, sent or not.
+struct Piece<T> {
+    sent: Vec<T>,
+    rest: usize,
+    weight: usize,
+    size: usize,
+}
+
+/// What a pull sends of each object it answers: the object with its literal, or a skeleton's
+/// node. An object past a piece's cut is only weighed, for the pull's whole size.
+trait Sends<E: prodrome_core::schema::Schema> {
+    /// One object as the answer carries it.
+    type Item;
+    /// The object as sent, and its weight.
+    fn emit(
+        &self,
+        name: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<E>,
+    ) -> (Self::Item, usize);
+    /// Its weight alone.
+    fn weigh(
+        &self,
+        name: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<E>,
+    ) -> usize;
+}
+
+/// Each object with its literal, weighed by the literal's bytes.
+struct Literals;
+
+impl<E: prodrome_core::schema::Schema> Sends<E> for Literals {
+    type Item = wire::StoredObject;
+
+    fn emit(
+        &self,
+        name: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<E>,
+    ) -> (wire::StoredObject, usize) {
+        stored(name, envelope)
+    }
+
+    fn weigh(
+        &self,
+        _: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<E>,
+    ) -> usize {
+        prodrome_core::event::canonical_envelope(envelope).len()
+    }
+}
+
+/// Each line as its skeleton node, weighed by its bytes on the wire.
+struct Nodes;
+
+impl Sends<crate::secretary::line_event::LineEvent> for Nodes {
+    type Item = wire::SkeletonNode;
+
+    fn emit(
+        &self,
+        name: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<crate::secretary::line_event::LineEvent>,
+    ) -> (wire::SkeletonNode, usize) {
+        let node = skeleton_node(name, envelope);
+        let weight = weight(&node);
+        (node, weight)
+    }
+
+    fn weigh(
+        &self,
+        name: &prodrome_core::event::Hash,
+        envelope: &prodrome_core::event::Envelope<crate::secretary::line_event::LineEvent>,
+    ) -> usize {
+        weight(&skeleton_node(name, envelope))
+    }
+}
+
 /// An answer of `store`, read under its epoch's lock so the epoch and the objects are one
-/// snapshot: every head, the prodromes it serves, and what `emit` makes of each object `wanted`
-/// names, cut as `cut` says by the weight `emit` gives each, in linearisation order so a receiver
-/// can apply them as they arrive, with how many of those it names are left out.
-fn answered<E: prodrome_core::schema::Schema, T>(
+/// snapshot: every head, the prodromes it serves, and what `sends` makes of each object `wanted`
+/// names, cut as `cut` says by the weight it gives each, in linearisation order so a receiver
+/// can apply them as they arrive.
+fn answered<E: prodrome_core::schema::Schema, S: Sends<E>>(
     store: &dyn Prodrome<E>,
     key: &str,
     epochs: &crate::epoch::Epochs,
@@ -679,9 +757,9 @@ fn answered<E: prodrome_core::schema::Schema, T>(
             prodrome_core::event::Envelope<E>,
         )],
     ) -> std::collections::BTreeSet<prodrome_core::event::Hash>,
-    emit: impl Fn(&prodrome_core::event::Hash, &prodrome_core::event::Envelope<E>) -> (T, usize),
-) -> Answered<(Snapshot, Vec<T>, usize)> {
-    let (epoch, (heads, geneses, sent, rest)) = epochs.served(key, now, || {
+    sends: &S,
+) -> Answered<(Snapshot, Piece<S::Item>)> {
+    let (epoch, (heads, geneses, piece)) = epochs.served(key, now, || {
         let objects = store.objects()?;
         let dag: prodrome_core::dag::Dag<E> = objects.iter().cloned().collect();
         let heads = head_set(store)?;
@@ -695,18 +773,32 @@ fn answered<E: prodrome_core::schema::Schema, T>(
                 .collect(),
         };
         let wanted = wanted(&objects);
-        let mut sent: Vec<T> = Vec::new();
-        let mut bytes = 0usize;
+        let mut piece = Piece {
+            sent: Vec::new(),
+            rest: 0,
+            weight: 0,
+            size: 0,
+        };
+        let mut full = false;
         for (name, envelope) in objects.iter().filter(|(name, _)| wanted.contains(name)) {
-            let (item, weight) = emit(name, envelope);
-            bytes += weight;
-            match cut {
-                Cut::Bytes(most) if bytes > most && !sent.is_empty() => break,
-                Cut::Whole | Cut::Bytes(_) => sent.push(item),
+            if full {
+                piece.size += sends.weigh(name, envelope);
+                continue;
             }
+            let (item, weight) = sends.emit(name, envelope);
+            match cut {
+                Cut::Bytes(most) if piece.weight + weight > most && !piece.sent.is_empty() => {
+                    full = true;
+                }
+                Cut::Whole | Cut::Bytes(_) => {
+                    piece.sent.push(item);
+                    piece.weight += weight;
+                }
+            }
+            piece.size += weight;
         }
-        let rest = wanted.len() - sent.len();
-        Ok((seen, (heads, geneses, sent, rest)))
+        piece.rest = wanted.len() - piece.sent.len();
+        Ok((seen, (heads, geneses, piece)))
     })?;
     Ok((
         Snapshot {
@@ -714,8 +806,7 @@ fn answered<E: prodrome_core::schema::Schema, T>(
             geneses,
             epoch,
         },
-        sent,
-        rest,
+        piece,
     ))
 }
 
@@ -765,27 +856,28 @@ pub fn lines_skeleton(
     now: Datetime,
     cut: Cut,
 ) -> Answered<wire::SkeletonPayload> {
-    let (snapshot, nodes, rest) = answered(
+    let (snapshot, piece) = answered(
         conversations.lines,
         "store/lines",
         epochs,
         now,
         cut,
         |objects| lacking(objects, since),
-        |name, envelope| {
-            let node = skeleton_node(name, envelope);
-            let weight = weight(&node);
-            (node, weight)
-        },
+        &Nodes,
     )?;
-    let (keys, erased) = words(conversations, nodes.iter().map(|node| node.hash.as_str()))?;
+    let (keys, erased) = words(
+        conversations,
+        piece.sent.iter().map(|node| node.hash.as_str()),
+    )?;
     Ok(wire::SkeletonPayload {
         heads: snapshot.heads,
         geneses: snapshot.geneses,
         epoch: snapshot.epoch,
-        nodes,
+        nodes: piece.sent,
         keys,
-        rest,
+        rest: piece.rest,
+        size: piece.size,
+        weight: piece.weight,
         erased,
     })
 }
@@ -900,12 +992,13 @@ pub fn content<E: prodrome_core::schema::Schema>(
     store: &dyn Prodrome<E>,
     hashes: &query::Hashes,
 ) -> Answered<wire::ContentPayload> {
-    let objects: BTreeMap<prodrome_core::event::Hash, prodrome_core::event::Envelope<E>> =
-        store.objects()?.into_iter().collect();
-    let unheld: Vec<&str> = hashes
+    let names: Vec<prodrome_core::event::Hash> = hashes.iter().cloned().collect();
+    let literals = store.literals(&names)?;
+    let unheld: Vec<&str> = names
         .iter()
-        .filter(|name| !objects.contains_key(*name))
-        .map(prodrome_core::event::Hash::as_str)
+        .zip(&literals)
+        .filter(|(_, literal)| literal.is_none())
+        .map(|(name, _)| name.as_str())
         .collect();
     if !unheld.is_empty() {
         return Err(Refusal::not_found(format!(
@@ -913,9 +1006,15 @@ pub fn content<E: prodrome_core::schema::Schema>(
             unheld.join(", ")
         )));
     }
-    let sent: Vec<wire::StoredObject> = hashes
+    let sent: Vec<wire::StoredObject> = names
         .iter()
-        .filter_map(|name| objects.get(name).map(|envelope| stored(name, envelope).0))
+        .zip(literals)
+        .filter_map(|(name, literal)| {
+            literal.map(|literal| wire::StoredObject {
+                hash: name.as_str().to_owned(),
+                literal,
+            })
+        })
         .collect();
     let bytes: usize = sent.iter().map(|object| object.literal.len()).sum();
     if sent.len() > 1 && bytes > MOST_CONTENT_BYTES {

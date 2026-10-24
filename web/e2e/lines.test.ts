@@ -82,11 +82,15 @@ app.scene("a conversation is read from the lines, its keys held beside its objec
   await converse("give me a rendered answer")
   await app.page.waitFor(`document.querySelector(".turn-model .answerblock") !== null`, { timeout: 20000 })
   await app.page.waitFor(`${linesRow}.then((row) => row !== null && Object.keys(row.keys).length > 0)`, { timeout: 15000 })
-  const row = await app.page.evaluate<{ replica: { objects: { literal: string }[] }; keys: Record<string, string> }>(linesRow)
-  assert.ok(row.replica.objects.length > 0, "the lines' objects")
+  const row = await app.page.evaluate<{ replica: { objects: { hash: string }[] }; keys: Record<string, string> }>(linesRow)
+  assert.ok(row.replica.objects.length > 0, "the lines' skeleton")
   assert.ok(Object.values(row.keys).every((hex) => /^[0-9a-f]{64}$/.test(hex)), "each key its 32 bytes")
-  assert.ok(!JSON.stringify(row.replica.objects).includes("compiled to HTML"), "no object holds the words in the clear")
-  assert.ok(!JSON.stringify(row.replica.objects).includes("give me a rendered answer"))
+  // The content the page read is kept by name beside the skeleton, each literal its words sealed.
+  const kept = await app.page.evaluate<[string, string][]>(rowsOf("suzatary", "content"))
+  assert.ok(kept.length > 0 && kept.every(([name]) => row.replica.objects.some((n) => n.hash === name)), "the content of nodes the skeleton names")
+  const device = await app.page.evaluate<string>(held("suzatary"))
+  assert.ok(!device.includes("compiled to HTML"), "nothing the device keeps holds the words in the clear")
+  assert.ok(!device.includes("give me a rendered answer"))
   assert.equal(await app.page.evaluate<string>(held("suzatary")).then((all) => all.includes("objects:store/conversations")), false, "no row of the old store")
 })
 
@@ -221,36 +225,41 @@ app.scene("a key a closed tab left on the device is forgotten with the blocks it
 app.scene("the list draws and the badge is counted with no request for the lines, which are pulled when the secretary opens", async () => {
   // The popup reads the proposals from the inbox, which the boot may pull; the lines wait for a page that reads them.
   await app.resize(PHONE)
-  const LINES = "/api/stores/lines/objects"
+  // The lines' pulls, never their stream, which a capture would wait on forever.
+  const LINES = ["/api/stores/lines/skeleton", "/api/stores/lines/content", "/api/stores/lines/objects"]
+  const ofLines = (url: string): boolean => LINES.some(l => url.includes(l))
   // With no lines kept, so the pull this scene counts is a whole pull of the store: a row an earlier scene left
   // would make it a 304 with no body, whatever order the files run in.
   await app.open(WRITE_BASE)
   await app.page.evaluate(
     put("suzatary", "chain", `(s) => (s.delete("objects:store/lines"), s.delete(IDBKeyRange.bound("objects:store/lines/piece/", "objects:store/lines/piece/\\uffff")))`),
   )
+  // Nor any content an earlier scene's page kept, so what the secretary reads is fetched by name.
+  await app.page.evaluate(put("suzatary", "content", `(s) => s.clear()`))
   // And with no HTTP cache, so no earlier scene's answer comes back as a 304 the capture cannot read.
   await app.page.cold(true)
   // From a blank page, so no request the last scene's page left in flight is counted.
   await app.page.navigate("about:blank")
-  const booting = await app.page.captureNetwork([LINES, "/api/stores/inbox/objects", "/api/waiting"])
+  const booting = await app.page.captureNetwork([...LINES, "/api/stores/inbox/objects", "/api/waiting"])
   await app.open(WRITE_BASE)
   await app.page.waitFor(`performance.getEntriesByType("resource").some((e) => e.name.includes("/api/waiting"))`, { timeout: 15000 })
   const boot = await booting()
-  assert.deepEqual(boot.filter(r => r.url.includes(LINES)).map(r => r.url), [], "the boot never pulls the lines")
+  assert.deepEqual(boot.filter(r => ofLines(r.url)).map(r => r.url), [], "the boot never pulls the lines' skeleton or content")
   // The badge's count is the box's; an answer the tab already holds comes back as a 304, with no body.
   const counted = boot.filter(r => r.url.includes("/api/waiting"))
   assert.ok(counted.length > 0, "the badge is asked of the box")
   for (const r of counted.filter(r => r.responseBody !== "")) assert.equal(typeof (JSON.parse(r.responseBody) as { count: unknown }).count, "number")
-  const opening = await app.page.captureNetwork([LINES])
+  const opening = await app.page.captureNetwork(LINES)
   await app.page.evaluate(`void (location.hash = "#/secretary/default")`)
   await app.page.waitFor(`document.querySelector(".pagetitle") !== null`, { timeout: 15000 })
   await app.page.waitFor(`${linesRow}.then((row) => row !== null && row.replica.objects.length > 0)`, { timeout: 20000 })
   // Once the lines land, the page's placeholder gives way to its list.
   await app.page.waitFor(`document.querySelector(".chats .placeholder") === null`, { timeout: 15000 })
   // The lines a device already holds draw the list before the pull goes out, so the pull's answer is waited for.
-  await app.page.waitFor(`performance.getEntriesByType("resource").some((e) => e.name.includes(${JSON.stringify(LINES)}))`, { timeout: 15000 })
+  await app.page.waitFor(`performance.getEntriesByType("resource").some((e) => e.name.includes("/api/stores/lines/skeleton"))`, { timeout: 15000 })
   const pulled = await opening()
-  assert.ok(pulled.length > 0, "the secretary's page pulls the lines")
+  assert.ok(pulled.some(r => r.url.includes("/api/stores/lines/skeleton")), "the secretary's page pulls the lines' skeleton")
+  assert.ok(pulled.some(r => r.url.includes("/api/stores/lines/content?hashes=")), "and the content of what it reads, by name")
   // The pull ended whole: the row holds the lines, and no kept piece is left, since pieces are dropped only when a
   // pull lands whole. Read from the device, not from captured bodies, which a revalidated or streamed answer may lack.
   const left = await app.page.evaluate<[string, unknown][]>(rowsOf("suzatary", "chain"))

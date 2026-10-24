@@ -31,11 +31,12 @@ const replica = (r: Rng): Replica => {
 }
 
 const step = stores.step
-const held = (name: stores.Name, replica: Replica, keys: locked.Keys = locked.NO_KEYS): stores.Event => ({ type: "Held", name, row: locked.of(replica, keys) })
+// The inbox's replica holds objects; the lines' steps by the same join over nodes.
+const held = (name: "inbox", replica: Replica, keys: locked.Keys = locked.NO_KEYS): stores.Event => ({ type: "Held", name, row: locked.of(replica, keys) })
 
 test("law: a step that adds nothing wakes nobody", () => {
   forAll(30, r => {
-    const name = r.pick(stores.NAMES)
+    const name = "inbox" as const
     const t = step(stores.NONE, held(name, replica(r), r.bool(0.5) ? { [name.padEnd(64, "0")]: "00" } : locked.NO_KEYS))
     assert.equal(step(t, { type: "Held", name, row: t[name] }), t)
     assert.equal(step(t, held(name, NOTHING)), t)
@@ -44,7 +45,7 @@ test("law: a step that adds nothing wakes nobody", () => {
 
 test("law: a key the box gave is a step, though no object moved", () => {
   forAll(30, r => {
-    const name = r.pick(stores.NAMES)
+    const name = "inbox" as const
     const t = step(stores.NONE, held(name, replica(r)))
     const next = step(t, held(name, t[name].replica, { ["a".repeat(64)]: "00" }))
     assert.notEqual(next, t)
@@ -54,7 +55,7 @@ test("law: a key the box gave is a step, though no object moved", () => {
 
 test("law: a forgotten key leaves the row, and forgetting what it does not hold wakes nobody", () => {
   forAll(30, r => {
-    const name = r.pick(stores.NAMES)
+    const name = "inbox" as const
     const k = "a".repeat(64)
     const t = step(stores.NONE, held(name, replica(r), { [k]: "00" }))
     assert.deepEqual(locked.names(step(t, { type: "Forgot", name, keys: [k] })[name].keys), [])
@@ -64,7 +65,7 @@ test("law: a forgotten key leaves the row, and forgetting what it does not hold 
 
 test("law: a policy the box changed with no new object is a step, and the later contact's policy is the one kept", () => {
   forAll(30, r => {
-    const name = r.pick(stores.NAMES)
+    const name = "inbox" as const
     const t = step(stores.NONE, held(name, replica(r)))
     const was = t[name].replica
     const w = said<Pick<Word, "heads" | "untrusted" | "root" | "fetchedAt" | "geneses">>(was.box, { heads: [], untrusted: [], root: null, fetchedAt: 0, geneses: [] }, w => w)
@@ -132,7 +133,7 @@ test("law: only an answer of a later epoch than every word heard overtakes a rep
 })
 
 test("a reset is a step even of a row that holds nothing, so a pull asks of the reset", () => {
-  const name = "lines" as const
+  const name = "inbox" as const
   const t = step(stores.NONE, held(name, reset(NOTHING)))
   assert.notEqual(t, stores.NONE)
   assert.equal(t[name].replica.generation, 1)

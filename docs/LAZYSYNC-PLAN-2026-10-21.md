@@ -272,13 +272,16 @@ e2e suite's network log, and replaces this table with the measured numbers.
 
 ## 10. The box's cost
 
-Stage 1 answers a content request by reading the store's objects whole, as
-every route does today (about 250 ms for a chain at the live size). That is
-correct and it is the cost a skeleton piece already pays; it is not the cost a
-content route should have. The Prodrome's roadmap item, lazy content by hash
-(an index from name to literal in the store, read without parsing the rest),
-removes it; until then the parallel content requests of §7 are capped at four
-at a time by the tab.
+Stage 1 answered a content request by reading the store's objects whole, as
+every route does (about 250 ms for a chain at the live size). Since stage 2 a
+content request reads each object it names from that object's own file, its
+bytes checked against its name (`Prodrome::literals`), and nothing else of
+the store. The live lines store holds about 6,200 objects, so a first load
+that reads every line asks about 100 content requests, and each one costs its
+own objects alone. The tab keeps at most four out at a time over HTTP/2, and
+one over HTTP/1.1: there a browser opens at most six connections to a host,
+and a chat page already holds three open for streams (its chain's, the
+stores' and the conversation's), beside any pull piece in flight.
 
 ## 11. What a device holding today's replica sees
 
@@ -347,3 +350,41 @@ Each stage is one PR, a series of commits, each buildable and tested.
   34 sequential round trips live), the skeleton and one screenful after
   (about 1.1 MB in 3 round trips for 4,600 lines); stage 2 replaces the
   estimate with a measurement.
+
+## 14. Stage 2 as built
+
+Stage 2 holds the lines' skeleton in the tab, fetches content by name, and
+makes a reading only once every line it reads is held. It differs from §6
+and §7 in three ways, each left to a later stage:
+
+- **No memoised fold yet.** A reading is the core's `Conversations` over the
+  objects it needs, made once per change of the store, as before. One
+  conversation's reading needs its own lines and what they rest on
+  (`lines.need`), so opening a conversation fetches that conversation alone.
+- **The list and a search read every line.** A list row counts turns and
+  standing proposals and quotes the last line, so it reads the whole
+  conversation. Until a list is read from headers and titles (§7), the
+  secretary's list and the Inbox fetch the content of every line, in
+  parallel answers of 64 names or a megabyte, four at once over HTTP/2 (one
+  over HTTP/1.1), newest first. An
+  opened conversation's names go before every whole-store batch still
+  queued, taken out of that queue.
+- **No measurement in §9 yet.** The table is still the estimate.
+
+A purge fetches the content of the conversations whose lines name the keys
+it owes before it opens them, and keeps the keys owed if that fetch fails.
+The upgrade to version 5 leaves a mark, and the tab then clears the rendered
+blocks once, since the lines they were rendered from are no longer on the
+device for a purge to open.
+
+A device holding today's replica sees this on its first load of the new
+build: the database upgrade drops its lines' row (34 MB of literals on the
+live store) and the pieces kept beside it, and the tab clears the blocks
+rendered from them; the page pulls the skeleton,
+about 400 bytes a line, with a bar under the header saying how much has
+come; then it fetches the content of what the page reads. Opening one
+conversation fetches that conversation; opening the list or the Inbox
+fetches every line again, four answers at a time instead of one megabyte
+after another. Each answer is kept for good, in the browser's cache and in
+the `content` store, so a later load fetches only lines written since.
+

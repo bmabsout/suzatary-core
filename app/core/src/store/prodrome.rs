@@ -72,6 +72,25 @@ pub trait Prodrome<E: Schema>: Sync {
     /// [`StoreError::Unreadable`].
     fn objects(&self) -> Result<Vec<(Hash, Envelope<E>)>, StoreError>;
 
+    /// The canonical print of each object `names` names, in that order, or `None` for one this
+    /// store does not hold. A store that can read one object by its name answers without
+    /// reading the rest.
+    ///
+    /// # Errors
+    /// [`StoreError::Unreadable`].
+    fn literals(&self, names: &[Hash]) -> Result<Vec<Option<String>>, StoreError> {
+        let objects: std::collections::BTreeMap<Hash, Envelope<E>> =
+            self.objects()?.into_iter().collect();
+        Ok(names
+            .iter()
+            .map(|name| {
+                objects
+                    .get(name)
+                    .map(prodrome_core::event::canonical_envelope)
+            })
+            .collect())
+    }
+
     /// The objects as the register folds read them.
     ///
     /// # Errors

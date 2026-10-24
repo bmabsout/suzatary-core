@@ -5,9 +5,15 @@
  * Pure decisions over sets of names; the shells are `sync.ts` and `objects.ts`.
  */
 
-import type { ObjectsPayload, ReceiptPayload, RefusedObject, StoredObject } from "../wire/generated/wire";
+import type { ReceiptPayload, RefusedObject, SkeletonNode, StoredObject } from "../wire/generated/wire";
 import heads from "./heads";
 import lo from "../algebra/lo";
+
+/**
+ * What a replica can hold: an object with its literal, or a skeleton's node, which names what it rests on and carries
+ * no literal.
+ */
+export type Obj = StoredObject | SkeletonNode;
 
 /**
  * What the box said at one contact: the epoch of what it served, its heads, the policy and root they are read under, and
@@ -31,11 +37,11 @@ export interface Word {
  * answers with `already`. A refused object is kept, because it is real and this replica holds it; so is a store the
  * box dropped, which a later word of the box may serve again.
  */
-export interface Held {
+export interface Held<O extends Obj = StoredObject> {
   /** How many resets this replica has seen: a reset starts a later one, which no copy from before it reaches. */
   readonly generation: number;
-  /** Every object, parents first: name and canonical print. */
-  readonly objects: readonly StoredObject[];
+  /** Every object, parents first. */
+  readonly objects: readonly O[];
   /** The names the box is known to hold. */
   readonly synced: readonly string[];
   /** What the box refused, and why, one per name. */
@@ -57,10 +63,10 @@ export const said = <R>(b: Box, unheard: R, heard: (w: Word) => R): R => (b.type
  * set it reads. The box's word is the one that has seen more, kept whole, so its heads are never read beside another
  * pull's epoch or objects; the objects are those of the prodromes it holds.
  */
-export interface Replica {
-  readonly held: Held;
+export interface Replica<O extends Obj = StoredObject> {
+  readonly held: Held<O>;
   /** Every object of a prodrome the box holds, parents first. */
-  readonly objects: StoredObject[];
+  readonly objects: O[];
   /** This replica's own heads. */
   readonly heads: string[];
   /** What the box last said this replica holds: its heads, epoch, policy and root. */
@@ -73,18 +79,18 @@ export interface Replica {
 }
 
 /** This deployment's trust policy, as the box reported it; none before the box has spoken, when nothing it sent is held. */
-export const untrustedOf = (r: Replica): readonly string[] => said(r.box, [], (w) => w.untrusted);
+export const untrustedOf = <O extends Obj>(r: Replica<O>): readonly string[] => said(r.box, [], (w) => w.untrusted);
 
 /** The root a device key counts under: none before the box has spoken, or when it said it signs nothing. */
 export const rootOf = (r: Replica): string | null => said(r.box, null, (w) => w.root);
 
 /** The box's heads as this replica last heard them, or null for never. */
-export const boxHeadsOf = (r: Replica): heads.Heads | null => said(r.box, null, (w) => heads.of(w.heads));
+export const boxHeadsOf = <O extends Obj>(r: Replica<O>): heads.Heads | null => said(r.box, null, (w) => heads.of(w.heads));
 
-const EMPTY: Held = { generation: 0, objects: [], synced: [], refused: [], words: [] };
+const EMPTY: Held<never> = { generation: 0, objects: [], synced: [], refused: [], words: [] };
 
 /** The reading of `held`: its box word, what that word forgets, and the rest derived from the objects left. */
-export function replicaOf(held: Held): Replica {
+export function replicaOf<O extends Obj>(held: Held<O>): Replica<O> {
   const word = spoken(held);
   const gone = word === null
     ? []
@@ -103,10 +109,13 @@ export function replicaOf(held: Held): Replica {
   };
 }
 
-export const NOTHING: Replica = replicaOf(EMPTY);
+export const NOTHING: Replica = replicaOf<StoredObject>(EMPTY);
+
+/** The empty replica of `O`s, the unit of their join. */
+export const empty = <O extends Obj>(): Replica<O> => replicaOf<O>(EMPTY);
 
 /** The one way down: an empty replica of a later generation, which every join keeps over the copies from before it. */
-export const reset = (replica: Replica): Replica => replicaOf({ ...EMPTY, generation: replica.generation + 1 });
+export const reset = <O extends Obj>(replica: Replica<O>): Replica<O> => replicaOf<O>({ ...EMPTY, generation: replica.generation + 1 });
 
 /**
  * Whether `next` landed in the row it was joined into, `row` being what the row holds now. A row of a later generation
@@ -124,7 +133,7 @@ export const landed = (next: Replica, row: Replica): lo.Settled<Replica> =>
  * it forgets are read after, by `replicaOf`. A later generation is kept whole over an earlier one, so a reset stands
  * whatever copy from before it is joined in. `NOTHING` is its unit.
  */
-export function join(a: Replica, b: Replica): Replica {
+export function join<O extends Obj>(a: Replica<O>, b: Replica<O>): Replica<O> {
   if (a === b) return a;
   if (a.generation !== b.generation) return a.generation > b.generation ? a : b;
   const held = union(a.held, b.held);
@@ -133,9 +142,9 @@ export function join(a: Replica, b: Replica): Replica {
 }
 
 /** `held` as the union keeps it: its words one per key, in key order, less those under another. */
-export const canonical = (held: Held): Held => ({ ...held, words: spokenBoth(held.objects, held.words, []) });
+export const canonical = <O extends Obj>(held: Held<O>): Held<O> => ({ ...held, words: spokenBoth(held.objects, held.words, []) });
 
-function union(a: Held, b: Held): Held {
+function union<O extends Obj>(a: Held<O>, b: Held<O>): Held<O> {
   const names = new Set(a.objects.map((object) => object.hash));
   const fresh = b.objects.filter((object) => !names.has(object.hash));
   const objects = fresh.length === 0 ? a.objects : [...a.objects, ...fresh];
@@ -143,7 +152,7 @@ function union(a: Held, b: Held): Held {
   const refused = refusedBoth(a.refused, b.refused);
   const words = spokenBoth(objects, a.words, b.words);
   const mine = new Set(a.refused);
-  const same = (x: Held): boolean => x.objects.length === objects.length && new Set(x.synced).size === synced.size &&
+  const same = (x: Held<O>): boolean => x.objects.length === objects.length && new Set(x.synced).size === synced.size &&
     x.refused.length === refused.length && sameWords(x.words, words);
   if (same(a) && refused.every((one) => mine.has(one))) return a;
   if (same(b) && refused.every((one) => b.refused.includes(one))) return b;
@@ -166,7 +175,7 @@ const sameWords = (a: readonly Word[], b: readonly Word[]): boolean =>
  * objects, which only grow and never change what a held object rests on, so a word once under another stays under it in
  * every larger union, as a word of an earlier epoch stays earlier, and the union stays associative.
  */
-function spokenBoth(objects: readonly StoredObject[], a: readonly Word[], b: readonly Word[]): Word[] {
+function spokenBoth(objects: readonly Obj[], a: readonly Word[], b: readonly Word[]): Word[] {
   const both = [...a, ...b];
   const latest = Math.max(...both.map((w) => w.epoch));
   const byKey = new Map<string, Word>();
@@ -185,7 +194,7 @@ function spokenBoth(objects: readonly StoredObject[], a: readonly Word[], b: rea
  * The box's word of those held, all of one epoch since the union keeps the latest only: the one whose heads reach the
  * most objects, then the later contact, then by print.
  */
-function spoken(held: Held): Word | null {
+function spoken<O extends Obj>(held: Held<O>): Word | null {
   let best: { readonly word: Word; readonly reach: number } | null = null;
   for (const word of held.words) {
     const r = held.words.length === 1 ? 0 : reach(held.objects, word.heads);
@@ -196,7 +205,7 @@ function spoken(held: Held): Word | null {
 }
 
 /** How many of `objects` the names rest on, themselves included: one pass back over a parents-first order. */
-function reach(objects: readonly StoredObject[], names: readonly string[]): number {
+function reach(objects: readonly Obj[], names: readonly string[]): number {
   const wanted = new Set(names);
   let count = 0;
   for (let i = objects.length - 1; i >= 0; i -= 1) {
@@ -227,19 +236,29 @@ export function appended(replica: Replica, objects: readonly StoredObject[]): Re
   return replicaOf({ ...replica.held, objects: [...replica.held.objects, ...fresh] });
 }
 
+/** What one answer of the box says, about the `O`s it sends. */
+export interface Said<O extends Obj> {
+  readonly heads: readonly string[];
+  readonly untrusted: readonly string[];
+  readonly root: string | null;
+  readonly geneses: readonly string[];
+  readonly epoch: number;
+  readonly objects: readonly O[];
+}
+
 /**
  * What the box answered, joined in: its objects, the names it holds, and its word, with the prodromes it holds. A
  * prodrome it holds none of any more reads as forgotten with all that rests on it, until a later word serves it again:
  * a store the box migrated away from is history its data repository keeps, and its objects need not parse under today's
  * schema. A word naming no prodrome is a store holding none, and forgets every prodrome this replica holds.
  */
-export function pulled(replica: Replica, answer: ObjectsPayload, fetchedAt: number): Replica {
-  return join(replica, replicaOf({
+export function pulled<O extends Obj>(replica: Replica<O>, answer: Said<O>, fetchedAt: number): Replica<O> {
+  return join(replica, replicaOf<O>({
     generation: replica.generation,
     objects: answer.objects,
     synced: [...answer.heads, ...answer.objects.map((object) => object.hash)],
     refused: [],
-    words: [{ epoch: answer.epoch, heads: answer.heads, untrusted: answer.untrusted, root: answer.root, fetchedAt, geneses: answer.geneses }],
+    words: [{ epoch: answer.epoch, heads: [...answer.heads], untrusted: [...answer.untrusted], root: answer.root, fetchedAt, geneses: [...answer.geneses] }],
   }));
 }
 
@@ -247,24 +266,28 @@ export function pulled(replica: Replica, answer: ObjectsPayload, fetchedAt: numb
  * Whether the box answered with an earlier epoch than the word this replica holds: its own count went back, which only a
  * lost state directory does. The later word keeps being read, so this is said rather than passed over.
  */
-export const wentBack = (replica: Replica, answer: ObjectsPayload): boolean => said(replica.box, false, (w) => w.epoch > answer.epoch);
+export const wentBack = <O extends Obj>(replica: Replica<O>, answer: { readonly epoch: number }): boolean => said(replica.box, false, (w) => w.epoch > answer.epoch);
 
 const NAMED_GENESIS = /^Change\(genesis='([0-9a-f]{64})', /;
 
-/** The prodrome an object is in: a change's genesis or a `Genesis`'s own name; none for a legacy object or a signature. */
-export function prodromeOf(object: StoredObject): string | null {
+/**
+ * The prodrome an object is in: a change's genesis or a `Genesis`'s own name; none for a legacy object or a signature.
+ * A node names only a `Genesis`'s own: a change's genesis is among its parents, so what rests on it is found by them.
+ */
+export function prodromeOf(object: Obj): string | null {
+  if (!("literal" in object)) return object.header.node === "structure" && object.header.kind === "Genesis" ? object.hash : null;
   if (object.literal.startsWith("Genesis(")) return object.hash;
   return NAMED_GENESIS.exec(object.literal)?.[1] ?? null;
 }
 
 /** The objects of a gone prodrome, and every object resting on one, by one pass over a parents-first order. */
-export function forgotten(objects: readonly StoredObject[], gone: readonly string[]): Set<string> {
+export function forgotten(objects: readonly Obj[], gone: readonly string[]): Set<string> {
   const lost = new Set<string>();
   if (gone.length === 0) return lost;
   const dropped = new Set(gone);
   for (const object of objects) {
     const prodrome = prodromeOf(object);
-    if ((prodrome !== null && dropped.has(prodrome)) || parentsOf(object).some((parent) => lost.has(parent))) lost.add(object.hash);
+    if ((prodrome !== null && dropped.has(prodrome)) || restsOn(object).some((parent) => lost.has(parent))) lost.add(object.hash);
   }
   return lost;
 }
@@ -274,7 +297,7 @@ export function forgotten(objects: readonly StoredObject[], gone: readonly strin
  * no head, though it is no parent either: the box's tips read it so, and a head the box never names would leave
  * every local fold reading as behind it.
  */
-export function headsOf(objects: readonly StoredObject[]): string[] {
+export function headsOf(objects: readonly Obj[]): string[] {
   const named = new Set(objects.flatMap(restsOn));
   return objects.map((object) => object.hash).filter((hash) => !named.has(hash));
 }
@@ -286,7 +309,7 @@ export type Order = "Same" | "Below" | "Above" | "Apart" | "Unknown";
  * The causal order on head sets, read off `objects`: `a` is below `b` when everything `a` names rests under `b`. A set
  * naming an object not held is unknown to every other but itself.
  */
-export function ancestry(objects: readonly StoredObject[]): (a: readonly string[], b: readonly string[]) => Order {
+export function ancestry(objects: readonly Obj[]): (a: readonly string[], b: readonly string[]) => Order {
   const byName = new Map(objects.map((object) => [object.hash, object]));
   const under = (names: readonly string[]): Set<string> | null => {
     const seen = new Set<string>();
@@ -309,7 +332,8 @@ export function ancestry(objects: readonly StoredObject[]): (a: readonly string[
 }
 
 /** What an object rests on: its parents, and the genesis of the prodrome a change is in. */
-function restsOn(object: StoredObject): string[] {
+function restsOn(object: Obj): readonly string[] {
+  if (!("literal" in object)) return object.parents;
   const genesis = object.literal.startsWith("Genesis(") ? null : prodromeOf(object);
   return genesis === null ? parentsOf(object) : [...parentsOf(object), genesis];
 }

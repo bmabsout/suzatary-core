@@ -44,6 +44,7 @@ import device from "./app/device";
 import newbuild from "./app/newbuild";
 import stale from "./shell/stale";
 import leftout from "./shell/leftout";
+import syncing from "./shell/syncing";
 import readings from "./prodrome/readings";
 import heads from "./prodrome/heads";
 import { hearTheme, restoreTheme, theme } from "./app/theme";
@@ -281,6 +282,7 @@ askWhoAndWhere();
 // ask the box for the badge.
 const heardStore = (name: stores.Name): void => void (name === "inbox" && refreshWaiting());
 let closeStores = storesync.listen(heardStore);
+storesync.watchProgress(syncing.install(byId("syncing")));
 // Each move of the replicas retracts the intents it holds; in memory, so it outlives every page.
 intentsync.listen();
 // The streams and the page close as the document goes into the back/forward cache, and open as it comes back.

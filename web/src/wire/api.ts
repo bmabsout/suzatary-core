@@ -1,7 +1,7 @@
 // Every route the box answers, named once: its path, its method, and the decoder its answer passes through `http`.
 
 import app from "../app/app";
-import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, Registering, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload, WatchesPayload } from "./generated/wire";
+import type { AboutPayload, AcceptedPayload, AttachmentRow, Authoring, AuthoredPayload, BlockRender, BriefingPayload, BriefingsPayload, CalendarPayload, ChainPayload, ContentPayload, ConversationPayload, DevicePayload, DrawnPayload, Erasing, FactId, FoldPayload, InboxPayload, KeyAsked, MailMessage, MailSearchPayload, MePayload, MemoryPayload, NewTodo, ObjectsPayload, Overview, Pairing, PickedObjects, PostedObjects, ProposalsPayload, Reasoning, ReceiptPayload, Registering, RejectedPayload, ReleasesPayload, Revealing, SayPayload, Saying, SkeletonPayload, StorePayload, Tapping, ThreadPayload, Titling, TodoPayload, UpdateTodo, Uploaded, Uploading, UsagePayload, WaitingPayload, WatchesPayload } from "./generated/wire";
 import { print } from "../chat/refs";
 import type { Reference } from "../chat/refs";
 import heads from "../prodrome/heads";
@@ -86,6 +86,18 @@ export const storeObjects = (store: string, since: heads.Heads): Promise<StorePa
     payload.StorePayload,
     { type: "Silence", ms: wait.MS },
   );
+
+/** A piece of the lines' skeleton a replica holding `since` lacks: what `storeObjects` sends, each object without its literal. */
+export const storeSkeleton = (since: heads.Heads): Promise<SkeletonPayload> =>
+  http.get(
+    `/api/stores/lines/skeleton${since.length === 0 ? "" : `?since=${since.map(encodeURIComponent).join(",")}`}`,
+    payload.SkeletonPayload,
+    { type: "Silence", ms: wait.MS },
+  );
+
+/** The literals of `hashes`, in ascending order with none twice, so one set has one URL the browser keeps for good. */
+export const storeContent = (store: string, hashes: readonly string[]): Promise<ContentPayload> =>
+  http.get(`/api/stores/${encodeURIComponent(store)}/content?hashes=${hashes.join(",")}`, payload.ContentPayload, { type: "Silence", ms: wait.MS });
 
 // --- the Inbox ---------------------------------------------------------------
 

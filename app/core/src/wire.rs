@@ -862,6 +862,11 @@ pub struct StorePayload {
     /// lacked. The answer is a piece, and the replica asks again from the heads it holds once it
     /// has kept it.
     pub rest: usize,
+    /// The bytes of the literals the replica lacked when it asked, these and the rest: what the
+    /// first piece of a pull tells a tab its whole pull will bring.
+    pub size: usize,
+    /// The bytes of the literals this piece sends, so `size` less this is what is left.
+    pub weight: usize,
     /// The name of every key an erasure anywhere in the store names, sorted: a replica forgets
     /// the blocks those keys' words were rendered to and drops the keys as soon as it takes any
     /// piece, before the piece holding the erasure arrives. Empty for a store that locks no words.
@@ -934,6 +939,12 @@ pub struct SkeletonPayload {
     pub keys: BTreeMap<String, String>,
     /// How many objects the replica still lacks after these.
     pub rest: usize,
+    /// The bytes of the nodes the replica lacked when it asked, these and the rest, by the weight
+    /// a piece is cut by: what the first piece tells a tab the whole skeleton will bring.
+    pub size: usize,
+    /// The bytes of the nodes this piece sends, by the same weight, so `size` less this is what
+    /// is left.
+    pub weight: usize,
     /// The name of every key an erasure anywhere in the store names, sorted.
     pub erased: Vec<String>,
 }

@@ -1614,6 +1614,43 @@ under in every larger union and never wins.
   app…"; `app/cli/tests/stores.rs` "the badge is counted without the
   conversations"; `e2e/lines.test.ts` "the list draws and the badge is
   counted with no request for the lines…".
+- **The lines are a skeleton, and their content is fetched by name.** The
+  lines' row holds the skeleton (`GET /api/stores/lines/skeleton`, pulled by
+  the same pieces), a replica of nodes: each object's name, what it rests
+  on, its size and its header, never its literal (`replica.Obj`). Each
+  literal is kept by its name in the database's `content` store
+  (`content.ts`), taken only when its bytes hash to the name asked for in
+  the same place, so the device holds the box's bytes and nothing else. A
+  reading is whole or it is not made (`lines.need`): the list and a search
+  read every line, one conversation reads its own lines and what they rest
+  on, and a reading whose lines are not all held fetches them (`GET
+  /api/stores/lines/content?hashes=`, at most 64 names and a megabyte an
+  answer, four answers out at once over HTTP/2 and one over HTTP/1.1, where a
+  browser opens six connections to a host and a page holds three for its
+  streams (`content.atOnce`), an opened conversation's names taken out
+  of the whole store's queue, which goes newest first) and reads only once
+  every one is held. So every reading a tab
+  answers is the reading of the whole pull at the same skeleton. A purge
+  reads the largest down-set whose content is held, since words were only
+  rendered from a conversation read whole, and first fetches the content of
+  the conversations naming the keys it owes, keeping them owed if it cannot;
+  content no node names is dropped after a landing. — `lazylines.test.ts` "law: a reading of part-fetched
+  lines is the whole pull's reading at the same skeleton, or names what it
+  fetches", "law: content is taken only where its bytes hash to the name
+  asked for, in the place asked", "an opened conversation's names go out
+  before the whole store's batches still queued…", "over HTTP/1.1 one
+  content answer is out at a time…"; `linekeys.test.ts` "a
+  purge that cannot find the blocks…"; `e2e/lines.test.ts` "a conversation is
+  read from the lines…", "the list draws and the badge is counted with no
+  request for the lines…"; `e2e/epoch.test.ts`.
+- **A sync says how far it has come, in bytes.** Every piece of a store's
+  pull carries `size`, the bytes the replica lacked when it asked, so the
+  first piece says what the whole pull brings, and `weight`, its own bytes;
+  a content fetch says its whole size, by the sizes the skeleton gives, when
+  it starts. The bar under the header (`shell/syncing.ts`)
+  draws each store syncing as bytes come of bytes needed ("Syncing
+  conversations · 0.4 of 1.1 MB"), from `progress.T`, and is hidden once no
+  store syncs.
 
 ### 3.19 Runs, streams and the device's rows
 
@@ -1659,11 +1696,12 @@ Each pattern written once, in `web/src/algebra/once.ts`, `latest.ts`,
   key"; `device.test.ts` "an unreadable key row is offered a new key…";
   `app.test.ts` "a renewed key writes again without a reload…".
 - **A replica row is read in one form:** the database's upgrade drops every
-  row an earlier version kept (version 2's and version 1's alike), the tab
+  row an earlier version kept (version 2's and version 1's alike, and
+  version 4's lines, kept as literals, with their pieces), the tab
   pulls each chain and store again from the box, and the reader holds no
   shim. What a dropped row held that the box had not taken is lost. —
   `objects.test.ts` "a row version 2 kept is dropped…", "a row version 1
-  kept is dropped…"; `replica.test.ts` "a row in a form an earlier build
+  kept is dropped…", "version 5 drops the lines' row and its pieces…"; `replica.test.ts` "a row in a form an earlier build
   kept does not read…"; e2e `upgrade.test.ts` "a device holding a version 2
   replica drops it on its first load…".
 - **A verdict says what it found as a sum.** Each object the walk reached
