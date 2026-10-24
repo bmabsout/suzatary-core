@@ -1,12 +1,12 @@
 //! The compactor's rule: a node waiting for its summary is owed one ("pending non-empty ⇒
-//! compact the most pending node, append its outcome"), fired once per reading by the box's
-//! engine like the conversation's rules, and discharged by the outcome it records.
+//! compact the most pending node, append its outcome"), discharged by the outcome it records.
 //!
 //! The most pending node is the first the Prodrome's `pending` offers (smallest, then
 //! leftmost) that this rule's model has not already found unfit. The outcome is an object of the
-//! digest's history, a summary or an `Unfit`, so it moves the reading's name and the next firing
-//! takes the next node; an attempt that failed records nothing and is not tried again on the same
-//! reading. An import of the conversations that already exist is no special path: it is this rule
+//! digest's history, a summary or an `Unfit`, so it moves the reading and the next round takes
+//! the next nodes. A node is pending only once its children's summaries exist, so several
+//! workers build a level as its children finish, each on a node [`Paced`] has claimed for it
+//! alone. An import of the conversations that already exist is no special path: it is this rule
 //! over those lines, at the budget's pace.
 //!
 //! Every call is stamped at its own instant and the outcome at the instant it came, read from the
@@ -16,6 +16,9 @@
 //! which asks again whether the node still waits, and every step refuses while a store's read
 //! left anything out.
 
+use std::collections::BTreeSet;
+use std::sync::{Arc, Mutex, PoisonError};
+
 use prodrome_core::event::{Envelope, Hash};
 use prodrome_core::fpl::instant_of;
 use prodrome_core::literal::Datetime;
@@ -23,12 +26,12 @@ use prodrome_core::literal::Datetime;
 use crate::capability::{Clock, Compact};
 use crate::models::ModelName;
 use crate::refusal::Refusal;
-use crate::rule::{Engine, Named, ReadingName, Rule};
+use crate::rule::{Named, ReadingName, Rule};
 use crate::secretary::compact_ask::Ask;
 use crate::secretary::compact_budget::{Budget, Hold};
 use crate::secretary::compacting::Compacting;
 use crate::secretary::compactor::{self, Outcome};
-use crate::secretary::digest::{Digest, Written};
+use crate::secretary::digest::{self, Digest, Written};
 use crate::secretary::digest_event::DigestEvent;
 use crate::secretary::digest_line::NODE_BYTES;
 use crate::secretary::digest_spent::Spent;
@@ -36,6 +39,7 @@ use crate::secretary::digests::{Digests, compactor};
 use crate::secretary::line_event::LineEvent;
 use crate::secretary::memories::Memories;
 use crate::secretary::store::Entry;
+use crate::store::Prodrome;
 
 /// The one digest the box keeps, as a rule's key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,10 +195,8 @@ pub enum Compacted {
 }
 
 /// Perform the rule on `reading`: ask `compact` for the most pending node's line and record
-/// the outcome at the instant it came; a question no day's cap admits is recorded unfit,
-/// asking nothing. Every call is appended as an `Asked` stamped at its own
-/// instant before it is made, and refused once `budget` holds then, so no call goes uncounted
-/// and none is made past a cap. `None` when nothing is owed.
+/// the outcome at the instant it came, as [`Claim::perform`] does for a claimed node. `None`
+/// when nothing is owed.
 ///
 /// # Errors
 /// The budget's hold, as a [`Refusal::conflict`]; [`Refusal::unprocessable`] for a compactor
@@ -214,28 +216,48 @@ pub fn perform(
         return Ok(None);
     };
     let (ask, over) = reading.ask(&node)?;
+    attempt(memories, compact, &node, ask, over, budget, clock).map(Some)
+}
+
+/// Ask `compact` for `node`'s line and record the outcome at the instant it came; a question
+/// no day's cap admits is recorded unfit, asking nothing. Every call is appended as an `Asked`
+/// stamped at its own instant before it is made, and refused once `budget` holds then, both
+/// under the digest history's hold and against every call the history records, so calls made
+/// at once by several workers are counted as one budget and none is made past a cap.
+///
+/// # Errors
+/// As [`perform`].
+fn attempt(
+    memories: &Memories<'_>,
+    compact: &dyn Compact,
+    node: &Hash,
+    ask: Ask,
+    over: Vec<Hash>,
+    budget: Budget,
+    clock: &dyn Clock,
+) -> Result<Compacted, Refusal> {
+    let model = compact.model().clone();
+    let node = node.clone();
     if !budget.admits(Spent::call(ask.bytes())) {
         // No call is made: a question larger than a whole day's cap would wait forever.
-        return Ok(Some(Compacted::Unfit {
-            object: memories.hold()?.unfit(&node, rule.model, 0, clock.now())?,
+        return Ok(Compacted::Unfit {
+            object: memories.hold()?.unfit(&node, model, 0, clock.now())?,
             node,
-        }));
+        });
     }
-    let mut spent: Vec<(Datetime, Spent)> = reading.digest.attempts().collect();
     let history = memories.digests.history;
     let outcome = compactor::compact(compact, ask, &mut |sent| {
+        let _held = history.locked()?;
         let now = clock.now();
-        if let Some(hold) = budget.hold(&spent, Spent::call(sent), instant_of(now)) {
+        if let Some(hold) = budget.hold(&spent(history)?, Spent::call(sent), instant_of(now)) {
             return Err(Refusal::conflict(hold.to_string()));
         }
         history.append(DigestEvent::asked(node.clone(), now, compactor(), sent))?;
-        spent.push((now, Spent::call(sent)));
         Ok(())
     })?;
     let now = clock.now();
     let held = memories.hold()?;
-    let model = rule.model;
-    Ok(Some(match outcome {
+    Ok(match outcome {
         Outcome::Fits { line } => Compacted::Summarized {
             object: held.summarize(&node, &line, over, model, now)?,
             node,
@@ -244,27 +266,61 @@ pub fn perform(
             object: held.unfit(&node, model, shortest, now)?,
             node,
         },
-    }))
+    })
 }
 
-/// What one step of the paced rule came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Step {
-    /// The rule fired and recorded its outcome.
-    Compacted(Compacted),
-    /// Work is owed and the budget holds it back until [`Hold::until`].
+/// Every call `history` records, stamped.
+fn spent(history: &dyn Prodrome<DigestEvent>) -> Result<Vec<(Datetime, Spent)>, Refusal> {
+    Ok(digest::attempts(&history.nodes()?)
+        .into_iter()
+        .map(|(_, at, spent)| (at, spent))
+        .collect())
+}
+
+/// The nodes some worker holds a [`Claim`] on.
+type Taken = Arc<Mutex<BTreeSet<Hash>>>;
+
+/// The rule at the budget's pace, shared by every worker the box runs: [`Paced::take`] hands
+/// out nodes no live [`Claim`] holds, read after every earlier claim was let go, so no two
+/// workers ever compact one node. The box keeps one for as long as it runs; a restart's fresh
+/// one takes nothing already recorded, since every outcome moves the reading.
+#[derive(Debug)]
+pub struct Paced {
+    rule: Compaction,
+    budget: Budget,
+    taken: Taken,
+}
+
+/// What one round of [`Paced::take`] came to.
+#[derive(Debug)]
+pub enum Round {
+    /// Nodes to compact, each held by its claim until the claim is dropped.
+    Taken(Vec<Claim>),
+    /// Work is owed and the budget holds its next call back until [`Hold::until`].
     Held(Hold),
-    /// Nothing is owed, or the rule already fired on this reading.
+    /// Nothing is owed that no worker holds.
     Idle,
 }
 
-/// The rule at the budget's pace: its engine, which fires it once per reading, and the caps it
-/// is held to. The box keeps one for as long as it runs; a restart's fresh engine fires nothing
-/// already recorded, since every outcome moves the reading.
-#[derive(Debug, Clone)]
-pub struct Paced {
-    engine: Engine<Compaction>,
+/// One node taken for one worker, with the question its reading asks of it. No other claim on
+/// the node exists while this one does. [`Claim::perform`] spends it and lets the node go
+/// after its write, so whatever it wrote is in the reading the next round takes from.
+#[derive(Debug)]
+pub struct Claim {
+    node: Hash,
+    ask: Ask,
+    over: Vec<Hash>,
     budget: Budget,
+    taken: Taken,
+}
+
+/// What one claim's step came to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Performed {
+    /// The rule fired and recorded its outcome.
+    Compacted(Compacted),
+    /// A cap was reached partway through the attempt, until [`Hold::until`].
+    Held(Hold),
 }
 
 impl Paced {
@@ -272,56 +328,134 @@ impl Paced {
     #[must_use]
     pub fn new(compact: &dyn Compact, budget: Budget) -> Self {
         Self {
-            engine: Engine::new(vec![Compaction {
+            rule: Compaction {
                 model: compact.model().clone(),
-            }]),
+            },
             budget,
+            taken: Taken::default(),
         }
     }
 
-    /// One step at `clock`'s instant: read the digest whole, and if work is owed, either say
-    /// what holds its next call back or fire the rule and perform it. A hold consumes no firing,
-    /// so the same reading is owed again once the hold frees.
+    /// One round at `clock`'s instant: read the digest whole and take at most `free` of the
+    /// nodes owed that no claim holds, most pending first, stopping at the first whose call
+    /// the budget holds back, counting the first calls of those already taken this round.
+    /// The read is made under the claims' lock, and a claim is let go under that lock only
+    /// after its write, so a round either sees a node as claimed or reads what its claim wrote.
     ///
     /// # Errors
-    /// [`Reading::of`]'s and [`perform`]'s; a firing that failed is not made again on its
-    /// reading.
-    pub fn step(
-        &mut self,
+    /// [`Reading::of`]'s.
+    pub fn take(
+        &self,
+        memories: &Memories<'_>,
+        free: usize,
+        clock: &dyn Clock,
+    ) -> Result<Round, Refusal> {
+        let mut taken = self.taken.lock().unwrap_or_else(PoisonError::into_inner);
+        let reading = Reading::of(&memories.digests)?;
+        let now = clock.now();
+        let mut spent: Vec<_> = reading.digest.attempts().collect();
+        let mut chosen = Vec::new();
+        let owed = self.rule.owed(&reading.digest);
+        for node in owed.into_iter().filter(|node| !taken.contains(node)) {
+            if chosen.len() == free {
+                break;
+            }
+            let (ask, over) = reading.ask(&node)?;
+            let first = Spent::call(ask.bytes());
+            if self.budget.admits(first) {
+                if let Some(hold) = self.budget.hold(&spent, first, instant_of(now)) {
+                    if chosen.is_empty() {
+                        return Ok(Round::Held(hold));
+                    }
+                    break;
+                }
+                spent.push((now, first));
+            }
+            chosen.push((node, ask, over));
+        }
+        if chosen.is_empty() {
+            return Ok(Round::Idle);
+        }
+        // Claims are made only here, past every refusal: one dropped while `taken` is locked
+        // would wait on the lock it is dropped under.
+        Ok(Round::Taken(
+            chosen
+                .into_iter()
+                .map(|(node, ask, over)| {
+                    taken.insert(node.clone());
+                    Claim {
+                        node,
+                        ask,
+                        over,
+                        budget: self.budget,
+                        taken: Arc::clone(&self.taken),
+                    }
+                })
+                .collect(),
+        ))
+    }
+}
+
+impl Claim {
+    /// Compact the node at `clock`'s instants, asking `compact`, as [`perform`] does, over the
+    /// question the claim was taken with, once, since the claim is spent by it. A refusal while
+    /// the budget holds the node's first call is that hold, not a failure.
+    ///
+    /// # Errors
+    /// [`perform`]'s refusals, as a [`Failed`] that keeps the node until it is dropped.
+    pub fn perform(
+        self,
         memories: &Memories<'_>,
         compact: &dyn Compact,
         clock: &dyn Clock,
-    ) -> Result<Step, Refusal> {
-        let now = clock.now();
-        let reading = Reading::of(&memories.digests)?;
-        let owed = Compaction {
-            model: compact.model().clone(),
+    ) -> Result<Performed, Failed> {
+        let (ask, over) = (self.ask.clone(), self.over.clone());
+        let refused = match attempt(memories, compact, &self.node, ask, over, self.budget, clock) {
+            Ok(done) => return Ok(Performed::Compacted(done)),
+            Err(refused) => refused,
         };
-        let budget = self.budget;
-        let hold_at = |reading: &Reading, at: Datetime| -> Result<Option<Hold>, Refusal> {
-            let spent: Vec<_> = reading.digest.attempts().collect();
-            Ok(reading
-                .next_call(&owed)?
-                .filter(|next| budget.admits(*next))
-                .and_then(|next| budget.hold(&spent, next, instant_of(at))))
-        };
-        if !owed.holds(&reading) {
-            return Ok(Step::Idle);
+        let first = Spent::call(self.ask.bytes());
+        let holding = spent(memories.digests.history).map(|spent| {
+            self.budget
+                .hold(&spent, first, instant_of(clock.now()))
+                .filter(|_| self.budget.admits(first))
+        });
+        match holding {
+            Ok(Some(hold)) => Ok(Performed::Held(hold)),
+            Ok(None) => Err(Failed {
+                refused,
+                _claim: Box::new(self),
+            }),
+            Err(unread) => Err(Failed {
+                refused: unread,
+                _claim: Box::new(self),
+            }),
         }
-        if let Some(hold) = hold_at(&reading, now)? {
-            return Ok(Step::Held(hold));
-        }
-        if self.engine.due(&TheDigest, &reading).is_none() {
-            return Ok(Step::Idle);
-        }
-        match perform(memories, compact, &reading, self.budget, clock) {
-            Ok(done) => Ok(done.map_or(Step::Idle, Step::Compacted)),
-            // A cap reached partway through an attempt is a hold, not a failure.
-            Err(refused) => match hold_at(&Reading::of(&memories.digests)?, clock.now())? {
-                Some(hold) => Ok(Step::Held(hold)),
-                None => Err(refused),
-            },
-        }
+    }
+}
+
+/// A claim's step that failed, still holding its node, so a worker can wait out its backoff
+/// without another taking the node meanwhile.
+#[derive(Debug)]
+pub struct Failed {
+    refused: Refusal,
+    _claim: Box<Claim>,
+}
+
+impl Failed {
+    /// Why the step failed.
+    #[must_use]
+    pub fn refusal(&self) -> &Refusal {
+        &self.refused
+    }
+}
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        self.taken
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&self.node);
     }
 }
 
@@ -381,7 +515,7 @@ pub fn waiting(digests: &Digests<'_>, now: Datetime) -> Result<Option<Waiting>, 
     let pending = reading.digest.pending().len();
     let (owed, why) = match digests.compacting {
         Compacting::Off => (pending, Some(Why::Off)),
-        Compacting::On { model, budget } => {
+        Compacting::On { model, budget, .. } => {
             let spent: Vec<_> = reading.digest.attempts().collect();
             let rule = Compaction {
                 model: model.clone(),

@@ -1,22 +1,23 @@
-//! The compactor's one task: the digest's rule at its budget's pace
+//! The compactor's task: the digest's rule at its budget's pace
 //! (`secretary::compaction::Paced`), woken at startup and whenever a write moves a
 //! conversation's lines, and asleep until the instant a hold frees.
 //!
 //! Startup is a nudge like any other, so the lines already stored are compacted by the same
-//! rule at the same pace as new ones: an import is no special path. One task keeps two firings
-//! from writing at once; the engine inside `Paced` fires once per reading, so a nudge that
-//! moved nothing performs nothing. A step that failed (the model unreachable, the subscription
-//! down to its reserve) waits out a [`Backoff`] that no nudge shortens, doubling from
-//! [`RETRY`] to [`RETRY_MOST`] while failures repeat, then steps on a fresh engine, as a
-//! restart would. Every call it made was counted before it was made, so retrying spends
-//! within the budget like any other step.
+//! rule at the same pace as new ones: an import is no special path. One coordinator takes each
+//! round, so a round hands its idle workers distinct nodes from one reading, and takes again
+//! whenever a worker finishes or a nudge comes. A worker whose step failed (the model
+//! unreachable, the subscription down to its reserve) keeps its node and waits out a
+//! [`Backoff`] of its own that no nudge shortens, doubling from [`RETRY`] to [`RETRY_MOST`]
+//! while its failures repeat, while the other workers go on with theirs. Every call was
+//! counted before it was made, so retrying spends within the budget like any other step.
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use suzatary_core::capability::{Compact, Server};
 use suzatary_core::secretary::compact_budget::{Budget, Hold};
 use suzatary_core::secretary::compacting::Compacting;
-use suzatary_core::secretary::compaction::{Compacted, Paced, Step};
+use suzatary_core::secretary::compaction::{Claim, Compacted, Paced, Performed, Round};
 use tokio::sync::mpsc;
 
 use super::State;
@@ -33,10 +34,14 @@ pub fn started(
 ) -> State {
     match compacting {
         Compacting::Off => state,
-        Compacting::On { model, budget } => {
+        Compacting::On {
+            model,
+            budget,
+            workers,
+        } => {
             let model = Arc::new(CompactorModel::new(instance, live, model));
             let caps = state.first.caps;
-            state.with_compactor(Compactor::spawn(caps, model, budget))
+            state.with_compactor(Compactor::spawn(caps, model, budget, workers))
         }
     }
 }
@@ -65,97 +70,166 @@ impl Backoff {
     }
 }
 
-/// The compactor's channel: a nudge, never a payload, since every step reads again.
+/// The compactor's channel: a nudge, never a payload, since every round reads again.
 pub struct Compactor {
     nudge: mpsc::Sender<()>,
 }
 
 impl Compactor {
-    /// Start the task over `caps`'s memory and clock, asking `compact`, held to `budget`; it
-    /// takes its first step at once.
+    /// Start the task over `caps`'s memory and clock, asking `compact` from `workers` steps at
+    /// once, all held to `budget`; it takes its first round at once.
     #[must_use]
     pub fn spawn(
         caps: &'static Server<'static>,
         compact: Arc<dyn Compact + Send + Sync>,
         budget: Budget,
+        workers: NonZeroUsize,
     ) -> Self {
         let (nudge, nudged) = mpsc::channel(1);
-        tokio::spawn(run(caps, compact, budget, nudged));
+        tokio::spawn(run(caps, compact, budget, workers, nudged));
         Self { nudge }
     }
 
-    /// A conversation's lines moved: the task steps again.
+    /// A conversation's lines moved: the task takes another round.
     pub fn nudge(&self) {
-        // Full is fine: a nudge already stands and the next step reads again.
+        // Full is fine: a nudge already stands and the next round reads again.
         let _ = self.nudge.try_send(());
     }
 }
 
+/// The coordinator: each round's claims go to idle workers, and a worker that finishes is idle
+/// again, which starts the next round.
 async fn run(
     caps: &'static Server<'static>,
     compact: Arc<dyn Compact + Send + Sync>,
     budget: Budget,
+    workers: NonZeroUsize,
     mut nudged: mpsc::Receiver<()>,
 ) {
-    let mut paced = Paced::new(compact.as_ref(), budget);
+    let paced = Arc::new(Paced::new(compact.as_ref(), budget));
+    let (finished, mut free) = mpsc::unbounded_channel();
+    let slots: Vec<mpsc::Sender<Claim>> = (0..workers.get())
+        .map(|slot| {
+            let (hand, handed) = mpsc::channel(1);
+            tokio::spawn(work(
+                slot,
+                caps,
+                Arc::clone(&compact),
+                handed,
+                finished.clone(),
+            ));
+            hand
+        })
+        .collect();
+    let mut idle: Vec<usize> = (0..workers.get()).collect();
     let mut said: Option<Hold> = None;
     let mut backoff = Backoff::new();
     loop {
-        // Drained before the read, so a write landing during the step leaves its nudge.
+        // Drained before the read, so a write landing during the round leaves its nudge.
         let _ = nudged.try_recv();
+        let mut wait = None;
+        if !idle.is_empty() {
+            let (asked, count) = (Arc::clone(&paced), idle.len());
+            let round =
+                tokio::task::spawn_blocking(move || asked.take(&caps.memories, count, caps.clock))
+                    .await;
+            match round {
+                Ok(Ok(Round::Taken(claims))) => {
+                    said = None;
+                    backoff = Backoff::new();
+                    let rest = idle.len().saturating_sub(claims.len());
+                    for (slot, claim) in idle.split_off(rest).into_iter().zip(claims) {
+                        if slots[slot].send(claim).await.is_err() {
+                            return;
+                        }
+                    }
+                }
+                Ok(Ok(Round::Held(hold))) => {
+                    if said != Some(hold) {
+                        tracing::info!("compactor: {hold}");
+                        said = Some(hold);
+                    }
+                    let now = prodrome_core::fpl::instant_of(caps.clock.now());
+                    wait = Some((hold.until() - now).to_std().unwrap_or_default());
+                }
+                Ok(Ok(Round::Idle)) => {}
+                Ok(Err(refused)) => {
+                    let wait = backoff.failed();
+                    tracing::warn!(
+                        "compactor: {}; reading again in {} minutes",
+                        refused.message(),
+                        wait.as_secs() / 60
+                    );
+                    tokio::time::sleep(wait).await;
+                    continue;
+                }
+                Err(join_error) => {
+                    tracing::warn!(
+                        "compactor: a round did not complete, so it stops: {join_error}"
+                    );
+                    return;
+                }
+            }
+        }
+        let held = async {
+            match wait {
+                Some(until) => tokio::time::sleep(until).await,
+                None => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            () = held => {}
+            nudge = nudged.recv() => if nudge.is_none() {
+                return;
+            },
+            slot = free.recv() => match slot {
+                Some(slot) => idle.push(slot),
+                None => return,
+            },
+        }
+    }
+}
+
+/// One worker: each claim handed to it performed, and the worker said idle once it is let go.
+async fn work(
+    slot: usize,
+    caps: &'static Server<'static>,
+    compact: Arc<dyn Compact + Send + Sync>,
+    mut handed: mpsc::Receiver<Claim>,
+    finished: mpsc::UnboundedSender<usize>,
+) {
+    let mut backoff = Backoff::new();
+    while let Some(claim) = handed.recv().await {
         let asked = Arc::clone(&compact);
-        let stepped = tokio::task::spawn_blocking(move || {
-            let step = paced.step(&caps.memories, asked.as_ref(), caps.clock);
-            (paced, step)
+        let performed = tokio::task::spawn_blocking(move || {
+            claim.perform(&caps.memories, asked.as_ref(), caps.clock)
         })
         .await;
-        let step = match stepped {
-            Ok((back, step)) => {
-                paced = back;
-                step
-            }
-            Err(join_error) => {
-                tracing::warn!("compactor: a step did not complete, so it stops: {join_error}");
-                return;
-            }
-        };
-        let wait = match step {
-            Ok(Step::Compacted(done)) => {
+        match performed {
+            Ok(Ok(Performed::Compacted(done))) => {
                 tracing::info!("compactor: {}", logged(&done));
-                said = None;
                 backoff = Backoff::new();
-                continue;
             }
-            Ok(Step::Held(hold)) => {
-                if said != Some(hold) {
-                    tracing::info!("compactor: {hold}");
-                    said = Some(hold);
-                }
-                let now = prodrome_core::fpl::instant_of(caps.clock.now());
-                Some((hold.until() - now).to_std().unwrap_or_default())
-            }
-            Ok(Step::Idle) => None,
-            Err(refused) => {
+            // The coordinator's next round says the hold and waits it out.
+            Ok(Ok(Performed::Held(_))) => {}
+            Ok(Err(failed)) => {
                 let wait = backoff.failed();
                 tracing::warn!(
-                    "compactor: {}; trying again in {} minutes",
-                    refused.message(),
+                    "compactor: {}; worker {slot} tries again in {} minutes",
+                    failed.refusal().message(),
                     wait.as_secs() / 60
                 );
-                // A minimum: nudges wait in the channel and do not cut it short.
+                // `failed` holds the node through the wait, so no other worker takes it.
                 tokio::time::sleep(wait).await;
-                paced = Paced::new(compact.as_ref(), budget);
-                continue;
             }
-        };
-        let woken = match wait {
-            Some(until) => tokio::select! {
-                () = tokio::time::sleep(until) => true,
-                nudge = nudged.recv() => nudge.is_some(),
-            },
-            None => nudged.recv().await.is_some(),
-        };
-        if !woken {
+            Err(join_error) => {
+                tracing::warn!(
+                    "compactor: a step did not complete, so worker {slot} stops: {join_error}"
+                );
+                return;
+            }
+        }
+        if finished.send(slot).is_err() {
             return;
         }
     }

@@ -168,14 +168,7 @@ pub fn digest(
             Said::Unfit { .. } | Said::Asked { .. } | Said::Retracted => None,
         })
         .collect();
-    let attempts = history
-        .iter()
-        .filter_map(|object| {
-            let event = object.event()?;
-            let sent = event.sent()?;
-            Some((object.name().clone(), event.at(), Spent { calls: 1, sent }))
-        })
-        .collect();
+    let attempts = attempts(history);
     Ok(Digest {
         tree,
         said,
@@ -187,6 +180,20 @@ pub fn digest(
             .map(|(line, (leaf, _))| (leaf, line.clone()))
             .collect(),
     })
+}
+
+/// Every call `history` records: its object, instant and what it spent, in the history's order.
+/// The budget's fold, read without the lines.
+#[must_use]
+pub fn attempts(history: &[Node<DigestEvent>]) -> Vec<(Hash, Datetime, Spent)> {
+    history
+        .iter()
+        .filter_map(|object| {
+            let event = object.event()?;
+            let sent = event.sent()?;
+            Some((object.name().clone(), event.at(), Spent::call(sent)))
+        })
+        .collect()
 }
 
 /// Each line's place in the tree: the line it carries, and its leaf, that line renamed over its

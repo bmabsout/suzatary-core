@@ -10,12 +10,14 @@ use crate::secretary::compaction::Compaction;
 pub enum Compacting {
     /// The kill switch: nothing is compacted, and the lines wait.
     Off,
-    /// Compact with `model`, within `budget`.
+    /// Compact with `model`, within `budget`, `workers` steps at once.
     On {
         /// The model the compactor runs.
         model: ModelName,
-        /// What it may spend.
+        /// What it may spend, all workers together.
         budget: Budget,
+        /// How many steps may run at once, each on a node of its own.
+        workers: std::num::NonZeroUsize,
     },
 }
 

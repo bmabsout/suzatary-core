@@ -788,6 +788,7 @@ fn an_unfit_node_stays_pending_and_says_why() {
     let on = suzatary_core::secretary::compacting::Compacting::On {
         model: long.model().clone(),
         budget: ROOMY,
+        workers: std::num::NonZeroUsize::MIN,
     };
     let said = suzatary_core::secretary::compaction::waiting(
         &Digests {
@@ -855,51 +856,194 @@ fn each_call_is_stamped_at_its_own_instant() {
     assert_eq!(outcome, [at(5)], "the outcome at the instant it came");
 }
 
+/// What one worker's step came to: a round of at most one claim, performed.
+#[derive(Debug, PartialEq, Eq)]
+enum Stepped {
+    Compacted(suzatary_core::secretary::compaction::Compacted),
+    Held(suzatary_core::secretary::compact_budget::Hold),
+    Idle,
+}
+
+fn step(
+    paced: &suzatary_core::secretary::compaction::Paced,
+    memories: &Memories<'_>,
+    compact: &dyn suzatary_core::capability::Compact,
+    clock: &dyn suzatary_core::capability::Clock,
+) -> Result<Stepped, suzatary_core::refusal::Refusal> {
+    use suzatary_core::secretary::compaction::{Performed, Round};
+    let claims = match paced.take(memories, 1, clock)? {
+        Round::Taken(claims) => claims,
+        Round::Held(hold) => return Ok(Stepped::Held(hold)),
+        Round::Idle => return Ok(Stepped::Idle),
+    };
+    let Some(claim) = claims.into_iter().next() else {
+        return Ok(Stepped::Idle);
+    };
+    let performed = claim
+        .perform(memories, compact, clock)
+        .map_err(|failed| failed.refusal().clone())?;
+    Ok(match performed {
+        Performed::Compacted(done) => Stepped::Compacted(done),
+        Performed::Held(hold) => Stepped::Held(hold),
+    })
+}
+
+impl Box {
+    /// `workers` threads taking rounds of up to `round` claims from one `paced` at `clock` and
+    /// performing them, until nothing is owed or the budget holds the next call; the clock is
+    /// stopped, so a hold never frees.
+    fn compact_with_workers(
+        &self,
+        paced: &suzatary_core::secretary::compaction::Paced,
+        compactor: &dyn suzatary_core::capability::Compact,
+        workers: usize,
+        round: usize,
+    ) {
+        use suzatary_core::rule::Rule as _;
+        use suzatary_core::secretary::compaction::{Compaction, Reading, Round};
+        let owes = Compaction {
+            model: compactor.model().clone(),
+        };
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    loop {
+                        match paced
+                            .take(&self.memories(), round, &At(at(0)))
+                            .expect("a round")
+                        {
+                            Round::Taken(claims) => {
+                                for claim in claims {
+                                    let performed =
+                                        claim.perform(&self.memories(), compactor, &At(at(0)));
+                                    assert!(performed.is_ok(), "a step: {performed:?}");
+                                }
+                            }
+                            Round::Held(_) => return,
+                            Round::Idle => {
+                                let reading = Reading::of(&self.digests()).expect("reads");
+                                if !owes.holds(&reading) {
+                                    return;
+                                }
+                                std::thread::yield_now();
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    /// Every node with a candidate, by name: how many candidates, and the words of each.
+    fn written(&self) -> std::collections::BTreeMap<Hash, Vec<Option<String>>> {
+        let read = self.read();
+        summarised_or_not(read.tree().expect("lines"))
+            .into_iter()
+            .filter(|node| !read.candidates(node.name()).is_empty())
+            .map(|node| {
+                let words = read
+                    .candidates(node.name())
+                    .iter()
+                    .map(|candidate| match &candidate.said {
+                        suzatary_core::secretary::digest::Written::Summary { words, .. } => {
+                            words.as_ref().map(|line| line.as_str().to_owned())
+                        }
+                        suzatary_core::secretary::digest::Written::Unfit { .. }
+                        | suzatary_core::secretary::digest::Written::Retracted => None,
+                    })
+                    .collect();
+                (node.name().clone(), words)
+            })
+            .collect()
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 8, ..ProptestConfig::default() })]
+
+    /// Several workers sharing one `Paced` write exactly the tree one worker writes: the same
+    /// nodes, each summarised once with the same words, whatever the threads' interleaving, so
+    /// law 10's conflict is never reached by the box's own workers. Under a tight budget the
+    /// workers together make no more calls than the caps allow, each counted before it was made.
+    #[test]
+    fn workers_write_the_tree_one_worker_writes_within_one_budget(
+        lengths in proptest::collection::vec(1usize..50, 1..4),
+        workers in 2usize..6,
+        round in 1usize..4,
+        calls in 1u32..30,
+        bytes in 2_000u64..40_000,
+    ) {
+        use suzatary_core::secretary::compact_budget::Budget;
+        use suzatary_core::secretary::compaction::Paced;
+        let one = Box::default();
+        for (k, n) in lengths.iter().enumerate() {
+            one.say(&format!("c{k}"), *n);
+        }
+        let (many, tight) = (Box::default(), Box::default());
+        accept_lines(&many.lines, &one.lines, |prints| prints);
+        accept_lines(&tight.lines, &one.lines, |prints| prints);
+        let compactor = Recording::joining();
+        one.compact_with_workers(&Paced::new(&compactor, ROOMY), &compactor, 1, 1);
+        let alone = one.written();
+        prop_assert!(one.read().pending().is_empty(), "one worker writes the whole tree");
+        prop_assert!(alone.values().all(|words| words.len() == 1 && words[0].is_some()));
+        many.compact_with_workers(&Paced::new(&compactor, ROOMY), &compactor, workers, round);
+        prop_assert_eq!(many.written(), alone);
+
+        let counted = Recording::joining();
+        let budget = Budget { calls_per_hour: calls, bytes_per_day: bytes };
+        tight.compact_with_workers(&Paced::new(&counted, budget), &counted, workers, round);
+        let spent: Vec<_> = tight.read().attempts().map(|(_, spent)| spent).collect();
+        prop_assert_eq!(spent.len(), counted.asked().len(), "every call made was counted");
+        let total: suzatary_core::secretary::digest_spent::Spent = spent.into_iter().sum();
+        prop_assert!(total.calls <= calls, "{} calls past a cap of {}", total.calls, calls);
+        prop_assert!(total.sent <= bytes, "{} bytes past a cap of {}", total.sent, bytes);
+        prop_assert!(tight.written().values().all(|words| words.len() == 1));
+    }
+}
+
 /// The budget paces the rule: past the hourly cap it holds the work back until the instant the
 /// cap frees, a hold consumes no firing, and at that instant the same work is done; with room,
 /// the rule runs until nothing is owed and then rests.
 #[test]
 fn the_budget_paces_the_rule_and_a_hold_consumes_no_firing() {
     use suzatary_core::secretary::compact_budget::{Budget, Hold};
-    use suzatary_core::secretary::compaction::{Paced, Step};
+    use suzatary_core::secretary::compaction::Paced;
     let the = Box::default();
     the.say("a", 60);
     let compactor = Recording::joining();
-    let mut paced = Paced::new(
+    let paced = Paced::new(
         &compactor,
         Budget {
             calls_per_hour: 2,
             bytes_per_day: u64::MAX,
         },
     );
-    let step = |paced: &mut Paced, now| {
-        paced
-            .step(&the.memories(), &compactor, &At(now))
-            .expect("a step")
-    };
+    let step =
+        |paced: &Paced, now| step(paced, &the.memories(), &compactor, &At(now)).expect("a step");
     for _ in 0..2 {
-        assert!(matches!(step(&mut paced, at(0)), Step::Compacted(_)));
+        assert!(matches!(step(&paced, at(0)), Stepped::Compacted(_)));
     }
-    let Step::Held(hold) = step(&mut paced, at(10)) else {
+    let Stepped::Held(hold) = step(&paced, at(10)) else {
         panic!("two calls fill the hour");
     };
     assert!(matches!(hold, Hold::Calls { spent: 2, .. }), "{hold}");
-    assert_eq!(step(&mut paced, at(20)), Step::Held(hold), "still held");
+    assert_eq!(step(&paced, at(20)), Stepped::Held(hold), "still held");
     let freed = prodrome_core::fpl::datetime_of(hold.until()).expect("an instant");
     assert!(
-        matches!(step(&mut paced, freed), Step::Compacted(_)),
+        matches!(step(&paced, freed), Stepped::Compacted(_)),
         "the held work is done"
     );
-    let mut free = Paced::new(
+    let free = Paced::new(
         &compactor,
         Budget {
             calls_per_hour: u32::MAX,
             bytes_per_day: u64::MAX,
         },
     );
-    while step(&mut free, at(90)) != Step::Idle {}
+    while step(&free, at(90)) != Stepped::Idle {}
     assert!(the.read().pending().is_empty(), "nothing is owed");
-    assert_eq!(step(&mut free, at(91)), Step::Idle);
+    assert_eq!(step(&free, at(91)), Stepped::Idle);
 }
 
 /// A call that would cross the day's byte cap by its own size is never made, though the day
@@ -908,15 +1052,17 @@ fn the_budget_paces_the_rule_and_a_hold_consumes_no_firing() {
 #[test]
 fn a_call_larger_than_what_is_left_of_the_day_is_held_and_never_made() {
     use suzatary_core::secretary::compact_budget::{Budget, Hold};
-    use suzatary_core::secretary::compaction::{Paced, Step};
+    use suzatary_core::secretary::compaction::Paced;
     let the = Box::default();
     the.say("a", 40);
     let compactor = Recording::joining();
-    let mut first = Paced::new(&compactor, ROOMY);
-    let Step::Compacted(_) = first
-        .step(&the.memories(), &compactor, &At(at(0)))
-        .expect("a step")
-    else {
+    let Stepped::Compacted(_) = step(
+        &Paced::new(&compactor, ROOMY),
+        &the.memories(),
+        &compactor,
+        &At(at(0)),
+    )
+    .expect("a step") else {
         panic!("room to compact");
     };
     let sent: u64 = the.read().attempts().map(|(_, spent)| spent.sent).sum();
@@ -924,10 +1070,14 @@ fn a_call_larger_than_what_is_left_of_the_day_is_held_and_never_made() {
         calls_per_hour: u32::MAX,
         bytes_per_day: sent + sent / 2,
     };
-    let step = Paced::new(&compactor, tight)
-        .step(&the.memories(), &compactor, &At(at(1)))
-        .expect("a step");
-    let Step::Held(Hold::Bytes { spent, next, .. }) = step else {
+    let step = step(
+        &Paced::new(&compactor, tight),
+        &the.memories(),
+        &compactor,
+        &At(at(1)),
+    )
+    .expect("a step");
+    let Stepped::Held(Hold::Bytes { spent, next, .. }) = step else {
         panic!("the next question would cross the cap: {step:?}");
     };
     assert_eq!(spent, sent);
@@ -947,7 +1097,7 @@ fn a_call_larger_than_what_is_left_of_the_day_is_held_and_never_made() {
 fn a_question_larger_than_the_days_cap_is_unfit_and_never_asked() {
     use suzatary_core::secretary::compact_budget::Budget;
     use suzatary_core::secretary::compacting::Compacting;
-    use suzatary_core::secretary::compaction::{Compacted, Paced, Step, waiting};
+    use suzatary_core::secretary::compaction::{Compacted, Paced, waiting};
     let the = Box::default();
     the.say("a", 40);
     let compactor = Recording::joining();
@@ -955,10 +1105,14 @@ fn a_question_larger_than_the_days_cap_is_unfit_and_never_asked() {
         calls_per_hour: u32::MAX,
         bytes_per_day: 10,
     };
-    let step = Paced::new(&compactor, tiny)
-        .step(&the.memories(), &compactor, &At(at(0)))
-        .expect("a step");
-    let Step::Compacted(Compacted::Unfit { node, .. }) = step else {
+    let step = step(
+        &Paced::new(&compactor, tiny),
+        &the.memories(),
+        &compactor,
+        &At(at(0)),
+    )
+    .expect("a step");
+    let Stepped::Compacted(Compacted::Unfit { node, .. }) = step else {
         panic!("recorded unfit, not held: {step:?}");
     };
     assert!(compactor.asked().is_empty(), "no call was made");
@@ -967,6 +1121,7 @@ fn a_question_larger_than_the_days_cap_is_unfit_and_never_asked() {
     let on = Compacting::On {
         model: compactor.model().clone(),
         budget: tiny,
+        workers: std::num::NonZeroUsize::MIN,
     };
     let said = waiting(
         &Digests {
@@ -986,7 +1141,7 @@ fn a_question_larger_than_the_days_cap_is_unfit_and_never_asked() {
 fn the_briefing_is_told_when_a_cap_holds_summaries_back() {
     use suzatary_core::secretary::compact_budget::Budget;
     use suzatary_core::secretary::compacting::Compacting;
-    use suzatary_core::secretary::compaction::{Paced, Step, Why, waiting};
+    use suzatary_core::secretary::compaction::{Paced, Why, waiting};
     let the = Box::default();
     the.say("a", 60);
     let compactor = Recording::joining();
@@ -997,6 +1152,7 @@ fn the_briefing_is_told_when_a_cap_holds_summaries_back() {
     let on = Compacting::On {
         model: compactor.model().clone(),
         budget,
+        workers: std::num::NonZeroUsize::MIN,
     };
     let digests = Digests {
         compacting: &on,
@@ -1007,16 +1163,14 @@ fn the_briefing_is_told_when_a_cap_holds_summaries_back() {
         None,
         "room to work"
     );
-    let mut paced = Paced::new(&compactor, budget);
+    let paced = Paced::new(&compactor, budget);
     let memories = Memories {
         digests,
         ..the.memories()
     };
     assert!(matches!(
-        paced
-            .step(&memories, &compactor, &At(at(0)))
-            .expect("a step"),
-        Step::Compacted(_)
+        step(&paced, &memories, &compactor, &At(at(0))).expect("a step"),
+        Stepped::Compacted(_)
     ));
     let held = waiting(&digests, at(1)).expect("reads").expect("held back");
     assert!(matches!(held.why, Some(Why::Held(_))), "{held}");
@@ -1034,12 +1188,12 @@ fn the_briefing_is_told_when_a_cap_holds_summaries_back() {
 }
 
 /// A model that always fails cannot spend past the cap, however often it is retried: every call
-/// is counted before it is made, each failure moves the reading so a fresh engine (a retry, a
-/// restart) fires again, and every rolling hour holds at most the cap of calls.
+/// is counted before it is made, each failure moves the reading so a fresh one (a retry, a
+/// restart) takes the node again, and every rolling hour holds at most the cap of calls.
 #[test]
 fn a_model_that_always_fails_spends_no_more_than_the_cap() {
     use suzatary_core::secretary::compact_budget::Budget;
-    use suzatary_core::secretary::compaction::{Paced, Step};
+    use suzatary_core::secretary::compaction::Paced;
     let the = Box::default();
     the.say("a", 60);
     let failing = Recording {
@@ -1052,11 +1206,16 @@ fn a_model_that_always_fails_spends_no_more_than_the_cap() {
     };
     let mut steps = (0, 0);
     for minute in 0..240 {
-        // A fresh engine every minute, as the server's retry and a restart make one.
-        let step = Paced::new(&failing, budget).step(&the.memories(), &failing, &At(at(minute)));
+        // A fresh one every minute, as a restart makes one.
+        let step = step(
+            &Paced::new(&failing, budget),
+            &the.memories(),
+            &failing,
+            &At(at(minute)),
+        );
         match step {
             Err(_) => steps.0 += 1,
-            Ok(Step::Held(_)) => steps.1 += 1,
+            Ok(Stepped::Held(_)) => steps.1 += 1,
             Ok(other) => panic!("a failing model compacts nothing: {other:?}"),
         }
     }

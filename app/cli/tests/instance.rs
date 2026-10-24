@@ -644,17 +644,18 @@ fn the_compactor_is_off_by_default_and_on_by_its_switch() {
                 calls_per_hour: 30,
                 bytes_per_day: 32 * 1024 * 1024,
             },
+            workers: std::num::NonZeroUsize::MIN,
         }
     );
     let tuned = edited(
         model,
         &format!(
-            "{model}compact = true\ncompactor = \"claude-haiku-4-5\"\ncompact_calls_per_hour = 4\n"
+            "{model}compact = true\ncompactor = \"claude-haiku-4-5\"\ncompact_calls_per_hour = 4\ncompact_workers = 4\n"
         ),
     );
     assert!(matches!(
         read(&tuned),
-        Compacting::On { budget: Budget { calls_per_hour: 4, .. }, model } if model.as_str() == "claude-haiku-4-5"
+        Compacting::On { budget: Budget { calls_per_hour: 4, .. }, model, workers } if model.as_str() == "claude-haiku-4-5" && workers.get() == 4
     ));
     let off = edited(
         model,

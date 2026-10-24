@@ -244,7 +244,7 @@ pub struct Secretary {
     /// a behaviour change nobody committed.
     pub model: ModelName,
     /// Whether the compactor summarises the conversations into the digest: off unless the file
-    /// says `true`, and `false` is its kill switch. The three keys after it are read only when
+    /// says `true`, and `false` is its kill switch. The four keys after it are read only when
     /// it runs ([`Secretary::compacting`]).
     pub compact: bool,
     /// The model the compactor runs, over the subscription.
@@ -253,6 +253,8 @@ pub struct Secretary {
     pub compact_calls_per_hour: u32,
     /// The most bytes it sends in any twenty-four hours.
     pub compact_bytes_per_day: u64,
+    /// How many of its steps may run at once, each on a node no other step holds.
+    pub compact_workers: std::num::NonZeroUsize,
     /// The settings file that fences the model's subprocess, under the code root: always one,
     /// the deny-all this repository ships unless the file names another.
     pub settings: PathBuf,
@@ -290,6 +292,7 @@ impl Default for Secretary {
             // never an afternoon of the subscription.
             compact_calls_per_hour: 30,
             compact_bytes_per_day: 32 * 1024 * 1024,
+            compact_workers: std::num::NonZeroUsize::MIN,
             settings: PathBuf::from(".claude/secretary-settings.json"),
             web_allow: Vec::new(),
             drive_allow: Vec::new(),
@@ -313,6 +316,7 @@ impl Secretary {
                 calls_per_hour: self.compact_calls_per_hour,
                 bytes_per_day: self.compact_bytes_per_day,
             },
+            workers: self.compact_workers,
         }
     }
 

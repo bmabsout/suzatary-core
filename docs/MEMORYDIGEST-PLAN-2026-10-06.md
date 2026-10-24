@@ -322,7 +322,9 @@ logged, "zoom before you act, guess or ask", and the stability-first view.
    recorded before it is made, and the budget (`[secretary]
    compact_calls_per_hour`, `compact_bytes_per_day`, the switch `compact`,
    off by default, the model `compactor`) is a fold over those objects. The import is the same rule at
-   the same pace.
+   the same pace. Since 2026-10-24 `compact_workers` steps run at once, each on a node
+   `Paced::take` claimed for it alone, the budget checked under the digest
+   store's lock (`workers_write_the_tree_one_worker_writes_within_one_budget`).
 5. **Retrieval**: `context_of`, the clean view as the heading a new session
    gets (beside the facts), the `zoom` verb and its taint class, SECRETARY.md's
    "What you remember" rewritten; laws 9, 12. ~350 lines. KEEPS
