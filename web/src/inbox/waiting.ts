@@ -103,6 +103,8 @@ export namespace waiting {
       case "mail":
       case "thread":
       case "briefing":
+      case "round":
+      case "note":
         return { type: "Unresolved", problem: `a decision about ${r.kind}:${named} has no card here` }
     }
   }

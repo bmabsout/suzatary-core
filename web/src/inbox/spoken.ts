@@ -30,6 +30,10 @@ export namespace spoken {
         return "an earlier card"
       case "batch":
         return "a held batch"
+      case "round":
+        return "a round"
+      case "note":
+        return "a note"
     }
   }
 

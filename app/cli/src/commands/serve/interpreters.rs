@@ -1076,6 +1076,27 @@ impl CompactorModel {
     }
 }
 
+impl CompactorModel {
+    /// `text` under `system` on the plain path, only while the subscription has room above the
+    /// reserve automated jobs never take; the compactor and the topics backfill ask through it.
+    ///
+    /// # Errors
+    /// [`ModelError::Unreachable`] at the reserve, or the CLI's own failure.
+    pub fn ask(
+        &self,
+        system: &suzatary_core::for_model::ForModel,
+        text: suzatary_core::for_model::ForModel,
+    ) -> Result<String, ModelError> {
+        let reserve = super::locks::read(&self.live).models.reserve();
+        if !subscription_has_room(&five_hour(&self.allowance), reserve) {
+            return Err(ModelError::Unreachable(
+                "the subscription is down to the reserve automated jobs never take".to_owned(),
+            ));
+        }
+        self.asked.plain(system, text)
+    }
+}
+
 impl Compact for CompactorModel {
     fn model(&self) -> &suzatary_core::models::ModelName {
         &self.name
@@ -1085,13 +1106,7 @@ impl Compact for CompactorModel {
         &self,
         ask: &suzatary_core::secretary::compact_ask::Ask,
     ) -> Result<String, ModelError> {
-        let reserve = super::locks::read(&self.live).models.reserve();
-        if !subscription_has_room(&five_hour(&self.allowance), reserve) {
-            return Err(ModelError::Unreachable(
-                "the subscription is down to the reserve automated jobs never take".to_owned(),
-            ));
-        }
-        self.asked.plain(
+        self.ask(
             &suzatary_core::for_model::ForModel::of(suzatary_core::secretary::compact_ask::PROMPT),
             suzatary_core::for_model::ForModel::of(&ask.text()),
         )

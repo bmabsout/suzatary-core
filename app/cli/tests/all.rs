@@ -13,6 +13,8 @@
 mod accounts;
 #[path = "acts.rs"]
 mod acts;
+#[path = "add_topics.rs"]
+mod add_topics;
 #[path = "adoption.rs"]
 mod adoption;
 #[path = "attaching.rs"]

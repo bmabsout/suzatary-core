@@ -80,6 +80,10 @@ impl Nothing {
                 },
             },
             decisions: crate::decisions::Decisions { store: &Nothing },
+            topics: crate::secretary::topics::stores::TopicStores {
+                memberships: &Nothing,
+                aliases: &Nothing,
+            },
             briefings: &Nothing,
             weather: &Nothing,
             calendar: &Nothing,

@@ -1250,7 +1250,14 @@ impl Box {
         use suzatary_core::secretary::compaction::Reading;
         let memory = self.memories().read().expect("the memory reads");
         let record = Reading::of(&self.digests());
-        suzatary_core::secretary::told::context_of(&memory, record.as_ref(), budget, None).text()
+        suzatary_core::secretary::told::context_of(
+            &memory,
+            Ok(&suzatary_core::secretary::topics::reading::Reading::default()),
+            record.as_ref(),
+            budget,
+            None,
+        )
+        .text()
     }
 
     /// A replica holding exactly this box's objects and words, each store given them backwards
@@ -1532,7 +1539,16 @@ fn the_record_leaves_out_what_the_window_sends() {
     let memory = the.memories().read().expect("reads");
     let reading = Reading::of(&the.digests()).expect("reads whole");
     let a = ConversationId::new("a").expect("a slug");
-    let told = |asking| context_of(&memory, Ok(&reading), 100_000, asking).text();
+    let told = |asking| {
+        context_of(
+            &memory,
+            Ok(&suzatary_core::secretary::topics::reading::Reading::default()),
+            Ok(&reading),
+            100_000,
+            asking,
+        )
+        .text()
+    };
     let whole = told(None);
     let asked = told(Some(Asking {
         conversation: &a,

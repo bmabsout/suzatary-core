@@ -17,8 +17,6 @@ pub struct World {
     devices: Devices,
     brain: Brain,
     usage: Metered,
-    /// The topics, which only a server serves and takes from a tab.
-    pub topics: suzatary_io::topics::Topics,
     /// Each chain's stores, in the instance file's order.
     pub chains: Vec<Stores>,
     /// What the box signs with: each chain's writer signs with the root, and a tapped device
@@ -65,7 +63,6 @@ impl World {
                 "the usage page: reading the allowance endpoint",
                 &instance.paths.usage_cache,
             )),
-            topics: instance.secretary.topics.open(),
             chains: instance
                 .chains
                 .iter()
@@ -73,6 +70,14 @@ impl World {
                 .collect(),
             signers,
         }
+    }
+
+    /// Both topic stores begun, so a tab's first write has a prodrome to rest on.
+    ///
+    /// # Errors
+    /// Either store unreadable or not begun.
+    pub fn begin_topics(&self) -> Result<(), suzatary_core::store::StoreError> {
+        self.opened.topics.begin()
     }
 
     /// The server's record over one chain's stores: the secretary's, and what only a server
@@ -92,6 +97,7 @@ impl World {
             inbox,
             memories,
             decisions,
+            topics,
             briefings,
             weather,
             calendar,
@@ -122,7 +128,7 @@ impl World {
             inbox,
             memories,
             decisions,
-            topics: self.topics.stores(),
+            topics,
             briefings,
             weather,
             calendar,

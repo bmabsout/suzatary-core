@@ -142,6 +142,22 @@ impl Reading {
             .collect()
     }
 
+    /// Every topic on a target, with how many rounds it is on, the most first and then by name,
+    /// so the order moves only when a count does.
+    #[must_use]
+    pub fn in_use(&self) -> Vec<(Topic, usize)> {
+        let mut counts: BTreeMap<Topic, usize> = BTreeMap::new();
+        for (target, topics) in self.memberships() {
+            for topic in topics {
+                *counts.entry(topic).or_default() +=
+                    usize::from(matches!(target, Target::Round { .. }));
+            }
+        }
+        let mut in_use: Vec<(Topic, usize)> = counts.into_iter().collect();
+        in_use.sort_by(|(one, many), (two, more)| more.cmp(many).then_with(|| one.cmp(two)));
+        in_use
+    }
+
     #[must_use]
     pub fn disputes(&self) -> Vec<Dispute> {
         let aliases = self

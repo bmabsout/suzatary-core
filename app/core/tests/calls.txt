@@ -784,11 +784,11 @@ secretary propose_email [revises fractional] refused 400: revises must be a whol
 secretary propose_email [serves given] answered {"attachments":[],"cc":[],"held":[],"next":"The owner sees this with its exact text, its reason and its sources as links, and taps it, dismisses it with a reason, or leaves it. You cannot send it and there is no verb that can; do not offer to.","proposed":0,"sources":["todo:life/alpha"],"subject":"Hello","to":["c@d.test"],"why":"Because it matters."}
 secretary propose_email [serves null] answered {"attachments":[],"cc":[],"held":[],"next":"The owner sees this with its exact text, its reason and its sources as links, and taps it, dismisses it with a reason, or leaves it. You cannot send it and there is no verb that can; do not offer to.","proposed":0,"sources":["todo:life/alpha"],"subject":"Hello","to":["c@d.test"],"why":"Because it matters."}
 secretary propose_email [serves mistyped] refused 400: serves must be a string or null
-secretary propose_email [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_email [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_email [sources missing] refused 400: sources is required
 secretary propose_email [sources null] refused 400: sources is required
 secretary propose_email [sources mistyped] refused 400: sources must be a string
-secretary propose_email [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_email [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_email [subject missing] refused 400: subject is required
 secretary propose_email [subject null] refused 400: subject is required
 secretary propose_email [subject mistyped] refused 400: subject must be a string
@@ -835,7 +835,7 @@ secretary propose_forward [serves garbled] refused 404: the local corpus holds n
 secretary propose_forward [sources missing] refused 400: sources is required
 secretary propose_forward [sources null] refused 400: sources is required
 secretary propose_forward [sources mistyped] refused 400: sources must be a string
-secretary propose_forward [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_forward [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_forward [subject missing] refused 400: subject is required
 secretary propose_forward [subject null] refused 400: subject is required
 secretary propose_forward [subject mistyped] refused 400: subject must be a string
@@ -904,11 +904,11 @@ secretary propose_act [revises fractional] refused 400: revises must be a whole 
 secretary propose_act [serves given] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [serves null] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [serves mistyped] refused 400: serves must be a string or null
-secretary propose_act [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_act [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_act [sources missing] refused 400: sources is required
 secretary propose_act [sources null] refused 400: sources is required
 secretary propose_act [sources mistyped] refused 400: sources must be a string
-secretary propose_act [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_act [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_act [start given] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [start null] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
 secretary propose_act [start mistyped] answered {"account":"a@b.test","act":"auth","next":"The owner taps it, dismisses it, or leaves it standing; you will see which","proposed":0,"sources":["todo:life/alpha"],"why":"Because it matters."}
@@ -947,11 +947,11 @@ secretary propose_changes [revises fractional] refused 400: revises must be a wh
 secretary propose_changes [serves given] answered {"acts":1,"chain":"life","next":"The owner sees this as a DIFF — every row with its before and after — and confirms it, denies it with a reason, or replies. Nothing is on the chain until they confirm. Do not propose the same changeset twice; if they deny one, read the reason and propose the corrected one or ask.","proposed":0,"why":"Because it matters."}
 secretary propose_changes [serves null] answered {"acts":1,"chain":"life","next":"The owner sees this as a DIFF — every row with its before and after — and confirms it, denies it with a reason, or replies. Nothing is on the chain until they confirm. Do not propose the same changeset twice; if they deny one, read the reason and propose the corrected one or ask.","proposed":0,"why":"Because it matters."}
 secretary propose_changes [serves mistyped] refused 400: serves must be a string or null
-secretary propose_changes [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_changes [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_changes [sources missing] refused 400: sources is required
 secretary propose_changes [sources null] refused 400: sources is required
 secretary propose_changes [sources mistyped] refused 400: sources must be a string
-secretary propose_changes [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_changes [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_changes [why missing] refused 400: why is required
 secretary propose_changes [why null] refused 400: why is required
 secretary propose_changes [why mistyped] refused 400: why must be a string
@@ -1026,7 +1026,7 @@ secretary web [search garbled] answered {"asked":0,"next":"no rule allows this h
 secretary web [sources missing] refused 400: sources is required
 secretary web [sources null] refused 400: sources is required
 secretary web [sources mistyped] refused 400: sources must be a string
-secretary web [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary web [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary web [url given] refused 400: give exactly one of search or url
 secretary web [url null] answered {"asked":0,"next":"no rule allows this host, so the owner was asked; the page arrives here as a turn if they tap it","request":"search html.duckduckgo.com for “weather”"}
 secretary web [url mistyped] refused 400: url must be a string or null
@@ -1052,7 +1052,7 @@ secretary drive_read [path garbled] refused 400: a Drive path is absolute (/my-f
 secretary drive_read [sources missing] refused 400: sources is required
 secretary drive_read [sources null] refused 400: sources is required
 secretary drive_read [sources mistyped] refused 400: sources must be a string
-secretary drive_read [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary drive_read [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary drive_read [why missing] refused 400: why is required
 secretary drive_read [why null] refused 400: why is required
 secretary drive_read [why mistyped] refused 400: why must be a string
@@ -1156,11 +1156,11 @@ secretary propose_patch [revises fractional] refused 400: revises must be a whol
 secretary propose_patch [serves given] answered {"base":"0000000000000000000000000000000000000000","files":["x"],"next":"The owner sees the whole diff and the commit message on a card. Their tap opens exactly this as a pull request on a branch of its own; nothing reaches the default branch until they merge it.","proposed":0,"repo":"owner/name","visibility":"private"}
 secretary propose_patch [serves null] answered {"base":"0000000000000000000000000000000000000000","files":["x"],"next":"The owner sees the whole diff and the commit message on a card. Their tap opens exactly this as a pull request on a branch of its own; nothing reaches the default branch until they merge it.","proposed":0,"repo":"owner/name","visibility":"private"}
 secretary propose_patch [serves mistyped] refused 400: serves must be a string or null
-secretary propose_patch [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_patch [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_patch [sources missing] refused 400: sources is required
 secretary propose_patch [sources null] refused 400: sources is required
 secretary propose_patch [sources mistyped] refused 400: sources must be a string
-secretary propose_patch [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_patch [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_patch [why missing] refused 400: why is required
 secretary propose_patch [why null] refused 400: why is required
 secretary propose_patch [why mistyped] refused 400: why must be a string
@@ -1176,11 +1176,11 @@ secretary propose_coding_session [revises fractional] refused 400: revises must 
 secretary propose_coding_session [serves given] answered {"next":"The owner reads the whole task on a card. Their tap starts the session; its branch and report come back to this conversation as a card of their own. You cannot start one and there is no verb that can.","proposed":0,"sentence":"start a coding session: Hello"}
 secretary propose_coding_session [serves null] answered {"next":"The owner reads the whole task on a card. Their tap starts the session; its branch and report come back to this conversation as a card of their own. You cannot start one and there is no verb that can.","proposed":0,"sentence":"start a coding session: Hello"}
 secretary propose_coding_session [serves mistyped] refused 400: serves must be a string or null
-secretary propose_coding_session [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_coding_session [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_coding_session [sources missing] refused 400: sources is required
 secretary propose_coding_session [sources null] refused 400: sources is required
 secretary propose_coding_session [sources mistyped] refused 400: sources must be a string
-secretary propose_coding_session [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_coding_session [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_coding_session [task missing] refused 400: task is required
 secretary propose_coding_session [task null] refused 400: task is required
 secretary propose_coding_session [task mistyped] refused 400: task must be a string
@@ -1212,11 +1212,11 @@ secretary propose_decision [revises fractional] refused 400: revises must be a w
 secretary propose_decision [serves given] answered {"next":"The owner reads the whole decision on a card; their tap records it. You cannot record one and there is no verb that can.","proposed":0,"sentence":"record the decision abcdef123456: Hello"}
 secretary propose_decision [serves null] answered {"next":"The owner reads the whole decision on a card; their tap records it. You cannot record one and there is no verb that can.","proposed":0,"sentence":"record the decision abcdef123456: Hello"}
 secretary propose_decision [serves mistyped] refused 400: serves must be a string or null
-secretary propose_decision [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_decision [serves garbled] refused 400: serves: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_decision [sources missing] refused 400: sources is required
 secretary propose_decision [sources null] refused 400: sources is required
 secretary propose_decision [sources mistyped] refused 400: sources must be a string
-secretary propose_decision [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or batch:<chain>/<head>, got "?"
+secretary propose_decision [sources garbled] refused 400: sources: a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, batch:<chain>/<head>, round:<conversation>/<turn> or note:<conversation>/<turn>, got "?"
 secretary propose_decision [supersedes given] refused 400: a decision id is 3-64 lowercase letters and digits starting with a letter, got "x"
 secretary propose_decision [supersedes null] answered {"next":"The owner reads the whole decision on a card; their tap records it. You cannot record one and there is no verb that can.","proposed":0,"sentence":"record the decision abcdef123456: Hello"}
 secretary propose_decision [supersedes mistyped] refused 400: supersedes must be a string or null
@@ -1242,6 +1242,15 @@ secretary draft_note [title mistyped] refused 400: title must be a string
 secretary draft_note [title garbled] answered {"drafted":"?","next":"It is in the conversation for the owner to copy. Nothing performs a note."}
 secretary draft_note [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary draft_note [chain mistyped] refused 400: chain must be a string or null
+secretary add_topics [valid] refused 409: no question is being answered here
+secretary add_topics [on given] refused 409: no question is being answered here
+secretary add_topics [on null] refused 409: no question is being answered here
+secretary add_topics [on mistyped] refused 400: on: unknown variant `x`, expected `round` or `note`
+secretary add_topics [topics missing] refused 400: topics is required
+secretary add_topics [topics null] refused 400: topics: invalid type: null, expected a sequence
+secretary add_topics [topics mistyped] refused 400: topics: invalid type: string "x", expected a sequence
+secretary add_topics [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
+secretary add_topics [chain mistyped] refused 400: chain must be a string or null
 secretary proposals_list [valid] answered {"chains":[{"batches":[],"chain":"life","reviews":[]}],"next":"Settle the ordinary ones with proposals_accept / proposals_reject, naming the chain and the object hashes and saying WHY. Leave a batch STANDING when it changes a real commitment of the owner's — SECRETARY.md has the rule — and say in your answer which ones you held and why. When in doubt, hold."}
 secretary proposals_list [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary proposals_list [chain mistyped] refused 400: chain must be a string or null
@@ -1275,4 +1284,4 @@ secretary proposals_reject [why mistyped] refused 400: why must be a string
 secretary proposals_reject [why garbled] refused 404: no proposal named '0000000000000000000000000000000000000000000000000000000000000000'
 secretary proposals_reject [chain unknown] refused 404: no chain named 'nowhere' — this deployment serves life
 secretary proposals_reject [chain mistyped] refused 400: chain must be a string or null
-secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, upload_read, sync_mail, search_older, watch_mail, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_forward, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, proposals_list, proposals_accept, proposals_reject
+secretary send [no such verb] refused 404: no verb named 'send' — the secretary's verbs are context, remember, forget, recall, zoom, list_open_todos, todo_show, history, search, show, attachments, upload_read, sync_mail, search_older, watch_mail, briefing_delta, briefing, git_diff_summary, todo_add, todo_update, record, propose_email, propose_forward, propose_act, propose_changes, withdraw_proposal, weather, calendar, decisions, web, drive_list, drive_read, junk_digest, junk_show, repos_list, repo_tree, repo_read, repo_grep, propose_patch, propose_coding_session, propose_decision, draft_note, add_topics, proposals_list, proposals_accept, proposals_reject

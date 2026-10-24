@@ -10,8 +10,8 @@ use super::taint::Taint;
 use super::tool_name::ToolName;
 use super::verb_answer::VerbAnswer;
 use super::verbs::{
-    Attachments, Briefing, BriefingDelta, Calendar, Context, Decisions, DraftNote, DriveList,
-    DriveRead, Forget, GitDiffSummary, History, JunkDigest, JunkShow, ListOpenTodos,
+    AddTopics, Attachments, Briefing, BriefingDelta, Calendar, Context, Decisions, DraftNote,
+    DriveList, DriveRead, Forget, GitDiffSummary, History, JunkDigest, JunkShow, ListOpenTodos,
     ProposalsAccept, ProposalsList, ProposalsReject, ProposeAct, ProposeChanges,
     ProposeCodingSession, ProposeDecision, ProposeEmail, ProposeForward, ProposePatch, Recall,
     Record, Remember, RepoGrep, RepoRead, RepoTree, ReposList, Search, SearchOlder, Show, SyncMail,
@@ -159,6 +159,9 @@ verbs! {
     ProposeCodingSession: powers(Proposes, Tainted),
     ProposeDecision: powers(Proposes, Tainted),
     DraftNote: powers(Proposes, Tainted),
+    // Writes the box-local topic store, no chain and no proposal; a topic it may create was
+    // written in a round with no words but the owner's, so its answer carries none but his.
+    AddTopics: powers(Reads, Clean),
     ProposalsList: powers(Reads, Tainted),
     ProposalsAccept: powers(Settles, Tainted),
     ProposalsReject: powers(Settles, Tainted),

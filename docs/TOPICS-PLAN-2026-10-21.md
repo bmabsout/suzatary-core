@@ -1,6 +1,6 @@
 # TOPICS PLAN: one stream, with topics (2026-10-21)
 
-*Status: stages 1 and 2 are built. Stages 3 to 5 are designs. The owner named the
+*Status: stages 1 to 3 are built. Stages 4 and 5 are designs. The owner named the
 tags "topics" (2026-10-24), and every name below uses that word.*
 
 Sources read: `CLAUDE.md`; `AGENTS.md`; `docs/ARCHITECTURE.md` §10.3;
@@ -335,6 +335,24 @@ and tested. Android needs nothing in any stage: the APK calls only
    topics, `SECRETARY.md`, and `Target` in the `Reference` grammar.
    *First load:* nothing new is drawn. The replica of `secretary-topics/`
    grows as the secretary answers.
+   *As built:* Q4 is answered by a rule at the verb instead of a filter on the
+   opening: a round whose model holds words that are not the owner's
+   (`taint::tainted`) may only use a topic in use, so every topic is made by
+   the owner, by a carry or backfill he ran, or by a round of his words alone,
+   and the opening tells every topic in use with its round count. `add_topics`
+   also takes `on: "note"` for the note the round drafted last, refuses a
+   fourth topic on a target and a near twin of a topic in use
+   (`Topic::twins`, the same words in any order with a plural `-s`, `-es` or
+   `-ies` dropped), and counts as a read for a rewind, since a membership on a
+   round set aside is on no live round. Its target is the first owner-stamped
+   person's or act's turn of `queue::delta`, so a message sent before the
+   answer takes nothing. A one-time backfill gives the rounds no topic is on
+   their topics (`topics::backfill`): batches of the owner's words alone,
+   through `ForModel`, to the compactor's model under its reserve; a new topic
+   stands only on 3 answered rounds or more and twins none made before it.
+   `--dry-run --plan <file>` writes the plan the owner reads, and `--apply
+   <file>` writes exactly it, asking no model (`topics::plan::Plan`). Like the
+   carry, it is deleted in stage 5.
 4. **The page.** The topic bar, the filter, the chips, the rename sheet and the
    stream view of every conversation's rounds. The New topic button stays for this stage,
    so nothing an old bundle sends is refused.

@@ -1158,7 +1158,7 @@ pub async fn listen(instance: &Instance, serving: Serving) -> anyhow::Result<()>
         serving.brain,
         serving.ledger,
     )));
-    if let Err(failed) = world.topics.begin() {
+    if let Err(failed) = world.begin_topics() {
         tracing::warn!("serve: the topic stores are not begun: {failed}");
     }
     let mut bound = world.chains.iter().map(|stores| Chained {

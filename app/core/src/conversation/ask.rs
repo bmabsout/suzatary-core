@@ -10,6 +10,7 @@ use crate::secretary::compaction::Reading;
 use crate::secretary::digest_view::VIEW_BYTES;
 use crate::secretary::store::{ConversationId, Kept, Scope, Stored};
 use crate::secretary::told::{Asking, context_of};
+use crate::secretary::topics::stores::TopicStores;
 use crate::secretary::{memory, queue};
 
 /// How a round asks its model: the one difference between a model that remembers and one that
@@ -23,6 +24,8 @@ pub enum Ask<'a> {
         model: &'a dyn Model,
         /// The memory it is told.
         memories: crate::secretary::memories::Memories<'a>,
+        /// The topics it is told are in use.
+        topics: TopicStores<'a>,
     },
     /// A session resumed with the turns it has not read, opened when there is none; an open that
     /// fails asks `fallback` once, as [`Ask::Window`] would.
@@ -33,6 +36,8 @@ pub enum Ask<'a> {
         fallback: &'a dyn Model,
         /// The memory it is told.
         memories: crate::secretary::memories::Memories<'a>,
+        /// The topics it is told are in use when it opens.
+        topics: TopicStores<'a>,
     },
     /// Every stored turn and nothing else, for a job told no memory.
     Transcript {
@@ -105,8 +110,12 @@ impl Ask<'_> {
         sink: &Sink<'_>,
     ) -> Result<Asked, ModelError> {
         match *self {
-            Ask::Window { model, memories } => {
-                let (whole, seen, _) = opening(system, memories, stored);
+            Ask::Window {
+                model,
+                memories,
+                topics,
+            } => {
+                let (whole, seen, _) = opening(system, memories, topics, stored);
                 let reply = model.turn(&whole, tools)?;
                 Ok(Asked {
                     reply,
@@ -121,8 +130,9 @@ impl Ask<'_> {
                 model,
                 fallback,
                 memories,
+                topics,
             } => sessioned(
-                model, fallback, memories, id, system, tools, stored, waiting, sink,
+                model, fallback, memories, topics, id, system, tools, stored, waiting, sink,
             ),
             Ask::Transcript { model } => {
                 let whole = Conversation {
@@ -164,6 +174,7 @@ impl Ask<'_> {
 fn opening(
     system: &str,
     memories: crate::secretary::memories::Memories<'_>,
+    topics: TopicStores<'_>,
     stored: &Stored,
 ) -> (Conversation, Option<u64>, usize) {
     let window = queue::for_model(stored);
@@ -171,7 +182,7 @@ fn opening(
         conversation: &stored.id,
         from: *from,
     });
-    let heading = heading(memories, Telling::Opening(asking));
+    let heading = heading(memories, Telling::Opening(topics, asking));
     let from = window.first().map_or(stored.turns.len(), |(from, _)| *from);
     (
         Conversation {
@@ -190,6 +201,7 @@ fn sessioned(
     model: &dyn SessionModel,
     fallback: &dyn Model,
     memories: crate::secretary::memories::Memories<'_>,
+    topics: TopicStores<'_>,
     id: &ConversationId,
     system: &str,
     tools: &Value,
@@ -200,7 +212,7 @@ fn sessioned(
     let surface = surface_of(system, tools);
     let open = |tag: &str| {
         let fresh = SessionId::minted(&format!("{}/{}{tag}", id.as_str(), stored.turns.len()));
-        let (whole, seen, from) = opening(system, memories, stored);
+        let (whole, seen, from) = opening(system, memories, topics, stored);
         model
             .open(&fresh, &whole, tools, sink.halt)
             .map(|mut sessioned| {
@@ -225,7 +237,7 @@ fn sessioned(
     let opened = |tag: &str| match open(tag) {
         Err(ModelError::Halted) => Err(ModelError::Halted),
         Err(_will_not_open) => {
-            let (whole, seen, _) = opening(system, memories, stored);
+            let (whole, seen, _) = opening(system, memories, topics, stored);
             let reply = fallback.turn(&whole, tools)?;
             Ok(Asked {
                 reply,
@@ -278,9 +290,9 @@ struct Heading {
 /// Which telling an ask makes.
 #[derive(Clone, Copy)]
 enum Telling<'a> {
-    /// To a model with no session, or a session opening: everything, the record less the turns
-    /// it is sent as turns.
-    Opening(Option<Asking<'a>>),
+    /// To a model with no session, or a session opening: everything, the topics in use, and the
+    /// record less the turns it is sent as turns.
+    Opening(TopicStores<'a>, Option<Asking<'a>>),
     /// To a session resumed, last told the memory's version `.0`: only what moved in the facts,
     /// since the record it was told when it opened is in its context.
     Resumed(Option<u64>),
@@ -305,9 +317,16 @@ fn heading(memories: crate::secretary::memories::Memories<'_>, telling: Telling<
         }
     };
     let told = match telling {
-        Telling::Opening(asking) => {
+        Telling::Opening(topics, asking) => {
             let record = Reading::of(&memories.digests);
-            let told = context_of(&memory, record.as_ref(), VIEW_BYTES, asking);
+            let topics = topics.reading().map_err(crate::refusal::Refusal::from);
+            let told = context_of(
+                &memory,
+                topics.as_ref(),
+                record.as_ref(),
+                VIEW_BYTES,
+                asking,
+            );
             (!told.is_empty()).then(|| told.text())
         }
         Telling::Resumed(seen) => {

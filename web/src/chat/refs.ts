@@ -18,7 +18,8 @@ export type Reference =
   | { readonly kind: "thread"; readonly id: string }
   | { readonly kind: "briefing"; readonly date: string }
   | { readonly kind: "proposal"; readonly conversation: string; readonly index: number }
-  | { readonly kind: "batch"; readonly chain: string; readonly head: string };
+  | { readonly kind: "batch"; readonly chain: string; readonly head: string }
+  | { readonly kind: "round" | "note"; readonly conversation: string; readonly turn: number };
 
 /**
  * Group 1 is the word boundary, captured because the bundle's target cannot promise lookbehind.
@@ -32,6 +33,7 @@ const PATTERN = new RegExp(
     "|briefing:\\d{4}-\\d{2}-\\d{2}" +
     "|proposal:[a-z0-9][a-z0-9-]*\\/\\d+" +
     "|batch:[a-z][a-z0-9-]*\\/[0-9a-f]{8,64}" +
+    "|(?:round|note):[a-z0-9][a-z0-9-]*\\/[0-9]+" +
     ")",
   "g",
 );
@@ -51,6 +53,9 @@ export function print(reference: Reference): string {
       return `proposal:${reference.conversation}/${reference.index}`;
     case "batch":
       return `batch:${reference.chain}/${reference.head}`;
+    case "round":
+    case "note":
+      return `${reference.kind}:${reference.conversation}/${reference.turn}`;
   }
 }
 
@@ -93,9 +98,24 @@ export function parse(text: string): Reference | null {
       if (!/^[0-9a-f]{8,64}$/.test(head)) return null;
       return { kind: "batch", chain, head };
     }
+    case "round":
+      return target("round", rest);
+    case "note":
+      return target("note", rest);
     default:
       return null;
   }
+}
+
+/** `topics::target::Target`'s grammar: a conversation id and a turn with no leading zero. */
+function target(kind: "round" | "note", rest: string): Reference | null {
+  const slash = rest.lastIndexOf("/");
+  if (slash <= 0) return null;
+  const conversation = rest.slice(0, slash);
+  const turn = rest.slice(slash + 1);
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(conversation) || conversation === "memory") return null;
+  if (!/^(0|[1-9]\d{0,15})$/.test(turn)) return null;
+  return { kind, conversation, turn: Number(turn) };
 }
 
 /** Cheaper than the Rust's chrono check; a 31 February only links to a briefing that says it does not exist. */
@@ -107,7 +127,7 @@ function isDay(text: string): boolean {
   return month >= 1 && month <= 12 && day >= 1 && day <= 31;
 }
 
-/** A todo's route drops the chain, the route's own decision; a proposal and a batch have no page, so they go where their card is. */
+/** A todo's route drops the chain, the route's own decision; a proposal, a round and a note go to their conversation, a batch to its card. */
 export function hrefOf(reference: Reference): string {
   switch (reference.kind) {
     case "todo":
@@ -122,6 +142,9 @@ export function hrefOf(reference: Reference): string {
       return routeHref({ type: "conversation", id: reference.conversation, refs: [] });
     case "batch":
       return routeHref({ type: "inbox" });
+    case "round":
+    case "note":
+      return routeHref({ type: "conversation", id: reference.conversation, refs: [] });
   }
 }
 

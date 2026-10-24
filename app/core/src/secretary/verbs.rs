@@ -15,6 +15,7 @@ use crate::reference::{Reference, TodoRef};
 use crate::refusal::{Refusal, shown};
 use crate::secretary::transcript;
 
+mod add_topics;
 mod attachments;
 mod briefing;
 mod briefing_delta;
@@ -55,6 +56,7 @@ mod web;
 mod withdraw_proposal;
 mod zoom;
 
+pub use add_topics::AddTopics;
 pub use attachments::Attachments;
 
 /// The verbs the triage agent holds too, over the agent's part of the secretary's record.

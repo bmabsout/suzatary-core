@@ -7,17 +7,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use prodrome_core::literal::Datetime;
 use serde::Deserialize;
 
-use crate::secretary::SecretaryVerb;
-use crate::secretary::outcome::Outcome;
 use crate::secretary::store::{ConversationId, Stored};
 use crate::secretary::topics::membership_event::MembershipEvent;
 use crate::secretary::topics::reading::Reading;
 use crate::secretary::topics::target::Target;
 use crate::secretary::topics::topic::{NotATopic, Topic};
-use crate::secretary::turn_shape::{TurnShape, shape};
 use crate::secretary::words::Words;
 
-pub const MAX_TOPICS: usize = 3;
+use super::targets::MAX_TOPICS;
 
 /// The topics of each conversation it names, parsed whole by [`Map::parse`]: a TOML file with
 /// one table per conversation id, each `topics = [..]` naming 1 to [`MAX_TOPICS`] topics.
@@ -217,43 +214,15 @@ pub fn plan(conversations: &[Stored], map: &Map, reading: &Reading, at: Datetime
     }
 }
 
-/// The live rounds, each named by the person's or act's turn that opened it (or the first live
-/// turn), and the live notes: a `draft_note` call writes the note and then its own answer, both
-/// answered turns of that verb, so a note is the first of each such pair.
+/// The live rounds and the live notes.
 fn targets(stored: &Stored) -> (Vec<Target>, Vec<Target>) {
-    let live = stored.live();
-    let shapes: Vec<(usize, TurnShape)> = live
+    let rounds = super::targets::rounds(stored);
+    let notes = rounds
         .iter()
-        .map(|(index, said)| (*index, shape(&said.turn)))
+        .flat_map(super::targets::Round::notes)
         .collect();
-    let conversation = &stored.id;
-    let rounds = shapes
-        .iter()
-        .enumerate()
-        .filter(|(at, (_, shape))| {
-            *at == 0 || matches!(shape, TurnShape::Person { .. } | TurnShape::Act { .. })
-        })
-        .map(|(_, (turn, _))| Target::Round {
-            conversation: conversation.clone(),
-            turn: *turn,
-        })
-        .collect();
-    let drafted = |shape: &TurnShape| {
-        matches!(shape, TurnShape::Tool { verb, outcome: Outcome::Answered, .. }
-            if *verb == SecretaryVerb::DraftNote.into())
-    };
-    let mut notes = Vec::new();
-    let mut at = 0;
-    while at < shapes.len() {
-        if drafted(&shapes[at].1) && shapes.get(at + 1).is_some_and(|(_, next)| drafted(next)) {
-            notes.push(Target::Note {
-                conversation: conversation.clone(),
-                turn: shapes[at].0,
-            });
-            at += 2;
-        } else {
-            at += 1;
-        }
-    }
-    (rounds, notes)
+    (
+        rounds.iter().map(super::targets::Round::target).collect(),
+        notes,
+    )
 }

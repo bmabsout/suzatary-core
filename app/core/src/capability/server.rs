@@ -100,6 +100,7 @@ impl<'a> Server<'a> {
             inbox: self.inbox,
             memories: self.memories,
             decisions: self.decisions,
+            topics: self.topics,
             briefings: self.briefings,
             weather: self.weather,
             calendar: self.calendar,

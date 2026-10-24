@@ -18,17 +18,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::chains::ChainName;
 use crate::secretary::store::ConversationId;
+use crate::secretary::topics::target::Target;
 
 /// A string that is not a reference, and which part of it is wrong; one type for the whole
 /// grammar, since a caller only shows the sentence.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum NotAReference {
     /// No `todo:` / `mail:` / `thread:` / `briefing:` / `proposal:` /
-    /// `batch:` prefix.
+    /// `batch:` / `round:` / `note:` prefix.
     #[error(
         "a reference is todo:<chain>/<id>, mail:<hash>, thread:<id>, \
-         briefing:<YYYY-MM-DD>, proposal:<conversation>/<n> or \
-         batch:<chain>/<head>, got {0:?}"
+         briefing:<YYYY-MM-DD>, proposal:<conversation>/<n>, \
+         batch:<chain>/<head>, round:<conversation>/<turn> or \
+         note:<conversation>/<turn>, got {0:?}"
     )]
     Unknown(String),
     /// The prefix was right and what followed it was not.
@@ -223,7 +225,8 @@ impl FromStr for TodoRef {
             | Reference::Thread { .. }
             | Reference::Briefing { .. }
             | Reference::Proposal(_)
-            | Reference::Batch { .. }) => Err(other_kind("todo", &read)),
+            | Reference::Batch { .. }
+            | Reference::Target(_)) => Err(other_kind("todo", &read)),
         }
     }
 }
@@ -238,7 +241,8 @@ impl FromStr for ProposalRef {
             | Reference::Mail { .. }
             | Reference::Thread { .. }
             | Reference::Briefing { .. }
-            | Reference::Batch { .. }) => Err(other_kind("proposal", &read)),
+            | Reference::Batch { .. }
+            | Reference::Target(_)) => Err(other_kind("proposal", &read)),
         }
     }
 }
@@ -312,6 +316,8 @@ pub enum Reference {
         /// The run's own head, its only name.
         head: BatchHead,
     },
+    /// A round or a note of the secretary's, what a topic is put on.
+    Target(Target),
 }
 
 impl Reference {
@@ -325,6 +331,8 @@ impl Reference {
             Reference::Briefing { .. } => "briefing",
             Reference::Proposal(_) => "proposal",
             Reference::Batch { .. } => "batch",
+            Reference::Target(Target::Round { .. }) => "round",
+            Reference::Target(Target::Note { .. }) => "note",
         }
     }
 }
@@ -338,6 +346,7 @@ impl fmt::Display for Reference {
             Reference::Briefing { date } => write!(f, "briefing:{}", date.format(DAY)),
             Reference::Proposal(proposal) => write!(f, "{proposal}"),
             Reference::Batch { chain, head } => write!(f, "batch:{chain}/{}", head.as_str()),
+            Reference::Target(target) => write!(f, "{target}"),
         }
     }
 }
@@ -413,9 +422,24 @@ impl FromStr for Reference {
                     head: BatchHead::new(head)?,
                 })
             }
+            "round" => target(text, "round"),
+            "note" => target(text, "note"),
             _ => Err(NotAReference::Unknown(text.to_owned())),
         }
     }
+}
+
+/// A round or a note, read by [`Target`]'s own parser.
+fn target(text: &str, scheme: &'static str) -> Result<Reference, NotAReference> {
+    text.parse().map(Reference::Target).map_err(|_| {
+        NotAReference::shape(
+            scheme,
+            format!(
+                "a {scheme} reference is {scheme}:<conversation>/<turn>, the turn a number with \
+                 no leading zero, got {text:?}"
+            ),
+        )
+    })
 }
 
 crate::literal::text_literal!(
@@ -437,7 +461,7 @@ impl From<Reference> for String {
     }
 }
 
-/// The six spellings as one scan, mirrored by `tokenise` in `web/src/chat/refs.ts`.
+/// The eight spellings as one scan, mirrored by `tokenise` in `web/src/chat/refs.ts`.
 ///
 /// Group 1 is the boundary, so `notodo:x` is a word and not a link (a group, since `regex` has
 /// no lookbehind). Group 2 only finds candidates; `FromStr` still decides what is real.
@@ -450,6 +474,7 @@ static MENTION: LazyLock<Regex> = LazyLock::new(|| {
         r"|briefing:\d{4}-\d{2}-\d{2}",
         r"|proposal:[a-z0-9][a-z0-9-]*/\d+",
         r"|batch:[a-z][a-z0-9-]*/[0-9a-f]{8,64}",
+        r"|(?:round|note):[a-z0-9][a-z0-9-]*/[0-9]+",
         r")",
     ))
     .expect("a literal pattern")
@@ -506,6 +531,15 @@ mod tests {
                 chain,
                 head: BatchHead::new(head).expect("hex"),
             }),
+            (conversation(), 0usize..100_000, any::<bool>()).prop_map(
+                |(conversation, turn, round)| {
+                    Reference::Target(if round {
+                        Target::Round { conversation, turn }
+                    } else {
+                        Target::Note { conversation, turn }
+                    })
+                }
+            ),
         ]
     }
 
@@ -576,13 +610,17 @@ mod tests {
             "batch:Life/abcdef1234",
             "batch:../etc/abcdef1234",
             "note:hello",
+            "note:default/",
+            "round:default/07",
+            "round:Default/1",
+            "round:../etc/1",
             "https://example.test",
         ] {
             assert!(bad.parse::<Reference>().is_err(), "{bad:?} must be refused");
         }
     }
 
-    /// The six spellings `SECRETARY.md` shows the model, so the manual, the tokeniser and this
+    /// The eight spellings `SECRETARY.md` shows the model, so the manual, the tokeniser and this
     /// grammar cannot drift apart.
     #[test]
     fn the_text_forms_are_the_ones_the_manual_names() {
@@ -593,6 +631,8 @@ mod tests {
             "briefing:2026-09-10",
             "proposal:2026-09-09-1/1",
             "batch:life/2fdf1691",
+            "round:default/12",
+            "note:default/14",
         ] {
             let reference: Reference = text.parse().expect(text);
             assert_eq!(reference.to_string(), text);
@@ -621,13 +661,13 @@ mod tests {
         }
     }
 
-    /// The six spellings, found in a sentence; `web/test/refs.test.ts` pins the same prose.
+    /// The eight spellings, found in a sentence; `web/test/refs.test.ts` pins the same prose.
     #[test]
-    fn mentions_finds_the_six_spellings_in_prose() {
+    fn mentions_finds_the_eight_spellings_in_prose() {
         let text = "Checked todo:life/book-flight and mail:a1b2c3d4e5f6, then \
                      thread:0000000000001b2c and briefing:2026-09-10 stand on \
                      proposal:2026-09-09-1/1, which the held batch:life/2fdf1691 \
-                     also touches.";
+                     also touches, as round:default/12 said and note:default/14 kept.";
         let found = mentions(text);
         assert_eq!(
             found,
@@ -638,6 +678,8 @@ mod tests {
                 "briefing:2026-09-10".parse().expect("a reference"),
                 "proposal:2026-09-09-1/1".parse().expect("a reference"),
                 "batch:life/2fdf1691".parse().expect("a reference"),
+                "round:default/12".parse().expect("a reference"),
+                "note:default/14".parse().expect("a reference"),
             ]
         );
     }
@@ -649,6 +691,7 @@ mod tests {
             "xmail:a1b2c3d4e5f6",
             "notodo:life/x",
             "xbatch:life/2fdf1691",
+            "around:default/1",
             "The deck is done and it was never yours.",
         ] {
             assert_eq!(mentions(text), Vec::new(), "{text}");

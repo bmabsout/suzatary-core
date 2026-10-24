@@ -2,12 +2,15 @@
 
 pub mod alias_event;
 pub mod alias_registers;
+pub mod backfill;
 pub mod carry;
 pub mod dispute;
 pub mod membership;
 pub mod membership_event;
 pub mod membership_registers;
+pub mod plan;
 pub mod reading;
 pub mod stores;
 pub mod target;
+pub mod targets;
 pub mod topic;

@@ -646,7 +646,17 @@ init` and the server begin them. A tab pulls both as it pulls the lines, and
 `POST /api/stores/{topics,topic-aliases}/objects` takes a replica's changes
 under the act guard, each a `Change` whose event is the poster's actor
 (`sync::receive_changes`). The reading is `topics::Reading::of`, a function of
-the two object sets, in the box and in the browser module alike.
+the two object sets, in the box and in the browser module alike. The secretary
+puts topics on the round it answers with `add_topics` (the `Secretary` record
+holds the stores; the target is the box's, never an argument), at most three
+on a target, and a round whose model holds words that are not the owner's may
+only use a topic in use, so mail never names a topic; a near twin of a topic in
+use (`Topic::twins`) is refused. Every session opening is told the topics in
+use with their round counts (`told::context_of`). `round:<conversation>/<turn>`
+and `note:<conversation>/<turn>` are `Reference`s. `suzatary secretary topics
+backfill --dry-run --plan <file>` proposes topics for the rounds no topic is on,
+from a model shown the owner's words alone (`topics::backfill`), and `--apply
+<file>` writes that plan as written (`topics::plan::Plan`).
 
 *(5) THE APP IS THE DOOR.* `#/secretary`, in the More sheet by `nav.ts`'s
 slice rule. A person's turn and a verb's answer are text through `refs.ts`

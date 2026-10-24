@@ -8,7 +8,7 @@
  * exactly the shape this repository normally refuses, so the ones that could
  * disagree are pinned:
  *
- * - THE SIX SPELLINGS are the same six `suzatary_core::reference`'s own test
+ * - THE EIGHT SPELLINGS are the same eight `suzatary_core::reference`'s own test
  *   asserts, character for character. If either side changes one, one of the
  *   two files goes red.
  * - THE ROUND TRIP is a law here as it is there: whatever `print` writes,
@@ -28,7 +28,7 @@ import assert from "node:assert/strict";
 import type { Reference } from "../src/chat/refs";
 import { parse, print, tokenise, urlTokens } from "../src/chat/refs";
 
-/** The six, as `SECRETARY.md` shows them to the model and as
+/** The eight, as `SECRETARY.md` shows them to the model and as
  * `suzatary_core::reference::tests` asserts them. */
 const SPELLINGS = [
   "todo:life/book-flight",
@@ -37,9 +37,11 @@ const SPELLINGS = [
   "briefing:2026-09-10",
   "proposal:2026-09-09-1/1",
   "batch:life/2fdf1691",
+  "round:default/12",
+  "note:default/14",
 ];
 
-test("the six text forms are the ones the manual names, and they round-trip", () => {
+test("the eight text forms are the ones the manual names, and they round-trip", () => {
   for (const spelling of SPELLINGS) {
     const reference = parse(spelling);
     assert.notEqual(reference, null, spelling);
@@ -79,6 +81,10 @@ test("a string that is not a reference is not one", () => {
     "batch:Life/abcdef1234",
     "batch:../etc/abcdef1234",
     "note:hello",
+    "note:default/",
+    "round:default/07",
+    "round:Default/1",
+    "round:../etc/1",
     "https://example.test",
   ]) {
     assert.equal(parse(bad), null, `${JSON.stringify(bad)} must not parse`);

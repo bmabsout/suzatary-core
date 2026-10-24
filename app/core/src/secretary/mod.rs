@@ -279,10 +279,12 @@ pub fn answer<'p>(
             model: *model,
             fallback: *model,
             memories: caps.memories,
+            topics: caps.topics,
         },
         crate::capability::Pick::Turn(model) => Ask::Window {
             model: model.as_ref(),
             memories: caps.memories,
+            topics: caps.topics,
         },
     };
     rounded(
@@ -408,7 +410,10 @@ fn call_for(reference: &Reference) -> Option<(&'static str, Map<String, Value>)>
             );
             Some(("search", args))
         }
-        Reference::Briefing { .. } | Reference::Proposal(_) | Reference::Batch { .. } => None,
+        Reference::Briefing { .. }
+        | Reference::Proposal(_)
+        | Reference::Batch { .. }
+        | Reference::Target(_) => None,
     }
 }
 
@@ -503,6 +508,17 @@ fn load(
              decision that names it instead",
             head.as_str()
         ))),
+        // A round or a note is shown by its topics; its words are the conversation's.
+        Reference::Target(target) => {
+            let topics: Vec<String> = caps
+                .topics
+                .reading()?
+                .topics(target)
+                .iter()
+                .map(ToString::to_string)
+                .collect();
+            Ok(serde_json::json!({"target": target.to_string(), "topics": topics}))
+        }
         Reference::Todo(_) | Reference::Mail { .. } | Reference::Thread { .. } => Err(
             Refusal::internal("a reference with a verb reached the store"),
         ),

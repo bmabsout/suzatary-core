@@ -282,6 +282,7 @@ mod tests {
             inbox: _,
             memories: _,
             decisions: _,
+            topics: _,
             briefings: _,
             weather: _,
             calendar: _,

@@ -324,13 +324,16 @@ mod tests {
     }
 
     #[test]
-    fn only_four_verbs_are_clean() {
+    fn only_five_verbs_are_clean() {
         let clean: Vec<&str> = crate::secretary::SecretaryVerb::ALL
             .iter()
             .filter(|verb| verb.class().taint == Taint::Clean)
             .map(|verb| verb.name())
             .collect();
-        assert_eq!(clean, vec!["context", "remember", "forget", "weather"]);
+        assert_eq!(
+            clean,
+            vec!["context", "remember", "forget", "weather", "add_topics"]
+        );
     }
 
     /// A round the owner opens after an earlier round read mail still writes by card: the

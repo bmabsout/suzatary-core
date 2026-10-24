@@ -2,6 +2,8 @@
 //! any script, joined by single hyphens, at most [`MAX_CHARACTERS`] characters, in NFC. So
 //! `Travel`, `travel ` and `travel` cannot be three topics, and a long name cannot be one.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 pub const MAX_WORDS: usize = 3;
@@ -50,6 +52,51 @@ impl Topic {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Whether `other` is another topic of the same words in any order, each word read with a
+    /// plural `-s`, `-es` or `-ies` dropped: `trip-plan` and `plans-trip`, `tax` and `taxes`,
+    /// `city` and `cities` are twins.
+    #[must_use]
+    pub fn twins(&self, other: &Topic) -> bool {
+        let one: Vec<&str> = self.0.split('-').collect();
+        let two: Vec<&str> = other.0.split('-').collect();
+        self != other && one.len() == two.len() && matched(&one, &two)
+    }
+}
+
+/// Whether each word of `one` is a word of `two` once singular, each word of `two` used once.
+fn matched(one: &[&str], two: &[&str]) -> bool {
+    let Some((first, rest)) = one.split_first() else {
+        return two.is_empty();
+    };
+    (0..two.len()).any(|at| {
+        same_word(first, two[at]) && {
+            let mut left = two.to_vec();
+            left.remove(at);
+            matched(rest, &left)
+        }
+    })
+}
+
+/// Whether two words share a singular: the word itself, or it with a plural ending dropped where
+/// at least three letters stay.
+fn same_word(one: &str, two: &str) -> bool {
+    let singulars = |word: &str| -> BTreeSet<String> {
+        let stem = |ending: &str| {
+            word.strip_suffix(ending)
+                .filter(|stem| stem.chars().count() >= 3)
+        };
+        [
+            Some(word.to_owned()),
+            stem("s").map(str::to_owned),
+            stem("es").map(str::to_owned),
+        ]
+        .into_iter()
+        .chain([stem("ies").map(|stem| format!("{stem}y"))])
+        .flatten()
+        .collect()
+    };
+    !singulars(one).is_disjoint(&singulars(two))
 }
 
 /// A letter or a digit that is its own lowercase: `A` is not, `a`, `ß`, `٣` and `ع` are.
@@ -122,5 +169,29 @@ mod tests {
             Topic::new("cafe\u{301}"),
             Err(NotATopic::NotComposed(_))
         ));
+    }
+
+    #[test]
+    fn a_topic_twins_the_same_words_in_any_order_and_number() {
+        let topic = |text: &str| Topic::new(text).expect("a topic");
+        for (one, two) in [
+            ("trip-plan", "plans-trip"),
+            ("tax", "taxes"),
+            ("city", "cities"),
+            ("note", "notes"),
+            ("garden", "gardens"),
+        ] {
+            assert!(topic(one).twins(&topic(two)), "{one} {two}");
+            assert!(topic(two).twins(&topic(one)), "{two} {one}");
+        }
+        for (one, two) in [
+            ("garden", "garden"),
+            ("trip", "trip-plan"),
+            ("bus", "bu"),
+            ("tax-return", "tax-returns-due"),
+            ("plan-plan", "plan-trip"),
+        ] {
+            assert!(!topic(one).twins(&topic(two)), "{one} {two}");
+        }
     }
 }

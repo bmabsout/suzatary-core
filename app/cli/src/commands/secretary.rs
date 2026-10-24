@@ -1227,6 +1227,23 @@ enum TopicsAction {
         #[arg(long)]
         dry_run: bool,
     },
+    /// A one-time pass: the compactor's model, in batches, gives each round no topic is on 0 to
+    /// 3 topics from the topics in use, shown the owner's own words alone; a new topic is made
+    /// only when it is on 3 rounds or more. A dry run proposes, and `--apply` writes what it
+    /// proposed as the assistant. Applying twice writes nothing.
+    Backfill {
+        /// Ask the model, print the topics each round would get and the new topics, and write
+        /// nothing to the stores.
+        #[arg(long, required_unless_present = "apply")]
+        dry_run: bool,
+        /// With `--dry-run`, also write what it proposes to this file, for `--apply`.
+        #[arg(long, requires = "dry_run")]
+        plan: Option<std::path::PathBuf>,
+        /// Write exactly what a dry run's plan file says, asking no model; a plan whose rounds
+        /// have gained other topics since is refused whole.
+        #[arg(long, conflicts_with = "dry_run")]
+        apply: Option<std::path::PathBuf>,
+    },
 }
 
 /// What `suzatary secretary topics carry` does, parsed from its flags.
@@ -1238,6 +1255,15 @@ pub enum CarryRun {
     Show(std::path::PathBuf),
     /// Write what the map gives each conversation.
     Write(std::path::PathBuf),
+}
+
+/// What `suzatary secretary topics backfill` does, parsed from its flags.
+#[derive(Debug, Clone)]
+enum BackfillRun {
+    /// Ask the model and print what it proposes, keeping the plan in the file when one is named.
+    Plan(Option<std::path::PathBuf>),
+    /// Write the plan the file holds.
+    Apply(std::path::PathBuf),
 }
 
 /// The morning brief's question, which lives in core so transcripts can be read for answers.
@@ -1295,7 +1321,148 @@ pub fn run(path: &Path, args: &Args) -> anyhow::Result<()> {
             };
             carry(&instance, &run, &mut std::io::stdout()).map(|_| ())
         }
+        Action::Topics {
+            action: TopicsAction::Backfill { apply, plan, .. },
+        } => {
+            let out = &mut std::io::stdout();
+            let run = match (apply, plan) {
+                (Some(file), _) => BackfillRun::Apply(file.clone()),
+                (None, plan) => BackfillRun::Plan(plan.clone()),
+            };
+            match run {
+                BackfillRun::Apply(file) => backfill_apply(&instance, &file, out),
+                BackfillRun::Plan(plan) => {
+                    let live = crate::commands::serve::live::Live::of(&instance).shared();
+                    let model = crate::commands::serve::interpreters::CompactorModel::new(
+                        &instance,
+                        &live,
+                        instance.secretary.compactor.clone(),
+                    );
+                    let mut asked =
+                        |system: &suzatary_core::for_model::ForModel,
+                         text: suzatary_core::for_model::ForModel| {
+                            model.ask(system, text)
+                        };
+                    backfill_plan(&instance, plan.as_deref(), &mut asked, out)
+                }
+            }
+            .map(|_| ())
+        }
     }
+}
+
+/// `suzatary secretary topics backfill --dry-run [--plan <file>]`, said on `out`, each batch
+/// asked of `model`; writes the plan to `file` when given, and nothing to the stores. Answers how
+/// many rounds the plan gives a topic.
+///
+/// # Errors
+/// A store that does not read, or the plan file not written.
+pub fn backfill_plan(
+    instance: &Instance,
+    file: Option<&std::path::Path>,
+    model: &mut dyn FnMut(
+        &suzatary_core::for_model::ForModel,
+        suzatary_core::for_model::ForModel,
+    ) -> Result<String, suzatary_core::capability::ModelError>,
+    out: &mut impl std::io::Write,
+) -> anyhow::Result<usize> {
+    use anyhow::Context as _;
+    use suzatary_core::secretary::topics::backfill;
+    let refused =
+        |refusal: suzatary_core::refusal::Refusal| anyhow::anyhow!("{}", refusal.message());
+    let conversations =
+        suzatary_core::secretary::list(conversations(instance).conversations()).map_err(refused)?;
+    let topics = instance.secretary.topics.open();
+    let planned = backfill::plan(&conversations, &topics.stores().reading()?, model)?;
+    for (target, given) in &planned.rounds {
+        let given = if given.is_empty() {
+            "(no topic)".to_owned()
+        } else {
+            given
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        writeln!(out, "{target}  {given}")?;
+    }
+    for (rounds, why) in &planned.failed {
+        let rounds: Vec<String> = rounds.iter().map(ToString::to_string).collect();
+        writeln!(out, "not answered, left out: {}: {why}", rounds.join(", "))?;
+    }
+    for (topic, rounds) in &planned.new {
+        writeln!(out, "new topic {topic}, on {rounds} round(s)")?;
+    }
+    for (topic, rounds) in &planned.dropped {
+        writeln!(
+            out,
+            "dropped {topic}, on {rounds} round(s): fewer than {} or a near twin of another topic",
+            backfill::RECURS
+        )?;
+    }
+    for problem in &planned.problems {
+        writeln!(out, "not used: {problem}")?;
+    }
+    writeln!(
+        out,
+        "{} round(s) hold none of the owner's words and were not sent",
+        planned.unsent
+    )?;
+    let count = planned.plan.rounds().len();
+    match file {
+        Some(file) => {
+            std::fs::write(file, planned.plan.print())
+                .with_context(|| format!("writing the plan {}", file.display()))?;
+            writeln!(
+                out,
+                "the plan gives {count} round(s) a topic; it is {}, for --apply; wrote nothing else",
+                file.display()
+            )?;
+        }
+        None => writeln!(
+            out,
+            "the plan gives {count} round(s) a topic; wrote nothing (--plan <file> keeps it)"
+        )?,
+    }
+    Ok(count)
+}
+
+/// `suzatary secretary topics backfill --apply <file>`, said on `out`: the plan as the dry run
+/// wrote it, as the assistant, asking no model. Answers how many memberships it wrote.
+///
+/// # Errors
+/// A plan that does not read, one a target of which is no longer live or has gained another
+/// topic (nothing is written then), a store that does not read, or a membership not written.
+pub fn backfill_apply(
+    instance: &Instance,
+    file: &std::path::Path,
+    out: &mut impl std::io::Write,
+) -> anyhow::Result<usize> {
+    use anyhow::Context as _;
+    use suzatary_core::secretary::topics::plan::Plan;
+    use suzatary_core::store::Prodrome as _;
+    let refused =
+        |refusal: suzatary_core::refusal::Refusal| anyhow::anyhow!("{}", refusal.message());
+    let text = std::fs::read_to_string(file)
+        .with_context(|| format!("reading the plan {}", file.display()))?;
+    let plan =
+        Plan::parse(&text).with_context(|| format!("the plan {} does not read", file.display()))?;
+    let conversations =
+        suzatary_core::secretary::list(conversations(instance).conversations()).map_err(refused)?;
+    let topics = instance.secretary.topics.open();
+    topics.begin()?;
+    let _held = topics.memberships.locked()?;
+    let events = plan.apply(
+        &conversations,
+        &topics.stores().reading()?,
+        suzatary_core::capability::Clock::now(&suzatary_io::clock::SystemClock),
+    )?;
+    let count = events.len();
+    for event in events {
+        topics.memberships.append(event)?;
+    }
+    writeln!(out, "wrote {count} membership(s) as assistant")?;
+    Ok(count)
 }
 
 /// `suzatary secretary topics carry`, said on `out`. Answers how many memberships it wrote, or
