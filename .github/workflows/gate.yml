@@ -100,10 +100,21 @@ jobs:
         env:
           STEPS: ${{ matrix.steps }}
           SUZATARY_E2E_PART: ${{ matrix.part }}
+          SUZATARY_E2E_SHOTS: ${{ runner.temp }}/e2e-shots
         run: |
           code=0
           nix develop .#triage -c scripts/merge-gate.sh --no-live --steps "$STEPS" || code=$?
           echo "code=$code" >>"$GITHUB_OUTPUT"
+
+      # A failed scene's screenshot, page and trace (web/e2e/harness.ts) are on the runner alone.
+      - name: the failed scenes
+        if: always() && steps.gate.outputs.code == '1'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: failed-scenes-${{ matrix.lane }}
+          path: ${{ runner.temp }}/e2e-shots
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: red
         if: always() && steps.gate.outputs.code == '1'
